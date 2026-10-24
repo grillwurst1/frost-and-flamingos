@@ -1,7 +1,7 @@
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera';
 import { Vector3 } from '@babylonjs/core/Maths/math';
 import type { Scene } from '@babylonjs/core/scene';
-import type { PhysicsWorld } from '@frost-and-flamingos/shared';
+import type { PhysicsWorld, Vec3 } from '@frost-and-flamingos/shared';
 
 const MOUSE_SENSITIVITY = 0.0022;
 const MIN_PITCH = -1.15;
@@ -10,6 +10,8 @@ const MIN_DISTANCE = 2.7;
 const MAX_DISTANCE = 8.2;
 const SHOULDER_OFFSET = 0.62;
 const EYE_HEIGHT = 1.58;
+
+export type PreviewCameraMode = 'menu' | 'wardrobe';
 
 interface SpringState {
   value: Vector3;
@@ -52,7 +54,6 @@ export class CameraRig {
   private collisionDistance = 4.8;
   private menuAngle = 0.6;
   private initialized = false;
-
   constructor(scene: Scene) {
     this.camera = new FreeCamera('player-camera', new Vector3(0, 40, -80), scene);
     this.camera.minZ = 0.12;
@@ -151,6 +152,39 @@ export class CameraRig {
     this.camera.position.copyFrom(this.positionSpring.value);
     const lookAt = this.pivotSpring.value.add(forward.scale(24));
     this.camera.setTarget(lookAt);
+  }
+
+  /**
+   * Slow orbit around the menu/wardrobe podium. The target is deliberately
+   * offset so the character sits right of centre on the menu (menu stack on
+   * the left) and left of centre in the wardrobe (editor panel on the right).
+   */
+  updatePreview(dt: number, stage: Vec3, mode: PreviewCameraMode): void {
+    const clampedDt = Math.min(0.05, Math.max(0.001, dt));
+    this.menuAngle += clampedDt * (mode === 'menu' ? 0.055 : 0.11);
+    this.initialized = false;
+
+    const radius = mode === 'menu' ? 6.6 : 4.1;
+    const height = mode === 'menu' ? 2.55 : 1.35;
+    const targetHeight = mode === 'menu' ? 1.28 : 0.96;
+    const sideOffset = mode === 'menu' ? 1.45 : 0.95;
+    const angle = this.menuAngle;
+    const position = new Vector3(
+      stage.x + Math.sin(angle) * radius,
+      stage.y + height,
+      stage.z + Math.cos(angle) * radius,
+    );
+    // Camera-forward on the ground plane, then the matching screen-right axis.
+    const rightX = -Math.cos(angle);
+    const rightZ = Math.sin(angle);
+    const side = mode === 'menu' ? -1 : 1;
+    const target = new Vector3(
+      stage.x + rightX * sideOffset * side,
+      stage.y + targetHeight,
+      stage.z + rightZ * sideOffset * side,
+    );
+    this.camera.position.copyFrom(position);
+    this.camera.setTarget(target);
   }
 
   updateMenu(dt: number): void {

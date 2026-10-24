@@ -1,4 +1,4 @@
-import { InputButton } from '@frost-and-flamingos/shared';
+import { InputButton, type WeaponSlot } from '@frost-and-flamingos/shared';
 
 export interface InputHandlers {
   onMouseMove: (deltaX: number, deltaY: number) => void;
@@ -13,12 +13,19 @@ export interface InputHandlers {
 /**
  * Keyboard, wheel and pointer-lock input. Movement state is sampled by the
  * fixed-step simulation; mouse deltas are forwarded to the camera immediately.
+ *
+ * The button mask follows the shared 16-bit contract in
+ * packages/shared/src/types/index.ts.
  */
 export class InputController {
   private readonly canvas: HTMLCanvasElement;
   private readonly handlers: InputHandlers;
   private readonly pressed = new Set<string>();
+  private readonly mouseButtons = new Set<number>();
   private locked = false;
+  private crouchToggle = false;
+  private crouchPulseUntil = 0;
+  private weaponSlot: WeaponSlot = 1;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement, handlers: InputHandlers) {
@@ -31,6 +38,7 @@ export class InputController {
     document.addEventListener('pointerlockchange', this.handlePointerLockChange);
     document.addEventListener('pointerlockerror', this.handlePointerLockError);
     document.addEventListener('mousemove', this.handleMouseMove);
+    document.addEventListener('mouseup', this.handleMouseUp);
     document.addEventListener('visibilitychange', this.handleVisibility);
     canvas.addEventListener('wheel', this.handleWheel, { passive: false });
     canvas.addEventListener('contextmenu', this.handleContextMenu);
@@ -61,6 +69,10 @@ export class InputController {
     }
   }
 
+  currentWeaponSlot(): WeaponSlot {
+    return this.weaponSlot;
+  }
+
   buttons(): number {
     let mask = 0;
     if (this.pressed.has('KeyW') || this.pressed.has('ArrowUp')) mask |= InputButton.Forward;
@@ -68,7 +80,28 @@ export class InputController {
     if (this.pressed.has('KeyA') || this.pressed.has('ArrowLeft')) mask |= InputButton.Left;
     if (this.pressed.has('KeyD') || this.pressed.has('ArrowRight')) mask |= InputButton.Right;
     if (this.pressed.has('Space')) mask |= InputButton.Jump;
-    if (this.pressed.has('ShiftLeft') || this.pressed.has('ShiftRight')) mask |= InputButton.Sprint;
+    if (
+      this.pressed.has('ControlLeft') ||
+      this.pressed.has('ControlRight') ||
+      this.crouchToggle ||
+      performance.now() < this.crouchPulseUntil
+    ) {
+      mask |= InputButton.Crouch;
+    }
+    if (this.pressed.has('ShiftLeft') || this.pressed.has('ShiftRight')) {
+      mask |= InputButton.Sprint;
+    }
+    if (this.mouseButtons.has(0)) mask |= InputButton.FirePrimary;
+    if (this.mouseButtons.has(2)) mask |= InputButton.FireSecondary;
+    if (this.pressed.has('KeyR')) mask |= InputButton.Reload;
+    if (this.pressed.has('KeyF')) mask |= InputButton.Interact;
+    if (this.pressed.has('KeyQ')) mask |= InputButton.Heal;
+    if (this.pressed.has('KeyE')) mask |= InputButton.Wrench;
+    if (this.pressed.has('Digit1')) mask |= InputButton.Skill1;
+    if (this.pressed.has('Digit2')) mask |= InputButton.Skill2;
+    if (this.pressed.has('Digit3') || this.pressed.has('KeyT')) {
+      mask |= InputButton.Skill3OrTaunt;
+    }
     return mask;
   }
 
@@ -81,6 +114,7 @@ export class InputController {
     document.removeEventListener('pointerlockchange', this.handlePointerLockChange);
     document.removeEventListener('pointerlockerror', this.handlePointerLockError);
     document.removeEventListener('mousemove', this.handleMouseMove);
+    document.removeEventListener('mouseup', this.handleMouseUp);
     document.removeEventListener('visibilitychange', this.handleVisibility);
     this.canvas.removeEventListener('wheel', this.handleWheel);
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu);
@@ -94,12 +128,35 @@ export class InputController {
       this.handlers.onToggleDebug();
       return;
     }
-    if (event.code === 'KeyC' && !event.repeat) {
+    if (event.code === 'KeyV' && !event.repeat) {
       this.handlers.onSwapShoulder();
+      return;
+    }
+    if (event.code === 'KeyC' && !event.repeat) {
+      const sprinting = this.pressed.has('ShiftLeft') || this.pressed.has('ShiftRight');
+      const forward = this.pressed.has('KeyW') || this.pressed.has('ArrowUp');
+      if (sprinting && forward) {
+        // A crouch tap during a forward sprint is the dodge-roll gesture.
+        this.crouchPulseUntil = performance.now() + 130;
+      } else {
+        this.crouchToggle = !this.crouchToggle;
+      }
       return;
     }
     if (event.code === 'Escape') {
       this.handlers.onEscape();
+      return;
+    }
+    if (event.code === 'Digit4') {
+      this.weaponSlot = 1;
+      return;
+    }
+    if (event.code === 'Digit5') {
+      this.weaponSlot = 2;
+      return;
+    }
+    if (event.code === 'Digit6') {
+      this.weaponSlot = 3;
       return;
     }
     if (event.code === 'Space' || event.code.startsWith('Arrow')) {
@@ -120,19 +177,38 @@ export class InputController {
   private readonly handleWheel = (event: WheelEvent): void => {
     if (!this.locked) return;
     event.preventDefault();
-    this.handlers.onWheel(event.deltaY);
+    if (event.altKey) {
+      this.handlers.onWheel(event.deltaY);
+      return;
+    }
+    const direction = event.deltaY > 0 ? 1 : -1;
+    const next = this.weaponSlot + direction;
+    this.weaponSlot = (next > 3 ? 1 : next < 1 ? 3 : next) as WeaponSlot;
   };
 
   private readonly handleMouseDown = (event: MouseEvent): void => {
     if (event.button === 0 && !this.locked) {
       this.requestPointerLock();
+      return;
     }
+    if (!this.locked) return;
+    event.preventDefault();
+    this.mouseButtons.add(event.button);
+  };
+
+  private readonly handleMouseUp = (event: MouseEvent): void => {
+    this.mouseButtons.delete(event.button);
   };
 
   private readonly handlePointerLockChange = (): void => {
     const locked = document.pointerLockElement === this.canvas;
     this.locked = locked;
-    if (!locked) this.pressed.clear();
+    if (!locked) {
+      this.pressed.clear();
+      this.mouseButtons.clear();
+      this.crouchToggle = false;
+      this.crouchPulseUntil = 0;
+    }
     this.handlers.onPointerLockChange(locked);
   };
 
@@ -142,10 +218,14 @@ export class InputController {
 
   private readonly handleBlur = (): void => {
     this.pressed.clear();
+    this.mouseButtons.clear();
   };
 
   private readonly handleVisibility = (): void => {
-    if (document.hidden) this.pressed.clear();
+    if (document.hidden) {
+      this.pressed.clear();
+      this.mouseButtons.clear();
+    }
   };
 
   private readonly handleContextMenu = (event: MouseEvent): void => {

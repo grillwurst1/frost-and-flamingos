@@ -9,6 +9,8 @@ export const Opcode = {
   S2C_WELCOME: 0x07,
   C2S_PING: 0x08,
   S2C_PONG: 0x09,
+  S2C_PROFILE: 0x0a,
+  C2S_PROFILE_UPDATE: 0x0b,
 } as const;
 
 export type OpcodeValue = (typeof Opcode)[keyof typeof Opcode];
@@ -27,6 +29,10 @@ export const CLASS_CODE = {
 export const PLAYER_FLAG = {
   Alive: 1 << 0,
   Grounded: 1 << 1,
+  Crouched: 1 << 2,
+  Swimming: 1 << 3,
+  Sprinting: 1 << 4,
+  Rolling: 1 << 5,
 } as const;
 
 export const GameEventCode = {
@@ -46,6 +52,7 @@ export const GameEventCode = {
   TANK_CANNON_FIRE: 14,
   CUCKOO_POP: 15,
   GONDOLA_BRAKE: 16,
+  PARACHUTE_POPPED: 17,
 } as const;
 
 export type GameEventCodeValue = (typeof GameEventCode)[keyof typeof GameEventCode];

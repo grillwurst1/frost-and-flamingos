@@ -47,4 +47,6 @@
   <div class="debug-row"><span>{$t('debug.predictionError')}</span><strong>{$t('hud.meters', { value: fixed($hud.predictionError, 3) })}</strong></div>
   <div class="debug-row"><span>{$t('debug.lastSnapshot')}</span><strong>{$hud.lastSnapshotTick}</strong></div>
   <div class="debug-row"><span>{$t('debug.inputSequence')}</span><strong>{$hud.inputSequence}</strong></div>
+  <div class="debug-row"><span>{$t('debug.music')}</span><strong>{$hud.musicTrack || $t('debug.procedural')}</strong></div>
+  <div class="debug-row"><span>{$t('debug.musicBpm')}</span><strong>{$hud.musicBpm > 0 ? $hud.musicBpm : $t('debug.unavailable')}</strong></div>
 </aside>

@@ -2,17 +2,23 @@ import {
   MAX_PLAYERS,
   PROTOCOL_VERSION,
   WS_PATH,
+  decodeGameEvent,
   decodeMapStateSync,
   decodePong,
+  decodeProfileMessage,
   decodeSnapshot,
   decodeWelcome,
   encodeHello,
   encodeInput,
   encodePing,
+  encodeProfileUpdate,
   peekOpcode,
   Opcode,
+  type GameEvent,
   type MapStateSync,
   type PlayerInput,
+  type PlayerProfile,
+  type ProfileMessage,
   type WelcomeMessage,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
@@ -21,24 +27,14 @@ import {
   updateConnection,
   type ConnectionStatus,
 } from '../state/game';
-
-const DISPLAY_NAMES = [
-  'Alpine Otter',
-  'Fondue Fox',
-  'Glacier Gull',
-  'Coconut Ibex',
-  'Snow Flamingo',
-  'Marmot Major',
-  'Lagoon Lynx',
-  'Edelweiss Eel',
-  'Summit Seal',
-  'Beach Badger',
-] as const;
+import { getProfile } from '../state/profile';
 
 export interface NetworkHandlers {
   onWelcome: (welcome: WelcomeMessage) => void;
   onSnapshot: (snapshot: WorldSnapshot) => void;
   onMapState: (mapState: MapStateSync) => void;
+  onProfile: (message: ProfileMessage) => void;
+  onGameEvent: (event: GameEvent) => void;
   onProtocolMismatch: () => void;
 }
 
@@ -47,11 +43,6 @@ type Timer = ReturnType<typeof setTimeout>;
 function socketUrl(): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.host}${WS_PATH}`;
-}
-
-function randomDisplayName(): string {
-  const index = Math.floor(Math.random() * DISPLAY_NAMES.length);
-  return DISPLAY_NAMES[index] ?? DISPLAY_NAMES[0];
 }
 
 /**
@@ -69,7 +60,6 @@ export class NetworkClient {
   private wasConnected = false;
   private lastPingSentAt = 0;
   private snapshotCount = 0;
-  private readonly displayName = randomDisplayName();
 
   constructor(handlers: NetworkHandlers) {
     this.handlers = handlers;
@@ -104,7 +94,7 @@ export class NetworkClient {
       socket.send(
         encodeHello({
           protocolVersion: PROTOCOL_VERSION,
-          displayName: this.displayName,
+          profile: getProfile(),
         }),
       );
       this.startPingLoop();
@@ -164,6 +154,11 @@ export class NetworkClient {
     this.socket.send(encodeInput(input));
   }
 
+  sendProfile(profile: PlayerProfile): void {
+    if (!this.ready || !this.socket) return;
+    this.socket.send(encodeProfileUpdate(profile));
+  }
+
   private handlePacket(buffer: ArrayBuffer): void {
     const opcode = peekOpcode(buffer);
     if (opcode === null) return;
@@ -206,6 +201,18 @@ export class NetworkClient {
     if (opcode === Opcode.S2C_MAP_STATE_SYNC) {
       const mapState = decodeMapStateSync(buffer);
       if (mapState) this.handlers.onMapState(mapState);
+      return;
+    }
+
+    if (opcode === Opcode.S2C_PROFILE) {
+      const message = decodeProfileMessage(buffer);
+      if (message) this.handlers.onProfile(message);
+      return;
+    }
+
+    if (opcode === Opcode.S2C_GAME_EVENT) {
+      const event = decodeGameEvent(buffer);
+      if (event) this.handlers.onGameEvent(event);
       return;
     }
 

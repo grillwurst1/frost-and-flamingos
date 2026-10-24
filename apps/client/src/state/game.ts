@@ -2,12 +2,13 @@ import { writable } from 'svelte/store';
 import type {
   ClassId,
   Faction,
+  ParachuteState,
   TranslationKey,
   TranslationParams,
   Vec3,
 } from '@frost-and-flamingos/shared';
 
-export type GamePhase = 'booting' | 'menu' | 'playing' | 'paused' | 'error';
+export type GamePhase = 'booting' | 'menu' | 'deploying' | 'playing' | 'paused' | 'error';
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'offline';
 export type RendererName = 'webgpu' | 'webgl2' | 'pending';
 export type LoadingStepStatus = 'pending' | 'active' | 'done' | 'failed';
@@ -29,6 +30,11 @@ export interface LocalPlayerView {
   position: Vec3;
   velocity: Vec3;
   grounded: boolean;
+  crouched: boolean;
+  swimming: boolean;
+  sprinting: boolean;
+  rolling: boolean;
+  parachuteState: ParachuteState;
   zoneKey: TranslationKey;
 }
 
@@ -59,6 +65,8 @@ export interface HudState {
   localPosition: Vec3;
   localVelocity: Vec3;
   grounded: boolean;
+  musicTrack: string;
+  musicBpm: number;
 }
 
 export interface AppError {
@@ -107,10 +115,16 @@ export const hud = writable<HudState>({
   localPosition: { x: 0, y: 0, z: 0 },
   localVelocity: { x: 0, y: 0, z: 0 },
   grounded: false,
+  musicTrack: '',
+  musicBpm: 0,
 });
 export const appError = writable<AppError | null>(null);
 export const debugVisible = writable(false);
 export const controlsOpen = writable(false);
+export const wardrobeOpen = writable(false);
+export const wardrobeSpin = writable(true);
+export type WardrobeEffect = 'none' | 'damaged' | 'charred' | 'frozen';
+export const wardrobeEffect = writable<WardrobeEffect>('none');
 export const toast = writable<ToastMessage | null>(null);
 
 let toastId = 0;

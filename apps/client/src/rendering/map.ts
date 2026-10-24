@@ -19,6 +19,7 @@ import {
   terrainSlopeAt,
   type MapProp,
   type PropCollider,
+  type Vec3,
 } from '@frost-and-flamingos/shared';
 import { createSkyMaterial, createWaterMaterial, hexToColor4 } from './materials';
 import { enableThinInstances, mergeParts, paintMesh } from './mesh-utils';
@@ -624,6 +625,48 @@ export interface MapVisuals {
   waterMesh: Mesh;
   skyMesh: Mesh;
   terrainMesh: Mesh;
+  previewStage: PreviewStage;
+}
+
+export interface PreviewStage {
+  /** Feet position on top of the podium. */
+  position: Vec3;
+  radius: number;
+}
+
+/**
+ * Menu/wardrobe podium. It is a visual-only landmark on the village plateau so
+ * the cover screen can show the real character rig against the fjord.
+ */
+function buildPreviewStage(scene: Scene, material: ShaderMaterial): PreviewStage {
+  const x = 24;
+  const z = 12;
+  const ground = sampleMapHeight(x, z);
+  const builder = new PropBuilder(scene, material, { x, y: ground, z }, 0.35);
+  builder.cylinder('stage-base', 0.3, 7.4, 7.8, 0, 0.15, 0, WOOD_DARK, 28);
+  builder.cylinder('stage-step', 0.26, 5.9, 6.3, 0, 0.43, 0, CREAM_WARM, 28);
+  builder.cylinder('stage-top', 0.2, 4.7, 4.9, 0, 0.66, 0, TEAL_DARK, 28);
+  builder.cylinder('stage-carpet', 0.04, 4.1, 4.1, 0, 0.78, 0, TEAL, 28);
+  builder.torus('stage-trim', 4.82, 0.09, 0, 0.77, 0, GOLD);
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (index / 8) * Math.PI * 2;
+    const px = Math.sin(angle) * 3.9;
+    const pz = Math.cos(angle) * 3.9;
+    builder.cylinder('stage-lamp', 0.42, 0.16, 0.22, px, 0.98, pz, GOLD, 8);
+    builder.sphere('stage-bulb', 0.2, px, 1.25, pz, index % 2 === 0 ? PINK_LIGHT : GLASS, 6);
+  }
+  builder.cylinder('stage-pole-left', 4.6, 0.12, 0.18, -3.2, 2.3, 2.4, WOOD_DARK, 8);
+  builder.cylinder('stage-pole-right', 4.6, 0.12, 0.18, 3.2, 2.3, 2.4, WOOD_DARK, 8);
+  builder.box('stage-banner', 6.8, 0.9, 0.08, 0, 4.1, 2.4, CREAM);
+  builder.box('stage-banner-stripe', 6.8, 0.18, 0.1, 0, 4.1, 2.42, CORAL);
+  builder.sphere('stage-banner-left', 0.26, -3.5, 4.1, 2.4, GOLD, 6);
+  builder.sphere('stage-banner-right', 0.26, 3.5, 4.1, 2.4, GOLD, 6);
+  const mesh = builder.finish('preview-stage');
+  if (mesh) {
+    mesh.isPickable = false;
+    mesh.alwaysSelectAsActiveMesh = true;
+  }
+  return { position: { x, y: ground + 0.8, z }, radius: 3.7 };
 }
 
 export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVisuals {
@@ -808,5 +851,14 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
   plaza.isPickable = false;
   plaza.alphaIndex = 0;
 
-  return { waterMaterial, skyMaterial, waterMesh: water, skyMesh: sky, terrainMesh: terrain };
+  const previewStage = buildPreviewStage(scene, material);
+
+  return {
+    waterMaterial,
+    skyMaterial,
+    waterMesh: water,
+    skyMesh: sky,
+    terrainMesh: terrain,
+    previewStage,
+  };
 }

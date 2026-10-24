@@ -1,4 +1,9 @@
-import type { ClassId, Faction } from '../types/index.js';
+import type { ClassId, Faction, Loadout } from '../types/index.js';
+import { createIdTable } from './ids.js';
+
+export const CLASS_IDS = ['allrounder', 'heavy', 'infiltrator'] as const satisfies readonly ClassId[];
+
+export const CLASS_TABLE = createIdTable<ClassId>(CLASS_IDS);
 
 export interface ClassStats {
   id: ClassId;
@@ -18,36 +23,36 @@ export const CLASS_STATS: Record<ClassId, ClassStats> = {
     id: 'allrounder',
     maxHp: 150,
     moveSpeed: 7,
-    sprintMultiplier: 1.32,
+    sprintMultiplier: 1.35,
     radius: 0.45,
     height: 1.8,
-    jumpSpeed: 7.4,
+    jumpSpeed: 7.9,
     groundAcceleration: 56,
-    airAcceleration: 16,
+    airAcceleration: 22.4,
     groundFriction: 11,
   },
   heavy: {
     id: 'heavy',
     maxHp: 220,
     moveSpeed: 5.6,
-    sprintMultiplier: 1.24,
+    sprintMultiplier: 1.35,
     radius: 0.62,
     height: 1.95,
-    jumpSpeed: 6.5,
+    jumpSpeed: 7.9,
     groundAcceleration: 42,
-    airAcceleration: 12,
+    airAcceleration: 16.8,
     groundFriction: 10,
   },
   infiltrator: {
     id: 'infiltrator',
     maxHp: 110,
     moveSpeed: 8.1,
-    sprintMultiplier: 1.38,
+    sprintMultiplier: 1.35,
     radius: 0.38,
     height: 1.75,
-    jumpSpeed: 8.1,
+    jumpSpeed: 7.9,
     groundAcceleration: 66,
-    airAcceleration: 22,
+    airAcceleration: 26.4,
     groundFriction: 12,
   },
 };
@@ -85,3 +90,25 @@ export const FACTION_THEME: Record<
 };
 
 export const DEFAULT_CLASS: ClassId = 'allrounder';
+
+/**
+ * Starting kits. They are deliberately slot-correct and only a suggestion:
+ * every loadout slot can be changed independently in the wardrobe.
+ */
+export const CLASS_DEFAULT_LOADOUTS: Record<ClassId, Loadout> = {
+  allrounder: {
+    primary: 'smg',
+    secondary: 'shotgun',
+    gimmick: 'horn',
+  },
+  heavy: {
+    primary: 'lmg',
+    secondary: 'bazooka',
+    gimmick: 'snow_cannon',
+  },
+  infiltrator: {
+    primary: 'sniper',
+    secondary: 'silenced_pistol',
+    gimmick: 'crossbow',
+  },
+};

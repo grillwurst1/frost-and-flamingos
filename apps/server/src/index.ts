@@ -9,8 +9,10 @@ import {
   decodeHello,
   decodeInput,
   decodePing,
+  decodeProfileUpdate,
   encodeMapStateSync,
   encodePong,
+  encodeProfileMessage,
   encodeWelcome,
   peekOpcode,
   Opcode,
@@ -117,11 +119,20 @@ const server = Bun.serve<SocketData>({
           ws.data.helloTimeout = null;
         }
         ws.send(encodeWelcome(result.welcome));
+        for (const profile of result.profiles) {
+          ws.send(encodeProfileMessage(profile));
+        }
         ws.send(encodeMapStateSync(result.mapState));
         return;
       }
 
       if (!ws.data.joined) return;
+
+      if (opcode === Opcode.C2S_PROFILE_UPDATE) {
+        const profile = decodeProfileUpdate(message);
+        if (profile) room.handleProfileUpdate(ws, profile);
+        return;
+      }
 
       if (opcode === Opcode.C2S_INPUT) {
         const input = decodeInput(message);

@@ -12,30 +12,30 @@ bars on the other. No Battlefield/EA assets, names, maps or audio may be used or
 The project is delivered in milestones. **Only the current milestone may be implemented.**
 Future-milestone code, placeholder gameplay loops and speculative systems are not allowed.
 
-## Current milestone: M1 — Movement & World
+## Current milestone: M2 — Classes, Wardrobe & Identity (complete)
 
-M1 is a playable third-person multiplayer movement prototype:
+M2 is committed and pushed. It adds:
 
-- Bun workspace with a Svelte/Vite client and a Bun authoritative server.
-- Shared, immutable Fjord Fiesta blueprint with a Rapier heightfield and prop colliders.
-- Deterministic shared Rapier kinematic character motor at 60 Hz.
-- Authoritative Bun server at 30 snapshots/s with binary WebSocket protocol.
-- Babylon.js v8 renderer with WebGPU and WebGL2 fallback.
-- Custom toon, water and sky shaders; procedural vertex-coloured props and thin instances.
-- Spring-loaded over-the-shoulder camera, local prediction/reconciliation, remote interpolation.
-- Walkable snow, village, beach, water and fall-respawn behaviour.
-- Fully typed English/German i18n with a live language switcher.
-- Menu, loading screen, HUD, pause menu, telemetry overlay, error and toast surfaces.
+- Three classes with distinct stats, capsules and default loadouts.
+- Persistent local profiles and authoritative server profile synchronisation.
+- A live 3D wardrobe with 12 skin tones, 8 hair colours, 7 hairstyles, body-type morph,
+  seven cosmetic slots, loadout selectors, voice preview and preview effects.
+- Expanded movement: sprint, crouch, dodge roll, swim, mantle and emergency parachute.
+- A fully procedural character rig and per-character shader.
+- Procedural Web Audio SFX/voice/ambience plus the project owner's supplied music beds.
+- Cover-inspired menu, boot/deployment loading screens and deployment overlay.
+- Complete EN/DE dictionaries for every M2 surface.
 
-**Explicitly out of scope for M1:** weapons and shooting, bots, vehicles, destruction,
-classes other than the Allrounder, cosmetics/wardrobe, match scoring and progression.
-Weapons, bots, vehicles and destruction belong to later milestones. Do not add them now.
+**Next milestone: M3 — Weapons & Combat.** Weapons fire, damage, hit registration, lag
+compensation, skills, bots, kill feed, live killer cam and random respawn. Do not implement
+M4+ systems before M3 is complete.
 
 ## Repository map
 
 ```
 apps/
   client/                 Svelte 5 + Vite 7 + Babylon.js 8 browser client
+    src/audio/            procedural synth, gibberish voice, supplied SFX recipes, music registry
     src/engine/           GameClient, camera rig, input controller
     src/net/              reconnecting binary WebSocket client
     src/rendering/        map, character rig, shaders/materials, mesh helpers
@@ -46,10 +46,10 @@ apps/
     src/index.ts          HTTP health/config endpoints + WebSocket upgrade
 packages/
   shared/                 code shared by client and server
-    src/config/           classes, weapons and Fjord Fiesta blueprint
+    src/config/           classes, cosmetics, profiles, weapons and Fjord Fiesta blueprint
     src/i18n/             English master dictionary + typed German dictionary
     src/net/              binary opcodes, reader/writer, protocol codecs
-    src/physics/          Rapier world, prop colliders, character motor
+    src/physics/          Rapier world, prop colliders, character motor, parachute state
     src/types/            shared domain types
 scripts/
   dev.ts                  starts server + client, tears both down on Ctrl+C
@@ -138,12 +138,17 @@ Before committing:
 2. `bun run build` — shared, client and server must build.
 3. `bun run dev`, open the client and confirm the menu reaches **Connected**.
 4. Click **Play Now**, confirm the HUD appears and the renderer line says WebGPU (or WebGL2).
-5. Move with WASD, jump with Space, sprint with Shift, swap shoulder with C, zoom with wheel.
-6. Press Esc, confirm the pause menu; resume and return to the menu.
-7. Switch EN/DE live; check menu, HUD, pause and debug copy.
-8. Open a second tab and confirm both vacationers appear and move.
-9. Test `?renderer=webgl2` to exercise the fallback shader path.
-10. Confirm no shader compilation errors or uncaught exceptions in the browser console.
+5. Move with WASD, jump with Space, sprint with Shift, crouch with C/Ctrl, roll while
+   sprinting, swim in deep water and deploy the parachute from a long fall.
+6. Open the wardrobe from menu and pause; change class, cosmetics, body type and loadout;
+   confirm the live preview updates and the profile survives a reload.
+7. Preview the voice and test freeze/charred/soot effects.
+8. Press Esc, confirm the pause menu; resume and return to the menu.
+9. Switch EN/DE live; check menu, loading, deployment, HUD, pause, wardrobe and debug copy.
+10. Open a second tab and confirm both vacationers appear, move and exchange cosmetics.
+11. Confirm menu music, gameplay intensity beds and the round/death bed switch correctly.
+12. Test `?renderer=webgl2` to exercise the fallback shader path.
+13. Confirm no shader compilation errors or uncaught exceptions in the browser console.
 
 The only expected console warning is Rapier's deprecation notice about initialization
 parameters; it is harmless and originates inside `@dimforge/rapier3d-compat`.
@@ -162,10 +167,11 @@ parameters; it is harmless and originates inside `@dimforge/rapier3d-compat`.
 
 Do not implement ahead of the milestone gate:
 
-- **M2+:** additional classes, loadouts, cosmetics/wardrobe.
-- **M3+:** weapons, shooting, damage, combat feedback.
-- **Later:** bots, vehicles, destructible props, terrain craters, bridges, turrets, match flow,
-  progression and persistence.
+- **M3:** weapons, shooting, damage, combat feedback, skills, bots, kill feed, killer cam.
+- **M4:** vehicles, aircraft, seats, vehicle physics, repairs, horns, cable car.
+- **M5:** destructible props, terrain craters, bridges, weather, map-state sync.
+- **M6:** match tickets/towers, economy, armory, VIP, lobbies, podium and rewards.
 
-When the user says **“Go für Milestone 2”**, read the milestone brief first, update this file
-and the German guide, then implement only that milestone.
+The user has asked for all remaining milestones to be completed autonomously, with a GitHub
+push after each milestone. Update this file, `README.md`, `game-decisions.md` and the German
+guide before each push.

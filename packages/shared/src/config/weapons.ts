@@ -1,4 +1,28 @@
 import type { GimmickWeaponId, MainWeaponId, WeaponSlot } from '../types/index.js';
+import { createIdTable } from './ids.js';
+
+/** Slot 1: the primary workhorse. */
+export const PRIMARY_WEAPON_IDS = ['smg', 'lmg', 'sniper'] as const satisfies readonly MainWeaponId[];
+/** Slot 2: close support, launchers and sidearms. */
+export const SECONDARY_WEAPON_IDS = [
+  'shotgun',
+  'bazooka',
+  'silenced_pistol',
+  'knife',
+] as const satisfies readonly MainWeaponId[];
+/** Slot 3: the class-defining gimmick. */
+export const GIMMICK_WEAPON_IDS = [
+  'snow_cannon',
+  'sand_flamer',
+  'crossbow',
+  'halberd',
+  'umbrella',
+  'horn',
+] as const satisfies readonly GimmickWeaponId[];
+
+export const PRIMARY_WEAPON_TABLE = createIdTable<MainWeaponId>(PRIMARY_WEAPON_IDS);
+export const SECONDARY_WEAPON_TABLE = createIdTable<MainWeaponId>(SECONDARY_WEAPON_IDS);
+export const GIMMICK_WEAPON_TABLE = createIdTable<GimmickWeaponId>(GIMMICK_WEAPON_IDS);
 
 export interface MainWeaponDefinition {
   id: MainWeaponId;

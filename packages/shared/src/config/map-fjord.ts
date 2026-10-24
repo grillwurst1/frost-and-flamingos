@@ -242,6 +242,28 @@ export function groundPosition(x: number, z: number, offset = 0): Vec3 {
   return { x, y: sampleMapHeight(x, z) + offset, z };
 }
 
+/** Surface tags drive footsteps, traction and later terrain destruction. */
+export type SurfaceTag =
+  | 'water'
+  | 'sand'
+  | 'grass_mud'
+  | 'cobblestone'
+  | 'snow'
+  | 'ice_patch'
+  | 'rock_cliff'
+  | 'wood';
+
+export function surfaceTagAt(x: number, z: number): SurfaceTag {
+  const height = sampleMapHeight(x, z);
+  const slope = terrainSlopeAt(x, z);
+  if (height < WATER_LEVEL - 0.15) return 'water';
+  if (slope > 0.68) return 'rock_cliff';
+  if (Math.hypot(x - VILLAGE_CENTER.x, z - VILLAGE_CENTER.z) < 42) return 'cobblestone';
+  if (height >= 22) return 'snow';
+  if (height < 7.5) return 'sand';
+  return 'grass_mud';
+}
+
 export const MAP_ZONES: MapZone[] = [
   {
     id: 'summit',

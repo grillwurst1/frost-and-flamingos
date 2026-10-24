@@ -1,4 +1,23 @@
 import { MAX_PLAYERS } from '../constants.js';
+import { CLASS_DEFAULT_LOADOUTS, CLASS_STATS, CLASS_TABLE } from '../config/classes.js';
+import {
+  BACK_TABLE,
+  createDefaultCosmetics,
+  FACE_TABLE,
+  FEET_TABLE,
+  HANDS_TABLE,
+  HEADGEAR_TABLE,
+  LEGS_TABLE,
+  normalizeCosmetics,
+  TORSO_TABLE,
+} from '../config/cosmetics.js';
+import { createDefaultProfile, normalizeLoadout, normalizeProfile } from '../config/profile.js';
+import {
+  GIMMICK_WEAPON_TABLE,
+  PRIMARY_WEAPON_TABLE,
+  SECONDARY_WEAPON_TABLE,
+} from '../config/weapons.js';
+import type { IdTable } from '../config/ids.js';
 import type {
   BridgeState,
   ClassId,
@@ -9,7 +28,9 @@ import type {
   GameEventType,
   MapStateSync,
   PlayerInput,
+  PlayerProfile,
   PlayerState,
+  ProfileMessage,
   ServerHello,
   Vec3,
   VehicleSnapshot,
@@ -55,6 +76,8 @@ export type DecodedMessage =
   | { opcode: typeof Opcode.S2C_MAP_STATE_SYNC; mapState: MapStateSync }
   | { opcode: typeof Opcode.C2S_HELLO; hello: ServerHello }
   | { opcode: typeof Opcode.S2C_WELCOME; welcome: WelcomeMessage }
+  | { opcode: typeof Opcode.S2C_PROFILE; profile: ProfileMessage }
+  | { opcode: typeof Opcode.C2S_PROFILE_UPDATE; profile: PlayerProfile }
   | { opcode: typeof Opcode.C2S_PING; clientTimeMs: number }
   | { opcode: typeof Opcode.S2C_PONG; clientTimeMs: number; serverTick: number };
 
@@ -76,6 +99,79 @@ function decodeClass(code: number): ClassId {
   const classId = CLASS_BY_CODE[code];
   if (!classId) throw new RangeError('Unknown class code.');
   return classId;
+}
+
+function readTableId<T extends string>(reader: BinaryReader, table: IdTable<T>): T {
+  const id = table.byCode[reader.readUint8()];
+  if (id === undefined) throw new RangeError('Unknown profile id.');
+  return id;
+}
+
+function clampByte(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+/**
+ * Writes the appearance/loadout part of a profile. The display name and faction
+ * travel with it because a profile is also a self-contained player record.
+ */
+export function writeProfile(writer: BinaryWriter, profile: PlayerProfile): void {
+  const cosmetics = profile.cosmetics;
+  writer
+    .writeString(profile.displayName)
+    .writeUint8(FACTION_CODE[profile.faction])
+    .writeUint8(CLASS_TABLE.code[cosmetics.classId])
+    .writeUint8(clampByte(cosmetics.bodyType * 255))
+    .writeUint8(clampByte(cosmetics.skinToneIndex))
+    .writeUint8(clampByte(cosmetics.hairColorIndex))
+    .writeUint8(clampByte(cosmetics.hairStyleIndex))
+    .writeUint8(HEADGEAR_TABLE.code[cosmetics.headgear])
+    .writeUint8(FACE_TABLE.code[cosmetics.face])
+    .writeUint8(TORSO_TABLE.code[cosmetics.torso])
+    .writeUint8(BACK_TABLE.code[cosmetics.back])
+    .writeUint8(HANDS_TABLE.code[cosmetics.hands])
+    .writeUint8(LEGS_TABLE.code[cosmetics.legs])
+    .writeUint8(FEET_TABLE.code[cosmetics.feet])
+    .writeUint8(clampByte(cosmetics.voicePitch * 100))
+    .writeUint8(PRIMARY_WEAPON_TABLE.code[profile.loadout.primary])
+    .writeUint8(SECONDARY_WEAPON_TABLE.code[profile.loadout.secondary])
+    .writeUint8(GIMMICK_WEAPON_TABLE.code[profile.loadout.gimmick]);
+}
+
+export function readProfile(reader: BinaryReader): PlayerProfile {
+  const displayName = reader.readString(32);
+  const faction = decodeFaction(reader.readUint8());
+  const classId = readTableId(reader, CLASS_TABLE);
+  const cosmetics = normalizeCosmetics(
+    {
+      classId,
+      bodyType: reader.readUint8() / 255,
+      skinToneIndex: reader.readUint8(),
+      hairColorIndex: reader.readUint8(),
+      hairStyleIndex: reader.readUint8(),
+      headgear: readTableId(reader, HEADGEAR_TABLE),
+      face: readTableId(reader, FACE_TABLE),
+      torso: readTableId(reader, TORSO_TABLE),
+      back: readTableId(reader, BACK_TABLE),
+      hands: readTableId(reader, HANDS_TABLE),
+      legs: readTableId(reader, LEGS_TABLE),
+      feet: readTableId(reader, FEET_TABLE),
+      voicePitch: reader.readUint8() / 100,
+    },
+    createDefaultCosmetics(classId),
+  );
+  const loadout = normalizeLoadout(
+    {
+      primary: readTableId(reader, PRIMARY_WEAPON_TABLE),
+      secondary: readTableId(reader, SECONDARY_WEAPON_TABLE),
+      gimmick: readTableId(reader, GIMMICK_WEAPON_TABLE),
+    },
+    CLASS_DEFAULT_LOADOUTS[classId],
+  );
+  return normalizeProfile(
+    { displayName, faction, cosmetics, loadout },
+    createDefaultProfile(displayName.length > 0 ? displayName : 'Vacationer', classId),
+  );
 }
 
 export function encodeInput(input: PlayerInput): ArrayBuffer {
@@ -105,11 +201,10 @@ export function decodeInput(source: ArrayBuffer | ArrayBufferView): PlayerInput 
 }
 
 export function encodeHello(hello: ServerHello): ArrayBuffer {
-  return new BinaryWriter(64)
-    .writeUint8(Opcode.C2S_HELLO)
-    .writeUint8(hello.protocolVersion)
-    .writeString(hello.displayName)
-    .finish();
+  const writer = new BinaryWriter(160);
+  writer.writeUint8(Opcode.C2S_HELLO).writeUint8(hello.protocolVersion);
+  writeProfile(writer, hello.profile);
+  return writer.finish();
 }
 
 export function decodeHello(source: ArrayBuffer | ArrayBufferView): ServerHello | null {
@@ -118,50 +213,81 @@ export function decodeHello(source: ArrayBuffer | ArrayBufferView): ServerHello 
     if (reader.readUint8() !== Opcode.C2S_HELLO) throw new RangeError('Wrong opcode.');
     return {
       protocolVersion: reader.readUint8(),
-      displayName: reader.readString(32),
+      profile: readProfile(reader),
     };
   });
 }
 
 export function encodeWelcome(welcome: WelcomeMessage): ArrayBuffer {
-  return new BinaryWriter(32)
+  const writer = new BinaryWriter(192);
+  writer
     .writeUint8(Opcode.S2C_WELCOME)
     .writeUint16(welcome.playerId)
-    .writeUint8(FACTION_CODE[welcome.faction])
-    .writeUint8(CLASS_CODE[welcome.classId])
     .writeUint32(welcome.serverTick)
-    .writeFloat32(welcome.spawn.x)
-    .writeFloat32(welcome.spawn.y)
-    .writeFloat32(welcome.spawn.z)
-    .writeUint8(welcome.protocolVersion)
-    .finish();
+    .writePosition(welcome.spawn)
+    .writeUint8(welcome.protocolVersion);
+  writeProfile(writer, welcome.profile);
+  return writer.finish();
 }
 
 export function decodeWelcome(source: ArrayBuffer | ArrayBufferView): WelcomeMessage | null {
   return safeDecode(() => {
     const reader = new BinaryReader(source);
     if (reader.readUint8() !== Opcode.S2C_WELCOME) throw new RangeError('Wrong opcode.');
+    const playerId = reader.readUint16();
+    const serverTick = reader.readUint32();
+    const spawn = reader.readPosition();
+    const protocolVersion = reader.readUint8();
+    const profile = readProfile(reader);
+    return { playerId, serverTick, spawn, protocolVersion, profile };
+  });
+}
+
+export function encodeProfileMessage(message: ProfileMessage): ArrayBuffer {
+  const writer = new BinaryWriter(192);
+  writer.writeUint8(Opcode.S2C_PROFILE).writeUint16(message.playerId);
+  writeProfile(writer, message.profile);
+  return writer.finish();
+}
+
+export function decodeProfileMessage(
+  source: ArrayBuffer | ArrayBufferView,
+): ProfileMessage | null {
+  return safeDecode(() => {
+    const reader = new BinaryReader(source);
+    if (reader.readUint8() !== Opcode.S2C_PROFILE) throw new RangeError('Wrong opcode.');
     return {
       playerId: reader.readUint16(),
-      faction: decodeFaction(reader.readUint8()),
-      classId: decodeClass(reader.readUint8()),
-      serverTick: reader.readUint32(),
-      spawn: {
-        x: reader.readFloat32(),
-        y: reader.readFloat32(),
-        z: reader.readFloat32(),
-      },
-      protocolVersion: reader.readUint8(),
+      profile: readProfile(reader),
     };
   });
 }
 
+export function encodeProfileUpdate(profile: PlayerProfile): ArrayBuffer {
+  const writer = new BinaryWriter(192);
+  writer.writeUint8(Opcode.C2S_PROFILE_UPDATE);
+  writeProfile(writer, profile);
+  return writer.finish();
+}
+
+export function decodeProfileUpdate(
+  source: ArrayBuffer | ArrayBufferView,
+): PlayerProfile | null {
+  return safeDecode(() => {
+    const reader = new BinaryReader(source);
+    if (reader.readUint8() !== Opcode.C2S_PROFILE_UPDATE) throw new RangeError('Wrong opcode.');
+    return readProfile(reader);
+  });
+}
+
 export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
-  const writer = new BinaryWriter(512 + snapshot.players.length * 30);
+  const writer = new BinaryWriter(512 + snapshot.players.length * 32);
   writer
     .writeUint8(Opcode.S2C_WORLD_SNAPSHOT)
     .writeUint32(snapshot.serverTick)
     .writeInt8(Math.round(Math.max(-1, Math.min(1, snapshot.weatherBalance)) * 100))
+    .writeUint8(clampByte((snapshot.windAngle / (Math.PI * 2)) * 255))
+    .writeUint8(clampByte(snapshot.windStrength * 255))
     .writeUint16(snapshot.ticketsAlpine)
     .writeUint16(snapshot.ticketsLagoon)
     .writeUint8(snapshot.turretStates & 0xff)
@@ -177,8 +303,14 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
       .writeAngle(player.yaw)
       .writeUint16(Math.max(0, Math.min(65535, Math.round(player.hp))))
       .writeUint8(
-        (player.alive ? PLAYER_FLAG.Alive : 0) | (player.grounded ? PLAYER_FLAG.Grounded : 0),
+        (player.alive ? PLAYER_FLAG.Alive : 0) |
+          (player.grounded ? PLAYER_FLAG.Grounded : 0) |
+          (player.crouched ? PLAYER_FLAG.Crouched : 0) |
+          (player.swimming ? PLAYER_FLAG.Swimming : 0) |
+          (player.sprinting ? PLAYER_FLAG.Sprinting : 0) |
+          (player.rolling ? PLAYER_FLAG.Rolling : 0),
       )
+      .writeUint8(player.parachuteState & 0x03)
       .writeUint16(player.lastProcessedInput & 0xffff);
   }
 
@@ -201,6 +333,8 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
     if (reader.readUint8() !== Opcode.S2C_WORLD_SNAPSHOT) throw new RangeError('Wrong opcode.');
     const serverTick = reader.readUint32();
     const weatherBalance = reader.readInt8() / 100;
+    const windAngle = (reader.readUint8() / 255) * Math.PI * 2;
+    const windStrength = reader.readUint8() / 255;
     const ticketsAlpine = reader.readUint16();
     const ticketsLagoon = reader.readUint16();
     const turretStates = reader.readUint8();
@@ -217,6 +351,8 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       const yaw = reader.readAngle();
       const hp = reader.readUint16();
       const flags = reader.readUint8();
+      const parachuteRaw = reader.readUint8();
+      if (parachuteRaw > 3) throw new RangeError('Invalid parachute state.');
       const lastProcessedInput = reader.readUint16();
       players.push({
         id,
@@ -226,9 +362,14 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
         velocity,
         yaw,
         hp,
-        maxHp: 150,
+        maxHp: CLASS_STATS[classId].maxHp,
         grounded: (flags & PLAYER_FLAG.Grounded) !== 0,
         alive: (flags & PLAYER_FLAG.Alive) !== 0,
+        crouched: (flags & PLAYER_FLAG.Crouched) !== 0,
+        swimming: (flags & PLAYER_FLAG.Swimming) !== 0,
+        sprinting: (flags & PLAYER_FLAG.Sprinting) !== 0,
+        rolling: (flags & PLAYER_FLAG.Rolling) !== 0,
+        parachuteState: parachuteRaw as PlayerState['parachuteState'],
         lastProcessedInput,
       });
     }
@@ -248,6 +389,8 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
     return {
       serverTick,
       weatherBalance,
+      windAngle,
+      windStrength,
       ticketsAlpine,
       ticketsLagoon,
       turretStates,

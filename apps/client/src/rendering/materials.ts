@@ -3,6 +3,12 @@ import { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Scene } from '@babylonjs/core/scene';
+import {
+  characterFragmentGLSL,
+  characterFragmentWGSL,
+  characterVertexGLSL,
+  characterVertexWGSL,
+} from '../shaders/character';
 import { skyFragmentGLSL, skyFragmentWGSL, skyVertexGLSL, skyVertexWGSL } from '../shaders/sky';
 import {
   toonFragmentGLSL,
@@ -76,6 +82,77 @@ export function createToonMaterial(scene: Scene, name: string): ShaderMaterial {
 
 export function updateToonMaterial(material: ShaderMaterial, cameraPosition: Vector3): void {
   material.setVector3('cameraPosition', cameraPosition);
+}
+
+/**
+ * One material per character. Cloth colours travel in vertex colours while the
+ * skin tone is a uniform, so a whole wardrobe can be rebuilt without creating
+ * a material per cosmetic slot.
+ */
+export function createCharacterMaterial(
+  scene: Scene,
+  name: string,
+  skinHex: string,
+): ShaderMaterial {
+  const webgpu = scene.getEngine().isWebGPU;
+  const material = new ShaderMaterial(
+    name,
+    scene,
+    {
+      vertexSource: webgpu ? characterVertexWGSL : characterVertexGLSL,
+      fragmentSource: webgpu ? characterFragmentWGSL : characterFragmentGLSL,
+    },
+    {
+      attributes: ['position', 'normal', 'color'],
+      uniforms: [
+        'world',
+        'worldViewProjection',
+        'lightDirection',
+        'cameraPosition',
+        'fogColor',
+        'fogNear',
+        'fogFar',
+        'rimStrength',
+        'uSkinColor',
+        'uBattleDamage',
+        'uCharredState',
+        'uFrozenState',
+        'uTime',
+      ],
+      shaderLanguage: webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
+    },
+  );
+  material.setVector3('lightDirection', SUN_DIRECTION);
+  material.setColor4('fogColor', FOG_COLOR);
+  material.setFloat('fogNear', FOG_NEAR);
+  material.setFloat('fogFar', FOG_FAR);
+  material.setFloat('rimStrength', 0.55);
+  material.setColor3('uSkinColor', hexToColor3(skinHex));
+  material.setFloat('uBattleDamage', 0);
+  material.setFloat('uCharredState', 0);
+  material.setFloat('uFrozenState', 0);
+  material.setFloat('uTime', 0);
+  material.backFaceCulling = true;
+  return material;
+}
+
+export interface CharacterMaterialState {
+  battleDamage: number;
+  charred: number;
+  frozen: number;
+}
+
+export function updateCharacterMaterial(
+  material: ShaderMaterial,
+  cameraPosition: Vector3,
+  time: number,
+  state: CharacterMaterialState,
+): void {
+  material.setVector3('cameraPosition', cameraPosition);
+  material.setFloat('uTime', time);
+  material.setFloat('uBattleDamage', state.battleDamage);
+  material.setFloat('uCharredState', state.charred);
+  material.setFloat('uFrozenState', state.frozen);
 }
 
 export function createWaterMaterial(scene: Scene, name: string): ShaderMaterial {

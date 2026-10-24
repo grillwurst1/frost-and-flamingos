@@ -1,14 +1,17 @@
 <script lang="ts">
-  import { FACTION_THEME } from '@frost-and-flamingos/shared';
+  import { FACTION_THEME, ParachuteState } from '@frost-and-flamingos/shared';
   import { connection, hud, localPlayer } from '../state/game';
   import { t } from '../state/locale';
-  import { classNameKey, classRoleKey, factionNameKey } from '../state/labels';
+  import { classRoleKey, factionClassNameKey, factionNameKey } from '../state/labels';
 
   $: player = $localPlayer;
   $: faction = player?.faction ?? 'alpine';
   $: classId = player?.classId ?? 'allrounder';
   $: theme = FACTION_THEME[faction];
   $: healthPercent = player ? Math.max(0, Math.min(100, (player.hp / Math.max(1, player.maxHp)) * 100)) : 100;
+  $: parachuteOpen =
+    player?.parachuteState === ParachuteState.Intact ||
+    player?.parachuteState === ParachuteState.Tattered;
   $: statusLabel =
     $connection.status === 'connected'
       ? $t('common.connected')
@@ -23,14 +26,14 @@
   <div class="hud-top-left glass">
     <div class="flex items-center justify-between gap-3">
       <span class="eyebrow">{$t('hud.training')}</span>
-      <span class="hud-label">{$t('hud.m1')}</span>
+      <span class="hud-label">{$t('hud.m2')}</span>
     </div>
     <div class="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <strong class="font-display text-xl font-black uppercase tracking-[0.02em]" style={`color: ${theme.accentHex}`}>
         {$t(factionNameKey(faction))}
       </strong>
       <span class="text-glacier-200/35">/</span>
-      <span class="text-[0.78rem] font-bold text-glacier-100/80">{$t(classNameKey(classId))}</span>
+      <span class="text-[0.78rem] font-bold text-glacier-100/80">{$t(factionClassNameKey(faction, classId))}</span>
       <span class="hud-label">{$t(classRoleKey(classId))}</span>
     </div>
     <div class="mt-3 flex items-center justify-between gap-3">
@@ -77,6 +80,23 @@
       {/if}
     </span>
     <span class="hud-chip mono">{$t('hud.engine')}: {$hud.engine === 'webgpu' ? $t('hud.webgpu') : $t('hud.webgl2')}</span>
+    {#if parachuteOpen}
+      <span class="hud-chip hud-chip-accent">
+        {$t('hud.parachute')}: {$t('hud.parachuteOpen')}
+      </span>
+    {/if}
+    {#if player?.crouched}
+      <span class="hud-chip">{$t('hud.crouched')}</span>
+    {/if}
+    {#if player?.swimming}
+      <span class="hud-chip">{$t('hud.swimming')}</span>
+    {/if}
+    {#if player?.sprinting}
+      <span class="hud-chip">{$t('hud.sprinting')}</span>
+    {/if}
+    {#if player?.rolling}
+      <span class="hud-chip">{$t('hud.rolling')}</span>
+    {/if}
   </div>
 
   <div class="hud-bottom-center hud-chip">

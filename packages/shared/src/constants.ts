@@ -1,6 +1,6 @@
 /** Networking, simulation and world constants shared by client and server. */
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 3;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;
@@ -39,3 +39,16 @@ export const MAX_PREDICTION_REPLAY = 24;
 export const INTERACT_RANGE = 3.2;
 export const WATER_RESPAWN_DEPTH = 1.65;
 export const FALL_RESPAWN_Y = -12;
+
+/** Universal emergency parachute, independent of the Slot-3 umbrella. */
+export const PARACHUTE_DEPLOY_FALL_SPEED = -6.5;
+export const PARACHUTE_MIN_CLEARANCE = 4.5;
+export const PARACHUTE_AUTO_OPEN_DELAY = 1.2;
+export const PARACHUTE_SINK_SPEED = -3.8;
+export const PARACHUTE_HOVER_SINK_SPEED = -1.5;
+export const PARACHUTE_DIVE_SINK_SPEED = -4.8;
+export const PARACHUTE_FORWARD_SPEED = 8.5;
+export const PARACHUTE_HOVER_SPEED = 1.5;
+export const PARACHUTE_STRAFE_SPEED = 4.5;
+export const PARACHUTE_SWAY_ANGLE = (20 * Math.PI) / 180;
+export const PARACHUTE_REPAIR_TIME = 6;
