@@ -54,6 +54,8 @@ export class CameraRig {
   private collisionDistance = 4.8;
   private menuAngle = 0.6;
   private initialized = false;
+  private killerAngle = 0;
+  private killerInitialized = false;
   constructor(scene: Scene) {
     this.camera = new FreeCamera('player-camera', new Vector3(0, 40, -80), scene);
     this.camera.minZ = 0.12;
@@ -152,6 +154,47 @@ export class CameraRig {
     this.camera.position.copyFrom(this.positionSpring.value);
     const lookAt = this.pivotSpring.value.add(forward.scale(24));
     this.camera.setTarget(lookAt);
+  }
+
+  /**
+   * Slow cinematic orbit around the live killer. The spring keeps the camera
+   * from snapping when the victim dies or the killer strafes behind cover.
+   */
+  updateKillerCam(dt: number, target: Vec3, physics: PhysicsWorld): void {
+    const clampedDt = Math.min(0.05, Math.max(0.001, dt));
+    this.killerAngle += clampedDt * 0.24;
+    const radius = 5.2;
+    const lookAt = new Vector3(target.x, target.y + 1.18, target.z);
+    const desired = new Vector3(
+      target.x + Math.sin(this.killerAngle) * radius,
+      target.y + 2.45,
+      target.z + Math.cos(this.killerAngle) * radius,
+    );
+
+    const direction = desired.subtract(lookAt);
+    const rayLength = direction.length();
+    if (rayLength > 0.001) {
+      const normalized = direction.scale(1 / rayLength);
+      const hit = physics.raycast(lookAt, normalized, rayLength + 0.35);
+      if (hit) {
+        const allowed = Math.max(1.8, hit.distance - 0.4);
+        desired.copyFrom(lookAt.add(normalized.scale(allowed)));
+      }
+    }
+    desired.y = Math.max(target.y + 0.85, desired.y);
+
+    if (!this.killerInitialized) {
+      this.positionSpring.value.copyFrom(desired);
+      this.positionSpring.velocity.set(0, 0, 0);
+      this.killerInitialized = true;
+    }
+    springStep(this.positionSpring, desired, 110, 21, clampedDt);
+    this.camera.position.copyFrom(this.positionSpring.value);
+    this.camera.setTarget(lookAt);
+  }
+
+  endKillerCam(): void {
+    this.killerInitialized = false;
   }
 
   /**

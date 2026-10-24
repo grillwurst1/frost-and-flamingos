@@ -12,23 +12,22 @@ bars on the other. No Battlefield/EA assets, names, maps or audio may be used or
 The project is delivered in milestones. **Only the current milestone may be implemented.**
 Future-milestone code, placeholder gameplay loops and speculative systems are not allowed.
 
-## Current milestone: M2 — Classes, Wardrobe & Identity (complete)
+## Current milestone: M4 — Weapons, Combat, Bots & Audio (complete)
 
-M2 is committed and pushed. It adds:
+M4 is implemented and browser-verified. It adds:
 
-- Three classes with distinct stats, capsules and default loadouts.
-- Persistent local profiles and authoritative server profile synchronisation.
-- A live 3D wardrobe with 12 skin tones, 8 hair colours, 7 hairstyles, body-type morph,
-  seven cosmetic slots, loadout selectors, voice preview and preview effects.
-- Expanded movement: sprint, crouch, dodge roll, swim, mantle and emergency parachute.
-- A fully procedural character rig and per-character shader.
-- Procedural Web Audio SFX/voice/ambience plus the project owner's supplied music beds.
-- Cover-inspired menu, boot/deployment loading screens and deployment overlay.
-- Complete EN/DE dictionaries for every M2 surface.
+- Three weapon slots per class, seven primaries/secondaries and six gimmick weapons.
+- Authoritative fire, spread, pellets, projectile splash, headshots, shields, reloads and
+  server hitbox rollback against a two-second lag history.
+- Nine class skills, spawn protection, four named AI bots, kill/death tracking, random
+  faction spawning and a full 10-second live killer cam.
+- Kill feed, hit markers, adaptive crosshair, damage vignette, comic popups, weapon carousel,
+  skill cooldowns, vitality/shield bars and the complete combat HUD.
+- Procedural weapon, impact, reload, explosion, skill and gibberish death audio.
+- Complete EN/DE dictionaries for every M4 surface.
 
-**Next milestone: M3 — Weapons & Combat.** Weapons fire, damage, hit registration, lag
-compensation, skills, bots, kill feed, live killer cam and random respawn. Do not implement
-M4+ systems before M3 is complete.
+**Next milestone: M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys.** Do not implement
+M6+ destruction or M7 meta systems before M5 is complete.
 
 ## Repository map
 

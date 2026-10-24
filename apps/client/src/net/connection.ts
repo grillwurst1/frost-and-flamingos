@@ -8,12 +8,14 @@ import {
   decodeProfileMessage,
   decodeSnapshot,
   decodeWelcome,
+  encodeFireWeapon,
   encodeHello,
   encodeInput,
   encodePing,
   encodeProfileUpdate,
   peekOpcode,
   Opcode,
+  type FireWeaponMessage,
   type GameEvent,
   type MapStateSync,
   type PlayerInput,
@@ -157,6 +159,11 @@ export class NetworkClient {
   sendProfile(profile: PlayerProfile): void {
     if (!this.ready || !this.socket) return;
     this.socket.send(encodeProfileUpdate(profile));
+  }
+
+  sendFire(fire: FireWeaponMessage): void {
+    if (!this.ready || !this.socket) return;
+    this.socket.send(encodeFireWeapon(fire));
   }
 
   private handlePacket(buffer: ArrayBuffer): void {

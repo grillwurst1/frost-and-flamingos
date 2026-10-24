@@ -1,4 +1,4 @@
-import type { Faction, SurfaceTag, Vec3 } from '@frost-and-flamingos/shared';
+import type { Faction, SurfaceTag, Vec3, WeaponId } from '@frost-and-flamingos/shared';
 import { scheduleGibberish } from './gibberish';
 import {
   createOutdoorImpulseResponse,
@@ -360,6 +360,108 @@ export class AudioEngine {
         this.noise({ duration: 0.1, gain: volume, filter: 'lowpass', frequency: 1200, panner });
         break;
     }
+  }
+
+  playWeaponFire(weaponId: WeaponId, position?: Vec3, local = false): void {
+    const panner = local ? undefined : this.panner(position, 5, 70);
+    const volume = local ? 0.16 : 0.2;
+    switch (weaponId) {
+      case 'smg':
+        this.noise({ duration: 0.07, gain: volume, filter: 'bandpass', frequency: 1900, q: 1.2, panner });
+        this.tone({ frequency: 150, endFrequency: 70, duration: 0.07, gain: volume * 0.8, type: 'square', panner });
+        break;
+      case 'lmg':
+        this.noise({ duration: 0.11, gain: volume * 1.15, filter: 'lowpass', frequency: 1400, panner });
+        this.tone({ frequency: 105, endFrequency: 48, duration: 0.12, gain: volume, type: 'square', panner });
+        break;
+      case 'sniper':
+        this.noise({ duration: 0.16, gain: volume * 1.5, filter: 'highpass', frequency: 900, panner });
+        this.noise({ duration: 0.28, gain: volume * 0.55, filter: 'lowpass', frequency: 420, when: (this.ctx?.currentTime ?? 0) + 0.03, panner });
+        this.tone({ frequency: 82, endFrequency: 38, duration: 0.22, gain: volume * 1.2, type: 'sine', panner });
+        break;
+      case 'shotgun':
+        this.noise({ duration: 0.2, gain: volume * 1.6, filter: 'lowpass', frequency: 950, panner });
+        this.tone({ frequency: 92, endFrequency: 40, duration: 0.18, gain: volume * 1.1, type: 'square', panner });
+        break;
+      case 'bazooka':
+        this.noise({ duration: 0.36, gain: volume * 1.2, filter: 'bandpass', frequency: 360, endFrequency: 1200, q: 0.7, panner });
+        this.tone({ frequency: 62, endFrequency: 32, duration: 0.3, gain: volume * 1.4, type: 'sine', panner });
+        break;
+      case 'silenced_pistol':
+        this.noise({ duration: 0.045, gain: volume * 0.55, filter: 'bandpass', frequency: 2400, q: 2, panner });
+        this.tone({ frequency: 240, endFrequency: 140, duration: 0.05, gain: volume * 0.4, type: 'triangle', panner });
+        break;
+      case 'knife':
+      case 'halberd':
+        this.noise({ duration: 0.16, gain: volume * 0.7, filter: 'bandpass', frequency: 900, endFrequency: 2600, q: 1.4, panner });
+        break;
+      case 'snow_cannon':
+      case 'sand_flamer':
+        this.noise({ duration: 0.2, gain: volume * 0.65, filter: 'highpass', frequency: 1500, panner });
+        this.noise({ duration: 0.12, gain: volume * 0.4, filter: 'bandpass', frequency: 600, q: 0.8, panner });
+        break;
+      case 'crossbow':
+        this.tone({ frequency: 620, endFrequency: 180, duration: 0.09, gain: volume * 0.9, type: 'triangle', panner });
+        this.noise({ duration: 0.08, gain: volume * 0.4, filter: 'highpass', frequency: 2400, panner });
+        break;
+      case 'horn':
+        this.tone({ frequency: 110, endFrequency: 82, duration: 0.5, gain: volume * 1.4, type: 'sawtooth', panner });
+        this.tone({ frequency: 165, endFrequency: 123, duration: 0.45, gain: volume * 0.6, type: 'triangle', panner });
+        break;
+      case 'umbrella':
+        this.noise({ duration: 0.14, gain: volume * 0.5, filter: 'bandpass', frequency: 1200, q: 1.2, panner });
+        break;
+    }
+  }
+
+  playWeaponReload(weaponId: WeaponId): void {
+    const now = this.ctx?.currentTime ?? 0;
+    const heavy = weaponId === 'lmg' || weaponId === 'shotgun' || weaponId === 'bazooka';
+    this.noise({ duration: 0.05, gain: 0.055, filter: 'bandpass', frequency: 1800, q: 2 });
+    this.tone({ frequency: 330, duration: 0.04, gain: 0.04, type: 'square', when: now + 0.08 });
+    this.tone({ frequency: heavy ? 190 : 280, duration: 0.05, gain: 0.05, type: 'square', when: now + 0.2 });
+    this.noise({ duration: 0.07, gain: 0.05, filter: 'highpass', frequency: 2200, when: now + 0.32 });
+  }
+
+  playDryFire(): void {
+    this.tone({ frequency: 880, duration: 0.025, gain: 0.05, type: 'square' });
+    this.noise({ duration: 0.03, gain: 0.03, filter: 'highpass', frequency: 3000 });
+  }
+
+  playHitMarker(headshot: boolean, kill: boolean): void {
+    const now = this.ctx?.currentTime ?? 0;
+    this.tone({
+      frequency: headshot ? 1480 : 1080,
+      duration: 0.045,
+      gain: 0.06,
+      type: 'triangle',
+    });
+    if (kill) {
+      this.tone({ frequency: 660, duration: 0.09, gain: 0.07, type: 'triangle', when: now + 0.04 });
+      this.tone({ frequency: 990, duration: 0.12, gain: 0.06, type: 'sine', when: now + 0.1 });
+    }
+  }
+
+  playExplosion(position?: Vec3): void {
+    const panner = this.panner(position, 8, 120);
+    const now = this.ctx?.currentTime ?? 0;
+    this.noise({ duration: 0.65, gain: 0.26, filter: 'lowpass', frequency: 780, endFrequency: 120, panner });
+    this.tone({ frequency: 64, endFrequency: 28, duration: 0.55, gain: 0.24, type: 'sine', panner });
+    this.noise({ duration: 0.3, gain: 0.1, filter: 'bandpass', frequency: 1800, q: 0.6, when: now + 0.08, panner });
+  }
+
+  playSkill(slot: number, position?: Vec3): void {
+    const panner = this.panner(position, 5, 55);
+    const now = this.ctx?.currentTime ?? 0;
+    const base = slot === 1 ? 420 : slot === 2 ? 520 : 640;
+    this.tone({ frequency: base, endFrequency: base * 1.9, duration: 0.16, gain: 0.09, type: 'triangle', panner });
+    this.tone({ frequency: base * 1.5, endFrequency: base * 2.4, duration: 0.22, gain: 0.06, type: 'sine', when: now + 0.07, panner });
+    this.noise({ duration: 0.16, gain: 0.04, filter: 'highpass', frequency: 1800, panner });
+  }
+
+  playDamageTick(): void {
+    this.tone({ frequency: 160, endFrequency: 96, duration: 0.1, gain: 0.06, type: 'sawtooth' });
+    this.noise({ duration: 0.08, gain: 0.04, filter: 'lowpass', frequency: 700 });
   }
 
   playWrench(position?: Vec3): void {

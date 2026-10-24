@@ -4,3 +4,5 @@ export * from './ids.js';
 export * from './map-fjord.js';
 export * from './profile.js';
 export * from './weapons.js';
+
+export * from './skills.js';

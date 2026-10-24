@@ -1,7 +1,7 @@
 # Frost & Flamingos — Bullets, Fondue & Coconuts
 
-**Current milestone:** M3 — Core Movement, Extended Actions & Physics (complete)
-**Next milestone:** M4 — Weapons, Combat, Bots & Audio
+**Current milestone:** M4 — Weapons, Combat, Bots & Audio (complete)
+**Next milestone:** M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys
 
 A clean-room, browser-based third-person multiplayer action-cartoon shooter built with
 **Bun**, **Svelte 5**, **Babylon.js 8** and **Rapier3D**. Two absurd holiday resorts fight
@@ -19,7 +19,7 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
 > - [x] **M3 — Core Movement, Extended Actions & Physics:** tactical sprint, crouch with a
 >   35 % shorter hitbox, ledge mantle/vaulting, dodge roll, swimming, authored ice patches
 >   with low-friction sliding, emergency parachute and the shared deterministic motor.
-> - [ ] **M4 — Weapons, Combat, Bots & Audio:** all three weapon slots, six gimmick weapons,
+> - [x] **M4 — Weapons, Combat, Bots & Audio:** all three weapon slots, six gimmick weapons,
 >   server hitbox rollback, class skills, universal widgets, cartoon death types, procedural
 >   combat audio, AI bots, kill feed, live killer cam and random spawning.
 > - [ ] **M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys:** full map, three weather
@@ -50,13 +50,18 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
   `ice_patch` surface tag for gliding, flailing movement and ice-slide audio.
 - **Multiplayer:** 60 Hz authoritative physics, 30 Hz binary snapshots, client prediction,
   reconciliation and remote interpolation.
+- **Combat:** three weapon slots per class, six gimmick weapons, server-side hitbox rollback,
+  headshots, shields, reloads, projectile splash damage, nine class skills and a 10-second
+  live killer cam before random-faction respawn.
+- **Bots and feedback:** four named AI bots, kill feed, adaptive crosshair, hit markers,
+  damage vignette, comic popups, procedural combat SFX/voice and four cartoon death outcomes.
 - **Audio:** fully procedural Web Audio graph (SFX, voice, ambience, limiter and 3D panning)
   plus the project owner's supplied music beds. No external samples.
-- **UI:** cover-inspired main menu, boot/deployment loading screens, HUD, pause menu,
-  wardrobe, audio settings, debug telemetry and a live EN/DE switcher.
+- **UI:** cover-inspired main menu, boot/deployment loading screens, full combat HUD, pause
+  menu, wardrobe, audio settings, debug telemetry and a live EN/DE switcher.
 
-Weapons do not fire yet, and there are no bots, vehicles, damage or destruction. Those
-systems are deliberately gated behind M3–M6.
+Vehicles, weather towers, terrain destruction, the 4,096-decal ring buffer and the
+meta/economy layer are gated behind M5–M7.
 
 ---
 

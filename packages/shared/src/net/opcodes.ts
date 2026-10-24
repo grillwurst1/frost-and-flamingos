@@ -33,6 +33,8 @@ export const PLAYER_FLAG = {
   Swimming: 1 << 3,
   Sprinting: 1 << 4,
   Rolling: 1 << 5,
+  Reloading: 1 << 6,
+  Cloaked: 1 << 7,
 } as const;
 
 export const GameEventCode = {
@@ -53,6 +55,9 @@ export const GameEventCode = {
   CUCKOO_POP: 15,
   GONDOLA_BRAKE: 16,
   PARACHUTE_POPPED: 17,
+  WEAPON_FIRED: 18,
+  PLAYER_RESPAWNED: 19,
+  SKILL_USED: 20,
 } as const;
 
 export type GameEventCodeValue = (typeof GameEventCode)[keyof typeof GameEventCode];

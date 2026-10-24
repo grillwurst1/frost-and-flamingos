@@ -1,6 +1,6 @@
 /** Networking, simulation and world constants shared by client and server. */
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;
@@ -12,6 +12,8 @@ export const SNAPSHOT_INTERVAL = PHYSICS_TICK_RATE / SERVER_TICK_RATE;
 export const MAX_PLAYERS = 16;
 export const TEAM_SIZE = 8;
 export const MATCH_TICKETS = 50;
+/** The live killer cam owns the full respawn window. */
+export const RESPAWN_DELAY_SECONDS = 10;
 
 export const MAP_ID = 'fjord_fiesta';
 export const MAP_SIZE = 800;

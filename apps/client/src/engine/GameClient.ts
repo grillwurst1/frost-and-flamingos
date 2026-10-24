@@ -10,9 +10,14 @@ import {
   MAX_PREDICTION_REPLAY,
   ParachuteState,
   PhysicsWorld,
+  RESPAWN_DELAY_SECONDS,
+  WEAPON_STATS,
+  WEAPON_TABLE,
   createDefaultProfile,
   profileAppearanceKey,
+  skillsForClass,
   surfaceTagAt,
+  weaponForSlot,
   zoneAt,
   type CharacterBody,
   type ClassId,
@@ -25,6 +30,8 @@ import {
   type TranslationKey,
   type Vec3,
   type WelcomeMessage,
+  type WeaponId,
+  type WeaponSlot,
   type WindState,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
@@ -40,9 +47,16 @@ import {
   updateWaterMaterial,
 } from '../rendering/materials';
 import {
+  clearCombatUi,
+  damageFlash,
+  deathState,
   debugVisible,
+  expireCombatUi,
   localPlayer,
   notify,
+  pushKillFeed,
+  showComicPop,
+  showHitMarker,
   phase,
   setLoadingProgress,
   setLoadingStep,
@@ -50,6 +64,7 @@ import {
   setRenderer,
   showError,
   updateConnection,
+  updateDeathCountdown,
   updateHud,
   wardrobeEffect,
   wardrobeOpen,
@@ -105,6 +120,15 @@ const FALLBACK_PROFILE = createDefaultProfile('Vacationer');
 
 function toVector3(value: Vec3): Vector3 {
   return new Vector3(value.x, value.y, value.z);
+}
+
+function directionFromAngles(yaw: number, pitch: number): Vec3 {
+  const cosPitch = Math.cos(pitch);
+  return {
+    x: Math.sin(yaw) * cosPitch,
+    y: Math.sin(pitch),
+    z: Math.cos(yaw) * cosPitch,
+  };
 }
 
 function sequenceAfter(a: number, b: number): boolean {
@@ -223,6 +247,16 @@ export class GameClient {
 
   private snapshotHistory: SnapshotEntry[] = [];
   private remoteViews = new Map<number, RemoteView>();
+  private lastFireSentAt = 0;
+  private fireHeld = false;
+  private lastWeaponSlot: WeaponSlot = 1;
+  private lastReloading = false;
+  private deathKillerId = 0;
+  private deathKillerName = '';
+  private deathAt = 0;
+  private lastDamageAt = 0;
+  private lastCombatAt = 0;
+  private pendingRespawnSnap = false;
 
   private currentPhase: GamePhase = 'booting';
   private accumulator = 0;
@@ -309,6 +343,12 @@ export class GameClient {
         onWheel: (delta) => this.cameraRig?.zoom(delta),
         onSwapShoulder: () => this.cameraRig?.swapShoulder(),
         onToggleDebug: () => debugVisible.update((visible) => !visible),
+        onTaunt: () => {
+          const profile = this.localProfile;
+          if (profile) {
+            audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
+          }
+        },
         onPointerLockChange: (locked) => this.handlePointerLockChange(locked),
         onPointerLockError: () => notify('notifications.pointerLock'),
         onEscape: () => {
@@ -425,6 +465,12 @@ export class GameClient {
       this.deploymentTimer = null;
     }
     audio.setRoundCue(null);
+    clearCombatUi();
+    this.deathKillerId = 0;
+    this.deathKillerName = '';
+    this.deathAt = 0;
+    this.lastDamageAt = 0;
+    this.cameraRig?.endKillerCam();
     setPhase('menu');
     this.input?.releasePointerLock();
   }
@@ -480,6 +526,15 @@ export class GameClient {
     this.latestLocalState = null;
     this.profiles.clear();
     this.clearRemoteViews();
+    this.deathKillerId = 0;
+    this.deathKillerName = '';
+    this.deathAt = 0;
+    this.lastDamageAt = 0;
+    this.lastFireSentAt = 0;
+    this.fireHeld = false;
+    this.lastReloading = false;
+    clearCombatUi();
+    this.cameraRig?.endKillerCam();
 
     this.applyAuthoritativeProfile(welcome.profile);
     this.ensureLocalCharacter(welcome.profile, welcome.spawn);
@@ -646,11 +701,110 @@ export class GameClient {
   }
 
   private handleGameEvent(event: GameEvent): void {
-    if (event.eventType !== 'PARACHUTE_POPPED') return;
-    if (event.actorId === this.localId) return;
+    const now = performance.now();
     const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
-    const player = latest?.players.find((entry) => entry.id === event.actorId);
-    audio.playParachuteOpen(player?.position);
+    const actor = latest?.players.find((entry) => entry.id === event.actorId);
+
+    switch (event.eventType) {
+      case 'PARACHUTE_POPPED': {
+        if (event.actorId === this.localId) return;
+        audio.playParachuteOpen(actor?.position);
+        return;
+      }
+      case 'WEAPON_FIRED': {
+        if (event.actorId === this.localId) return;
+        const weaponId = WEAPON_TABLE.byCode[event.paramValue];
+        if (weaponId) audio.playWeaponFire(weaponId, actor?.position);
+        return;
+      }
+      case 'COMIC_HIT': {
+        this.lastCombatAt = now;
+        if (event.actorId === this.localId) {
+          showHitMarker(event.paramX === 1, false);
+          audio.playHitMarker(event.paramX === 1, false);
+        }
+        if (event.targetId === this.localId) {
+          this.lastDamageAt = now;
+          damageFlash.set(1);
+          audio.playDamageTick();
+        }
+        return;
+      }
+      case 'KILL_RAGDOLL': {
+        const killerProfile = this.profiles.get(event.actorId);
+        const victimProfile = this.profiles.get(event.targetId);
+        const victim = latest?.players.find((entry) => entry.id === event.targetId);
+        const killer = latest?.players.find((entry) => entry.id === event.actorId);
+        const killerName = killerProfile?.displayName ?? '';
+        const victimName = victimProfile?.displayName ?? `#${event.targetId}`;
+        const weaponId = WEAPON_TABLE.byCode[event.paramValue] ?? null;
+        const headshot = event.paramX === 1;
+        pushKillFeed({
+          killerId: event.actorId,
+          killerName,
+          victimId: event.targetId,
+          victimName,
+          weaponId,
+          headshot,
+          at: now,
+        });
+        this.lastCombatAt = now;
+        if (event.actorId === this.localId) {
+          showHitMarker(false, true);
+          audio.playHitMarker(false, true);
+          showComicPop(headshot ? 'combat.headshot' : 'combat.kill');
+        }
+        if (event.targetId === this.localId) {
+          this.deathKillerId = event.actorId;
+          this.deathKillerName = killerName;
+          this.deathAt = now;
+          this.lastDamageAt = now;
+          deathState.set({
+            killerId: event.actorId,
+            killerName,
+            killerClassId: killerProfile?.cosmetics.classId ?? killer?.classId ?? null,
+            killerHp: killer?.hp ?? 0,
+            killerMaxHp: killer?.maxHp ?? CLASS_STATS[killerProfile?.cosmetics.classId ?? 'allrounder'].maxHp,
+            weaponId,
+            headshot,
+            stage: 'killcam',
+            respawnSeconds: RESPAWN_DELAY_SECONDS,
+            at: now,
+          });
+          audio.setRoundCue('dead');
+          audio.playDeathScream(undefined, this.localProfile?.cosmetics.voicePitch ?? 1);
+        } else {
+          audio.playDeathScream(victim?.position, victimProfile?.cosmetics.voicePitch ?? 1);
+        }
+        return;
+      }
+      case 'PLAYER_RESPAWNED': {
+        if (event.actorId !== this.localId) return;
+        this.deathKillerId = 0;
+        this.deathKillerName = '';
+        this.deathAt = 0;
+        this.lastDamageAt = 0;
+        this.pendingRespawnSnap = true;
+        deathState.set(null);
+        this.cameraRig?.endKillerCam();
+        audio.setRoundCue(null);
+        return;
+      }
+      case 'SKILL_USED': {
+        audio.playSkill(event.paramX, actor?.position);
+        return;
+      }
+      case 'PROP_EXPLODE': {
+        audio.playExplosion({
+          x: event.paramX,
+          y: actor?.position.y ?? 0,
+          z: event.paramZ,
+        });
+        return;
+      }
+      default:
+        return;
+    }
   }
 
   private handleSnapshot(snapshot: WorldSnapshot): void {
@@ -666,6 +820,7 @@ export class GameClient {
       ticketsAlpine: snapshot.ticketsAlpine,
       ticketsLagoon: snapshot.ticketsLagoon,
       weatherBalance: snapshot.weatherBalance,
+      towerStates: snapshot.turretStates,
     });
     this.latestWind = { angle: snapshot.windAngle, strength: snapshot.windStrength };
 
@@ -673,6 +828,51 @@ export class GameClient {
     const authoritative = snapshot.players.find((player) => player.id === this.localId);
     if (!authoritative) return;
     this.latestLocalState = authoritative;
+    if (!authoritative.alive && this.deathAt === 0) {
+      this.deathAt = performance.now();
+      this.deathKillerId = 0;
+      this.deathKillerName = '';
+      deathState.set({
+        killerId: 0,
+        killerName: '',
+        killerClassId: null,
+        killerHp: 0,
+        killerMaxHp: 0,
+        weaponId: null,
+        headshot: false,
+        stage: 'killcam',
+        respawnSeconds: RESPAWN_DELAY_SECONDS,
+        at: this.deathAt,
+      });
+      audio.setRoundCue('dead');
+    } else if (authoritative.alive && this.deathAt > 0) {
+      this.deathAt = 0;
+      this.deathKillerId = 0;
+      this.deathKillerName = '';
+      this.lastDamageAt = 0;
+      deathState.set(null);
+      this.cameraRig?.endKillerCam();
+      audio.setRoundCue(null);
+      this.pendingRespawnSnap = true;
+    } else if (this.deathAt > 0) {
+      const killer = snapshot.players.find((player) => player.id === this.deathKillerId);
+      if (killer) {
+        deathState.update((state) =>
+          state
+            ? {
+                ...state,
+                killerClassId: killer.classId,
+                killerHp: killer.hp,
+                killerMaxHp: killer.maxHp,
+              }
+            : state,
+        );
+      }
+    }
+    if (authoritative.alive && this.pendingRespawnSnap) {
+      this.pendingRespawnSnap = false;
+      this.cameraRig?.snapToPlayer(toVector3(authoritative.position));
+    }
     this.reconcile(authoritative);
   }
 
@@ -763,13 +963,23 @@ export class GameClient {
     const character = this.localCharacter;
     const camera = this.cameraRig;
     if (!character || !camera || !this.network) return;
+    if (this.latestLocalState && !this.latestLocalState.alive) return;
+
+    const buttons = this.input?.buttons() ?? 0;
+    const slot = this.input?.currentWeaponSlot() ?? 1;
+    if (slot !== this.lastWeaponSlot) {
+      this.lastWeaponSlot = slot;
+      this.fireHeld = false;
+      this.lastFireSentAt = 0;
+      audio.playUi('equip');
+    }
 
     const input: PlayerInput = {
       sequence: this.sequence,
-      buttons: this.input?.buttons() ?? 0,
+      buttons,
       yaw: camera.lookYaw,
       pitch: camera.lookPitch,
-      weaponSlot: 1,
+      weaponSlot: slot,
     };
     this.sequence = this.sequence >= 0xffff ? 1 : this.sequence + 1;
 
@@ -787,11 +997,65 @@ export class GameClient {
     });
     if (this.pendingInputs.length > MAX_PREDICTION_REPLAY) this.pendingInputs.shift();
     this.network.sendInput(input);
+    this.maybeSendFire(buttons, slot, character, camera);
+  }
+
+  private maybeSendFire(
+    buttons: number,
+    slot: WeaponSlot,
+    character: CharacterBody,
+    camera: CameraRig,
+  ): void {
+    const profile = this.localProfile;
+    if (!profile || !this.network) return;
+    const weaponId = weaponForSlot(profile.loadout, slot);
+    const stats = WEAPON_STATS[weaponId];
+    const pressed = (buttons & InputButton.FirePrimary) !== 0;
+    const justPressed = pressed && !this.fireHeld;
+    this.fireHeld = pressed;
+    if (!pressed) return;
+    if (!stats.automatic && !justPressed) return;
+    if (this.latestLocalState?.reloading) return;
+
+    const state = this.latestLocalState;
+    if (stats.magazine > 0 && state && state.ammo <= 0 && state.reserve <= 0) {
+      if (justPressed) audio.playDryFire();
+      return;
+    }
+
+    const now = performance.now();
+    const interval = 60000 / Math.max(1, stats.rpm);
+    if (now - this.lastFireSentAt < interval) return;
+    this.lastFireSentAt = now;
+
+    const direction = directionFromAngles(camera.lookYaw, camera.lookPitch);
+    const origin = {
+      x: character.position.x + direction.x * 0.25,
+      y: character.position.y + character.eyeHeight + direction.y * 0.25,
+      z: character.position.z + direction.z * 0.25,
+    };
+    this.network.sendFire({
+      clientTick: this.lastSnapshotTick,
+      origin,
+      direction,
+      weaponId: WEAPON_TABLE.code[weaponId],
+    });
+    audio.playWeaponFire(weaponId, undefined, true);
+    if (stats.magazine > 0 && state && state.ammo <= 0) audio.playDryFire();
   }
 
   private updateCamera(delta: number): void {
     const camera = this.cameraRig;
     if (!camera) return;
+    if (this.deathAt > 0 && this.physics) {
+      const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
+      const killer = latest?.players.find((player) => player.id === this.deathKillerId);
+      const target = killer?.position ?? this.latestLocalState?.position ?? this.localCharacter?.position;
+      if (target) {
+        camera.updateKillerCam(delta, toVector3(target), this.physics);
+        return;
+      }
+    }
     const playerCamera =
       this.currentPhase === 'playing' ||
       this.currentPhase === 'deploying' ||
@@ -1058,7 +1322,10 @@ export class GameClient {
       this.swimStrokeTimer = 0.7;
     }
 
-    audio.setMusicIntensity(0.35 + Math.min(0.45, speed / 12) + (character.sprinting ? 0.1 : 0));
+    const combatBoost = performance.now() - this.lastCombatAt < 7000 ? 0.18 : 0;
+    audio.setMusicIntensity(
+      Math.min(1, 0.35 + Math.min(0.45, speed / 12) + (character.sprinting ? 0.1 : 0) + combatBoost),
+    );
     this.lastAudioButtons = buttons;
     this.audioGrounded = character.grounded;
     this.audioSwimming = character.swimming;
@@ -1083,6 +1350,15 @@ export class GameClient {
     const velocity = state?.velocity ?? character?.velocity ?? { x: 0, y: 0, z: 0 };
     const grounded = state?.grounded ?? character?.grounded ?? false;
     const zone = zoneAt(position.x, position.z);
+    const weaponSlot = state?.weaponSlot ?? 1;
+    const weaponId = this.localProfile ? weaponForSlot(this.localProfile.loadout, weaponSlot) : 'smg';
+
+    if (state && state.reloading !== this.lastReloading) {
+      this.lastReloading = state.reloading;
+      if (state.reloading && this.localProfile) {
+        audio.playWeaponReload(weaponForSlot(this.localProfile.loadout, state.weaponSlot));
+      }
+    }
 
     if (this.localId !== null) {
       localPlayer.set({
@@ -1100,9 +1376,38 @@ export class GameClient {
         rolling: state?.rolling ?? character?.rolling ?? false,
         parachuteState:
           state?.parachuteState ?? character?.parachuteState ?? ParachuteState.Closed,
+        weaponSlot,
+        weaponId,
+        weaponIds: this.localProfile
+          ? [
+              this.localProfile.loadout.primary,
+              this.localProfile.loadout.secondary,
+              this.localProfile.loadout.gimmick,
+            ]
+          : ['smg', 'shotgun', 'snow_cannon'],
+        ammo: state?.ammo ?? WEAPON_STATS[weaponId].magazine,
+        reserve: state?.reserve ?? WEAPON_STATS[weaponId].reserve,
+        reloading: state?.reloading ?? false,
+        shield: state?.shield ?? 0,
+        kills: state?.kills ?? 0,
+        deaths: state?.deaths ?? 0,
+        skillCooldowns: [
+          state?.skillCooldown1 ?? 0,
+          state?.skillCooldown2 ?? 0,
+          state?.skillCooldown3 ?? 0,
+        ] as [number, number, number],
+        cloaked: state?.cloaked ?? false,
+        alive: state?.alive ?? true,
         zoneKey: zone.labelKey as TranslationKey,
       });
     }
+
+    if (this.lastDamageAt > 0) {
+      const flash = Math.max(0, 1 - (now - this.lastDamageAt) / 520);
+      damageFlash.set(flash);
+    }
+    expireCombatUi(now);
+    if (this.deathAt > 0) updateDeathCountdown(now, RESPAWN_DELAY_SECONDS);
 
     const drawCalls = this.frameDrawCalls;
     const activeMeshes = this.scene?.getActiveMeshes().length ?? 0;

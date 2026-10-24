@@ -111,6 +111,15 @@ function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 
+/** Skill cooldowns travel in deciseconds so a 26 s cooldown fits a uint16. */
+function cooldownToWire(seconds: number): number {
+  return Math.max(0, Math.min(65535, Math.round(seconds * 10)));
+}
+
+function wireToCooldown(value: number): number {
+  return value / 10;
+}
+
 /**
  * Writes the appearance/loadout part of a profile. The display name and faction
  * travel with it because a profile is also a self-contained player record.
@@ -308,9 +317,20 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
           (player.crouched ? PLAYER_FLAG.Crouched : 0) |
           (player.swimming ? PLAYER_FLAG.Swimming : 0) |
           (player.sprinting ? PLAYER_FLAG.Sprinting : 0) |
-          (player.rolling ? PLAYER_FLAG.Rolling : 0),
+          (player.rolling ? PLAYER_FLAG.Rolling : 0) |
+          (player.reloading ? PLAYER_FLAG.Reloading : 0) |
+          (player.cloaked ? PLAYER_FLAG.Cloaked : 0),
       )
       .writeUint8(player.parachuteState & 0x03)
+      .writeUint8(player.weaponSlot & 0x03)
+      .writeUint16(Math.max(0, Math.min(65535, Math.round(player.ammo))))
+      .writeUint16(Math.max(0, Math.min(65535, Math.round(player.reserve))))
+      .writeUint16(Math.max(0, Math.min(65535, Math.round(player.shield))))
+      .writeUint8(Math.max(0, Math.min(255, Math.round(player.kills))))
+      .writeUint8(Math.max(0, Math.min(255, Math.round(player.deaths))))
+      .writeUint16(cooldownToWire(player.skillCooldown1))
+      .writeUint16(cooldownToWire(player.skillCooldown2))
+      .writeUint16(cooldownToWire(player.skillCooldown3))
       .writeUint16(player.lastProcessedInput & 0xffff);
   }
 
@@ -353,6 +373,16 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       const flags = reader.readUint8();
       const parachuteRaw = reader.readUint8();
       if (parachuteRaw > 3) throw new RangeError('Invalid parachute state.');
+      const weaponSlotRaw = reader.readUint8();
+      if (weaponSlotRaw < 1 || weaponSlotRaw > 3) throw new RangeError('Invalid weapon slot.');
+      const ammo = reader.readUint16();
+      const reserve = reader.readUint16();
+      const shield = reader.readUint16();
+      const kills = reader.readUint8();
+      const deaths = reader.readUint8();
+      const skillCooldown1 = wireToCooldown(reader.readUint16());
+      const skillCooldown2 = wireToCooldown(reader.readUint16());
+      const skillCooldown3 = wireToCooldown(reader.readUint16());
       const lastProcessedInput = reader.readUint16();
       players.push({
         id,
@@ -370,6 +400,17 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
         sprinting: (flags & PLAYER_FLAG.Sprinting) !== 0,
         rolling: (flags & PLAYER_FLAG.Rolling) !== 0,
         parachuteState: parachuteRaw as PlayerState['parachuteState'],
+        weaponSlot: weaponSlotRaw as PlayerState['weaponSlot'],
+        ammo,
+        reserve,
+        reloading: (flags & PLAYER_FLAG.Reloading) !== 0,
+        shield,
+        kills,
+        deaths,
+        skillCooldown1,
+        skillCooldown2,
+        skillCooldown3,
+        cloaked: (flags & PLAYER_FLAG.Cloaked) !== 0,
         lastProcessedInput,
       });
     }

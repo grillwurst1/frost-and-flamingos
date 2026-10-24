@@ -6,6 +6,7 @@ import {
   PROTOCOL_VERSION,
   SERVER_TICK_RATE,
   WS_PATH,
+  decodeFireWeapon,
   decodeHello,
   decodeInput,
   decodePing,
@@ -148,9 +149,11 @@ const server = Bun.serve<SocketData>({
         return;
       }
 
-      // Fire packets are intentionally accepted but ignored until the weapons
-      // milestone activates the authoritative combat simulation.
-      if (opcode === Opcode.C2S_FIRE_WEAPON) return;
+      if (opcode === Opcode.C2S_FIRE_WEAPON) {
+        const fire = decodeFireWeapon(message);
+        if (fire) room.handleFire(ws, fire);
+        return;
+      }
     },
     close(ws) {
       if (ws.data.helloTimeout) {

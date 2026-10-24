@@ -243,6 +243,16 @@ export class CharacterBody {
     this.wind = { angle: wind.angle, strength: Math.max(0, wind.strength) };
   }
 
+  /** Dead players stop blocking movement and bullets until they respawn. */
+  setColliderEnabled(enabled: boolean): void {
+    this.collider.setEnabled(enabled);
+  }
+
+  /** Approximate eye height above the feet for hit validation and muzzle FX. */
+  get eyeHeight(): number {
+    return this.currentHeight - this.stats.radius * 0.65;
+  }
+
   setParachuteState(state: ParachuteState): void {
     this.parachute = state;
     this.canopyBlend = state === Parachute.Closed ? 0 : 1;
@@ -456,7 +466,7 @@ export class CharacterBody {
     this.parachuteSway = Math.max(-PARACHUTE_SWAY_ANGLE, Math.min(PARACHUTE_SWAY_ANGLE, this.parachuteSway));
   }
 
-  simulate(input: PlayerInput, trackButtons = true): void {
+  simulate(input: PlayerInput, trackButtons = true, speedScale = 1): void {
     if (this.disposed) return;
 
     this.currentYaw = input.yaw;
@@ -594,7 +604,7 @@ export class CharacterBody {
       if (this.feet.y < WATER_LEVEL - 3.2) this.linearVelocity.y += 18 * FIXED_DT;
 
       if (hasMovement) {
-        const speed = swimSprint ? SWIM_SPRINT_SPEED : SWIM_SPEED;
+        const speed = (swimSprint ? SWIM_SPRINT_SPEED : SWIM_SPEED) * speedScale;
         const desiredX = (forwardX * normalizedZ + rightX * normalizedX) * speed;
         const desiredZ = (forwardZ * normalizedZ + rightZ * normalizedX) * speed;
         const acceleration = 18 * FIXED_DT;
@@ -614,7 +624,8 @@ export class CharacterBody {
         normalizedX * STRAFE_SPEED_SCALE,
         normalizedZ * (normalizedZ >= 0 ? 1 : BACKWARD_SPEED_SCALE),
       );
-      const targetSpeed = this.stats.moveSpeed * directionScale * sprintScale * crouchScale;
+      const targetSpeed =
+        this.stats.moveSpeed * directionScale * sprintScale * crouchScale * speedScale;
       this.isSprinting = canSprint && hasMovement;
 
       if (this.rollRecovery > 0) {

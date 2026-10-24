@@ -1,6 +1,6 @@
 # Frost & Flamingos — Bedienungsanleitung
 
-**Bullets, Fondue & Coconuts** · Milestone 2: Klassen, Garderobe & Identität
+**Bullets, Fondue & Coconuts** · Milestone 4: Waffen, Kampf, Bots & Audio
 Stand: 24. Oktober 2026 · Zielplattform: macOS
 
 Diese Anleitung beschreibt die lokale Playtest-Version. Sie richtet sich an alle, die das
@@ -15,18 +15,18 @@ Klimakrieg-Komödie. Zwei Urlaubsresorts kämpfen um denselben Fjord: die **Gipf
 will ewigen Schnee, Fondue und alpine Ruhe; die **Lagunen-Liga** will endlosen Sommer,
 Flamingo-Schwimmringe und barfüßigen Chaos-Urlaub.
 
-**Milestone 2 (M2)** ist der Klassen-, Garderoben- und Identitäts-Meilenstein:
+**Milestone 4 (M4)** ist der Kampf-, Bots- und Audio-Meilenstein:
 
-- drei spielbare Klassen mit unterschiedlichen Werten und Standard-Loadouts,
-- ein dauerhaft gespeichertes Spielerprofil,
-- eine live gerenderte 3D-Garderobe mit sieben Kosmetik-Slots,
-- Server-synchronisierte Profile und Kosmetik für alle Spieler,
-- erweiterte Bewegung: Sprinten, Ducken, Hechtsprung, Schwimmen, Klettern und Notfallschirm,
-- prozedurale Audio-Effekte, Stimmen, Umgebung und die vom Projektinhaber gelieferten Musikstücke,
-- ein neuer, an klassische Reiseplakate angelehnter Start- und Ladebildschirm.
+- drei Waffenslots pro Klasse, sieben Haupt- und sechs Gimmick-Waffen,
+- autoritatives Schießen mit Streuung, Schrot, Projektilen, Kopfschüssen und Schilden,
+- neun Klassenskills, Treffer-Rollback und 10 Sekunden lange Killer-Kamera,
+- vier benannte KI-Bots, Kill-Feed, Treffermarker, Fadenkreuz und Schadens-Vignette,
+- vier cartoonige Todesarten und vollständig prozedurale Kampf-Sounds und Stimmen,
+- alle drei Waffenslots im HUD mit Munition, Nachladen und Skill-Abklingzeiten,
+- vollständige deutsche und englische Texte für alle neuen Oberflächen.
 
-**Noch nicht enthalten:** Waffen, Schießen, Schaden, Bots, Fahrzeuge, Zerstörung, Match-Wertung
-und Progression. Diese Systeme folgen in M3 bis M6.
+**Noch nicht enthalten:** Wettertürme, Fahrzeuge, Zerstörung, Krater, Decals, Meta-Ökonomie
+und Kur-Pass. Diese Systeme folgen in M5 bis M7.
 
 ---
 

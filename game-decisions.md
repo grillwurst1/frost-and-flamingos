@@ -6,7 +6,7 @@
 **Platform:** Browser (WebGPU with WebGL2 fallback), local macOS playtest target  
 **Engine:** Babylon.js v8 · Rapier3D · Bun · Svelte 5  
 **Languages:** English (master dictionary) and German (fully typed translation)  
-**Status:** Milestone 1 and Milestone 2 complete; Milestone 3 next  
+**Status:** Milestones 1–4 complete; Milestone 5 next  
 **Last updated:** 24 October 2026
 
 This document is the single written record of the game’s direction, content, systems, technical contracts and scope decisions. It intentionally separates **what is implemented**, **what is being implemented**, and **what is a design reference for later milestones**. When the code and this document disagree, the code is the current truth and this document must be corrected.

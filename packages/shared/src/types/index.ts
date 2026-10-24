@@ -222,6 +222,17 @@ export interface PlayerState {
   sprinting: boolean;
   rolling: boolean;
   parachuteState: ParachuteState;
+  weaponSlot: WeaponSlot;
+  ammo: number;
+  reserve: number;
+  reloading: boolean;
+  shield: number;
+  kills: number;
+  deaths: number;
+  skillCooldown1: number;
+  skillCooldown2: number;
+  skillCooldown3: number;
+  cloaked: boolean;
   lastProcessedInput: number;
 }
 
@@ -268,7 +279,10 @@ export type GameEventType =
   | 'TANK_CANNON_FIRE'
   | 'CUCKOO_POP'
   | 'GONDOLA_BRAKE'
-  | 'PARACHUTE_POPPED';
+  | 'PARACHUTE_POPPED'
+  | 'WEAPON_FIRED'
+  | 'PLAYER_RESPAWNED'
+  | 'SKILL_USED';
 
 export interface GameEvent {
   eventType: GameEventType;

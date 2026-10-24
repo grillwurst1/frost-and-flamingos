@@ -12,6 +12,8 @@ import {
   type MainWeaponId,
   type TorsoId,
   type TranslationKey,
+  type WeaponId,
+  type WeaponSlot,
 } from '@frost-and-flamingos/shared';
 
 export type CosmeticSlot = 'headgear' | 'face' | 'torso' | 'back' | 'hands' | 'legs' | 'feet';
@@ -70,4 +72,17 @@ export function weaponRoleKey(
   id: MainWeaponId | GimmickWeaponId,
 ): TranslationKey {
   return `weapons.${group}.${id}.role` as TranslationKey;
+}
+
+
+export function weaponGroupForSlot(slot: WeaponSlot): WeaponGroup {
+  return slot === 1 ? 'primary' : slot === 2 ? 'secondary' : 'gimmick';
+}
+
+export function weaponNameKeyForSlot(slot: WeaponSlot, id: WeaponId): TranslationKey {
+  return `weapons.${weaponGroupForSlot(slot)}.${id}.name` as TranslationKey;
+}
+
+export function weaponRoleKeyForSlot(slot: WeaponSlot, id: WeaponId): TranslationKey {
+  return `weapons.${weaponGroupForSlot(slot)}.${id}.role` as TranslationKey;
 }

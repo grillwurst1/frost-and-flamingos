@@ -6,6 +6,8 @@ import type {
   TranslationKey,
   TranslationParams,
   Vec3,
+  WeaponId,
+  WeaponSlot,
 } from '@frost-and-flamingos/shared';
 
 export type GamePhase = 'booting' | 'menu' | 'deploying' | 'playing' | 'paused' | 'error';
@@ -35,6 +37,18 @@ export interface LocalPlayerView {
   sprinting: boolean;
   rolling: boolean;
   parachuteState: ParachuteState;
+  weaponSlot: WeaponSlot;
+  weaponId: WeaponId;
+  weaponIds: [WeaponId, WeaponId, WeaponId];
+  ammo: number;
+  reserve: number;
+  reloading: boolean;
+  shield: number;
+  kills: number;
+  deaths: number;
+  skillCooldowns: [number, number, number];
+  cloaked: boolean;
+  alive: boolean;
   zoneKey: TranslationKey;
 }
 
@@ -49,6 +63,7 @@ export interface ConnectionState {
   ticketsAlpine: number;
   ticketsLagoon: number;
   weatherBalance: number;
+  towerStates: number;
 }
 
 export interface HudState {
@@ -99,6 +114,7 @@ export const connection = writable<ConnectionState>({
   ticketsAlpine: 50,
   ticketsLagoon: 50,
   weatherBalance: 0,
+  towerStates: 0,
 });
 export const localPlayer = writable<LocalPlayerView | null>(null);
 export const hud = writable<HudState>({
@@ -126,6 +142,110 @@ export const wardrobeSpin = writable(true);
 export type WardrobeEffect = 'none' | 'damaged' | 'charred' | 'frozen';
 export const wardrobeEffect = writable<WardrobeEffect>('none');
 export const toast = writable<ToastMessage | null>(null);
+
+export interface KillFeedEntry {
+  id: number;
+  killerId: number;
+  killerName: string;
+  victimId: number;
+  victimName: string;
+  weaponId: WeaponId | null;
+  headshot: boolean;
+  at: number;
+}
+
+export interface HitMarkerState {
+  id: number;
+  headshot: boolean;
+  kill: boolean;
+  at: number;
+}
+
+export type DeathStage = 'killcam' | 'respawn';
+
+export interface DeathState {
+  killerId: number;
+  killerName: string;
+  killerClassId: ClassId | null;
+  killerHp: number;
+  killerMaxHp: number;
+  weaponId: WeaponId | null;
+  headshot: boolean;
+  stage: DeathStage;
+  respawnSeconds: number;
+  at: number;
+}
+
+export interface ComicPopState {
+  id: number;
+  textKey: TranslationKey;
+  at: number;
+}
+
+export interface InteractionPromptState {
+  key: TranslationKey;
+  params?: TranslationParams;
+}
+
+export const killFeed = writable<KillFeedEntry[]>([]);
+export const hitMarker = writable<HitMarkerState | null>(null);
+export const damageFlash = writable(0);
+export const deathState = writable<DeathState | null>(null);
+export const comicPop = writable<ComicPopState | null>(null);
+export const interactionPrompt = writable<InteractionPromptState | null>(null);
+
+let killFeedId = 0;
+let hitMarkerId = 0;
+let comicPopId = 0;
+
+export function pushKillFeed(entry: Omit<KillFeedEntry, 'id'>): void {
+  killFeedId += 1;
+  killFeed.update((entries) => [...entries.slice(-5), { ...entry, id: killFeedId }]);
+}
+
+export function pruneKillFeed(now: number): void {
+  killFeed.update((entries) => entries.filter((entry) => now - entry.at < 7000));
+}
+
+export function showHitMarker(headshot: boolean, kill: boolean): void {
+  hitMarkerId += 1;
+  hitMarker.set({ id: hitMarkerId, headshot, kill, at: performance.now() });
+}
+
+export function clearCombatUi(): void {
+  killFeed.set([]);
+  hitMarker.set(null);
+  damageFlash.set(0);
+  deathState.set(null);
+  comicPop.set(null);
+  interactionPrompt.set(null);
+}
+
+/** Expire short-lived combat feedback without timers leaking across rounds. */
+export function expireCombatUi(now: number): void {
+  pruneKillFeed(now);
+  hitMarker.update((marker) => (marker && now - marker.at < 420 ? marker : null));
+  comicPop.update((pop) => (pop && now - pop.at < 1900 ? pop : null));
+}
+
+/** Keep the killer-cam countdown in sync with the authoritative respawn. */
+export function updateDeathCountdown(now: number, totalSeconds: number): void {
+  deathState.update((state) => {
+    if (!state) return state;
+    const remaining = Math.max(0, totalSeconds - (now - state.at) / 1000);
+    if (Math.abs(state.respawnSeconds - remaining) < 0.05) return state;
+    return { ...state, respawnSeconds: remaining };
+  });
+}
+
+export function setInteractionPrompt(prompt: InteractionPromptState | null): void {
+  interactionPrompt.set(prompt);
+}
+
+export function showComicPop(textKey: TranslationKey): void {
+  comicPopId += 1;
+  comicPop.set({ id: comicPopId, textKey, at: performance.now() });
+}
 
 let toastId = 0;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;

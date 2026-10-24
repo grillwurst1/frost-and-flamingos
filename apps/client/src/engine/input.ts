@@ -5,6 +5,7 @@ export interface InputHandlers {
   onWheel: (delta: number) => void;
   onSwapShoulder: () => void;
   onToggleDebug: () => void;
+  onTaunt: () => void;
   onPointerLockChange: (locked: boolean) => void;
   onPointerLockError: () => void;
   onEscape: () => void;
@@ -95,13 +96,9 @@ export class InputController {
     if (this.mouseButtons.has(2)) mask |= InputButton.FireSecondary;
     if (this.pressed.has('KeyR')) mask |= InputButton.Reload;
     if (this.pressed.has('KeyF')) mask |= InputButton.Interact;
-    if (this.pressed.has('KeyQ')) mask |= InputButton.Heal;
-    if (this.pressed.has('KeyE')) mask |= InputButton.Wrench;
-    if (this.pressed.has('Digit1')) mask |= InputButton.Skill1;
-    if (this.pressed.has('Digit2')) mask |= InputButton.Skill2;
-    if (this.pressed.has('Digit3') || this.pressed.has('KeyT')) {
-      mask |= InputButton.Skill3OrTaunt;
-    }
+    if (this.pressed.has('KeyQ')) mask |= InputButton.Skill1;
+    if (this.pressed.has('KeyE')) mask |= InputButton.Skill2;
+    if (this.pressed.has('KeyT')) mask |= InputButton.Skill3OrTaunt;
     return mask;
   }
 
@@ -132,6 +129,10 @@ export class InputController {
       this.handlers.onSwapShoulder();
       return;
     }
+    if (event.code === 'KeyG' && !event.repeat) {
+      this.handlers.onTaunt();
+      return;
+    }
     if (event.code === 'KeyC' && !event.repeat) {
       const sprinting = this.pressed.has('ShiftLeft') || this.pressed.has('ShiftRight');
       const forward = this.pressed.has('KeyW') || this.pressed.has('ArrowUp');
@@ -147,15 +148,15 @@ export class InputController {
       this.handlers.onEscape();
       return;
     }
-    if (event.code === 'Digit4') {
+    if (event.code === 'Digit1') {
       this.weaponSlot = 1;
       return;
     }
-    if (event.code === 'Digit5') {
+    if (event.code === 'Digit2') {
       this.weaponSlot = 2;
       return;
     }
-    if (event.code === 'Digit6') {
+    if (event.code === 'Digit3') {
       this.weaponSlot = 3;
       return;
     }

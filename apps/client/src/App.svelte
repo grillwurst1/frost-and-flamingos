@@ -47,6 +47,11 @@
     if (!canvas) return;
     const client = new GameClient(canvas);
     game = client;
+    // Development-only handle for playtest automation and console debugging.
+    // It is stripped from production builds by Vite's dead-code elimination.
+    if (import.meta.env.DEV) {
+      (window as unknown as { __frostDebug?: GameClient }).__frostDebug = client;
+    }
     void client.init();
     window.addEventListener('click', handleGlobalClick);
     window.addEventListener('keydown', handleGlobalKeydown);
