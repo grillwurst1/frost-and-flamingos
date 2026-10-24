@@ -253,11 +253,34 @@ export type SurfaceTag =
   | 'rock_cliff'
   | 'wood';
 
+/**
+ * Authored ice rinks. They give the movement kit a reliable place to show off
+ * the low-friction slide before the snow cannon starts painting new patches.
+ */
+export interface IcePatch {
+  readonly x: number;
+  readonly z: number;
+  readonly radius: number;
+}
+
+export const ICE_PATCHES: readonly IcePatch[] = [
+  { x: -40, z: 20, radius: 13 },
+  { x: -210, z: -180, radius: 15 },
+];
+
+export function isOnIcePatch(x: number, z: number): boolean {
+  for (const patch of ICE_PATCHES) {
+    if (Math.hypot(x - patch.x, z - patch.z) <= patch.radius) return true;
+  }
+  return false;
+}
+
 export function surfaceTagAt(x: number, z: number): SurfaceTag {
   const height = sampleMapHeight(x, z);
   const slope = terrainSlopeAt(x, z);
   if (height < WATER_LEVEL - 0.15) return 'water';
   if (slope > 0.68) return 'rock_cliff';
+  if (isOnIcePatch(x, z)) return 'ice_patch';
   if (Math.hypot(x - VILLAGE_CENTER.x, z - VILLAGE_CENTER.z) < 42) return 'cobblestone';
   if (height >= 22) return 'snow';
   if (height < 7.5) return 'sand';

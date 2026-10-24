@@ -1,7 +1,7 @@
 # Frost & Flamingos — Bullets, Fondue & Coconuts
 
-**Current milestone:** M2 — Classes, Wardrobe & Identity (complete)
-**Next milestone:** M3 — Weapons & Combat
+**Current milestone:** M3 — Core Movement, Extended Actions & Physics (complete)
+**Next milestone:** M4 — Weapons, Combat, Bots & Audio
 
 A clean-room, browser-based third-person multiplayer action-cartoon shooter built with
 **Bun**, **Svelte 5**, **Babylon.js 8** and **Rapier3D**. Two absurd holiday resorts fight
@@ -10,20 +10,29 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
 
 > **Milestone status**
 >
-> - [x] **M1 — Movement & World:** playable map, deterministic movement, authoritative
->   multiplayer, prediction/reconciliation, camera, HUD, menus and EN/DE localisation.
+> - [x] **M1 — Monorepo, i18n, Toon Engine & Playable Prototype:** monorepo, typed EN/DE
+>   dictionaries, binary protocol, deterministic Rapier3D world, 30 Hz authoritative server,
+>   Babylon.js WebGPU/WebGL2 toon renderer, spring camera and the first Fjord Fiesta slice.
 > - [x] **M2 — Classes, Wardrobe & Identity:** three classes, persistent profiles, loadouts,
->   seven cosmetic slots, live 3D wardrobe, server-authoritative profile sync, expanded
->   movement (crouch, dodge roll, swim, mantle), emergency parachute, procedural character
->   rig, supplied music beds, supplied procedural SFX library and cover-inspired menus.
-> - [ ] **M3 — Weapons & Combat:** firing, damage, hit registration, lag compensation,
->   skills, bots, kill feed, live killer cam and random respawn.
-> - [ ] **M4 — Vehicles & Aircraft:** drivable map toys, seats, vehicle physics, repairs,
->   horns, cable car and alpine cow.
-> - [ ] **M5 — Destruction, Craters & Weather:** destructible buildings, bridges, trees,
->   silos and billboards, terrain craters, decal ring buffer, dynamic weather and map sync.
-> - [ ] **M6 — Meta, Economy & Live Features:** tickets/towers match flow, full combat HUD,
->   armory rentals, VIP pass, custom lobbies, end-of-round podium and rewards.
+>   seven cosmetic slots, live 3D wardrobe, server-authoritative profile sync, procedural
+>   character rig, supplied music beds and cover-inspired menus.
+> - [x] **M3 — Core Movement, Extended Actions & Physics:** tactical sprint, crouch with a
+>   35 % shorter hitbox, ledge mantle/vaulting, dodge roll, swimming, authored ice patches
+>   with low-friction sliding, emergency parachute and the shared deterministic motor.
+> - [ ] **M4 — Weapons, Combat, Bots & Audio:** all three weapon slots, six gimmick weapons,
+>   server hitbox rollback, class skills, universal widgets, cartoon death types, procedural
+>   combat audio, AI bots, kill feed, live killer cam and random spawning.
+> - [ ] **M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys:** full map, three weather
+>   towers, global weather shader, 50-ticket conquest loop and ten networked vehicles.
+> - [ ] **M6 — Destruction, Craters, Decal Ring Buffer & Match Sync:** three-stage buildings,
+>   real terrain craters, repairable bridges, felled trees, billboards, 4,096-decal ring
+>   buffer, deterministic round reset and late-join map sync.
+> - [ ] **M7 — Meta, Economy, Monetisation & Live Features:** Drizzle schema with memory
+>   fallback, economy, Kur-Pass/VIP, custom lobbies, armory rentals, ad overlays, dynamic
+>   billboards, end-of-round podium and rewards.
+> - [ ] **M8 — Final Polish, QA, Typecheck, Build & Deployment:** performance, netcode, audio
+>   and typecheck pass, final manual, commit and GitHub push.
+
 
 ---
 
@@ -35,8 +44,10 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
   loadout selectors, voice preview and freeze/charred/soot preview effects.
 - **Persistent identity:** your profile is stored in `localStorage` and synchronised to every
   other player through the authoritative server.
-- **Movement:** walk, sprint, crouch, dodge roll, jump, mantle, swim and an emergency
-  parachute with wind drift, steering and a faction-specific canopy.
+- **Movement:** walk, sprint, crouch, dodge roll, jump, mantle, swim, low-friction ice
+  sliding and an emergency parachute with wind drift, steering and a faction-specific canopy.
+- **Ice rinks:** two authored frozen patches (village pond and summit rink) use the shared
+  `ice_patch` surface tag for gliding, flailing movement and ice-slide audio.
 - **Multiplayer:** 60 Hz authoritative physics, 30 Hz binary snapshots, client prediction,
   reconciliation and remote interpolation.
 - **Audio:** fully procedural Web Audio graph (SFX, voice, ambience, limiter and 3D panning)

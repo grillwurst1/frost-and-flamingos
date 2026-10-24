@@ -15,6 +15,7 @@ import {
   MAP_SEGMENTS,
   MAP_SIZE,
   WATER_LEVEL,
+  isOnIcePatch,
   sampleMapHeight,
   terrainSlopeAt,
   type MapProp,
@@ -33,6 +34,8 @@ const ROCK_DARK = hexToColor4('#59636b');
 const SNOW = hexToColor4('#f3f9ff');
 const SNOW_SHADOW = hexToColor4('#d7e7f0');
 const STONE = hexToColor4('#a7a28f');
+const ICE = hexToColor4('#bfeaf8');
+const ICE_SHADOW = hexToColor4('#7cc6df');
 const WOOD = hexToColor4('#7a5135');
 const WOOD_DARK = hexToColor4('#4e3324');
 const WOOD_LIGHT = hexToColor4('#a9774b');
@@ -119,6 +122,9 @@ function terrainColorAt(x: number, z: number, height: number, slope: number): Co
   }
   if (height < 2.9) {
     return mixColor(SAND, MEADOW, Math.max(0, (height - 1.2) / 1.7) * 0.35);
+  }
+  if (isOnIcePatch(x, z)) {
+    return mixColor(ICE_SHADOW, ICE, 0.42 + patch * 0.4 + grain);
   }
   if (slope > 0.82) {
     return mixColor(ROCK_DARK, ROCK, patch);
