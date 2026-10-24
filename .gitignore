@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build output
+dist/
+.vite/
+*.tsbuildinfo
+
+# Local runtime data
+apps/server/data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+.Trash/
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Local scratch files
+.tmp-*
