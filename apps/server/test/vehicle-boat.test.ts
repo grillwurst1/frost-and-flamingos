@@ -39,8 +39,9 @@ describe('tactical badi-flamingo', () => {
     room.vehicles.devEnter(playerOf(room, pilot.id) as never, slot.id, 0);
     const body = room.vehicles.vehicleBody(slot.id);
     if (!body) throw new Error('no flamingo');
-    // Open water of the west lagoon (the flamingo base pier is behind the spawn).
-    parkVehicle(room, slot.id, -330, -200, 0);
+    // Open sea south of the island base: 400 m of deep water heading east
+    // (the turbo slides a flamingo far up any beach it reaches).
+    parkVehicle(room, slot.id, -230, -360, Math.PI / 2);
     expect(body.afloat).toBe(true);
     expect(body.position.y).toBeCloseTo(WATER_LEVEL - BOAT_DRAFT, 5);
     run(room, 180, () => sendInput(room, pilot, W, body.yaw));
@@ -60,6 +61,7 @@ describe('tactical badi-flamingo', () => {
     tap(room, pilot, W | InputButton.Sprint, body.yaw);
     expect(pilot.socket.eventsOf('FLAMINGO_BOOST').length).toBe(1);
     run(room, vehicleTicks(VEHICLES.badi_flamingo.boost?.cooldownSeconds ?? 7), () => sendInput(room, pilot, 0, body.yaw));
+    expect(body.afloat).toBe(true);
     tap(room, pilot, W | InputButton.Sprint, body.yaw);
     expect(pilot.socket.eventsOf('FLAMINGO_BOOST').length).toBe(2);
     room.stop();

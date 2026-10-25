@@ -39,6 +39,7 @@ import type {
   WindState,
 } from '../types/index.js';
 import { InputButton, ParachuteState as Parachute } from '../types/index.js';
+import { collidesWithVehicles } from './vehicle.js';
 import { PLAYER_COLLISION_GROUP, type PhysicsWorld } from './world.js';
 
 export interface CharacterBodyOptions {
@@ -951,12 +952,16 @@ export class CharacterBody {
       z: this.linearVelocity.z * FIXED_DT,
     };
 
+    // Vehicle hulls block every character whose collision groups accept them
+    // (read before the query: the moving collider is borrowed during it).
+    const hullsBlock = collidesWithVehicles(this.collider);
     this.controller.computeColliderMovement(
       this.collider,
       desiredMovement,
       RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
       undefined,
-      (collider) => !this.physics.isPlayerCollider(collider.handle),
+      (collider) =>
+        !this.physics.isPlayerCollider(collider.handle) && (hullsBlock || this.physics.vehicleForCollider(collider.handle) === null),
     );
 
     const corrected = this.controller.computedMovement();

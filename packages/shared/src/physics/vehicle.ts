@@ -16,8 +16,19 @@ import type { SurfaceTag } from '../types/map.js';
 import { InputButton, type InputButtonMask, type Vec3 } from '../types/index.js';
 import type { PhysicsWorld } from './world.js';
 
-/** Membership bit 3 = vehicle hulls; their contacts are never solved (kinematic). */
-export const VEHICLE_COLLISION_GROUP = 0x00040007;
+/**
+ * Membership bit 4 (0x0008) = vehicle hulls; filter = world (0x1), players
+ * (0x2) and other hulls (0x8). Their contacts are never solved (kinematic).
+ * A character whose membership is outside that filter (the drifter class,
+ * 0x0004) passes through every hull: see `collidesWithVehicles`.
+ */
+export const VEHICLE_COLLISION_GROUP = 0x0008000b;
+
+/** Whether hulls block, ram and shove this collider (false for a membership outside the hull filter). */
+export function collidesWithVehicles(collider: RAPIER.Collider): boolean {
+  const membership = collider.collisionGroups() >>> 16;
+  return (membership & VEHICLE_COLLISION_GROUP & 0xffff) !== 0;
+}
 
 /** What a seat controls this tick (a PlayerInput works as is). */
 export interface VehicleControlInput {
@@ -523,6 +534,9 @@ export class VehicleBody {
     let vy = this.linear.y;
     if (chassis === 'boat') {
       vy = 0;
+      const shore = this.boatShore(vx, vz, dt);
+      vx = shore.x;
+      vz = shore.z;
     } else if (this.isGrounded && vy <= 0.5) {
       vy = -2;
     } else {
@@ -541,7 +555,7 @@ export class VehicleBody {
       desired,
       RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
       undefined,
-      (collider) => !this.physics.isPlayerCollider(collider.handle),
+      (collider) => this.solid(collider.handle),
     );
     const moved = this.controller.computedMovement();
     const next = { x: this.base.x + moved.x, y: this.base.y + moved.y, z: this.base.z + moved.z };
@@ -621,6 +635,49 @@ export class VehicleBody {
     this.commitPose();
   }
 
+  /** Colliders the hull moves against: never players; boats follow the terrain analytically. */
+  private solid(handle: number): boolean {
+    if (this.physics.isPlayerCollider(handle)) return false;
+    return this.definition.chassis !== 'boat' || !this.physics.isTerrainCollider(handle);
+  }
+
+  /**
+   * Boats against the shore: sand is no wall, the inflatable slides up a
+   * gentle beach (slowed by the slope on top of the sand friction), while a
+   * bank steeper than its slope limit stops the motion into it.
+   */
+  private boatShore(vx: number, vz: number, dt: number): { x: number; z: number } {
+    const speed = Math.hypot(vx, vz);
+    if (speed < 1e-4) return { x: vx, z: vz };
+    const floor = WATER_LEVEL - BOAT_DRAFT;
+    const ground = (x: number, z: number): number => Math.max(floor, sampleMapHeight(x, z));
+    const reach = this.definition.halfExtents.z * 0.8 + speed * dt;
+    const bowX = this.base.x + (vx / speed) * reach;
+    const bowZ = this.base.z + (vz / speed) * reach;
+    const e = 0.6;
+    const gx = (ground(bowX + e, bowZ) - ground(bowX - e, bowZ)) / (2 * e);
+    const gz = (ground(bowX, bowZ + e) - ground(bowX, bowZ - e)) / (2 * e);
+    const steepness = Math.hypot(gx, gz);
+    let x = vx;
+    let z = vz;
+    if (steepness > Math.tan(this.definition.maxSlope)) {
+      const into = (x * gx + z * gz) / steepness;
+      if (into > 0) {
+        x -= (into * gx) / steepness;
+        z -= (into * gz) / steepness;
+      }
+      return { x, z };
+    }
+    const rise = (x * gx + z * gz) / speed;
+    if (rise > 0 && ground(this.base.x, this.base.z) > floor) {
+      // Uphill on the sand: gravity along the slope.
+      const slowed = Math.max(0, speed + (GRAVITY * rise * dt) / Math.hypot(1, rise));
+      x *= slowed / speed;
+      z *= slowed / speed;
+    }
+    return { x, z };
+  }
+
   /** Boat height: the waterline, or the sand under a beached hull. */
   private settleBoat(): void {
     const ground = sampleMapHeight(this.base.x, this.base.z);
@@ -640,7 +697,7 @@ export class VehicleBody {
       undefined,
       this.collider,
       this.body,
-      (collider) => !this.physics.isPlayerCollider(collider.handle),
+      (collider) => this.solid(collider.handle),
     );
     return hit !== null;
   }

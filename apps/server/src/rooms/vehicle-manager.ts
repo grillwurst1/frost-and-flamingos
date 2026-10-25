@@ -15,8 +15,10 @@ import {
   VEHICLE_SLOTS,
   VEHICLE_WRECK_BLAST,
   VEHICLES as VEHICLE_DEFINITIONS,
+  WATER_LEVEL,
   WEAPON_STATS,
   WEAPON_TABLE,
+  collidesWithVehicles,
   distanceToHull,
   distanceToVehicle,
   exitCandidates,
@@ -140,6 +142,8 @@ const SHOVE_SPEED = 3.2;
 const EMPTY_DRIFT_DISTANCE = 25;
 const PLAYER_RADIUS_PAD = 0.45;
 const SPAWN_CLEAR_RETRY_TICKS = PHYSICS_TICK_RATE;
+/** Feet of a swimmer floating at the surface (the character motor's float depth). */
+const EXIT_SWIM_FEET_Y = WATER_LEVEL - 1.1;
 
 function horizontalLength(x: number, z: number): number {
   return Math.hypot(x, z);
@@ -587,7 +591,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       }
     }
     for (const player of this.hooks.players()) {
-      if (!player.alive || this.seatOf.has(player.id)) continue;
+      if (!player.alive || this.seatOf.has(player.id) || !collidesWithVehicles(player.character.collider)) continue;
       if (distanceToHull(definition, position, record.slot.spawn.rotationY, player.character.position) < 0.6 && Math.abs(player.character.position.y - position.y) < 3) {
         return false;
       }
@@ -793,23 +797,31 @@ export class VehicleManager<P extends VehicleOccupant> {
     const height = player.character.standHeight;
     const radius = player.character.stats.radius;
     const shape = new RAPIER.Capsule(Math.max(0.05, height / 2 - radius), radius);
-    for (const candidate of candidates) {
-      const hit = this.physics.raycast({ x: candidate.x, y: candidate.y + 1.6, z: candidate.z }, { x: 0, y: -1, z: 0 }, 5);
-      const feetY = hit ? hit.point.y + 0.05 : candidate.y;
-      const center = { x: candidate.x, y: feetY + height / 2 + 0.02, z: candidate.z };
-      const blocked = this.physics.world.intersectionWithShape(
-        center,
-        { x: 0, y: 0, z: 0, w: 1 },
-        shape,
-        RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
-        undefined,
-        undefined,
-        undefined,
-        (collider) => !this.physics.isPlayerCollider(collider.handle),
-      );
-      if (blocked) continue;
-      this.releaseCharacter(player, { x: candidate.x, y: feetY, z: candidate.z }, body.velocity);
-      return true;
+    const onHull = (point: Vec3): boolean =>
+      this.records.some((other) => !!other.body && distanceToVehicle(other.definition, other.body.position, other.body.yaw, point) < 0.15);
+    // Ground beside the hull first; the roof of a neighbouring hull (or the
+    // own roof) only when every ground spot is blocked.
+    for (const roofs of [false, true]) {
+      for (const candidate of candidates) {
+        const hit = this.physics.raycast({ x: candidate.x, y: candidate.y + 1.6, z: candidate.z }, { x: 0, y: -1, z: 0 }, 5);
+        if (!roofs && hit && onHull(hit.point)) continue;
+        // Over deep water the swimmer starts at floating depth, not on the seabed.
+        const feetY = hit ? Math.max(hit.point.y + 0.05, Math.min(candidate.y, EXIT_SWIM_FEET_Y)) : candidate.y;
+        const center = { x: candidate.x, y: feetY + height / 2 + 0.02, z: candidate.z };
+        const blocked = this.physics.world.intersectionWithShape(
+          center,
+          { x: 0, y: 0, z: 0, w: 1 },
+          shape,
+          RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
+          undefined,
+          undefined,
+          undefined,
+          (collider) => !this.physics.isPlayerCollider(collider.handle),
+        );
+        if (blocked) continue;
+        this.releaseCharacter(player, { x: candidate.x, y: feetY, z: candidate.z }, body.velocity);
+        return true;
+      }
     }
     if (!force) return false;
     const top = candidates[candidates.length - 1] ?? body.position;
@@ -1060,6 +1072,8 @@ export class VehicleManager<P extends VehicleOccupant> {
     const half = definition.halfExtents;
     for (const player of this.hooks.players()) {
       if (!player.alive || this.seatOf.has(player.id)) continue;
+      // Untouchable characters (the drifter) pass straight through hulls.
+      if (!collidesWithVehicles(player.character.collider)) continue;
       const feet = player.character.position;
       if (feet.y > position.y + half.y * 2 + 0.3 || feet.y + player.character.standHeight < position.y - 0.2) continue;
       const local = vehicleWorldToLocal(position, body.yaw, feet);

@@ -53,6 +53,7 @@ export class PhysicsWorld {
   private readonly pieceColliders = new Map<string, number[]>();
   private readonly vehicles = new Map<number, VehicleBody>();
   private readonly vehicleColliderHandles = new Map<number, VehicleBody>();
+  private terrainColliderHandle = -1;
   private nextCharacterHandle = 1;
   private nextVehicleHandle = 1;
 
@@ -90,7 +91,7 @@ export class PhysicsWorld {
       .setFriction(0.92)
       .setRestitution(0)
       .setCollisionGroups(WORLD_COLLISION_GROUP);
-    this.world.createCollider(description);
+    this.terrainColliderHandle = this.world.createCollider(description).handle;
   }
 
   private createPropColliders(): void {
@@ -229,6 +230,11 @@ export class PhysicsWorld {
 
   isPlayerCollider(handle: number): boolean {
     return this.playerColliderHandles.has(handle);
+  }
+
+  /** The terrain heightfield (boats follow it analytically instead of colliding). */
+  isTerrainCollider(handle: number): boolean {
+    return handle === this.terrainColliderHandle;
   }
 
   /** Adds a drivable vehicle hull (kinematic, see physics/vehicle.ts). */
