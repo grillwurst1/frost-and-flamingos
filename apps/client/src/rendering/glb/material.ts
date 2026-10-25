@@ -6,6 +6,8 @@ import { Vector3, Vector4 } from '@babylonjs/core/Maths/math';
 import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
 import { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { BaseTexture } from '@babylonjs/core/Materials/Textures/baseTexture';
+import { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture';
+import { Texture } from '@babylonjs/core/Materials/Textures/texture';
 import type { Scene } from '@babylonjs/core/scene';
 import { LOOK_SAMPLERS, LOOK_UNIFORMS } from '../../shaders/look-common';
 import {
@@ -28,6 +30,21 @@ export interface PaintedTextures {
  * normal maps are mostly fine sculpt noise, so they stay subtle; the WebP
  * albedo needs no saturation/contrast push (that crushed the painted darks).
  */
+const flatNormals = new WeakMap<Scene, RawTexture>();
+
+/** Shared 1×1 tangent-space +Z normal for painted models without a normal map. */
+function flatNormalTexture(scene: Scene): RawTexture {
+  let texture = flatNormals.get(scene);
+  if (!texture) {
+    texture = RawTexture.CreateRGBATexture(new Uint8Array([128, 128, 255, 255]), 1, 1, scene, false, false, Texture.NEAREST_SAMPLINGMODE);
+    texture.name = 'glb-flat-normal';
+    flatNormals.set(scene, texture);
+    const created = texture;
+    scene.onDisposeObservable.addOnce(() => created.dispose());
+  }
+  return texture;
+}
+
 const PAINT_PARAMS = new Vector4(0.25, 1.0, 1.0, 0.28);
 const PROP_PARAMS = new Vector4(0, 1, 1, 0.12);
 
@@ -36,12 +53,15 @@ const PROP_PARAMS = new Vector4(0, 1, 1, 0.12);
  * the compiled shader program and the painted textures are shared, so a
  * second view of the same model costs no extra compile or texture memory.
  */
-/** Scene-alpha look mask values (see shaders/post.ts). */
+/**
+ * Scene-alpha look mask values (see shaders/post.ts): 0 stylised character,
+ * 1 world. There is no in-band "exempt" value (blends could fake it).
+ */
 export const LOOK_MASK_CHARACTER = 0;
-export const LOOK_MASK_EXEMPT = 0.5;
+export const LOOK_MASK_WORLD = 1;
 
 export interface GlbMaterialOptions {
-  /** Scene-alpha look mask: 0 stylised character (default), 0.5 exempt. */
+  /** Scene-alpha look mask: {@link LOOK_MASK_CHARACTER} (default) or {@link LOOK_MASK_WORLD}. */
   lookMask?: number;
   /** Physically based shading instead of the cel bands (textured only). */
   photoreal?: boolean;
@@ -98,8 +118,8 @@ export function createGlbMaterial(
   material.setFloat('uDither', 0);
   if (textures) {
     material.setTexture('albedoSampler', textures.albedo);
-    // Without a normal map the shader samples the albedo and a zero strength.
-    material.setTexture('normalSampler', textures.normal ?? textures.albedo);
+    // Without a normal map: a flat 1×1 normal (tangent-space +Z) and zero strength.
+    material.setTexture('normalSampler', textures.normal ?? flatNormalTexture(scene));
     if (!textures.normal) material.setVector4('uPaintParams', new Vector4(0, PAINT_PARAMS.y, PAINT_PARAMS.z, PAINT_PARAMS.w));
   }
   material.backFaceCulling = true;

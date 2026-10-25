@@ -30,7 +30,7 @@ import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
  *
  * FF_PHOTOREAL (with FF_TEXTURED) is the one photoreal exception (the Hot
  * Beach Girl): physically based sun and sky lighting without cel bands,
- * written with look mask 0.5 so the post stack leaves it alone. uDither
+ * on the character look mask (post.ts has no out-of-band exemption yet). uDither
  * discards an ordered-noise share of the fragments (the drifter's
  * pass-through shimmer); 0 keeps the surface solid.
  *

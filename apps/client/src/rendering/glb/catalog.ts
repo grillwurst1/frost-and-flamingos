@@ -137,7 +137,7 @@ export interface PaintedModelSpec {
   gait?: { walk: number; backpedal: number; idleRate?: number };
   /** Hovers this far (m) above the ground with a slow bob of `bob` m every `period` s. */
   hover?: { height: number; bob: number; period: number };
-  /** Physically based shading, exempt from the cel bands, ink and painterly post (look mask 0.5). */
+  /** Physically based shading instead of the cel bands, no world ink (character look mask). */
   photoreal?: boolean;
 }
 

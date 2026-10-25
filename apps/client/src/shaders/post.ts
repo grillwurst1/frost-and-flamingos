@@ -21,12 +21,10 @@
  *              where the mask changes between character and anything else
  *              (depth-gated, so translucent effects over a character draw
  *              none), 1.25× the world's outline width, on every tier.
- *   alpha 0.5  fully exempt ("photoreal"): no paint, sharpen, grain, ink or
- *              colour grading, only the vignette. A pixel counts as exempt
- *              only when it and its 4 neighbours read ≈ 0.5, so the
- *              anti-aliased 0↔1 edge of a stylised character never does.
- *              Exempt meshes should also call excludeFromInk() so the world
- *              around them draws no depth outline.
+ *   There is deliberately no "fully exempt" level: blended surfaces over a
+ *   character (water, smoke) leave alpha = their own alpha there, so any
+ *   in-band value can be produced by accident. A photoreal exemption needs
+ *   an out-of-band signal (stencil or a geometry-buffer channel).
  * ffPaint passes the alpha through; ffComic writes alpha 1 so the canvas
  * stays opaque.
  */
@@ -47,18 +45,10 @@ uniform vec4 uPaintParams;
 // after sampling: no runtime-indexed arrays, no per-tap trigonometry.
 const vec2 FF_HALF_STEP = vec2(0.98078528, 0.19509032);
 
-float ffExemptOf(float a) {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
-// x = stylised-character weight, y = exempt (photoreal) weight.
+// x = stylised-character weight, y = reserved (no exempt level: blends over a
+// character can produce any alpha, so an in-band value could false-trigger).
 vec2 ffLookMask(vec2 uv, float a0) {
-  float exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a));
-  return vec2((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2(1.0 - a0, 0.0);
 }
 
 vec2 ffStagger(vec2 d) {
@@ -141,18 +131,8 @@ struct FFSectorSum {
   q : vec3f,
 };
 
-fn ffExemptOf(a : f32) -> f32 {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
 fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  let texel = uniforms.uTexel;
-  var exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a));
-  return vec2f((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2f(1.0 - a0, 0.0);
 }
 
 fn ffStagger(d : vec2f) -> vec2f {
@@ -270,18 +250,10 @@ float ffHash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-float ffExemptOf(float a) {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
-// x = stylised-character weight, y = exempt (photoreal) weight.
+// x = stylised-character weight, y = reserved (no exempt level: blends over a
+// character can produce any alpha, so an in-band value could false-trigger).
 vec2 ffLookMask(vec2 uv, float a0) {
-  float exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a));
-  return vec2((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2(1.0 - a0, 0.0);
 }
 
 float ffNoise(vec2 p) {
@@ -454,18 +426,8 @@ fn ffHash(p : vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn ffExemptOf(a : f32) -> f32 {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
 fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  let texel = uniforms.uTexel;
-  var exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a));
-  return vec2f((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2f(1.0 - a0, 0.0);
 }
 
 fn ffNoise(p : vec2f) -> f32 {

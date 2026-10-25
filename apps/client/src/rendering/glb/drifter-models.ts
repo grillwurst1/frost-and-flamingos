@@ -11,7 +11,7 @@ import { registerPaintedModel, type NativeOutfit } from './catalog';
  *    soldiers, hovers ~6 cm with a slow bob, idles as an almost frozen walk
  *    cycle, beckons (Call_Gesture) and rarely skips in place (Skip_Forward).
  *  - Hot Beach Girl (meshy-lagoon-beachgirl.glb): the only photoreal
- *    character (physically based shading, exempt from the painterly post),
+ *    character (physically based shading, no cel bands or world ink),
  *    own Idle loop, Cheer when she starts healing someone.
  *
  * Both neither lend nor borrow clips (the soldiers keep their own motion and
