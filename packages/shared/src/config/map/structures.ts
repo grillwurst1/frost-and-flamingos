@@ -18,6 +18,7 @@ import {
   bambooGarageLayout,
   prismCollider,
   rampCollider,
+  stairCollider,
   sideHutLayout,
   sphereCollider,
 } from './buildings.js';
@@ -885,9 +886,9 @@ function midSupportSeeds(): PropSeed[] {
     boxCollider(3.6, 0.2, 3, 0, rise - 0.2, 0, { surface: 'wood' }),
     ...[-1, 1].flatMap((sx) => [-1, 1].map((sz) => cylinderCollider(0.35, rise / 2, sx * 3.2, rise / 2, sz * 2.6))),
     // Two switchback flights on the outside of the tower with a landing.
-    rampCollider(vec3(5.2, 0, -6.8), vec3(5.2, half, 1.2), 1.6, 0.3, { surface: 'wood' }),
-    boxCollider(1.2, 0.15, 1.2, 5.2, half - 0.15, 2.4, { surface: 'wood' }),
-    rampCollider(vec3(4.2, half, 3.6), vec3(4.2, rise, -2.6), 1.6, 0.3, { surface: 'wood' }),
+    stairCollider(vec3(5.6, 0, -6.8), vec3(5.6, half, 1.2), 1.6, { surface: 'wood' }),
+    boxCollider(1.6, 0.15, 1.2, 4.8, half - 0.15, 2.4, { surface: 'wood' }),
+    stairCollider(vec3(4.0, half, 3.6), vec3(4.0, rise, -2.6), 1.6, { surface: 'wood' }),
     boxCollider(0.6, 0.15, 1.2, 3.9, rise - 0.15, -2.2, { surface: 'wood' }),
   ];
   return [
@@ -986,7 +987,7 @@ function summitSeeds(): PropSeed[] {
     surface: 'wood',
     colliders: [
       boxCollider(4, 0.25, 4.5, 0, rise - 0.25, 0, { surface: 'wood' }),
-      rampCollider(vec3(5.6, 0, -4.6), vec3(5.6, rise, 1.6), 1.8, 0.3, { surface: 'wood' }),
+      stairCollider(vec3(5.6, 0, -6.4), vec3(5.6, rise, -0.6), 1.8, { surface: 'wood' }),
       boxCollider(1.4, 0.15, 1.4, 5.2, rise - 0.15, 0.6, { surface: 'wood' }),
       // Carved station chalet at the back of the covered docking balcony.
       boxCollider(4, 2.7, 1.2, 0, rise + 2.7, 3.3, { surface: 'wood' }),
@@ -1010,7 +1011,7 @@ function summitSeeds(): PropSeed[] {
     colliders: [
       boxCollider(3.5, coasterRise / 2, 3, -3.4, coasterRise / 2, -1, { surface: 'wood' }),
       // Stairs off the back edge, away from the summit ring path.
-      rampCollider(vec3(-6.9 - coasterRise / COASTER_STAIR_SLOPE, 0, -1), vec3(-6.9, coasterRise, -1), 2.2, 0.3, { surface: 'wood' }),
+      stairCollider(vec3(-6.9 - coasterRise / COASTER_STAIR_SLOPE, 0, -1), vec3(-6.9, coasterRise, -1), 2.2, { surface: 'wood' }),
     ],
   });
   const terrace = localToWorld(vec3(coasterStart.x, coasterFoot, coasterStart.z), coasterYaw, vec3(-6.5, 0, 2));

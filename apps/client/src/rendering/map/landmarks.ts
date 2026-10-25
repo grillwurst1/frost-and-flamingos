@@ -981,11 +981,11 @@ function drawMountainStation(batch: GeometryBatch, w: number, d: number, rise: n
   batch.box(0, rise - 0.32, 0, w + 0.1, 0.26, d + 0.1, P.logDark, 'wood', 0.04);
   const count = Math.round(w / 0.45);
   for (let index = 0; index < count; index += 1) plank(batch, -halfW + (index + 0.5) * (w / count), rise - 0.08, 0, d, w / count, index, false);
-  // Stairs on the +X side (collider ramp from z −4.6 to 1.6) and the landing.
+  // Stairs on the +X side (collider ramp from z −6.4 to −0.6) and the landing.
   const steps = Math.round(rise / 0.28);
   for (let step = 0; step < steps; step += 1) {
     const t = (step + 0.5) / steps;
-    batch.box(5.6, rise * t, -4.6 + 6.2 * t, 1.8, 0.12, 6.2 / steps + 0.05, P.plankLight, 'wood', 0.02);
+    batch.box(5.6, rise * t, -6.4 + 5.8 * t, 1.8, 0.12, 5.8 / steps + 0.05, P.plankLight, 'wood', 0.02);
   }
   batch.box(5.2, rise - 0.15, 0.6, 2.8, 0.3, 2.8, P.plank, 'wood', 0.04);
   for (const [x, z] of [
@@ -993,7 +993,7 @@ function drawMountainStation(batch: GeometryBatch, w: number, d: number, rise: n
     [6.5, 1.9],
   ] as const) batch.log([x, -0.3, z], [x, rise + 1.0, z], 0.12, P.log, 'wood', { segments: 5, endColor: P.logEnd });
   batch.log([6.5, rise + 1.0, -0.7], [6.5, rise + 1.0, 1.9], 0.07, P.logDark, 'wood', { segments: 4 });
-  batch.log([6.5, 1.0, -4.6], [6.5, rise + 1.0, 1.6], 0.06, P.logDark, 'wood', { segments: 4 });
+  batch.log([6.5, 1.0, -6.4], [6.5, rise + 1.0, -0.6], 0.06, P.logDark, 'wood', { segments: 4 });
 
   // Carved station chalet (collider: x ±4, z 2.1…4.5, 5.4 m tall).
   const zf = 2.1;

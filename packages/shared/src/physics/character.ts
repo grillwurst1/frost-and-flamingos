@@ -712,10 +712,14 @@ export class CharacterBody {
       this.linearVelocity.y = 0;
     }
 
-    if (Math.abs(corrected.x - desiredMovement.x) > 0.0001) {
+    // Climbing a slope or stair ramp shortens the horizontal step. Keeping the
+    // intended velocity there stops the per-axis acceleration from skewing the
+    // heading sideways (players slid off ramps and drifted on hillsides).
+    const climbingSlope = controllerGrounded && corrected.y > desiredMovement.y + 0.0001;
+    if (!climbingSlope && Math.abs(corrected.x - desiredMovement.x) > 0.0001) {
       this.linearVelocity.x = corrected.x / FIXED_DT;
     }
-    if (Math.abs(corrected.z - desiredMovement.z) > 0.0001) {
+    if (!climbingSlope && Math.abs(corrected.z - desiredMovement.z) > 0.0001) {
       this.linearVelocity.z = corrected.z / FIXED_DT;
     }
     if (desiredMovement.y > 0 && corrected.y < desiredMovement.y - 0.0001) {

@@ -457,7 +457,8 @@ const NODES: NodeSpec[] = [
   ...ROAD_NODES,
   // Summit ring and the alpine base
   ['summit_s', ...((): [number, number] => {
-    const p = localToWorld(TOWER_C_POSITION, SUMMIT_YAW, vec3(0, 0, 17));
+    // Offset west of the mountain station so the node is not under its deck.
+    const p = localToWorld(TOWER_C_POSITION, SUMMIT_YAW, vec3(-7, 0, 17));
     return [p.x, p.z];
   })()],
   ['summit_w', ...((): [number, number] => {
@@ -470,6 +471,10 @@ const NODES: NodeSpec[] = [
   })()],
   ['summit_n', ...((): [number, number] => {
     const p = localToWorld(TOWER_C_POSITION, SUMMIT_YAW, vec3(0, 0, -16));
+    return [p.x, p.z];
+  })()],
+  ['summit_porch', ...((): [number, number] => {
+    const p = localToWorld(TOWER_C_POSITION, SUMMIT_YAW, vec3(0, 0, 13));
     return [p.x, p.z];
   })()],
   ['summit_door', ...((): [number, number] => {
@@ -585,7 +590,8 @@ const EDGES: [string, string][] = [
   ['summit_s', 'summit_e'],
   ['summit_w', 'summit_n'],
   ['summit_e', 'summit_n'],
-  ['summit_s', 'summit_door'],
+  ['summit_s', 'summit_porch'],
+  ['summit_porch', 'summit_door'],
   ['summit_w', 'mountain_station'],
   ['summit_e', 'glacier_n'],
   ['glacier_n', 'glacier_s'],

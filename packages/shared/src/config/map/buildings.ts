@@ -119,6 +119,31 @@ export function rampCollider(
   );
 }
 
+/**
+ * Walkable stair flight: a thick slab whose top face runs exactly from `from`
+ * (foot) to `to` (head). Unlike a thin {@link rampCollider} its toe continues
+ * below the foot, so the character controller never slips into the slab's
+ * thin lower edge and then ignores it as a penetrating collider.
+ */
+export function stairCollider(from: Vec3, to: Vec3, width: number, options: Omit<ColliderOptions, 'rotation'> = {}): PropCollider {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const horizontal = Math.hypot(dx, dz) || 1;
+  const slope = (to.y - from.y) / horizontal;
+  const ux = dx / horizontal;
+  const uz = dz / horizontal;
+  const toe = 1.6;
+  return rampCollider(
+    { x: from.x - ux * toe, y: from.y - slope * toe, z: from.z - uz * toe },
+    to,
+    width,
+    STAIR_THICKNESS,
+    options,
+  );
+}
+
+const STAIR_THICKNESS = 1.0;
+
 export interface WallSpan {
   side: WallSide;
   /** Start / end along the wall axis (local X for front/back, local Z for left/right). */
