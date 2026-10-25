@@ -11,6 +11,11 @@ import { FJORD_MAP, INTERIM_CABLE_CAR_SPAWNS, PHYSICS_TICK_RATE, captureZoneInde
 import { createConquestRoom } from './conquest-harness';
 
 const minutes = Number(process.argv[2] ?? 30);
+// Tuning aid: FF_INTERIM_SHARE overrides the interim cable-car share for this run only.
+if (process.env.FF_INTERIM_SHARE) {
+  (INTERIM_CABLE_CAR_SPAWNS as { share: number }).share = Number(process.env.FF_INTERIM_SHARE);
+}
+console.log(`[time-to-B] interim share ${INTERIM_CABLE_CAR_SPAWNS.share}`);
 const harness = await createConquestRoom(true);
 const { internal } = harness;
 

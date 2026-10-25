@@ -150,13 +150,13 @@ function interimPad(index: number, x: number, z: number): SpawnPoint {
  * League won 7 of 7 bot rounds). While Peak Guard holds Tower C, `share` of
  * the spawns that would use its Tower C pads use these plates beside the
  * cable-car mid station on the village side instead (they also show only
- * while Peak Guard holds Tower C). From these plates Tower B is ~15 s away.
- * With half the Tower C spawns here, the measured mean time from a spawn to
- * the Tower B zone is 35.9 s for Peak Guard vs 36.8 s for the Lagoon League
- * (120-minute bot soak, apps/server/test/time-to-b.ts; rounds 6:10 instead
- * of 0:7). A higher share made Peak Guard win ~3 of 4 rounds (fast
- * reinforcements). Delete this constant and `selectConquestSpawn`'s interim
- * branch when the cable car lands.
+ * while Peak Guard holds Tower C). From these plates Tower B is ~16 s away.
+ * With 65 % of the Tower C spawns here, the measured mean time from a spawn to
+ * the Tower B zone is 31.9 s for Peak Guard vs 35.0 s for the Lagoon League
+ * (240-minute bot soak, apps/server/test/time-to-b.ts; rounds 15:20 instead
+ * of 0:7). 0.6 left Peak Guard 17 % slower, 0.7 made it 18 % faster. Delete
+ * this constant and `selectConquestSpawn`'s interim branch when the cable car
+ * lands.
  */
 export const INTERIM_CABLE_CAR_SPAWNS: {
   readonly enabled: boolean;
@@ -168,7 +168,7 @@ export const INTERIM_CABLE_CAR_SPAWNS: {
   enabled: true,
   faction: 'alpine',
   heldTower: 'tower_c',
-  share: 0.5,
+  share: 0.65,
   // Open plateau east of the mid station, 49–53 m from every Tower B pad (open sky, flat,
   // no clutter, ≥ 45 m from rival Tower B spawns; audited by test/spawn.test.ts).
   pads: [interimPad(0, 70, 48), interimPad(1, 73, 51), interimPad(2, 73, 45), interimPad(3, 70, 54)],
