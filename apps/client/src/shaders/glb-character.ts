@@ -28,6 +28,12 @@ import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
  * to mark character pixels for the post stack (less paint smear, no normal
  * ink or sharpen on characters; see shaders/post.ts).
  *
+ * FF_PHOTOREAL (with FF_TEXTURED) is the one photoreal exception (the Hot
+ * Beach Girl): physically based sun and sky lighting without cel bands,
+ * on the character look mask (post.ts has no out-of-band exemption yet). uDither
+ * discards an ordered-noise share of the fragments (the drifter's
+ * pass-through shimmer); 0 keeps the surface solid.
+ *
  * GLSL (WebGL2) and WGSL (WebGPU) blocks must stay line-for-line equivalent.
  */
 export const glbCharacterVertexGLSL = /* glsl */ `
@@ -86,11 +92,44 @@ uniform float uTime;
 uniform vec4 uPaintParams;
 /** Scene-alpha look mask written by this material (0 = stylised character, see post.ts). */
 uniform float uLookMask;
+/** Share of fragments discarded in an ordered pattern (pass-through shimmer). */
+uniform float uDither;
 #ifdef FF_TEXTURED
 uniform sampler2D albedoSampler;
 uniform sampler2D normalSampler;
 #endif
 ${LOOK_FRAGMENT_GLSL}
+
+#ifdef FF_PHOTOREAL
+// Photoreal exception: wrapped Lambert sun (soft skin terminator) over the
+// hemispheric sky/ground fill, GGX specular with Schlick Fresnel and a faint
+// sky reflection. No cel bands; cast shadows as everywhere else.
+vec3 ffPhotoreal(vec3 base, vec3 normal, vec3 worldPos, float roughness) {
+  vec3 light = normalize(lightDirection);
+  vec3 viewDirection = normalize(cameraPosition - worldPos);
+  float ndl = dot(normal, light);
+  float shadow = ffShadow(worldPos, normal, ndl);
+  float wrap = clamp((ndl + 0.2) / 1.2, 0.0, 1.0) * shadow;
+  float skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
+  vec3 fill = mix(uFFGroundFill, uFFSkyFill, skyMix);
+  vec3 color = base * mix(fill, uFFSunColor, wrap);
+  vec3 halfVector = normalize(light + viewDirection);
+  float ndh = max(dot(normal, halfVector), 0.0);
+  float ndv = max(dot(normal, viewDirection), 0.001);
+  float nl = max(ndl, 0.0);
+  float a = roughness * roughness;
+  float a2 = a * a;
+  float denom = ndh * ndh * (a2 - 1.0) + 1.0;
+  float distribution = a2 / (3.14159265 * denom * denom);
+  float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+  float visibility = 1.0 / ((nl * (1.0 - k) + k) * (ndv * (1.0 - k) + k) * 4.0);
+  float fresnel = 0.04 + 0.96 * pow(1.0 - max(dot(viewDirection, halfVector), 0.0), 5.0);
+  color += uFFSunColor * distribution * visibility * fresnel * nl * shadow;
+  float rimFresnel = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
+  color += uFFSkyFill * rimFresnel * (1.0 - roughness) * 0.35;
+  return color;
+}
+#endif
 
 float hash13(vec3 p) {
   p = fract(p * 0.1031);
@@ -159,16 +198,25 @@ void main(void) {
   base = mix(base, vec3(0.66, 0.9, 1.0), clamp(uFrozenState, 0.0, 1.0) * 0.62);
 
   float vinyl = gloss * (1.0 - clamp(uCharredState, 0.0, 1.0)) + clamp(uFrozenState, 0.0, 1.0) * 0.6;
+#ifdef FF_PHOTOREAL
+  vec3 lit = ffPhotoreal(base, normal, vWorldPosition, 0.55);
+#else
   vec3 lit = ffToon(base, normal, vWorldPosition, vinyl, rimStrength * 0.8, 1.0);
   // The painting already carries its own soft shading: lift the cel shade
   // band a little so the two do not stack into mud.
   lit = mix(lit, max(lit, base * uFFSunColor * 0.78), uPaintParams.w);
+#endif
 
   float iceShimmer = sin(uTime * 4.0 + vWorldPosition.y * 18.0) * 0.5 + 0.5;
   lit += vec3(0.55, 0.85, 1.0) * uFrozenState * (0.22 + iceShimmer * 0.18);
   lit += vec3(1.0, 0.42, 0.12) * uCharredState * (0.04 + sootMask * 0.05);
 
   lit = ffHaze(lit, vWorldPosition);
+  // Pass-through shimmer (last, after every derivative).
+  if (uDither > 0.001) {
+    float pattern = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    if (pattern < uDither) discard;
+  }
   // The alpha marks character pixels for the post stack (opaque material).
   gl_FragColor = vec4(lit, uLookMask);
 }
@@ -221,6 +269,7 @@ uniform uFrozenState : f32;
 uniform uTime : f32;
 uniform uPaintParams : vec4f;
 uniform uLookMask : f32;
+uniform uDither : f32;
 #ifdef FF_TEXTURED
 var albedoSamplerSampler : sampler;
 var albedoSampler : texture_2d<f32>;
@@ -233,6 +282,34 @@ varying vWorldPosition : vec3f;
 varying vWorldNormal : vec3f;
 varying vUV : vec2f;
 varying vColor : vec4f;
+
+#ifdef FF_PHOTOREAL
+fn ffPhotoreal(base : vec3f, normal : vec3f, worldPos : vec3f, roughness : f32) -> vec3f {
+  let light = normalize(uniforms.lightDirection);
+  let viewDirection = normalize(uniforms.cameraPosition - worldPos);
+  let ndl = dot(normal, light);
+  let shadow = ffShadow(worldPos, normal, ndl);
+  let wrap = clamp((ndl + 0.2) / 1.2, 0.0, 1.0) * shadow;
+  let skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
+  let fill = mix(uniforms.uFFGroundFill, uniforms.uFFSkyFill, skyMix);
+  var color = base * mix(fill, uniforms.uFFSunColor, wrap);
+  let halfVector = normalize(light + viewDirection);
+  let ndh = max(dot(normal, halfVector), 0.0);
+  let ndv = max(dot(normal, viewDirection), 0.001);
+  let nl = max(ndl, 0.0);
+  let a = roughness * roughness;
+  let a2 = a * a;
+  let denom = ndh * ndh * (a2 - 1.0) + 1.0;
+  let distribution = a2 / (3.14159265 * denom * denom);
+  let k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+  let visibility = 1.0 / ((nl * (1.0 - k) + k) * (ndv * (1.0 - k) + k) * 4.0);
+  let fresnel = 0.04 + 0.96 * pow(1.0 - max(dot(viewDirection, halfVector), 0.0), 5.0);
+  color += uniforms.uFFSunColor * distribution * visibility * fresnel * nl * shadow;
+  let rimFresnel = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
+  color += uniforms.uFFSkyFill * rimFresnel * (1.0 - roughness) * 0.35;
+  return color;
+}
+#endif
 
 fn hash13(pIn : vec3f) -> f32 {
   var p = fract(pIn * 0.1031);
@@ -296,14 +373,23 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   base = mix(base, vec3f(0.66, 0.9, 1.0), clamp(uniforms.uFrozenState, 0.0, 1.0) * 0.62);
 
   let vinyl = gloss * (1.0 - clamp(uniforms.uCharredState, 0.0, 1.0)) + clamp(uniforms.uFrozenState, 0.0, 1.0) * 0.6;
+#ifdef FF_PHOTOREAL
+  var lit = ffPhotoreal(base, normal, input.vWorldPosition, 0.55);
+#else
   var lit = ffToon(base, normal, input.vWorldPosition, vinyl, uniforms.rimStrength * 0.8, 1.0);
   lit = mix(lit, max(lit, base * uniforms.uFFSunColor * 0.78), uniforms.uPaintParams.w);
+#endif
 
   let iceShimmer = sin(uniforms.uTime * 4.0 + input.vWorldPosition.y * 18.0) * 0.5 + 0.5;
   lit += vec3f(0.55, 0.85, 1.0) * uniforms.uFrozenState * (0.22 + iceShimmer * 0.18);
   lit += vec3f(1.0, 0.42, 0.12) * uniforms.uCharredState * (0.04 + sootMask * 0.05);
 
   lit = ffHaze(lit, input.vWorldPosition);
+  // Pass-through shimmer (last, after every derivative).
+  if (uniforms.uDither > 0.001) {
+    let pattern = fract(52.9829189 * fract(dot(fragmentInputs.position.xy, vec2f(0.06711056, 0.00583715))));
+    if (pattern < uniforms.uDither) { discard; }
+  }
   fragmentOutputs.color = vec4f(lit, uniforms.uLookMask);
 }
 `;

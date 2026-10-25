@@ -99,9 +99,8 @@ interface BakeEntry {
 /**
  * Non-soldier characters whose clips are baked too. They keep their own
  * motion set only (no lending or borrowing); the tables mirror the clip
- * tables their runtime specs register in package 3G (apps/client/src/rendering/glb/
- * drifter-models.ts on feat/3g-ghost-girl, which registers them via
- * registerPaintedModel; until it merges, nothing requests these keys).
+ * tables their runtime specs register (apps/client/src/rendering/glb/
+ * drifter-models.ts, via registerPaintedModel).
  */
 const EXTRA_BAKES: Readonly<Record<string, BakeEntry>> = {
   'alpine-ghostgirl': {

@@ -1,5 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-compat';
-import { classStatsFor, mascotFormOf, type ClassStats } from '../config/classes.js';
+import { classStatsFor, drifterFormOf, mascotFormOf, type ClassStats } from '../config/classes.js';
+import { DRIFTER_TUNING } from '../config/drifter.js';
 import { sampleMapHeight, surfaceTagAt } from '../config/map-fjord.js';
 import {
   COCONUT_TUNING,
@@ -29,6 +30,7 @@ import {
 import type { SurfaceTag } from '../types/map.js';
 import type {
   ClassId,
+  DrifterForm,
   Faction,
   InputButtonMask,
   MascotForm,
@@ -39,7 +41,7 @@ import type {
   WindState,
 } from '../types/index.js';
 import { InputButton, ParachuteState as Parachute } from '../types/index.js';
-import { PLAYER_COLLISION_GROUP, type PhysicsWorld } from './world.js';
+import { DRIFTER_COLLISION_GROUP, PLAYER_COLLISION_GROUP, colliderHeightAt, type PhysicsWorld } from './world.js';
 
 export interface CharacterBodyOptions {
   position: Vec3;
@@ -62,7 +64,10 @@ interface SurfaceProperties {
   frictionScale: number;
 }
 
-const CROUCH_HEIGHT_SCALE = 0.65;
+/** Collider height of a fully crouched character, as a share of the standing height. */
+export const CROUCH_HEIGHT_SCALE = 0.65;
+/** Drifter: the water floor holds this far above her hover height (capsule contact offset on slopes). */
+const DRIFTER_SHORE_MARGIN = 0.1;
 const CROUCH_SPEED_SCALE = 0.55;
 const STRAFE_SPEED_SCALE = 0.85;
 const BACKWARD_SPEED_SCALE = 0.7;
@@ -81,7 +86,8 @@ function moveTowards(current: number, target: number, maxDelta: number): number 
   return current + Math.sign(target - current) * maxDelta;
 }
 
-function wrapAngle(angle: number): number {
+/** Wraps an angle to [-π, π] (unbounded camera yaws before int16 centi-radian encoding, headings). */
+export function wrapAngle(angle: number): number {
   const twoPi = Math.PI * 2;
   let wrapped = angle % twoPi;
   if (wrapped > Math.PI) wrapped -= twoPi;
@@ -137,6 +143,8 @@ export class CharacterBody {
   readonly stats: ClassStats;
   /** null for the human classes. */
   readonly form: MascotForm | null;
+  /** Set for the untouchable drifter class (walk-only motor branch). */
+  readonly drifter: DrifterForm | null;
   readonly body: RAPIER.RigidBody;
   readonly collider: RAPIER.Collider;
   private readonly physics: PhysicsWorld;
@@ -201,6 +209,7 @@ export class CharacterBody {
     const faction = options.faction ?? 'alpine';
     this.stats = classStatsFor(options.classId, faction);
     this.form = mascotFormOf(options.classId, faction);
+    this.drifter = drifterFormOf(options.classId, faction);
     this.baseHeight = this.stats.height;
     this.currentHeight = this.baseHeight;
     this.feet = { ...options.position };
@@ -218,7 +227,7 @@ export class CharacterBody {
     const colliderDescription = shape
       .setFriction(0)
       .setRestitution(0)
-      .setCollisionGroups(PLAYER_COLLISION_GROUP);
+      .setCollisionGroups(this.drifter ? DRIFTER_COLLISION_GROUP : PLAYER_COLLISION_GROUP);
     this.collider = physics.world.createCollider(colliderDescription, this.body);
 
     this.controller = physics.world.createCharacterController(0.02);
@@ -398,6 +407,8 @@ export class CharacterBody {
    * control. A launch also knocks the cow out of a Hoof Stomp wind-up.
    */
   launch(velocity: Vec3, seconds: number): void {
+    // Rams, shockwaves and bumps pass through a drifter.
+    if (this.drifter) return;
     this.linearVelocity = { ...velocity };
     this.launchTicks = Math.max(this.launchTicks, secondsToTicks(seconds));
     this.isGrounded = false;
@@ -420,7 +431,8 @@ export class CharacterBody {
 
   /** Coconut-milk puddle: ice traction while set (authoritative, per tick). */
   setSlippery(slippery: boolean): void {
-    this.slippery = slippery;
+    // A drifter floats a hand's breadth above the ground: puddles cannot grip her.
+    this.slippery = slippery && !this.drifter;
   }
 
   get isSlippery(): boolean {
@@ -726,6 +738,10 @@ export class CharacterBody {
       this.simulateMascot(input, trackButtons, speedScale);
       return;
     }
+    if (this.drifter) {
+      this.simulateDrifter(input, trackButtons);
+      return;
+    }
 
     if (this.mantleTimer > 0) {
       this.mantleTimer = Math.max(0, this.mantleTimer - FIXED_DT);
@@ -1025,6 +1041,116 @@ export class CharacterBody {
     };
     this.body.setNextKinematicTranslation(nextCenter);
     return blockedSpeed;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Drifter mode
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Feet height of the water surface she hovers on, or null where the
+   * terrain collider under her is clearly dry land. It asks the collider's
+   * own height (colliderHeightAt): sampleMapHeight splits each cell along
+   * the other diagonal and is metres off on steep cells (up to ~3.7 m), where
+   * she used to wade under the surface and then pop up. The floor is only
+   * ever a minimum (the ground wins wherever it is higher), so holding it
+   * DRIFTER_SHORE_MARGIN longer never lifts her above real ground.
+   */
+  private drifterWaterFloor(): number | null {
+    const floor = WATER_LEVEL + DRIFTER_TUNING.waterHoverHeight;
+    if (colliderHeightAt(this.feet.x, this.feet.z) >= floor + DRIFTER_SHORE_MARGIN) return null;
+    return floor;
+  }
+
+  /**
+   * Drifter: walk only. WASD relative to the camera at a calm walking pace
+   * (strafe and backwards slower), no sprint, jump, crouch, roll, mantle or
+   * parachute. Statuses (slows, boosts, puddles, launches) do not reach her.
+   * Long falls are a slow ghostly descent, and over water she hovers on the
+   * surface instead of swimming.
+   */
+  private simulateDrifter(input: PlayerInput, trackButtons: boolean): void {
+    const tuning = DRIFTER_TUNING;
+    const buttons = input.buttons;
+    this.crouchAmount = 0;
+    this.currentHeight = this.baseHeight;
+    this.rollTimer = 0;
+    this.rollRecovery = 0;
+    this.mantleTimer = 0;
+    if (this.parachute !== Parachute.Closed) this.cutawayParachute();
+    this.canopyBlend = 0;
+    this.groundClearance = 0;
+    this.isSprinting = false;
+    this.isSwimming = false;
+    this.launchTicks = 0;
+    this.slippery = false;
+
+    const moveX = (buttons & InputButton.Right ? 1 : 0) - (buttons & InputButton.Left ? 1 : 0);
+    const moveZ = (buttons & InputButton.Forward ? 1 : 0) - (buttons & InputButton.Backward ? 1 : 0);
+    const magnitude = Math.hypot(moveX, moveZ);
+    const hasMovement = magnitude > 0.001;
+    const normalizedX = magnitude > 1 ? moveX / magnitude : moveX;
+    const normalizedZ = magnitude > 1 ? moveZ / magnitude : moveZ;
+    const forwardX = Math.sin(input.yaw);
+    const forwardZ = Math.cos(input.yaw);
+    const rightX = Math.cos(input.yaw);
+    const rightZ = -Math.sin(input.yaw);
+    const directionScale = Math.hypot(
+      normalizedX * tuning.strafeScale,
+      normalizedZ * (normalizedZ >= 0 ? 1 : tuning.backwardScale),
+    );
+    const speed = tuning.walkSpeed * directionScale;
+    const desiredX = (forwardX * normalizedZ + rightX * normalizedX) * speed;
+    const desiredZ = (forwardZ * normalizedZ + rightZ * normalizedX) * speed;
+
+    this.surface = surfaceTagAt(this.feet.x, this.feet.z, this.feet.y);
+    const waterFloor = this.drifterWaterFloor();
+    const onWater = waterFloor !== null && this.feet.y <= waterFloor + 0.04;
+    const supported = this.isGrounded || onWater;
+
+    // She floats a hand's breadth above the ground, so ice and sand do not
+    // change her grip: one acceleration everywhere, reduced in the air.
+    if (supported) {
+      const rate = (hasMovement ? tuning.groundAcceleration : tuning.groundDeceleration) * FIXED_DT;
+      this.linearVelocity.x = moveTowards(this.linearVelocity.x, hasMovement ? desiredX : 0, rate);
+      this.linearVelocity.z = moveTowards(this.linearVelocity.z, hasMovement ? desiredZ : 0, rate);
+    } else if (hasMovement) {
+      const rate = tuning.groundAcceleration * tuning.airControl * FIXED_DT;
+      this.linearVelocity.x = moveTowards(this.linearVelocity.x, desiredX, rate);
+      this.linearVelocity.z = moveTowards(this.linearVelocity.z, desiredZ, rate);
+    }
+
+    if (waterFloor !== null && this.feet.y <= waterFloor) {
+      // Back up onto the surface (only after something pushed her below it).
+      this.linearVelocity.y = Math.min(tuning.waterRiseSpeed, (waterFloor - this.feet.y) / FIXED_DT);
+    } else if (!this.isGrounded) {
+      const descent = this.linearVelocity.y + GRAVITY * tuning.gravityScale * FIXED_DT;
+      this.linearVelocity.y = Math.max(-tuning.maxFallSpeed, descent);
+      // Never sink through the water surface on the way down.
+      if (waterFloor !== null) {
+        const room = (waterFloor - this.feet.y) / FIXED_DT;
+        this.linearVelocity.y = Math.max(this.linearVelocity.y, room);
+      }
+    } else if (this.linearVelocity.y < 0) {
+      this.linearVelocity.y = -1.5;
+    }
+
+    this.moveAndCollide();
+
+    // The ground snap and probe know nothing about water: put her feet back
+    // on the surface wherever the terrain under her lies below it.
+    const floorAfter = this.drifterWaterFloor();
+    if (floorAfter !== null && this.feet.y <= floorAfter + 0.0001) {
+      this.feet = { x: this.feet.x, y: floorAfter, z: this.feet.z };
+      this.body.setNextKinematicTranslation({
+        x: this.feet.x,
+        y: floorAfter + this.baseHeight / 2,
+        z: this.feet.z,
+      });
+      this.linearVelocity.y = 0;
+      this.isGrounded = true;
+    }
+    if (trackButtons) this.previousButtons = buttons;
   }
 
   // ---------------------------------------------------------------------------

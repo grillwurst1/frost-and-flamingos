@@ -6,10 +6,43 @@ import type { Vec3 } from '../types/index.js';
 import type { MapProp, PropCollider } from '../types/map.js';
 import { CharacterBody, type CharacterBodyOptions } from './character.js';
 
-/** Membership bit 1 = static world, filter accepts world and player bodies. */
-export const WORLD_COLLISION_GROUP = 0x00010003;
+/** Membership bit 1 = static world, filter accepts world, player and drifter bodies. */
+export const WORLD_COLLISION_GROUP = 0x00010007;
 /** Membership bit 2 = player bodies, filter accepts world and player bodies. */
 export const PLAYER_COLLISION_GROUP = 0x00020003;
+/**
+ * Membership bit 3 = untouchable drifter bodies, filter accepts the world
+ * only: no contact pair with any player or mascot exists in either direction.
+ * (Movement and world raycasts additionally skip every character collider.)
+ */
+export const DRIFTER_COLLISION_GROUP = 0x00040001;
+
+/**
+ * Height of the terrain collider (the Rapier heightfield that
+ * createTerrainCollider builds from FJORD_MAP.heights) at (x, z), using
+ * Rapier's own triangulation: every cell splits along its (x0, z1)–(x1, z0)
+ * diagonal. sampleMapHeight splits the other diagonal (like the rendered
+ * mesh), so on steep cells the two differ by metres (up to ~3.7 m). Anything that has
+ * to agree with where a body really stands (the drifter's water floor) asks
+ * this instead. Pure and deterministic, so client and server get the same
+ * value without a ray cast (matches a downward ray to ~1e-4 m).
+ */
+export function colliderHeightAt(x: number, z: number): number {
+  const points = MAP_SEGMENTS + 1;
+  const heights = FJORD_MAP.heights;
+  const normalizedX = Math.min(1, Math.max(0, (x + MAP_HALF_SIZE) / MAP_SIZE)) * MAP_SEGMENTS;
+  const normalizedZ = Math.min(1, Math.max(0, (z + MAP_HALF_SIZE) / MAP_SIZE)) * MAP_SEGMENTS;
+  const column = Math.min(MAP_SEGMENTS - 1, Math.floor(normalizedX));
+  const row = Math.min(MAP_SEGMENTS - 1, Math.floor(normalizedZ));
+  const fx = normalizedX - column;
+  const fz = normalizedZ - row;
+  const h00 = heights[column * points + row] ?? 0;
+  const h10 = heights[(column + 1) * points + row] ?? 0; // (x1, z0)
+  const h01 = heights[column * points + row + 1] ?? 0; // (x0, z1)
+  const h11 = heights[(column + 1) * points + row + 1] ?? 0;
+  if (fx + fz <= 1) return h00 + fx * (h10 - h00) + fz * (h01 - h00);
+  return h11 + (1 - fx) * (h01 - h11) + (1 - fz) * (h10 - h11);
+}
 
 let rapierInitialization: Promise<void> | null = null;
 

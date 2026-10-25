@@ -1,5 +1,6 @@
 import {
   CLASS_DEFAULT_LOADOUTS,
+  DRIFTER_AURA,
   FALL_RESPAWN_Y,
   FIXED_DT,
   InputButton,
@@ -24,6 +25,8 @@ import {
   WEAPON_STATS,
   WEAPON_TABLE,
   PhysicsWorld,
+  classAvailableForFaction,
+  classCapabilities,
   classStatsFor,
   createDefaultProfile,
   critterKillValue,
@@ -33,11 +36,14 @@ import {
   encodeSnapshot,
   normalizeProfile,
   randomSpawnForFaction,
+  resolveClassForFaction,
   sampleMapHeight,
   sanitizeDisplayName,
   skillsForClass,
   weaponForSlot,
+  wrapAngle,
   type CharacterBody,
+  type ClassCapabilities,
   type ClassId,
   type Faction,
   type GameEvent,
@@ -157,6 +163,19 @@ interface PlayerConnection {
   dazedUntilTick: number;
   /** Mascot ram cooldown per victim id: earliest tick of the next ram. */
   ramCooldowns: Map<number, number>;
+  /** Physics tick of the last hit taken (aura vitality waits for out-of-combat). */
+  lastDamagedTick: number;
+  /** Reserve ammo a friendly drifter's aura owes per weapon slot (integer units, see updateSupplyAura). */
+  supplyAmmo: [number, number, number];
+  /** Support points (whole), see DRIFTER_AURA. They survive respawns like kills. */
+  support: number;
+  /** Lifetime vitality this drifter's aura healed / magazines it handed out. */
+  supportVitality: number;
+  supportMagazines: number;
+  /** Aura flags of the current tick (snapshot status bits). */
+  auraHealed: boolean;
+  auraResupplied: boolean;
+  auraActive: boolean;
   lastProfileUpdateAt: number;
   bot: BotState | null;
 }
@@ -283,6 +302,13 @@ export interface RoomStatus {
     respawns: number;
     flees: number;
   };
+  drifters: {
+    active: number;
+    /** Lifetime vitality healed and magazines refilled by every drifter aura. */
+    vitalityHealed: number;
+    magazinesRefilled: number;
+    supportPoints: number;
+  };
 }
 
 const PROFILE_UPDATE_COOLDOWN_MS = 120;
@@ -304,6 +330,22 @@ const BOT_NAMES = [
 ] as const satisfies readonly { name: string; faction: Faction; classId: ClassId; mascotChance: number }[];
 
 const ZERO_VELOCITY: Vec3 = { x: 0, y: 0, z: 0 };
+/** "Never hit": the aura treats a fresh player as out of combat. */
+const NEVER_DAMAGED_TICK = -1_000_000;
+const AURA_OUT_OF_COMBAT_TICKS = Math.round(DRIFTER_AURA.outOfCombatSeconds * PHYSICS_TICK_RATE);
+const AURA_HEAL_PER_TICK = DRIFTER_AURA.healPerSecond / PHYSICS_TICK_RATE;
+const AURA_MAGAZINE_TICKS = Math.max(1, Math.round(DRIFTER_AURA.magazineSeconds * PHYSICS_TICK_RATE));
+/** Float tolerance for whole support points (lifetime totals are sums of tick slices). */
+const SUPPORT_EPSILON = 1e-6;
+
+function capabilitiesOf(player: PlayerConnection): ClassCapabilities {
+  return classCapabilities(player.profile.cosmetics.classId);
+}
+
+/** Drifters: no shot, splash, ram, shockwave or status ever reaches them. */
+function untouchable(player: PlayerConnection): boolean {
+  return !capabilitiesOf(player).targetable;
+}
 
 /**
  * Local playtest aid: FF_PLAYTEST_ARENA="x,z" spawns every player and bot
@@ -487,6 +529,7 @@ export class MatchRoom {
     this.physics.step();
     this.resolveMascotRams();
     this.resolveCritterRams();
+    this.updateSupplyAura();
     // Out-of-world guard: anything that slips below the world respawns safely.
     for (const player of this.players.values()) {
       if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
@@ -603,6 +646,8 @@ export class MatchRoom {
     player.lastAttackerId = 0;
     player.dazedUntilTick = 0;
     player.ramCooldowns.clear();
+    player.lastDamagedTick = NEVER_DAMAGED_TICK;
+    player.supplyAmmo = [0, 0, 0];
     player.ammo = createAmmo(player.profile.loadout);
     player.activeSlot = 1;
     player.reloadEndsTick = 0;
@@ -639,7 +684,7 @@ export class MatchRoom {
   /** True when another living player stands on (or right next to) a spawn pad. */
   private isSpawnOccupied(position: Vec3, selfId: number): boolean {
     for (const other of this.players.values()) {
-      if (other.id === selfId || !other.alive) continue;
+      if (other.id === selfId || !other.alive || untouchable(other)) continue;
       const feet = other.character.position;
       if (Math.hypot(feet.x - position.x, feet.z - position.z) < 1.6 && Math.abs(feet.y - position.y) < 2.5) return true;
     }
@@ -676,7 +721,7 @@ export class MatchRoom {
 
   private startReload(player: PlayerConnection): void {
     if (!player.alive || player.reloadEndsTick > this.physicsTick) return;
-    if (player.character.form) return;
+    if (player.character.form || !capabilitiesOf(player).armed) return;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const stats = WEAPON_STATS[weaponId];
     if (stats.magazine <= 0 || stats.reloadSeconds <= 0) return;
@@ -699,8 +744,8 @@ export class MatchRoom {
 
   private tryFire(player: PlayerConnection, clientTick: number): void {
     if (!player.alive) return;
-    // Mascots carry no firearms.
-    if (player.character.form) return;
+    // Mascots and drifters carry no firearms.
+    if (player.character.form || !capabilitiesOf(player).armed) return;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const stats = WEAPON_STATS[weaponId];
     if (stats.fireMode === 'melee' && stats.damage <= 0) return;
@@ -725,7 +770,8 @@ export class MatchRoom {
       eventType: 'WEAPON_FIRED',
       actorId: player.id,
       targetId: 0,
-      paramX: Math.round(player.lastInput.yaw * 100),
+      // The camera yaw is unbounded: wrapped first, or the int16 clamps it.
+      paramX: Math.round(wrapAngle(player.lastInput.yaw) * 100),
       paramZ: Math.round(player.lastInput.pitch * 100),
       paramValue: WEAPON_TABLE.code[weaponId],
     });
@@ -806,6 +852,8 @@ export class MatchRoom {
     for (const other of this.players.values()) {
       if (other.id === player.id) continue;
       if (other.profile.faction === player.profile.faction) continue;
+      // Shots and projectiles pass through a drifter to whoever stands behind her.
+      if (untouchable(other)) continue;
       const classStats = classStatsFor(other.profile.cosmetics.classId, other.profile.faction);
       const state = sample?.players.get(other.id);
       targets.push({
@@ -860,8 +908,11 @@ export class MatchRoom {
     headshot: boolean,
   ): void {
     if (!target.alive || baseDamage <= 0) return;
+    // Untouchable: no hit, no marker, no vignette, no kill.
+    if (!capabilitiesOf(target).damageable) return;
     if (attacker && attacker.profile.faction === target.profile.faction) return;
     if (this.physicsTick < target.spawnProtectionUntil) return;
+    target.lastDamagedTick = this.physicsTick;
 
     const weaponMultiplier = headshot && weaponId ? WEAPON_STATS[weaponId].headshotMultiplier : 1;
     // A mascot's head is a small part of a big body: headshots on it count less.
@@ -894,6 +945,7 @@ export class MatchRoom {
     headshot: boolean,
   ): void {
     if (!target.alive) return;
+    if (!capabilitiesOf(target).damageable) return;
     target.alive = false;
     target.hp = 0;
     target.shield = 0;
@@ -944,9 +996,10 @@ export class MatchRoom {
   }
 
   private useSkill(player: PlayerConnection, index: 0 | 1 | 2): void {
-    if (!player.alive) return;
+    if (!player.alive || !capabilitiesOf(player).skills) return;
     if ((player.skillCooldowns[index] ?? 0) > 0) return;
     const skill = skillsForClass(player.profile.cosmetics.classId, player.profile.faction)[index];
+    if (!skill) return;
     player.skillCooldowns[index] = skill.cooldownSeconds;
     this.applySkill(player, skill);
     this.broadcastEvent({
@@ -985,7 +1038,7 @@ export class MatchRoom {
       case 'aoe': {
         this.critterBlast(player.character.position, skill.radius, player.id, null);
         for (const other of this.players.values()) {
-          if (other.id === player.id || !other.alive) continue;
+          if (other.id === player.id || !other.alive || untouchable(other)) continue;
           if (other.profile.faction === player.profile.faction) continue;
           if (distance3(player.character.position, other.character.position) > skill.radius) continue;
           this.damagePlayer(other, player, skill.amount, null, false);
@@ -995,7 +1048,7 @@ export class MatchRoom {
       case 'slow': {
         this.critterBlast(player.character.position, skill.radius, player.id, null);
         for (const other of this.players.values()) {
-          if (other.id === player.id || !other.alive) continue;
+          if (other.id === player.id || !other.alive || untouchable(other)) continue;
           if (other.profile.faction === player.profile.faction) continue;
           if (distance3(player.character.position, other.character.position) > skill.radius) continue;
           other.slowUntilTick = Math.max(
@@ -1080,7 +1133,7 @@ export class MatchRoom {
     if (radius <= 0) return;
     this.critterBlast(position, radius, owner.id, weaponId);
     for (const other of this.players.values()) {
-      if (!other.alive) continue;
+      if (!other.alive || untouchable(other)) continue;
       if (other.id === owner.id) continue;
       if (other.profile.faction === owner.profile.faction) continue;
       const distance = distance3(position, other.character.position);
@@ -1148,7 +1201,7 @@ export class MatchRoom {
       paramValue: kind === 'stomp' ? 1 : 2,
     });
     for (const other of this.players.values()) {
-      if (!other.alive || !this.isEnemy(player, other)) continue;
+      if (!other.alive || !this.isEnemy(player, other) || untouchable(other)) continue;
       const feet = other.character.position;
       const dx = feet.x - position.x;
       const dz = feet.z - position.z;
@@ -1179,7 +1232,7 @@ export class MatchRoom {
     const skill = SKILLS.cowbell_clang;
     const until = this.physicsTick + secondsToTicks(skill.durationSeconds);
     for (const other of this.players.values()) {
-      if (!other.alive || !this.isEnemy(player, other)) continue;
+      if (!other.alive || !this.isEnemy(player, other) || untouchable(other)) continue;
       if (this.physicsTick < other.spawnProtectionUntil) continue;
       if (distance3(player.character.position, other.character.position) > skill.radius) continue;
       other.dazedUntilTick = Math.max(other.dazedUntilTick, until);
@@ -1227,7 +1280,7 @@ export class MatchRoom {
     }
     for (const player of this.players.values()) {
       let slippery = false;
-      if (player.alive) {
+      if (player.alive && !untouchable(player)) {
         const feet = player.character.position;
         for (const puddle of this.puddles) {
           if (puddle.faction === player.profile.faction) continue;
@@ -1315,6 +1368,8 @@ export class MatchRoom {
       const rewind = rammer.isBot ? null : this.lagSampleAt(this.physicsTick - MASCOT_RAM_REWIND_TICKS);
       for (const victim of this.players.values()) {
         if (victim.id === rammer.id || !victim.alive) continue;
+        // Mascots charge straight through a drifter: no ram, no bump.
+        if (untouchable(victim)) continue;
         if (this.physicsTick < (rammer.ramCooldowns.get(victim.id) ?? 0)) continue;
         const touched = this.ramTouch(rammer, form, victim, rewind);
         if (!touched) continue;
@@ -1500,11 +1555,17 @@ export class MatchRoom {
   // Critters (wandering hens)
   // ---------------------------------------------------------------------------
 
-  /** Living players scare critters; nobody else does. */
+  /**
+   * Living, damageable players scare critters; nobody else does. Untouchable
+   * drifters (classCapabilities(...).damageable === false) walk among the hens
+   * without making them flee.
+   */
   private critterThreats(): CritterThreat[] {
     const threats: CritterThreat[] = [];
     for (const player of this.players.values()) {
-      if (player.alive) threats.push({ position: player.character.position });
+      if (player.alive && capabilitiesOf(player).damageable) {
+        threats.push({ position: player.character.position });
+      }
     }
     return threats;
   }
@@ -1558,12 +1619,113 @@ export class MatchRoom {
     return { ok: moved > 0, moved };
   }
 
+  // ---------------------------------------------------------------------------
+  // Drifters: supply aura ("Versorgungs-Aura") and support points
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Every tick, each living teammate of a drifter within DRIFTER_AURA.radius
+   * is supplied by exactly one drifter (the nearest; a second one adds
+   * nothing): vitality regenerates while the teammate has been out of combat
+   * for outOfCombatSeconds, and every weapon slot with a reserve refills one
+   * magazine's worth per magazineSeconds (never the loaded magazine). The
+   * supplying drifter earns a support point per vitalityPerPoint healed and per
+   * magazinesPerPoint handed out. Drifters and enemies are never supplied.
+   */
+  private updateSupplyAura(): void {
+    const drifters: PlayerConnection[] = [];
+    for (const player of this.players.values()) {
+      player.auraHealed = false;
+      player.auraResupplied = false;
+      player.auraActive = false;
+      if (player.alive && player.character.drifter) drifters.push(player);
+    }
+    if (drifters.length === 0) return;
+    const aura = DRIFTER_AURA;
+    for (const mate of this.players.values()) {
+      if (!mate.alive || mate.character.drifter) continue;
+      const feet = mate.character.position;
+      let supplier: PlayerConnection | null = null;
+      let nearest = Number.POSITIVE_INFINITY;
+      for (const drifter of drifters) {
+        if (drifter.profile.faction !== mate.profile.faction) continue;
+        const distance = distance3(drifter.character.position, feet);
+        if (distance <= aura.radius && distance < nearest) {
+          nearest = distance;
+          supplier = drifter;
+        }
+      }
+      if (!supplier) continue;
+
+      const maxHp = classStatsFor(mate.profile.cosmetics.classId, mate.profile.faction).maxHp;
+      const outOfCombat = this.physicsTick - mate.lastDamagedTick >= AURA_OUT_OF_COMBAT_TICKS;
+      if (outOfCombat && mate.hp < maxHp) {
+        const healed = Math.min(AURA_HEAL_PER_TICK, maxHp - mate.hp);
+        mate.hp = Math.min(maxHp, mate.hp + healed);
+        mate.auraHealed = true;
+        supplier.auraActive = true;
+        supplier.supportVitality += healed;
+      }
+
+      if (!mate.character.form && capabilitiesOf(mate).armed) {
+        for (let index = 0; index < 3; index += 1) {
+          const slot = (index + 1) as WeaponSlot;
+          const stats = WEAPON_STATS[weaponForSlot(mate.profile.loadout, slot)];
+          const ammo = mate.ammo[index];
+          // Charge gimmicks without a reserve (and melee) are not resupplied.
+          if (!ammo || stats.magazine <= 0 || stats.reserve <= 0) continue;
+          if (ammo.reserve >= stats.reserve) {
+            mate.supplyAmmo[index] = 0;
+            continue;
+          }
+          // Exact integer bookkeeping: every tick owes `magazine` units and one
+          // round costs AURA_MAGAZINE_TICKS units (one magazine per magazineSeconds).
+          const owed = (mate.supplyAmmo[index] ?? 0) + stats.magazine;
+          const whole = Math.floor(owed / AURA_MAGAZINE_TICKS);
+          const rounds = Math.min(whole, stats.reserve - ammo.reserve);
+          mate.supplyAmmo[index] = owed - whole * AURA_MAGAZINE_TICKS;
+          if (rounds > 0) {
+            ammo.reserve += rounds;
+            supplier.supportMagazines += rounds / stats.magazine;
+          }
+          mate.auraResupplied = true;
+          supplier.auraActive = true;
+        }
+      }
+    }
+    for (const drifter of drifters) {
+      drifter.support =
+        Math.floor(drifter.supportVitality / aura.vitalityPerPoint + SUPPORT_EPSILON) +
+        Math.floor(drifter.supportMagazines / aura.magazinesPerPoint + SUPPORT_EPSILON);
+    }
+  }
+
+  private drifterStatus(): RoomStatus['drifters'] {
+    let active = 0;
+    let vitalityHealed = 0;
+    let magazinesRefilled = 0;
+    let supportPoints = 0;
+    for (const player of this.players.values()) {
+      if (player.character.drifter) active += 1;
+      vitalityHealed += player.supportVitality;
+      magazinesRefilled += player.supportMagazines;
+      supportPoints += player.support;
+    }
+    return {
+      active,
+      vitalityHealed: Math.round(vitalityHealed * 10) / 10,
+      magazinesRefilled: Math.round(magazinesRefilled * 100) / 100,
+      supportPoints,
+    };
+  }
+
   /** Mascot-capable bots re-roll between the mascot and their human class. */
   private rollBotClass(player: PlayerConnection, position: Vec3): void {
     const bot = player.bot;
     if (!bot || bot.mascotChance <= 0) return;
     const classId: ClassId = Math.random() < bot.mascotChance ? 'mascot' : bot.humanClass;
     if (classId === player.profile.cosmetics.classId) return;
+    if (!classCapabilities(classId).botsMayPick) return;
     const base = createDefaultProfile(player.profile.displayName, classId);
     player.profile = {
       ...base,
@@ -1631,6 +1793,14 @@ export class MatchRoom {
         slowUntilTick: 0,
         dazedUntilTick: 0,
         ramCooldowns: new Map(),
+        lastDamagedTick: NEVER_DAMAGED_TICK,
+        supplyAmmo: [0, 0, 0],
+        support: 0,
+        supportVitality: 0,
+        supportMagazines: 0,
+        auraHealed: false,
+        auraResupplied: false,
+        auraActive: false,
         lastProfileUpdateAt: 0,
         bot: {
           mascotChance: entry.mascotChance,
@@ -1932,6 +2102,8 @@ export class MatchRoom {
     for (const other of this.players.values()) {
       if (other.id === player.id || !other.alive) continue;
       if (other.profile.faction === player.profile.faction) continue;
+      // Bots never waste a bullet on a drifter: nothing can touch her.
+      if (untouchable(other)) continue;
       const distance = distance3(player.character.position, other.character.position);
       if (distance > 85) continue;
       if (
@@ -1971,8 +2143,9 @@ export class MatchRoom {
 
     const id = this.allocatePlayerId();
     const requested = normalizeProfile(hello.profile);
-    const faction = this.pickFaction(requested.faction);
-    const classId: ClassId = requested.cosmetics.classId;
+    const faction = this.pickFaction(requested.faction, requested.cosmetics.classId);
+    // A drifter form that has not shipped falls back to the default class.
+    const classId: ClassId = resolveClassForFaction(requested.cosmetics.classId, faction);
     const displayName = sanitizeDisplayName(requested.displayName, `Vacationer ${id}`);
     const profile: PlayerProfile = {
       displayName,
@@ -2013,6 +2186,14 @@ export class MatchRoom {
       slowUntilTick: 0,
       dazedUntilTick: 0,
       ramCooldowns: new Map(),
+      lastDamagedTick: NEVER_DAMAGED_TICK,
+      supplyAmmo: [0, 0, 0],
+      support: 0,
+      supportVitality: 0,
+      supportMagazines: 0,
+      auraHealed: false,
+      auraResupplied: false,
+      auraActive: false,
       lastProfileUpdateAt: 0,
       bot: null,
     };
@@ -2071,7 +2252,7 @@ export class MatchRoom {
     if (playerId === undefined) return;
     const player = this.players.get(playerId);
     if (!player || player.isBot || !player.alive) return;
-    if (player.character.form) return;
+    if (player.character.form || !capabilitiesOf(player).armed) return;
     const weaponId = WEAPON_TABLE.byCode[fire.weaponId];
     if (!weaponId) return;
     if (weaponId !== weaponForSlot(player.profile.loadout, player.activeSlot)) return;
@@ -2097,7 +2278,8 @@ export class MatchRoom {
     player.lastProfileUpdateAt = now;
 
     const normalized = normalizeProfile(incoming, player.profile);
-    const classId = normalized.cosmetics.classId;
+    // The faction stays; a drifter form that has not shipped falls back.
+    const classId = resolveClassForFaction(normalized.cosmetics.classId, player.profile.faction);
     const profile: PlayerProfile = {
       displayName: sanitizeDisplayName(normalized.displayName, `Vacationer ${player.id}`),
       faction: player.profile.faction,
@@ -2133,6 +2315,8 @@ export class MatchRoom {
     player.slowUntilTick = 0;
     player.dazedUntilTick = 0;
     player.ramCooldowns.clear();
+    player.lastDamagedTick = NEVER_DAMAGED_TICK;
+    player.supplyAmmo = [0, 0, 0];
     player.spawnProtectionUntil = this.physicsTick + SPAWN_PROTECTION_TICKS;
     player.inputQueue.length = 0;
     player.fireQueue.length = 0;
@@ -2167,6 +2351,7 @@ export class MatchRoom {
     for (const player of this.players.values()) {
       const state = player.character;
       const classId = player.profile.cosmetics.classId;
+      const unarmed = state.form !== null || !classCapabilities(classId).armed;
       players.push({
         id: player.id,
         faction: player.profile.faction,
@@ -2184,9 +2369,9 @@ export class MatchRoom {
         rolling: state.rolling,
         parachuteState: state.parachuteState,
         weaponSlot: player.activeSlot,
-        // Mascot slots are moves: no magazine to report.
-        ammo: state.form ? 0 : (player.ammo[player.activeSlot - 1]?.magazine ?? 0),
-        reserve: state.form ? 0 : (player.ammo[player.activeSlot - 1]?.reserve ?? 0),
+        // Mascot slots are moves and drifters are unarmed: no magazine to report.
+        ammo: unarmed ? 0 : (player.ammo[player.activeSlot - 1]?.magazine ?? 0),
+        reserve: unarmed ? 0 : (player.ammo[player.activeSlot - 1]?.reserve ?? 0),
         reloading: player.reloadEndsTick > this.physicsTick,
         shield: Math.round(player.shield),
         kills: player.kills,
@@ -2202,6 +2387,10 @@ export class MatchRoom {
         slowed: this.physicsTick < player.slowUntilTick,
         boosted: this.physicsTick < player.speedUntilTick,
         slippery: state.isSlippery,
+        support: player.support,
+        auraHealed: player.auraHealed,
+        auraResupplied: player.auraResupplied,
+        auraActive: player.auraActive,
         mascot: state.mascotState,
       });
     }
@@ -2220,11 +2409,21 @@ export class MatchRoom {
     };
   }
 
-  /** Balances the teams; on a tie the player's wardrobe preference wins. */
-  private pickFaction(preferred: Faction): Faction {
+  /**
+   * Balances the teams; on a tie the player's wardrobe preference wins. A
+   * class that adds no combat strength (the drifter) is neither balanced nor
+   * counted: she joins her preferred side, or the side whose form exists.
+   */
+  private pickFaction(preferred: Faction, classId: ClassId): Faction {
+    if (!classCapabilities(classId).countsTowardBalance) {
+      if (classAvailableForFaction(classId, preferred)) return preferred;
+      const other: Faction = preferred === 'alpine' ? 'lagoon' : 'alpine';
+      if (classAvailableForFaction(classId, other)) return other;
+    }
     let alpine = 0;
     let lagoon = 0;
     for (const player of this.players.values()) {
+      if (!capabilitiesOf(player).countsTowardBalance) continue;
       if (player.profile.faction === 'alpine') alpine += 1;
       else lagoon += 1;
     }
@@ -2273,6 +2472,7 @@ export class MatchRoom {
         respawns: this.critters.stats.respawns,
         flees: this.critters.stats.flees,
       },
+      drifters: this.drifterStatus(),
     };
   }
 }

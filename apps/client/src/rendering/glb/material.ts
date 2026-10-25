@@ -63,6 +63,8 @@ export const LOOK_MASK_WORLD = 1;
 export interface GlbMaterialOptions {
   /** Scene-alpha look mask: {@link LOOK_MASK_CHARACTER} (default) or {@link LOOK_MASK_WORLD}. */
   lookMask?: number;
+  /** Physically based shading instead of the cel bands (textured only). */
+  photoreal?: boolean;
 }
 
 export function createGlbMaterial(
@@ -94,10 +96,13 @@ export function createGlbMaterial(
         'uTime',
         'uPaintParams',
         'uLookMask',
+        'uDither',
         ...LOOK_UNIFORMS,
       ],
       samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : [...LOOK_SAMPLERS],
-      defines: textured ? ['#define FF_TEXTURED'] : [],
+      defines: textured
+        ? ['#define FF_TEXTURED', ...(options.photoreal ? ['#define FF_PHOTOREAL'] : [])]
+        : [],
       shaderLanguage: webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
     },
   );
@@ -110,6 +115,7 @@ export function createGlbMaterial(
   material.setFloat('uTime', 0);
   material.setVector4('uPaintParams', textured ? PAINT_PARAMS : PROP_PARAMS);
   material.setFloat('uLookMask', options.lookMask ?? LOOK_MASK_CHARACTER);
+  material.setFloat('uDither', 0);
   if (textures) {
     material.setTexture('albedoSampler', textures.albedo);
     // Without a normal map: a flat 1×1 normal (tangent-space +Z) and zero strength.
@@ -127,10 +133,12 @@ export function updateGlbMaterial(
   cameraPosition: Vector3,
   time: number,
   state: CharacterMaterialState,
+  dither = 0,
 ): void {
   material.setVector3('cameraPosition', cameraPosition);
   material.setFloat('uTime', time);
   material.setFloat('uBattleDamage', state.battleDamage);
   material.setFloat('uCharredState', state.charred);
   material.setFloat('uFrozenState', state.frozen);
+  material.setFloat('uDither', dither);
 }

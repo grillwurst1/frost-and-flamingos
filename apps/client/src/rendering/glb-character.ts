@@ -28,6 +28,7 @@ import {
   paintedModelSpec,
   wearsNative,
   type ClipRole,
+  type PaintedModelSpec,
 } from './glb/catalog';
 import { gaitContactPhase } from './glb/clips';
 import {
@@ -88,6 +89,7 @@ const LOOPING: Readonly<Record<BindingRole, boolean>> = {
   death: false,
   taunt: false,
   reload: true,
+  emote: false,
 };
 
 /**
@@ -123,8 +125,13 @@ const CADENCE_CAP: Readonly<Record<string, number>> = {
 const MAX_STRIDE = 1.3;
 
 const LOCOMOTION: readonly BindingRole[] = ['walk', 'combatWalk', 'run', 'sprint', 'backpedal', 'crouchRun', 'runBack'];
-const OVERLAY_ROLES: readonly BindingRole[] = ['reload', 'taunt'];
+const OVERLAY_ROLES: readonly BindingRole[] = ['reload', 'taunt', 'emote'];
 const STRIDE_JOINTS = ['LeftUpLeg', 'LeftLeg', 'RightUpLeg', 'RightLeg'] as const;
+const AXIS_Z = new Vector3(0, 0, 1);
+/** Head stare: turn rate (rad/s) and the yaw / pitch the neck and head may cover. */
+const STARE_TURN_RATE = 0.9;
+const STARE_MAX_YAW = 1.15;
+const STARE_MAX_PITCH = 0.45;
 
 /** Step length (model units) of a cycle at 1×: natural speed × duration / 2 steps. */
 function stepLength(clip: BakedClip, fallback: number): number {
@@ -307,6 +314,15 @@ export class GlbCharacterView implements AvatarView {
   private snapNext = false;
   private deathTilt = 0;
   private locoPhase = Math.random();
+  /** Walk-only characters (spec.gait): idle/walk/backpedal blending only. */
+  private readonly gait: PaintedModelSpec['gait'] | null;
+  private readonly hover: PaintedModelSpec['hover'] | null;
+  private hoverPhase = Math.random() * Math.PI * 2;
+  private emoteTime = -1;
+  private stareYaw = 0;
+  private starePitch = 0;
+  private stareTarget: Vector3 | null = null;
+  private dither = 0;
 
   constructor(
     scene: Scene,
@@ -343,7 +359,18 @@ export class GlbCharacterView implements AvatarView {
     this.modelRoot.position.y = -rollCentre;
     this.modelRoot.scaling.setAll(this.scale);
 
-    this.material = createGlbMaterial(scene, `glb-${spec.key}-${profile.displayName}`, textures);
+    this.gait = spec.gait ?? null;
+    this.hover = spec.hover ?? null;
+    // The photoreal exception shades PBR instead of the cel bands. It keeps
+    // the character look mask (no interior ink, only the bold silhouette)
+    // and stays in the g-buffer like every character: the painterly post
+    // has no out-of-band exemption yet (see shaders/post.ts).
+    this.material = createGlbMaterial(
+      scene,
+      `glb-${spec.key}-${profile.displayName}`,
+      textures,
+      spec.photoreal ? { photoreal: true } : {},
+    );
     this.propMaterial = createGlbMaterial(scene, `glb-props-${profile.displayName}`, null);
 
     this.entries = asset.container.instantiateModelsToScene((name) => name, false, {
@@ -413,9 +440,13 @@ export class GlbCharacterView implements AvatarView {
     // Missing roles borrow a stand-in clip with its own clock.
     const run = asset.clips.get('run');
     const walk = asset.clips.get('walk');
-    if (!this.bindings.has('sprint') && run) this.bind('sprint', run, isUpper, ordered);
-    if (!this.bindings.has('combatWalk') && walk) this.bind('combatWalk', walk, isUpper, ordered);
-    if (!this.bindings.has('air') && run) {
+    if (this.gait && !this.bindings.has('idle') && walk && this.gait.idleRate !== undefined) {
+      // No idle clip: the walk loop played almost still is a quiet, uncanny stand.
+      this.bind('idle', walk, isUpper, ordered);
+    }
+    if (!this.bindings.has('sprint') && run && !this.gait) this.bind('sprint', run, isUpper, ordered);
+    if (!this.bindings.has('combatWalk') && walk && !this.gait) this.bind('combatWalk', walk, isUpper, ordered);
+    if (!this.bindings.has('air') && run && !this.gait) {
       this.bind('air', run, isUpper, ordered);
       const air = this.bindings.get('air');
       if (air) air.hold = run.duration * 0.3;
@@ -440,7 +471,7 @@ export class GlbCharacterView implements AvatarView {
       }
     }
 
-    this.attachCosmetics(profile, nodes);
+    if (spec.cosmetics !== false) this.attachCosmetics(profile, nodes);
 
     this.weaponAnchor = new TransformNode('glb-weapon-anchor', scene);
     this.weaponAnchor.parent = this.armature;
@@ -475,8 +506,8 @@ export class GlbCharacterView implements AvatarView {
     return {
       model: this.asset.spec.key,
       view: this.shadowMaterial.name,
-      enabled: this.root.isEnabled(false),
-      position: this.root.position.asArray().map((value) => Math.round(value * 100) / 100),
+      enabled: this.root.isEnabled(true),
+      position: this.root.getAbsolutePosition().asArray().map((value) => Math.round(value * 100) / 100),
       weapon: this.weaponId,
       hatHidden: this.hatHidden,
       drawCalls: this.drawCalls(),
@@ -635,6 +666,16 @@ export class GlbCharacterView implements AvatarView {
     if (this.bindings.has('taunt')) this.tauntTime = 0;
   }
 
+  /** Second idle one-shot (spec clip role `emote`); ignored when the model has none. */
+  emote(): void {
+    if (this.bindings.has('emote') && this.tauntTime < 0) this.emoteTime = 0;
+  }
+
+  /** True while the taunt or emote one-shot plays. */
+  get performing(): boolean {
+    return this.tauntTime >= 0 || this.emoteTime >= 0;
+  }
+
   updatePreview(deltaSeconds: number, spin: number, weaponId?: WeaponId | null): void {
     this.setYaw(spin, true);
     this.update(deltaSeconds, {
@@ -702,7 +743,14 @@ export class GlbCharacterView implements AvatarView {
     // ---- clip weights -------------------------------------------------
     const targets: Partial<Record<BindingRole, number>> = {};
     const has = (role: BindingRole): boolean => this.bindings.has(role);
-    if (!alive) {
+    const gait = this.gait;
+    if (gait) {
+      // Walk only: she keeps her walk (or her stand) even while drifting down.
+      const move = smoothstep(0.2, 0.9, speed);
+      if (backward && has('backpedal')) targets.backpedal = move;
+      else targets.walk = move;
+      targets.idle = 1 - move;
+    } else if (!alive) {
       if (has('death')) targets.death = 1;
       else targets.idle = 1;
     } else if (swimming) {
@@ -750,6 +798,13 @@ export class GlbCharacterView implements AvatarView {
         binding.rate = Math.min(MAX_LOOP_RATE, capRate, Math.max(0.55, speed / natural));
         binding.stride = Math.min(MAX_STRIDE, Math.max(1, speed / (natural * binding.rate)));
       }
+      if (gait) {
+        // Rate follows the speed exactly so the feet stay planted.
+        binding.stride = 1;
+        if (binding.role === 'walk') binding.rate = Math.min(3, Math.max(0.3, speed / gait.walk));
+        if (binding.role === 'backpedal') binding.rate = Math.min(3, Math.max(0.3, speed / gait.backpedal));
+        if (binding.role === 'idle' && binding.clip === this.bindings.get('walk')?.clip) binding.rate = gait.idleRate ?? 1;
+      }
       if (binding.role === 'swim') binding.rate = 0.8 + Math.min(1, speed / 4) * 0.5;
       if (binding.role === 'combatWalk' && swimming && !has('swim')) binding.rate = 0.7;
     }
@@ -790,6 +845,20 @@ export class GlbCharacterView implements AvatarView {
       tauntBinding.target = this.tauntTime >= 0 ? 1 : 0;
       tauntBinding.weight = approach(tauntBinding.weight, tauntBinding.target, dt * 5);
     }
+    const emoteBinding = this.bindings.get('emote');
+    if (emoteBinding) {
+      const idle = alive && !swimming && speed < 0.5 && this.tauntTime < 0;
+      if (this.emoteTime >= 0 && idle) {
+        this.emoteTime += dt;
+        emoteBinding.time = this.emoteTime;
+        if (this.emoteTime >= emoteBinding.clip.duration) this.emoteTime = -1;
+      } else {
+        this.emoteTime = -1;
+      }
+      emoteBinding.rate = 0;
+      emoteBinding.target = this.emoteTime >= 0 ? 1 : 0;
+      emoteBinding.weight = approach(emoteBinding.weight, emoteBinding.target, dt * 4);
+    }
 
     // Locomotion loops share one normalised phase so blended legs stay in step.
     let dominant: ClipBinding | null = null;
@@ -822,6 +891,11 @@ export class GlbCharacterView implements AvatarView {
 
     this.sampleClips();
     this.lengthenStride();
+    if (gait) {
+      // In-place walking: drop any forward root motion baked into a clip.
+      const hips = this.rig.node('Hips');
+      if (hips) hips.position.z = this.bindHips.z;
+    }
 
     // ---- procedural layers ---------------------------------------------
     this.breath += dt;
@@ -846,7 +920,10 @@ export class GlbCharacterView implements AvatarView {
       if (this.swing > 0.55) this.swing = -1;
     }
 
+    this.stareTarget = pose.stare ? new Vector3(pose.stare.x, pose.stare.y, pose.stare.z) : null;
+    this.dither = approach(this.dither, Math.min(0.85, Math.max(0, pose.shimmer ?? 0)), dt * 6);
     this.applyProcedural(alive, style);
+    this.applyStare(dt, alive);
 
     // ---- whole-body pivots ----------------------------------------------
     if (rolling) this.rollPhase += dt * 11;
@@ -859,7 +936,45 @@ export class GlbCharacterView implements AvatarView {
     this.deathTilt = approach(this.deathTilt, deathTarget, dt * (deathTarget !== 0 ? 4.5 : 8));
     this.tiltPivot.rotation.x = this.deathTilt + proneSwim * this.swim;
     this.tiltPivot.position.y = has('swim') ? 0 : -0.32 * this.swim;
+    if (this.hover) {
+      // Ghostly hover: the body floats a hand's breadth up with a slow bob;
+      // the contact shadow stays on the ground.
+      this.hoverPhase += (dt * Math.PI * 2) / Math.max(0.5, this.hover.period);
+      this.rollPivot.position.y = 0.55 + this.hover.height + Math.sin(this.hoverPhase) * this.hover.bob;
+    }
     this.updateMaterial();
+  }
+
+  /**
+   * Slow creepy stare: neck and head turn toward `pose.stare` (a world
+   * point), limited and rate-limited, and ease back when there is none.
+   */
+  private applyStare(dt: number, alive: boolean): void {
+    let yawTarget = 0;
+    let pitchTarget = 0;
+    const head = this.rig.position('Head');
+    if (alive && this.stareTarget && head) {
+      const inverse = this.armature.getWorldMatrix().clone().invert();
+      const local = Vector3.TransformCoordinates(this.stareTarget, inverse).subtract(head);
+      const horizontal = Math.hypot(local.x, local.z);
+      if (horizontal > 0.05) {
+        yawTarget = Math.max(-STARE_MAX_YAW, Math.min(STARE_MAX_YAW, Math.atan2(local.x, local.z)));
+        pitchTarget = Math.max(-STARE_MAX_PITCH, Math.min(STARE_MAX_PITCH, Math.atan2(local.y, horizontal)));
+      }
+    }
+    this.stareYaw = approach(this.stareYaw, yawTarget, dt * STARE_TURN_RATE);
+    this.starePitch = approach(this.starePitch, pitchTarget, dt * STARE_TURN_RATE * 0.6);
+    if (Math.abs(this.stareYaw) < 0.002 && Math.abs(this.starePitch) < 0.002) return;
+    const rig = this.rig;
+    for (const [joint, share] of [['Neck', 0.4], ['Head', 0.6]] as const) {
+      rig.refresh();
+      rig.rotateWorld(joint, Quaternion.RotationAxis(AXIS_Y, this.stareYaw * share));
+      rig.refresh();
+      const forward = AXIS_Z.rotateByQuaternionToRef(Quaternion.RotationAxis(AXIS_Y, this.stareYaw), new Vector3());
+      const side = Vector3.Cross(AXIS_Y, forward).normalize();
+      rig.rotateWorld(joint, Quaternion.RotationAxis(side, -this.starePitch * share));
+    }
+    rig.refresh();
   }
 
   /** Blends the active clips into the joint nodes (bind pose fills any gap). */
@@ -1349,7 +1464,7 @@ export class GlbCharacterView implements AvatarView {
     const camera = this.scene.activeCamera;
     if (!camera) return;
     const time = performance.now() / 1000;
-    updateGlbMaterial(this.material, camera.position, time, this.effects);
+    updateGlbMaterial(this.material, camera.position, time, this.effects, this.dither * (0.75 + Math.sin(time * 37) * 0.25));
     updateGlbMaterial(this.propMaterial, camera.position, time, this.effects);
   }
 

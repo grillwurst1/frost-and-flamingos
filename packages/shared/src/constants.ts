@@ -1,7 +1,11 @@
 /** Networking, simulation and world constants shared by client and server. */
 
-/** 7: ambient critter trailer in the snapshot and the CRITTER_KILLED event (3H). */
-export const PROTOCOL_VERSION = 7;
+/**
+ * 7: ambient critter trailer in the snapshot and the CRITTER_KILLED event (3H).
+ * 8: drifter class (CLASS_CODE 4), aura status bits and a uint16 support score
+ *    per snapshot player (3G), on top of the protocol-7 critter trailer.
+ */
+export const PROTOCOL_VERSION = 8;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;

@@ -692,6 +692,39 @@ export class AudioEngine {
     this.noise({ duration: 0.05, gain: gain * 0.6, filter: 'bandpass', frequency: 2400, q: 1.2, panner });
   }
 
+  /**
+   * Creepy Mountain Girl: one plucked music-box tine. Bright fundamental, an
+   * octave and a slightly sharp twelfth, quick attack, long soft ring. The
+   * caller keeps it to listeners within ~12 m (the panner does not cut off).
+   */
+  playMusicBoxNote(position: Vec3 | undefined, frequency: number, gain = 0.05): void {
+    const panner = this.panner(position, 2.2, 14);
+    const now = this.ctx?.currentTime ?? 0;
+    for (const [ratio, level, decay] of [
+      [1, 1, 1.5],
+      [2.002, 0.34, 0.85],
+      [3.012, 0.12, 0.45],
+      [5.43, 0.05, 0.18],
+    ] as const) {
+      this.tone({ frequency: frequency * ratio, duration: decay, gain: gain * level, type: 'sine', panner, when: now, attack: 0.003 });
+    }
+  }
+
+  /** Hot Beach Girl: an ice clink in a coconut shell and a tiny straw bubble. */
+  playCocktailClink(position: Vec3 | undefined, gain = 0.05): void {
+    const panner = this.panner(position, 2.2, 14);
+    const now = this.ctx?.currentTime ?? 0;
+    const base = 2350 * (0.96 + Math.random() * 0.08);
+    for (const [ratio, level, delay] of [
+      [1, 1, 0],
+      [1.53, 0.5, 0],
+      [1.08, 0.7, 0.09],
+    ] as const) {
+      this.tone({ frequency: base * ratio, duration: 0.32, gain: gain * level, type: 'sine', panner, when: now + delay, attack: 0.002 });
+    }
+    this.tone({ frequency: 420, endFrequency: 900, duration: 0.12, gain: gain * 0.5, type: 'sine', panner, when: now + 0.2, attack: 0.01 });
+  }
+
   /** Cowbell Clang: a huge, ringing bell. */
   playCowbellClang(position?: Vec3): void {
     const panner = this.panner(position, 8, 110);

@@ -9,16 +9,20 @@
   import IdentityChip from './hud/IdentityChip.svelte';
   import Pictogram from './icons/Pictogram.svelte';
   import KillFeed from './hud/KillFeed.svelte';
+  import Scoreboard from './hud/Scoreboard.svelte';
   import MascotHud from './MascotHud.svelte';
+  import DrifterHud from './DrifterHud.svelte';
   import StatusBar from './hud/StatusBar.svelte';
   import WeaponDock from './hud/WeaponDock.svelte';
 
   $: player = $localPlayer;
   // Mascots carry no firearms: MascotHud shows their portrait, vitality and moves.
   $: isMascot = player?.classId === 'mascot';
+  // Drifters carry nothing: no crosshair, no dock, no skills; DrifterHud shows her aura.
+  $: isDrifter = player?.classId === 'drifter';
   $: dead = $deathState !== null;
   $: maxHp = Math.max(1, player?.maxHp ?? 100);
-  $: lowHealth = !!player && player.alive && (player.hp / maxHp) * 100 <= 30;
+  $: lowHealth = !!player && player.alive && !isDrifter && (player.hp / maxHp) * 100 <= 30;
   $: offline = $connection.status !== 'connected';
   $: connectionLabel =
     $connection.status === 'reconnecting'
@@ -47,7 +51,7 @@
     </div>
   {/if}
 
-  {#if !dead && !isMascot}
+  {#if !dead && !isMascot && !isDrifter}
     <Crosshair />
   {/if}
   <ComicPops />
@@ -66,13 +70,17 @@
   <StatusBar />
   {#if isMascot}
     <MascotHud />
+  {:else if isDrifter}
+    <DrifterHud />
   {:else}
     <WeaponDock />
   {/if}
 
   <div class="hud-controls-hint" aria-hidden="true">
     <span class="hint-title">{$t('hud.controlsHintTitle')}</span>
-    {#if isMascot}
+    {#if isDrifter}
+      <span><kbd>{$t('drifter.controls.walkKey')}</kbd> {$t('drifter.controls.hint')}</span>
+    {:else if isMascot}
       <span><kbd>{$t('mascot.controls.movesKey')}</kbd> {$t('mascot.controls.moves')}</span>
     {:else}
       <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> {$t('combat.weapon')}</span>
@@ -82,5 +90,6 @@
     {/if}
   </div>
 
+  <Scoreboard />
   <DeathScreen />
 </div>

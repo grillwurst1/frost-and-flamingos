@@ -15,9 +15,11 @@ import {
   SECONDARY_WEAPON_IDS,
   SKIN_TONES,
   TORSO_IDS,
+  classAvailableForFaction,
   createDefaultCosmetics,
   createDefaultProfile,
   normalizeProfile,
+  resolveClassForFaction,
   sanitizeDisplayName,
   type BackId,
   type ClassId,
@@ -57,13 +59,23 @@ function randomCallsign(): string {
   return CALLSIGNS[index] ?? CALLSIGNS[0];
 }
 
+/**
+ * A class that has no form on the profile's side yet (the Hot Beach Girl
+ * before her model ships) falls back to that side's default class.
+ */
+function withPlayableClass(value: PlayerProfile): PlayerProfile {
+  const classId = resolveClassForFaction(value.cosmetics.classId, value.faction);
+  if (classId === value.cosmetics.classId) return value;
+  return { ...value, cosmetics: createDefaultCosmetics(classId), loadout: { ...CLASS_DEFAULT_LOADOUTS[classId] } };
+}
+
 function loadProfile(): PlayerProfile {
   const fallback = createDefaultProfile(randomCallsign());
   if (typeof window === 'undefined') return fallback;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return fallback;
-    return normalizeProfile(JSON.parse(raw) as unknown, fallback);
+    return withPlayableClass(normalizeProfile(JSON.parse(raw) as unknown, fallback));
   } catch {
     return fallback;
   }
@@ -95,9 +107,12 @@ export function setProfile(next: PlayerProfile): void {
  * not rewrite what the player picked in the wardrobe.
  */
 export function applyServerProfile(next: PlayerProfile): void {
-  profile.update((current) =>
-    normalizeProfile({ ...next, faction: current.faction }, current),
-  );
+  profile.update((current) => {
+    // Keep the wardrobe's side preference unless the assigned class only
+    // exists on the side the server chose (a drifter form).
+    const faction = classAvailableForFaction(next.cosmetics.classId, current.faction) ? current.faction : next.faction;
+    return normalizeProfile({ ...next, faction }, current);
+  });
 }
 
 export function setDisplayName(name: string): void {
@@ -108,12 +123,13 @@ export function setDisplayName(name: string): void {
 }
 
 export function setFaction(faction: Faction): void {
-  profile.update((current) => ({ ...current, faction }));
+  profile.update((current) => withPlayableClass({ ...current, faction }));
 }
 
 export function setClass(classId: ClassId): void {
   profile.update((current) => {
     if (current.cosmetics.classId === classId) return current;
+    if (!classAvailableForFaction(classId, current.faction)) return current;
     return {
       ...current,
       cosmetics: createDefaultCosmetics(classId),
@@ -204,7 +220,7 @@ function pick<T>(values: readonly T[]): T {
 
 export function randomizeProfile(): void {
   profile.update((current) => {
-    const classId = pick(CLASS_IDS);
+    const classId = pick(CLASS_IDS.filter((id) => classAvailableForFaction(id, current.faction)));
     const defaults = createDefaultCosmetics(classId);
     return {
       ...current,

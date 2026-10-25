@@ -197,6 +197,43 @@
   }
 }
 
+/* Drifter: nothing can hurt her, so the heart + vitality bar become one inked badge. */
+.sb-untouchable {
+  z-index: 3;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.1rem;
+  padding: 0 0.85rem 0 0.2rem;
+  border: 0.18rem solid var(--ink);
+  border-radius: 99px;
+  background: linear-gradient(180deg, #f2faff 0%, #bfe3ff 55%, #8fc7f2 100%);
+  box-shadow: 0 0.17rem 0 rgba(27, 20, 16, 0.5);
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sb-untouchable.is-beach_girl {
+  background: linear-gradient(180deg, #fff1ea 0%, #ffc4ad 55%, #ff9a7a 100%);
+}
+
+.sb-untouchable .drifter-emblem {
+  margin: -0.35rem 0 -0.35rem -0.35rem;
+  filter: drop-shadow(0 0.12rem 0 rgba(27, 20, 16, 0.45));
+}
+
+.status-tag.is-aura {
+  background: linear-gradient(180deg, #f2faff, #9fd8ff);
+}
+
+.status-tag.is-aura.is-beach_girl {
+  background: linear-gradient(180deg, #fff1ea, #ffb08a);
+}
+
 .sb-bar {
   position: relative;
   flex: 1 1 0;
@@ -582,6 +619,13 @@
   background:
     linear-gradient(45deg, transparent 38%, var(--red) 38% 62%, transparent 62%),
     linear-gradient(-45deg, transparent 38%, var(--red) 38% 62%, transparent 62%);
+}
+
+/* Drifter: support points instead of kills / deaths (a little heart-plus). */
+.identity-score .is-support {
+  background:
+    linear-gradient(90deg, transparent 38%, var(--green) 38% 62%, transparent 62%),
+    linear-gradient(0deg, transparent 38%, var(--green) 38% 62%, transparent 62%);
 }
 
 .hud-offline {
