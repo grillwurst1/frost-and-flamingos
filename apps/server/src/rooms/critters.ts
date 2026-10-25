@@ -51,6 +51,8 @@ export interface CritterHit {
 export interface CritterSystemOptions {
   seed: number;
   onKill?: (kill: CritterKill) => void;
+  /** False builds an empty system (rooms without critters). Default true. */
+  enabled?: boolean;
 }
 
 interface Critter {
@@ -73,6 +75,10 @@ interface Critter {
   goalTicks: number;
   /** Desired heading while fleeing. */
   fleeYaw: number;
+  /** A swerve chosen at an obstacle holds until this tick (no re-aim over it). */
+  fleeLockUntilTick: number;
+  /** Side of 'away' the critter swerves to along an obstacle (+1 / -1; 0 = not chosen yet). */
+  fleeSide: number;
   fleeFrom: Vec3;
   nextHopTick: number;
   nextThreatCheckTick: number;
@@ -96,6 +102,14 @@ const BRAKE_ACCELERATION = 9;
 const THREAT_VERTICAL_REACH = 2.2;
 /** Probe origin above the feet: just over the highest walkable step. */
 const PROBE_MARGIN = 0.05;
+/** How long a swerve picked at a wall or the shore holds before re-aiming. */
+const FLEE_LOCK_TICKS = Math.round(0.5 * PHYSICS_TICK_RATE);
+/** A fleeing critter turns on the spot while its heading is further off than this. */
+const FLEE_TURN_IN_PLACE = 0.3;
+/** Swerve angles off 'away' tried on one side at an obstacle, nearest first (degrees). */
+const FLEE_SWERVES = [60, 90, 120, 150] as const;
+/** Headroom kept above the head (overhangs, bridge decks). */
+const HEADROOM = 0.05;
 const SPAWN_ATTEMPTS = 40;
 
 function mulberry32(seed: number): () => number {
@@ -163,7 +177,7 @@ export class CritterSystem {
     this.onKill = options.onKill ?? (() => {});
     this.collectSpawnNodes();
     let id = 1;
-    for (const species of CRITTER_ROSTER) {
+    for (const species of options.enabled === false ? [] : CRITTER_ROSTER) {
       const stats = CRITTER_STATS[species];
       for (const half of ['alpine', 'lagoon'] as const) {
         for (let index = 0; index < stats.perHalf; index += 1) {
@@ -229,6 +243,8 @@ export class CritterSystem {
       goal: null,
       goalTicks: 0,
       fleeYaw: 0,
+      fleeLockUntilTick: 0,
+      fleeSide: 0,
       fleeFrom: { ...origin },
       nextHopTick: 0,
       nextThreatCheckTick: 0,
@@ -279,7 +295,43 @@ export class CritterSystem {
     const ahead = this.groundBelow(aheadX, aheadZ, probeY, stats.stepUp + PROBE_MARGIN + stats.maxDrop + 0.3);
     if (ahead === null) return false;
     if (critter.floor - ahead > stats.maxDrop) return false;
-    return this.standable(critter, aheadX, aheadZ, ahead);
+    if (!this.standable(critter, aheadX, aheadZ, ahead)) return false;
+    // Headroom: no ducking under overhangs lower than the critter.
+    return this.headroom(aheadX, Math.max(ahead, critter.position.y), aheadZ, stats.height + HEADROOM) === null;
+  }
+
+  /** Distance up to the first surface above (x, feetY, z) within `reach`, or null. */
+  private headroom(x: number, feetY: number, z: number, reach: number): number | null {
+    const hit = this.physics.raycast({ x, y: feetY + 0.02, z }, { x: 0, y: 1, z: 0 }, reach);
+    return hit ? hit.distance + 0.02 : null;
+  }
+
+  /**
+   * The walkable flee heading closest to `away`, skipping the heading that
+   * just blocked. Once a side is chosen the critter keeps to it (it runs
+   * along the wall or the shore instead of ping-ponging between two
+   * swerves); the first time the nearer free side wins, ties at random.
+   */
+  private freeFleeHeading(critter: Critter, away: number): number | null {
+    const free = (side: number, degrees: number): number | null => {
+      const heading = wrapAngle(away + (side * degrees * Math.PI) / 180);
+      if (Math.abs(wrapAngle(heading - critter.yaw)) < 0.35) return null;
+      return this.canMove(critter, heading) ? heading : null;
+    };
+    const straight = free(1, 0);
+    if (straight !== null) return straight;
+    const sides = critter.fleeSide !== 0 ? [critter.fleeSide, -critter.fleeSide] : this.random() < 0.5 ? [1, -1] : [-1, 1];
+    const order: Array<[number, number]> =
+      critter.fleeSide !== 0
+        ? sides.flatMap((side) => FLEE_SWERVES.map((degrees): [number, number] => [side, degrees]))
+        : FLEE_SWERVES.flatMap((degrees) => sides.map((side): [number, number] => [side, degrees]));
+    for (const [side, degrees] of order) {
+      const heading = free(side, degrees);
+      if (heading === null) continue;
+      critter.fleeSide = side;
+      return heading;
+    }
+    return free(1, 180);
   }
 
   // ---------------------------------------------------------------------------
@@ -467,10 +519,15 @@ export class CritterSystem {
     critter.behaviourTicks = Math.max(critter.behaviourTicks, secondsToTicks(this.range(stats.fleeSeconds)));
     critter.fleeFrom = { ...from };
     critter.goal = null;
-    critter.blockedCount = 0;
-    const away = Math.atan2(critter.position.x - from.x, critter.position.z - from.z);
-    critter.fleeYaw = wrapAngle(away + (this.random() - 0.5) * 0.9);
+    // Already running and swerving round an obstacle: keep the swerve.
+    if (startled || this.tick >= critter.fleeLockUntilTick) {
+      const away = Math.atan2(critter.position.x - from.x, critter.position.z - from.z);
+      critter.fleeYaw = wrapAngle(away + (this.random() - 0.5) * 0.9);
+    }
     if (startled) {
+      critter.blockedCount = 0;
+      critter.fleeLockUntilTick = 0;
+      critter.fleeSide = 0;
       this.stats.flees += 1;
       // A startled flap first, then hops at intervals.
       critter.nextHopTick = this.tick;
@@ -495,7 +552,9 @@ export class CritterSystem {
   private steer(critter: Critter): { yaw: number; speed: number; turnRate: number } {
     const stats = critter.stats;
     if (critter.behaviour === 'flee') {
-      return { yaw: critter.fleeYaw, speed: stats.fleeSpeed, turnRate: stats.fleeTurnRate };
+      // A swerve at a wall or the shore: pivot first, then run.
+      const error = Math.abs(wrapAngle(critter.fleeYaw - critter.yaw));
+      return { yaw: critter.fleeYaw, speed: error > FLEE_TURN_IN_PLACE ? 0 : stats.fleeSpeed, turnRate: stats.fleeTurnRate };
     }
     if (critter.behaviour === 'walk' && critter.goal) {
       const yaw = Math.atan2(critter.goal.x - critter.position.x, critter.goal.z - critter.position.z);
@@ -517,7 +576,13 @@ export class CritterSystem {
           // Still chased: keep running, away from the current nearest threat.
           critter.behaviourTicks = Math.max(critter.behaviourTicks, secondsToTicks(0.6));
           const away = Math.atan2(critter.position.x - threat.position.x, critter.position.z - threat.position.z);
-          if (Math.abs(wrapAngle(away - critter.fleeYaw)) > 1.1) critter.fleeYaw = wrapAngle(away + (this.random() - 0.5) * 0.6);
+          if (
+            this.tick >= critter.fleeLockUntilTick &&
+            Math.abs(wrapAngle(away - critter.fleeYaw)) > 1.1 &&
+            this.canMove(critter, away)
+          ) {
+            critter.fleeYaw = wrapAngle(away + (this.random() - 0.5) * 0.6);
+          }
           critter.fleeFrom = { ...threat.position };
         } else {
           this.startFlee(critter, threat.position);
@@ -547,13 +612,9 @@ export class CritterSystem {
     critter.blockedCount += 1;
     if (critter.behaviour === 'flee') {
       const away = Math.atan2(critter.position.x - critter.fleeFrom.x, critter.position.z - critter.fleeFrom.z);
-      const turn = (Math.PI / 2) * (0.75 + this.random() * 0.5);
-      const left = wrapAngle(critter.fleeYaw + turn);
-      const right = wrapAngle(critter.fleeYaw - turn);
-      const preferLeft = Math.cos(left - away) >= Math.cos(right - away);
-      // Alternate sides when cornered so the critter does not shuffle in place.
-      const useLeft = critter.blockedCount % 3 === 0 ? !preferLeft : preferLeft;
-      critter.fleeYaw = useLeft ? left : right;
+      // Truly boxed in: turn round (and try again once the lock ends).
+      critter.fleeYaw = this.freeFleeHeading(critter, away) ?? wrapAngle(critter.yaw + Math.PI);
+      critter.fleeLockUntilTick = this.tick + FLEE_LOCK_TICKS;
       return;
     }
     if (critter.behaviour === 'walk') {
@@ -583,12 +644,19 @@ export class CritterSystem {
       steer.speed < critter.speed ? BRAKE_ACCELERATION : critter.behaviour === 'flee' ? FLEE_ACCELERATION : WALK_ACCELERATION;
     const change = acceleration * FIXED_DT;
     critter.speed += Math.max(-change, Math.min(change, steer.speed - critter.speed));
-    if (critter.speed < 0.01) critter.speed = 0;
+    // A fleeing critter pivots on the spot (no skid into the obstacle while turning).
+    if (critter.speed < 0.01 || (critter.behaviour === 'flee' && steer.speed === 0)) critter.speed = 0;
 
     if (critter.behaviour === 'flee' && !critter.airborne && this.tick >= critter.nextHopTick) {
-      critter.verticalSpeed = stats.hopSpeed;
-      critter.airborne = true;
       critter.nextHopTick = this.tick + secondsToTicks(this.range(stats.hopInterval));
+      // Under an overhang the hop shrinks (or is skipped) so the head stays clear.
+      const apex = (stats.hopSpeed * stats.hopSpeed) / (2 * Math.abs(stats.gravity));
+      const above = this.headroom(critter.position.x, critter.position.y, critter.position.z, stats.height + apex + HEADROOM);
+      const rise = above === null ? apex : above - stats.height - HEADROOM;
+      if (rise >= 0.04) {
+        critter.verticalSpeed = rise >= apex ? stats.hopSpeed : Math.sqrt(2 * Math.abs(stats.gravity) * rise);
+        critter.airborne = true;
+      }
     }
 
     if (critter.speed > 0) {
@@ -617,7 +685,20 @@ export class CritterSystem {
     if (critter.airborne || critter.position.y > critter.floor + 0.3) {
       critter.airborne = true;
       critter.verticalSpeed += stats.gravity * FIXED_DT;
-      critter.position.y += critter.verticalSpeed * FIXED_DT;
+      const nextY = critter.position.y + critter.verticalSpeed * FIXED_DT;
+      if (critter.verticalSpeed > 0) {
+        // Rising: the head stops under a ceiling.
+        const above = this.headroom(critter.position.x, critter.position.y, critter.position.z, stats.height + HEADROOM + critter.verticalSpeed * FIXED_DT);
+        const limit = above === null ? Number.POSITIVE_INFINITY : critter.position.y + above - stats.height - HEADROOM;
+        if (nextY > limit) {
+          critter.position.y = Math.max(critter.position.y, limit);
+          critter.verticalSpeed = 0;
+        } else {
+          critter.position.y = nextY;
+        }
+      } else {
+        critter.position.y = nextY;
+      }
       if (critter.position.y <= critter.floor) {
         critter.position.y = critter.floor;
         critter.verticalSpeed = 0;
@@ -735,7 +816,14 @@ export class CritterSystem {
    * many. With `rewindTick` the pose of that tick counts too (what a lagging
    * rammer saw on screen).
    */
-  killInSphere(center: Vec3, radius: number, killerId: number, weaponId: WeaponId | null, rewindTick: number | null = null): number {
+  killInSphere(
+    center: Vec3,
+    radius: number,
+    killerId: number,
+    weaponId: WeaponId | null,
+    rewindTick: number | null = null,
+    verticalReach: number | null = null,
+  ): number {
     const sample = rewindTick === null ? null : this.sampleAt(rewindTick);
     let kills = 0;
     this.critters.forEach((critter, index) => {
@@ -750,8 +838,13 @@ export class CritterSystem {
       }
       for (const pose of poses) {
         const body = critterSphereCenter(pose.position, pose.yaw, critter.stats.body);
-        const distance = Math.hypot(body.x - center.x, body.y - center.y, body.z - center.z);
-        if (distance <= radius + critter.stats.body.radius) {
+        // With a vertical reach the volume is a cylinder on the feet (shockwaves).
+        const inside =
+          verticalReach === null
+            ? Math.hypot(body.x - center.x, body.y - center.y, body.z - center.z) <= radius + critter.stats.body.radius
+            : Math.hypot(body.x - center.x, body.z - center.z) <= radius + critter.stats.body.radius &&
+              Math.abs(pose.position.y - center.y) <= verticalReach;
+        if (inside) {
           this.kill(critter.id, killerId, weaponId);
           kills += 1;
           return;

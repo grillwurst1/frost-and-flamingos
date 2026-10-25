@@ -16,7 +16,7 @@
     "clean:all": "bun run clean && rm -rf node_modules apps/*/node_modules packages/*/node_modules bun.lock",
     "preview": "bun run --cwd apps/client preview",
     "models": "bun run scripts/optimize-models.ts",
-    "test": "bun run --cwd apps/server test"
+    "test": "bun run --cwd apps/server test && bun run --cwd apps/client test"
   },
   "engines": {
     "bun": ">=1.2.0"

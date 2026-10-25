@@ -61,6 +61,10 @@ interface CritterTrack {
   nextCluckAt: number;
   lastPanicAt: number;
   pitch: number;
+  /** Last pose handed to the view: a death pop keeps playing on it. */
+  lastPose: CritterPose | null;
+  /** performance.now() after which a running death pop is forced hidden; 0 when none. */
+  popUntil: number;
 }
 
 export interface CritterKillContext {
@@ -75,6 +79,11 @@ const TELEPORT_DISTANCE = 3;
 const CLUCK_RANGE = 22;
 const PANIC_RANGE = 32;
 const VIEW_RETRY_MS = 1500;
+/**
+ * The client stops ticking a death pop after this long and hides the view
+ * itself (the hen view's pop is 0.14 s; slow frames clamp delta to 0.1 s).
+ */
+export const CRITTER_POP_GUARD_MS = 450;
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -154,6 +163,8 @@ export class CritterClient {
         lastPanicAt: 0,
         // Every hen keeps her own voice.
         pitch: 0.9 + ((state.id * 0.137) % 0.24),
+        lastPose: null,
+        popUntil: 0,
       };
       this.tracks.set(state.id, track);
     }
@@ -214,24 +225,46 @@ export class CritterClient {
       track.lastY = position.y;
       if (alive !== track.visible) {
         track.visible = alive;
-        // A pop (death) hides the view itself; a respawn shows it again.
-        if (alive) track.view?.setVisible(true);
-        else if (killed === undefined) track.view?.setVisible(false);
+        if (alive) {
+          // Respawn: show the view again (this also resets a cut-off pop).
+          track.popUntil = 0;
+          track.view?.setVisible(true);
+        } else if (track.popUntil === 0) {
+          // A death seen only through the snapshots: no pop, hide at once.
+          track.view?.setVisible(false);
+        }
       }
       if (alive) {
-        track.view?.update(delta, {
+        const pose: CritterPose = {
           position,
           yaw,
           speed,
           behaviour: state.behaviour,
           airborne: state.airborne,
           verticalSpeed,
-        });
+        };
+        track.lastPose = pose;
+        track.view?.update(delta, pose);
         this.playVoice(track, state.behaviour, position, listener, now);
+      } else if (track.popUntil > 0) {
+        this.tickPop(track, delta, now);
       }
       track.lastPosition = { ...position };
       track.lastBehaviour = state.behaviour;
     }
+  }
+
+  /**
+   * Keeps a death pop running on the hen's last pose until the view hides
+   * itself; after the guard time the client hides it regardless.
+   */
+  private tickPop(track: CritterTrack, delta: number, now: number): void {
+    if (now >= track.popUntil || !track.lastPose) {
+      track.popUntil = 0;
+      track.view?.setVisible(false);
+      return;
+    }
+    track.view?.update(delta, { ...track.lastPose, speed: 0, verticalSpeed: 0 });
   }
 
   private playVoice(track: CritterTrack, behaviour: CritterBehaviour, position: Vec3, listener: Vec3 | null, now: number): void {
@@ -252,17 +285,25 @@ export class CritterClient {
   }
 
   /** CRITTER_KILLED: feathers, "BOK!", the squawk and a kill-feed line. */
-  handleKill(event: GameEvent, context: CritterKillContext): void {
+  handleKill(event: GameEvent, context: CritterKillContext, now = performance.now()): void {
     if (this.disposed) return;
-    const now = performance.now();
     const { species, weaponId } = readCritterKillValue(event.paramValue);
     const track = this.tracks.get(event.targetId);
     const groundY = track?.lastPosition.y ?? 0;
     const position: Vec3 = { x: event.paramX / 10, y: groundY, z: event.paramZ / 10 };
     if (track && distance(track.lastPosition, position) < 4) position.y = track.lastPosition.y;
     this.killedAt.set(event.targetId, now);
-    if (track?.view) track.view.pop();
-    if (track) track.visible = false;
+    if (track) {
+      if (track.visible && track.view) {
+        // The pop is ticked by update() until it ends (or the guard hides it).
+        track.view.pop();
+        track.popUntil = now + CRITTER_POP_GUARD_MS;
+      } else {
+        track.popUntil = 0;
+        track.view?.setVisible(false);
+      }
+      track.visible = false;
+    }
 
     this.fx.featherBurst(position);
     this.mascotFx?.burst('milk', position, 7, 1.5, 0.3);

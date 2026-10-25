@@ -20,6 +20,7 @@
       "devDependencies": {
         "@sveltejs/vite-plugin-svelte": "^6.0.0",
         "@tailwindcss/vite": "^4.0.0",
+        "@types/bun": "latest",
         "@types/node": "^22.0.0",
         "@webgpu/types": "^0.1.60",
         "svelte-check": "^4.0.0",
