@@ -1,8 +1,8 @@
 /**
  * Optimises the owner's Meshy image-to-3D characters for the game client.
  *
- *   bun run models                       # every art-src/meshy/meshy-<name>.glb
- *   bun run models art-src/meshy/meshy-lagoon-heavy.glb
+ *   bun run models                       # the shipped set: the catalogue soldiers + EXTRA_BAKES
+ *   bun run models art-src/meshy/meshy-lagoon-heavy.glb   # explicit files (any meshy-<name>.glb)
  *   bun run models --normal-size=2048    # larger normal map (default 1024)
  *   bun run models --keep-normal=false   # also drop the normal map
  *   bun run models --manifest-only       # just rewrite models/manifest.json
@@ -35,8 +35,12 @@
  *   5. resample animations (removes redundant keyframes),
  *   6. dedup + prune unused accessors/images,
  *   7. move the images out of the GLB binary into sidecar files.
- * The heavy lifting runs through the pinned glTF Transform CLI via `bunx`,
- * so no native image toolchain has to live in the workspace dependencies.
+ * The heavy lifting runs through the glTF Transform CLI via `bunx`, so no
+ * native image toolchain has to live in the workspace dependencies. Only the
+ * CLI version is pinned: bunx resolves its @gltf-transform/core, extensions
+ * and functions dependencies (^4.5.1) outside bun.lock and needs network
+ * access on first use. The committed outputs were built with all four at
+ * 4.5.1; a newer 4.x can change the bytes (not the content) of re-runs.
  */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -68,7 +72,9 @@ interface BakeEntry {
 /**
  * Non-soldier characters whose clips are baked too. They keep their own
  * motion set only (no lending or borrowing); the tables mirror the clip
- * tables their runtime specs register (package 3G, glb/drifter-models.ts).
+ * tables their runtime specs register in package 3G (apps/client/src/rendering/glb/
+ * drifter-models.ts on feat/3g-ghost-girl, which registers them via
+ * registerPaintedModel; until it merges, nothing requests these keys).
  */
 const EXTRA_BAKES: Readonly<Record<string, BakeEntry>> = {
   'alpine-ghostgirl': {
@@ -152,10 +158,12 @@ function parseArgs(argv: string[]): Options {
       options.files.push(resolve(process.cwd(), arg));
     }
   }
-  if (options.files.length === 0 && !options.manifestOnly && existsSync(SOURCE_DIR)) {
-    options.files = readdirSync(SOURCE_DIR)
-      .filter((name) => NAME_PATTERN.test(name))
-      .map((name) => join(SOURCE_DIR, name));
+  if (options.files.length === 0 && !options.manifestOnly) {
+    // Default: exactly the shipped set. Other art-src/meshy files (vehicles,
+    // mascots, critters) belong to their own packages and need explicit paths.
+    options.files = [...bakeEntries().keys()]
+      .map((key) => join(SOURCE_DIR, `meshy-${key}.glb`))
+      .filter((file) => existsSync(file));
   }
   return options;
 }

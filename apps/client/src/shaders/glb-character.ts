@@ -173,7 +173,11 @@ void main(void) {
   float lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
   float lod = clamp(min(lodNatural, max(1.5, lodNatural - 1.0)), 0.0, 12.0);
   vec3 base = texture2DLodEXT(albedoSampler, vUV, lod).rgb;
-  vec3 mapNormal = texture2DLodEXT(normalSampler, vUV, lod).xyz * 2.0 - 1.0;
+  // The normal map is smaller (1024 vs 2048, or the 1×1 flat fallback):
+  // same footprint, so shift the level by the size ratio.
+  float normalShift = log2(max(texSize.x / max(float(textureSize(normalSampler, 0).x), 1.0), 1.0));
+  float lodNormal = clamp(min(lodNatural - normalShift, max(1.5, lodNatural - normalShift - 1.0)), 0.0, 12.0);
+  vec3 mapNormal = texture2DLodEXT(normalSampler, vUV, lodNormal).xyz * 2.0 - 1.0;
   mapNormal.xy *= uPaintParams.x;
   normal = ffPerturbNormal(normal, vWorldPosition, vUV, normalize(mapNormal));
   float gloss = 0.0;
@@ -345,7 +349,10 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
   let lod = clamp(min(lodNatural, max(1.5, lodNatural - 1.0)), 0.0, 12.0);
   var base = textureSampleLevel(albedoSampler, albedoSamplerSampler, input.vUV, lod).rgb;
-  var mapNormal = textureSampleLevel(normalSampler, normalSamplerSampler, input.vUV, lod).xyz * 2.0 - 1.0;
+  let normalSize = vec2f(textureDimensions(normalSampler, 0));
+  let normalShift = log2(max(texSize.x / max(normalSize.x, 1.0), 1.0));
+  let lodNormal = clamp(min(lodNatural - normalShift, max(1.5, lodNatural - normalShift - 1.0)), 0.0, 12.0);
+  var mapNormal = textureSampleLevel(normalSampler, normalSamplerSampler, input.vUV, lodNormal).xyz * 2.0 - 1.0;
   mapNormal = vec3f(mapNormal.xy * uniforms.uPaintParams.x, mapNormal.z);
   normal = ffPerturbNormal(normal, input.vWorldPosition, input.vUV, normalize(mapNormal));
   let gloss = 0.0;

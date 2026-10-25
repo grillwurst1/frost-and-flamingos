@@ -700,7 +700,11 @@ export class GameClient {
     const look = this.look;
     if (!look) return;
     const tier = this.resolveVisualQuality();
-    if (look.visualQuality !== tier) look.setVisualQuality(tier);
+    if (look.visualQuality !== tier) {
+      look.setVisualQuality(tier);
+      // A tier can change the hardware scaling level: re-apply the device-pixel canvas box.
+      this.applyCanvasSize();
+    }
     activeVisualQuality.set(tier);
   }
 
