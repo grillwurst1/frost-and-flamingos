@@ -187,18 +187,18 @@ const DESIGNS: Record<string, WeaponDesign> = {
       // Drum magazine (axis across the gun) with a raised hub.
       kit.lathe(
         [
-          { z: -0.045, r: 0.075, hex: STEEL_DARK },
-          { z: -0.04, r: 0.1, hex: STEEL_LIGHT },
-          { z: -0.03, r: 0.1, hex: STEEL_DARK },
-          { z: 0.03, r: 0.1 },
-          { z: 0.04, r: 0.1, hex: STEEL_LIGHT },
-          { z: 0.045, r: 0.075, hex: STEEL_DARK },
+          { z: -0.05, r: 0.085, hex: STEEL_DARK },
+          { z: -0.045, r: 0.115, hex: STEEL_LIGHT },
+          { z: -0.034, r: 0.115, hex: STEEL_DARK },
+          { z: 0.034, r: 0.115 },
+          { z: 0.045, r: 0.115, hex: STEEL_LIGHT },
+          { z: 0.05, r: 0.085, hex: STEEL_DARK },
           { z: 0.045, r: 0.04, hard: true, hex: BRASS },
           { z: 0.06, r: 0.03 },
         ],
-        { at: [0, 0.06, 0.14], rot: [0, HALF_PI, 0], segments: 16, capStart: true, capEnd: true },
+        { at: [0, 0.05, 0.135], rot: [0, HALF_PI, 0], segments: 16, capStart: true, capEnd: true },
       );
-      kit.blob(BRASS, [0.015, 0.03, 0.03], { at: [-0.05, 0.06, 0.14], segments: 8, rings: 4 });
+      kit.blob(BRASS, [0.016, 0.034, 0.034], { at: [-0.055, 0.05, 0.135], segments: 8, rings: 4 });
       // Walnut grips.
       pistolGrip(kit, WALNUT, 0.11, 0.24, 0.062);
       kit.lathe(
@@ -219,18 +219,19 @@ const DESIGNS: Record<string, WeaponDesign> = {
       kit.extrude(
         WALNUT,
         [
-          [-0.08, 0.205],
-          [-0.26, 0.17],
-          [-0.28, 0.16],
-          [-0.28, 0.0],
-          [-0.24, -0.01],
-          [-0.16, 0.07],
+          [-0.08, 0.215],
+          [-0.18, 0.19],
+          [-0.27, 0.15],
+          [-0.29, 0.13],
+          [-0.29, -0.04],
+          [-0.25, -0.05],
+          [-0.17, 0.04],
           [-0.08, 0.1],
         ],
-        0.074,
-        { bevel: 0.024 },
+        0.076,
+        { bevel: 0.025 },
       );
-      kit.box(WALNUT_DARK, [0.066, 0.17, 0.02], { at: [0, 0.08, -0.29], rot: [-0.06, 0, 0], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.07, 0.19, 0.02], { at: [0, 0.045, -0.296], rot: [-0.04, 0, 0], bevel: 0.008 });
     },
   },
 
@@ -250,7 +251,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
     },
     preview: { shoulder: [0.09, -0.155, 0.08], tilt: 0.05, yaw: 0.26 },
     build: (kit) => {
-      kit.box(STEEL, [0.1, 0.13, 0.26], { at: [0, 0.15, 0.06], bevel: 0.026, top: [0.82, 1] });
+      kit.box(STEEL_LIGHT, [0.1, 0.13, 0.26], { at: [0, 0.15, 0.06], bevel: 0.026, top: [0.82, 1] });
       barrel(kit, STEEL_DARK, 0.18, 0.17, 0.8, 0.033, 1.22);
       kit.lathe([{ z: 0.17, r: 0.027, hex: STEEL_DARK }, { z: 0.68, r: 0.027 }], { at: [0, 0.12, 0], segments: 8, capEnd: true });
       // Ribbed walnut pump.
@@ -536,19 +537,26 @@ const DESIGNS: Record<string, WeaponDesign> = {
       kit.extrude(
         STEEL_LIGHT,
         [
-          [-0.038, 0.1],
-          [0.058, 0.1],
-          [0.066, 0.22],
-          [0.06, 0.31],
-          [0.04, 0.38],
-          [0.008, 0.44],
-          [-0.012, 0.38],
-          [-0.038, 0.33],
+          [-0.045, 0.1],
+          [0.075, 0.1],
+          [0.085, 0.22],
+          [0.08, 0.32],
+          [0.058, 0.4],
+          [0.012, 0.47],
+          [-0.012, 0.4],
+          [-0.03, 0.36],
+          [-0.045, 0.34],
+          [-0.06, 0.31],
+          [-0.045, 0.28],
+          [-0.06, 0.25],
+          [-0.045, 0.22],
+          [-0.06, 0.19],
+          [-0.045, 0.16],
         ],
-        0.024,
+        0.026,
         { bevel: 0.008 },
       );
-      kit.box(STEEL, [0.028, 0.22, 0.016], { at: [0, 0.215, -0.034], bevel: 0.005 });
+      kit.box(STEEL, [0.03, 0.2, 0.014], { at: [0, 0.2, 0.0], bevel: 0.005 });
     },
   },
 
@@ -778,22 +786,26 @@ const DESIGNS: Record<string, WeaponDesign> = {
       kit.extrude(
         STEEL_LIGHT,
         [
-          [0.03, 1.12],
-          [0.15, 1.02],
-          [0.3, 1.06],
-          [0.38, 1.22],
-          [0.34, 1.38],
-          [0.2, 1.44],
-          [0.03, 1.36],
+          [0.03, 1.14],
+          [0.12, 1.08],
+          [0.22, 0.98],
+          [0.34, 0.97],
+          [0.44, 1.08],
+          [0.47, 1.24],
+          [0.42, 1.4],
+          [0.3, 1.5],
+          [0.2, 1.47],
+          [0.12, 1.36],
+          [0.03, 1.33],
         ],
-        0.03,
-        { bevel: 0.01 },
+        0.034,
+        { bevel: 0.012 },
       );
       kit.extrude(
         STEEL,
         [
-          [-0.03, 1.18],
-          [-0.3, 1.27],
+          [-0.03, 1.17],
+          [-0.34, 1.28],
           [-0.03, 1.31],
         ],
         0.028,
@@ -912,19 +924,19 @@ const DESIGNS: Record<string, WeaponDesign> = {
           [0, 1.24, -0.06],
           [0, 1.32, -0.16],
         ],
-        (t) => 0.024 + Math.pow(t, 2.0) * 0.085,
+        (t) => 0.032 + Math.pow(t, 1.8) * 0.1,
         { segments: 10, samples: 22 },
       );
       // Bell with a brass rim and a dark mouth, along (0, 0.6, -0.8).
       kit.frame({ at: [0, 1.32, -0.16], rot: [Math.PI + 0.64, 0, 0] }, () => {
         kit.lathe(
           [
-            { z: -0.03, r: 0.105, hex: ALPHORN },
-            { z: 0.06, r: 0.15 },
-            { z: 0.11, r: 0.21 },
-            { z: 0.11, r: 0.21, hard: true, hex: BRASS },
-            { z: 0.135, r: 0.205 },
-            { z: 0.135, r: 0.18, hard: true, hex: '#3b2414' },
+            { z: -0.04, r: 0.13, hex: ALPHORN },
+            { z: 0.06, r: 0.18 },
+            { z: 0.13, r: 0.25 },
+            { z: 0.13, r: 0.25, hard: true, hex: BRASS },
+            { z: 0.16, r: 0.245 },
+            { z: 0.16, r: 0.215, hard: true, hex: '#3b2414' },
             { z: 0.04, r: 0.0 },
           ],
           { segments: 14 },
