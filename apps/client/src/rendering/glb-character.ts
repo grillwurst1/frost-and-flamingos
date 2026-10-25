@@ -385,7 +385,8 @@ export class GlbCharacterView implements AvatarView {
     const clips: Record<string, string> = {};
     const weights: Record<string, number> = {};
     for (const [role, binding] of this.bindings) {
-      clips[role] = binding.clip.retargetedFrom ? `${binding.clip.name} (from ${binding.clip.retargetedFrom})` : binding.clip.name;
+      const clip = binding.clip;
+      clips[role] = clip.retargetedFrom && !clip.name.includes('@') ? `${clip.name} (from ${clip.retargetedFrom})` : clip.name;
       if (binding.weight > 0.01) weights[role] = Math.round(binding.weight * 100) / 100;
     }
     return {
