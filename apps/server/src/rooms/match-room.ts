@@ -715,6 +715,8 @@ export class MatchRoom {
     if (!player.alive) return;
     // Mascots carry no firearms.
     if (player.character.form) return;
+    // Only seats that keep their hands free (commander hatch, sidecar tub) fire the own loadout.
+    if (!this.vehicles.mayUseHandWeapons(player.id)) return;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const stats = WEAPON_STATS[weaponId];
     if (stats.fireMode === 'melee' && stats.damage <= 0) return;
@@ -991,6 +993,8 @@ export class MatchRoom {
         for (const other of this.players.values()) {
           if (other.id === player.id || !other.alive) continue;
           if (other.profile.faction === player.profile.faction) continue;
+          // Crews inside the armour are out of reach.
+          if (this.vehicles.isShielded(other.id)) continue;
           if (distance3(player.character.position, other.character.position) > skill.radius) continue;
           this.damagePlayer(other, player, skill.amount, null, false);
         }
@@ -1000,6 +1004,8 @@ export class MatchRoom {
         for (const other of this.players.values()) {
           if (other.id === player.id || !other.alive) continue;
           if (other.profile.faction === player.profile.faction) continue;
+          // Crews inside the armour are out of reach.
+          if (this.vehicles.isShielded(other.id)) continue;
           if (distance3(player.character.position, other.character.position) > skill.radius) continue;
           other.slowUntilTick = Math.max(
             other.slowUntilTick,
@@ -1150,6 +1156,7 @@ export class MatchRoom {
     });
     for (const other of this.players.values()) {
       if (!other.alive || !this.isEnemy(player, other)) continue;
+      if (this.vehicles.isShielded(other.id)) continue;
       const feet = other.character.position;
       const dx = feet.x - position.x;
       const dz = feet.z - position.z;
@@ -1182,6 +1189,7 @@ export class MatchRoom {
     for (const other of this.players.values()) {
       if (!other.alive || !this.isEnemy(player, other)) continue;
       if (this.physicsTick < other.spawnProtectionUntil) continue;
+      if (this.vehicles.isShielded(other.id)) continue;
       if (distance3(player.character.position, other.character.position) > skill.radius) continue;
       other.dazedUntilTick = Math.max(other.dazedUntilTick, until);
       other.slowUntilTick = Math.max(other.slowUntilTick, until);
@@ -1644,7 +1652,7 @@ export class MatchRoom {
       // charging: follow the waypoint graph towards the target instead.
       if (this.physicsTick >= route.nextSightTick) {
         route.nextSightTick = this.physicsTick + 12;
-        route.seesTarget = this.hasLineOfSight(origin, targetPoint, distance, targetDirection);
+        route.seesTarget = this.hasLineOfSight(origin, targetPoint, distance, targetDirection, live.id);
       }
       if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
         // Routed movement has its own stuck escalation (hop, sidestep, re-plan).
@@ -1693,7 +1701,7 @@ export class MatchRoom {
         if (
           this.physicsTick >= bot.nextFireTick &&
           distance <= weapon.range &&
-          this.hasLineOfSight(origin, targetPoint, distance, targetDirection)
+          this.hasLineOfSight(origin, targetPoint, distance, targetDirection, live.id)
         ) {
           buttons |= InputButton.FirePrimary;
           const interval = Math.max(
@@ -1805,6 +1813,7 @@ export class MatchRoom {
           targetPoint,
           distance,
           normalizeDirection({ x: dx, y: dy, z: dz }),
+          target.id,
         );
       }
       if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
@@ -1893,10 +1902,11 @@ export class MatchRoom {
     target: Vec3,
     distance: number,
     direction: Vec3,
+    targetId = 0,
   ): boolean {
     const hit = this.physics.raycast(origin, direction, distance);
-    // A hull in front of a crewed target counts as a clear shot at the vehicle.
-    return hit === null || hit.distance >= distance - 0.6 || this.vehicles.isVehicleSurfaceNear(hit.point, target);
+    // The hull of the vehicle the target rides counts as a clear shot at it.
+    return hit === null || hit.distance >= distance - 0.6 || this.vehicles.isVehicleSurfaceNear(hit.point, target, targetId);
   }
 
   join(socket: GameSocket, hello: ServerHello): JoinResult | JoinError {
@@ -2013,6 +2023,7 @@ export class MatchRoom {
     const player = this.players.get(playerId);
     if (!player || player.isBot || !player.alive) return;
     if (player.character.form) return;
+    if (!this.vehicles.mayUseHandWeapons(player.id)) return;
     const weaponId = WEAPON_TABLE.byCode[fire.weaponId];
     if (!weaponId) return;
     if (weaponId !== weaponForSlot(player.profile.loadout, player.activeSlot)) return;

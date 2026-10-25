@@ -25,7 +25,8 @@ import { InputButton, createRoom, internals, joinPlayer, parkVehicle, placePlaye
 
 const { GLACIER_RUNWAY, TANK_ROAD_POINTS } = FjordLayout;
 const W = InputButton.Forward;
-const E = InputButton.Skill2;
+/** The boarding key (F). */
+const E = InputButton.Interact;
 const F = InputButton.Interact;
 const RUNWAY_YAW = Math.atan2(GLACIER_RUNWAY.end.x - GLACIER_RUNWAY.start.x, GLACIER_RUNWAY.end.z - GLACIER_RUNWAY.start.z);
 
@@ -667,9 +668,13 @@ describe('vehicle edge cases', () => {
     }
     const moved = new Set(['summit_crates_1', 'summit_crates_2', 'summit_snowman_0', 'summit_woodpile_0', 'alpine_crates_0', 'alpine_flag_0', 'silo_arch_north']);
     // The road starts inside the alpine hangar and crosses the gorge on the
-    // stone arch; the coaster start deck (fixed by the coaster route) reaches
-    // over its east edge at the summit.
-    const exempt = new Set(['alpine_hangar', 'stone_arch', 'coaster_platform']);
+    // stone arch. Known choke point: the coaster start deck (a solid box from
+    // road level up, placed by the coaster route) stands up to 2.5 m inside
+    // the east edge at the summit, opposite the Tower C dairy; about 7.5 m of
+    // road stay open there.
+    const exempt = new Set(['alpine_hangar', 'stone_arch']);
+    const choke = new Map([['coaster_platform', -2.5]]);
+    let chokeMin = Number.POSITIVE_INFINITY;
     const intrusions: string[] = [];
     let movedMin = Number.POSITIVE_INFINITY;
     let pylonMin = Number.POSITIVE_INFINITY;
@@ -692,11 +697,12 @@ describe('vehicle edge cases', () => {
         }
         if (moved.has(prop.id)) movedMin = Math.min(movedMin, clearance);
         if (prop.kind === 'tbar_pylon') pylonMin = Math.min(pylonMin, clearance);
-        const required = moved.has(prop.id) || prop.kind === 'tbar_pylon' ? 1.5 : 0;
+        if (choke.has(prop.id)) chokeMin = Math.min(chokeMin, clearance);
+        const required = choke.get(prop.id) ?? (moved.has(prop.id) || prop.kind === 'tbar_pylon' ? 1.5 : 0);
         if (clearance < required) intrusions.push(`${prop.id} ${round(clearance)}`);
       }
     }
-    report('tank road clearance', { intrusions, movedPropsMinClearance: round(movedMin), tbarMastsMinClearance: round(pylonMin) });
+    report('tank road clearance', { intrusions, movedPropsMinClearance: round(movedMin), tbarMastsMinClearance: round(pylonMin), coasterDeckIntrusion: round(-chokeMin) });
     expect(intrusions).toEqual([]);
   });
 

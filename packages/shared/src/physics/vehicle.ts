@@ -24,6 +24,10 @@ import type { PhysicsWorld } from './world.js';
  */
 export const VEHICLE_COLLISION_GROUP = 0x0008000b;
 
+/** Elastic share of a boat's speed into a wall (above the minimum impact speed). */
+const BOAT_RESTITUTION = 0.5;
+const BOAT_BOUNCE_MIN_SPEED = 2;
+
 /** Whether hulls block, ram and shove this collider (false for a membership outside the hull filter). */
 export function collidesWithVehicles(collider: RAPIER.Collider): boolean {
   const membership = collider.collisionGroups() >>> 16;
@@ -451,7 +455,10 @@ export class VehicleBody {
     const boostScale = this.boost > 0 && boostDefinition ? boostDefinition.speedScale : 1;
     const maxForward = definition.maxForwardSpeed * traction.speed * boostScale;
     const maxReverse = definition.maxReverseSpeed * traction.speed;
-    const driving = chassis === 'boat' ? this.isAfloat : this.isGrounded;
+    // A boat that has just nosed onto the beach, with water still under its
+    // middle, can rudder and back off (no forward thrust onto the sand).
+    const shallows = chassis === 'boat' && !this.isAfloat && sampleMapHeight(this.base.x, this.base.z) < WATER_LEVEL;
+    const driving = chassis === 'boat' ? this.isAfloat || (shallows && throttle < 0) : this.isGrounded;
     const speedAlong = this.linear.x * Math.sin(this.heading) + this.linear.z * Math.cos(this.heading);
 
     // Steering first: the hull turns, its momentum lags behind (side slip),
@@ -464,7 +471,7 @@ export class VehicleBody {
       }
       this.turnRate += (targetRate - this.turnRate) * (1 - Math.exp(-definition.turnResponse * dt));
     } else if (chassis === 'boat') {
-      if (this.isAfloat) {
+      if (this.isAfloat || shallows) {
         const authority = Math.min(1, 0.35 + Math.abs(speedAlong) / 6);
         const direction = speedAlong < -0.5 ? -1 : 1;
         targetRate = steerInput * definition.turnRate * authority * direction * (this.boost > 0 ? 0.55 : 1);
@@ -519,13 +526,13 @@ export class VehicleBody {
     let vx = nextSin * forward + nextCos * lateral;
     let vz = nextCos * forward - nextSin * lateral;
 
-    // Land vehicles: deep water is a wall.
-    if (chassis !== 'boat') {
-      const aheadX = this.base.x + vx * dt * 6;
-      const aheadZ = this.base.z + vz * dt * 6;
-      const groundAhead = sampleMapHeight(aheadX, aheadZ);
-      const terrainSupported = this.base.y - sampleMapHeight(this.base.x, this.base.z) < 0.6;
-      if (groundAhead < WATER_LEVEL - definition.fordDepth && terrainSupported && groundAhead < this.base.y - 0.05) {
+    // Land vehicles: deep water ahead of the bow is a wall while the tracks
+    // or wheels are on the ground (steep banks included; a jump still flies).
+    const planar = Math.hypot(vx, vz);
+    if (chassis !== 'boat' && this.isGrounded && planar > 1e-3) {
+      const reach = definition.halfExtents.z + planar * dt * 6;
+      const groundAhead = sampleMapHeight(this.base.x + (vx / planar) * reach, this.base.z + (vz / planar) * reach);
+      if (groundAhead < WATER_LEVEL - definition.fordDepth && groundAhead < this.base.y - 0.05) {
         vx = 0;
         vz = 0;
       }
@@ -576,8 +583,10 @@ export class VehicleBody {
       const nz = normal.z / length;
       const into = vx * nx + vz * nz;
       if (into < 0) {
-        vx -= into * nx;
-        vz -= into * nz;
+        // The rubber flamingo bounces off rocks, piers and hulls.
+        const restitution = chassis === 'boat' && into < -BOAT_BOUNCE_MIN_SPEED ? BOAT_RESTITUTION : 0;
+        vx -= (1 + restitution) * into * nx;
+        vz -= (1 + restitution) * into * nz;
       }
     }
     const desiredHorizontal = Math.hypot(desired.x, desired.z);

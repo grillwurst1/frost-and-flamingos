@@ -88,7 +88,7 @@ describe('sidecar motorcycle', () => {
     const beside = vehicleLocalToWorld(body.position, body.yaw, { x: -2.1, y: 0, z: -0.2 });
     placePlayer(room, passenger.id, { x: beside.x, y: sampleMapHeight(beside.x, beside.z) + 0.05, z: beside.z });
     run(room, 2, () => sendInput(room, passenger, 0));
-    tap(room, passenger, InputButton.Skill2);
+    tap(room, passenger, InputButton.Interact);
     expect(room.vehicles.seatFor(passenger.id)).toEqual({ vehicleId: slot.id, seat: 1 });
     expect(room.vehicles.isShielded(passenger.id)).toBe(false);
 

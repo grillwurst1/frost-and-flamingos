@@ -52,12 +52,18 @@ describe('vehicle framework (fondue crawler)', () => {
     const side = vehicleLocalToWorld(body.position, body.yaw, { x: -2.4, y: 0, z: 0.8 });
     placePlayer(room, driver.id, { x: side.x, y: body.position.y + 0.05, z: side.z });
     run(room, 3);
+    // E is the class skill, never a boarding key.
     tap(room, driver, InputButton.Skill2);
+    expect(room.vehicles.seatFor(driver.id)).toBeNull();
+    run(room, 60 * 2);
+    placePlayer(room, driver.id, { x: side.x, y: body.position.y + 0.05, z: side.z });
+    run(room, 3);
+    tap(room, driver, InputButton.Interact);
     expect(room.vehicles.seatFor(driver.id)).toEqual({ vehicleId: slot.id, seat: 0 });
     expect(room.vehicles.isShielded(driver.id)).toBe(true);
     expect(driver.socket.eventsOf('VEHICLE_SEAT').at(-1)?.paramValue).toBe(1);
-    // Skill 2 was not used by the enter press.
-    expect(driver.socket.eventsOf('SKILL_USED').length).toBe(0);
+    // Only the E press used skill 2; the F press boarded.
+    expect(driver.socket.eventsOf('SKILL_USED').filter((event) => event.actorId === driver.id).length).toBe(1);
 
     tap(room, driver, InputButton.Interact);
     expect(room.vehicles.seatFor(driver.id)).toBeNull();
