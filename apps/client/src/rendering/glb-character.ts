@@ -39,6 +39,7 @@ import { buildBackAttachment, buildHandAttachment, buildHeadAttachment, HEAD_UNI
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { buildCanopyProp, buildWeaponProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
 import { GlbRig, type RigJoint } from './glb/rig';
+import { registerHeroWeaponProps } from './weapons/glb-adapter';
 
 /**
  * Player view for the owner's painted Meshy characters.
@@ -165,6 +166,16 @@ function installGlbDebugHandle(): void {
     pending: () => [...pendingViews].map((view) => view.debugInfo()),
     events: () => [...debugEvents],
     scene: () => lastLibrary?.sceneRef ?? null,
+    /** Shows/hides painted views whose label contains `label` (draw-call probes). */
+    setEnabled: (label: string, enabled: boolean) => {
+      let count = 0;
+      for (const view of liveViews) {
+        if (!String(view.debugInfo().view).includes(label)) continue;
+        view.root.setEnabled(enabled);
+        count += 1;
+      }
+      return count;
+    },
     library: () => {
       const library = lastLibrary;
       if (!library) return null;
@@ -217,6 +228,8 @@ export class GlbCharacterView implements AvatarView {
   private readonly armLength: number;
   private readonly bulk: number;
   private weapon: WeaponProp | null = null;
+  /** Rear end (weapon-space z) of the held prop, kept in front of the chest. */
+  private weaponRear = 0;
   private weaponId: WeaponId | null = null;
   /** True once driven by updatePreview (wardrobe / menu turntable). */
   private previewing = false;
@@ -250,6 +263,7 @@ export class GlbCharacterView implements AvatarView {
     asset: PaintedModelAsset,
     textures: PaintedTextures,
   ) {
+    registerHeroWeaponProps();
     this.scene = scene;
     this.asset = asset;
     this.shadowMaterial = shadowMaterial;
@@ -391,7 +405,8 @@ export class GlbCharacterView implements AvatarView {
     const clips: Record<string, string> = {};
     const weights: Record<string, number> = {};
     for (const [role, binding] of this.bindings) {
-      clips[role] = binding.clip.retargetedFrom ? `${binding.clip.name} (from ${binding.clip.retargetedFrom})` : binding.clip.name;
+      const clip = binding.clip;
+      clips[role] = clip.retargetedFrom && !clip.name.includes('@') ? `${clip.name} (from ${clip.retargetedFrom})` : clip.name;
       if (binding.weight > 0.01) weights[role] = Math.round(binding.weight * 100) / 100;
     }
     return {
@@ -441,7 +456,9 @@ export class GlbCharacterView implements AvatarView {
       const back = buildBackAttachment(this.scene, cosmetics.back, this.propMaterial);
       const chest = this.asset.bindPositions.get('Spine2');
       if (back && chest) {
-        this.attach(back, nodes, 'Spine2', new Vector3(chest.x, chest.y, chest.z + spec.backZ), 0.9, true);
+        // On the measured back surface (spec.backZ only for unmeasured models).
+        const backZ = this.asset.torso ? this.asset.torso.back - 0.005 : chest.z + spec.backZ;
+        this.attach(back, nodes, 'Spine2', new Vector3(chest.x, chest.y, backZ), 0.9, true);
         back.scaling.x *= spec.bulk;
       }
     }
@@ -1010,6 +1027,21 @@ export class GlbCharacterView implements AvatarView {
         }
       }
     }
+    // Long stocks stay in front of the chest: the arm-reach pull above (and
+    // the aim pitch) would otherwise push the butt out through the back.
+    // Shoulder-anchored holds tuck the stock against the body (under the
+    // arm): its butt only has to stay inside the back.
+    const torso = this.asset.torso;
+    if (torso && this.weaponRear < -0.02) {
+      const tail = grip.add(new Vector3(0, 0, this.weaponRear).rotateByQuaternionToRef(weaponRotation, new Vector3()));
+      const surface = hold.anchor === 'shoulders' ? torso.back + 0.08 : torso.front + 0.03;
+      const limit = chest.z + (surface - torso.chestZ);
+      const deficit = limit - tail.z;
+      if (deficit > 0) {
+        grip.z += deficit;
+        if (support) support = new Vector3(support.x, support.y, support.z + deficit);
+      }
+    }
     this.weaponAnchor.position.copyFrom(grip);
     this.weaponAnchor.rotationQuaternion?.copyFrom(weaponRotation);
 
@@ -1059,6 +1091,8 @@ export class GlbCharacterView implements AvatarView {
       this.weapons.set(id, prop);
     }
     this.weapon = prop ?? null;
+    const rear = prop?.hold.rear;
+    this.weaponRear = !prop ? 0 : rear !== undefined ? Math.min(0, rear ?? 0) : Math.min(0, prop.mesh.getBoundingInfo().boundingBox.minimum.z);
   }
 
   private updateCanopy(deltaSeconds: number, blend: number, sway: number): void {

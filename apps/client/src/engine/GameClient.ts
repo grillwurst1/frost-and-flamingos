@@ -47,6 +47,7 @@ import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
 import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
+import { WardrobeStage } from '../rendering/glb/wardrobe-stage';
 import { MascotFx } from '../rendering/mascot-fx';
 import {
   createShadowMaterial,
@@ -294,6 +295,8 @@ export class GameClient {
   private input: InputController | null = null;
   private network: NetworkClient | null = null;
   private visuals: MapVisuals | null = null;
+  /** Faction stage of the menu / wardrobe preview (replaces the map podium while shown). */
+  private wardrobeStage: WardrobeStage | null = null;
   private devCamera: DevCameraOverride | null = null;
   private toonMaterial: ReturnType<typeof createToonMaterial> | null = null;
   private look: SceneLook | null = null;
@@ -544,6 +547,7 @@ export class GameClient {
       this.physics = physics;
       this.toonMaterial = createToonMaterial(scene, 'fjord-toon-material');
       this.visuals = buildFjordFiesta(scene, this.toonMaterial);
+      this.wardrobeStage = new WardrobeStage(scene, this.toonMaterial, this.visuals.previewStage.position);
       if (import.meta.env.DEV) {
         // Screenshot probe: hold the wardrobe preview at an angle to the camera.
         (window as unknown as { __ffPreviewFacing?: (offset: number | null) => void }).__ffPreviewFacing = (offset) =>
@@ -752,6 +756,8 @@ export class GameClient {
     this.network?.disconnect();
     this.localView?.dispose();
     this.previewView?.dispose();
+    this.wardrobeStage?.dispose();
+    this.wardrobeStage = null;
     for (const remote of this.remoteViews.values()) remote.view.dispose();
     this.remoteViews.clear();
     this.mascotFx?.dispose();
@@ -939,6 +945,7 @@ export class GameClient {
     const shadow = createShadowMaterial(this.scene, `character-shadow-preview-${this.nextViewSerial()}`);
     this.previewView = createAvatarView(this.scene, shadow, profile, { preview: true });
     this.previewKey = key;
+    this.wardrobeStage?.setFaction(profile.faction);
     const stage = this.visuals?.previewStage;
     if (stage) this.previewView.setPosition(stage.position);
     this.previewView.setYaw(this.previewYaw, true);
@@ -1439,7 +1446,7 @@ export class GameClient {
     }
     const stage = this.visuals?.previewStage;
     if (stage) {
-      camera.updatePreview(delta, stage.position, this.wardrobeIsOpen ? 'wardrobe' : 'menu');
+      camera.updatePreview(delta, stage.position, this.wardrobeIsOpen ? 'wardrobe' : 'menu', this.wardrobeStage?.viewAngle);
     } else {
       camera.updateMenu(delta);
     }
@@ -1501,15 +1508,19 @@ export class GameClient {
   }
 
   private updatePreviewView(delta: number): void {
+    const menuLike =
+      this.currentPhase === 'menu' ||
+      this.currentPhase === 'booting' ||
+      (this.currentPhase === 'paused' && this.wardrobeIsOpen);
+    if (this.wardrobeStage) {
+      this.wardrobeStage.setEnabled(menuLike);
+      this.visuals?.previewStageMesh?.setEnabled(!menuLike);
+    }
     const view = this.previewView;
     if (!view) return;
     if (this.previewFacing !== null && this.cameraRig) {
       this.previewYaw = this.cameraRig.previewAngle + this.previewFacing;
     }
-    const menuLike =
-      this.currentPhase === 'menu' ||
-      this.currentPhase === 'booting' ||
-      (this.currentPhase === 'paused' && this.wardrobeIsOpen);
     view.root.setEnabled(menuLike);
     if (!menuLike) return;
     if (this.previewSpin && this.previewFacing === null) this.previewYaw += delta * 0.55;

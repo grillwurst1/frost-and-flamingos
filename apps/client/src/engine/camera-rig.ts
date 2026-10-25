@@ -70,6 +70,7 @@ export class CameraRig {
   private shoulderSide = 1;
   private collisionDistance = 4.8;
   private menuAngle = 0.6;
+  private previewCameraAngle = 0.6;
   private initialized = false;
   private killerAngle = 0;
   private killerInitialized = false;
@@ -104,7 +105,7 @@ export class CameraRig {
 
   /** Orbit angle of the menu/wardrobe preview camera around the podium. */
   get previewAngle(): number {
-    return this.menuAngle;
+    return this.previewCameraAngle;
   }
 
   handleMouse(deltaX: number, deltaY: number): void {
@@ -258,8 +259,11 @@ export class CameraRig {
    * Slow orbit around the menu/wardrobe podium. The target is deliberately
    * offset so the character sits right of centre on the menu (menu stack on
    * the left) and left of centre in the wardrobe (editor panel on the right).
+   * With a `viewAngle` (a direction with a clear background, see
+   * glb/wardrobe-stage.ts) the camera only sways around it: ±0.3 rad on the
+   * menu, ±0.08 rad in the wardrobe, where the figure turns on its own.
    */
-  updatePreview(dt: number, stage: Vec3, mode: PreviewCameraMode): void {
+  updatePreview(dt: number, stage: Vec3, mode: PreviewCameraMode, viewAngle?: number): void {
     const clampedDt = Math.min(0.05, Math.max(0.001, dt));
     this.menuAngle += clampedDt * (mode === 'menu' ? 0.055 : 0.11);
     this.initialized = false;
@@ -268,7 +272,11 @@ export class CameraRig {
     const height = mode === 'menu' ? 2.55 : 1.35;
     const targetHeight = mode === 'menu' ? 1.28 : 0.96;
     const sideOffset = mode === 'menu' ? 1.45 : 0.95;
-    const angle = this.menuAngle;
+    const angle =
+      viewAngle === undefined
+        ? this.menuAngle
+        : viewAngle + Math.sin(this.menuAngle * (mode === 'menu' ? 0.6 : 0.4)) * (mode === 'menu' ? 0.3 : 0.08);
+    this.previewCameraAngle = angle;
     const position = new Vector3(
       stage.x + Math.sin(angle) * radius,
       stage.y + height,

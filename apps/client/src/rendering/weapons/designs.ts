@@ -165,7 +165,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       support: [0, 0.01, 0.22],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0, -1, 0.1],
-      butt: -0.34,
+      butt: -0.29,
       muzzle: [0, 0.165, 0.7],
       muzzleKind: 'bullet',
     },
@@ -220,17 +220,17 @@ const DESIGNS: Record<string, WeaponDesign> = {
         WALNUT,
         [
           [-0.08, 0.205],
-          [-0.31, 0.17],
-          [-0.33, 0.16],
-          [-0.33, 0.0],
-          [-0.29, -0.01],
+          [-0.26, 0.17],
+          [-0.28, 0.16],
+          [-0.28, 0.0],
+          [-0.24, -0.01],
           [-0.16, 0.07],
           [-0.08, 0.1],
         ],
         0.074,
         { bevel: 0.024 },
       );
-      kit.box(WALNUT_DARK, [0.066, 0.17, 0.02], { at: [0, 0.08, -0.34], rot: [-0.06, 0, 0], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.066, 0.17, 0.02], { at: [0, 0.08, -0.29], rot: [-0.06, 0, 0], bevel: 0.008 });
     },
   },
 
@@ -244,7 +244,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       support: [0, 0.1, 0.24],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.1],
-      butt: -0.36,
+      butt: -0.31,
       muzzle: [0, 0.18, 0.8],
       muzzleKind: 'heavy',
     },
@@ -270,10 +270,10 @@ const DESIGNS: Record<string, WeaponDesign> = {
         WALNUT,
         [
           [-0.06, 0.2],
-          [-0.33, 0.15],
-          [-0.355, 0.135],
-          [-0.36, -0.03],
-          [-0.32, -0.045],
+          [-0.28, 0.15],
+          [-0.305, 0.135],
+          [-0.31, -0.03],
+          [-0.27, -0.045],
           [-0.15, 0.0],
           [-0.06, -0.09],
           [0.03, -0.085],
@@ -283,7 +283,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         0.068,
         { bevel: 0.022 },
       );
-      kit.box(WALNUT_DARK, [0.07, 0.18, 0.022], { at: [0, 0.055, -0.365], rot: [-0.03, 0, 0], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.07, 0.18, 0.022], { at: [0, 0.055, -0.315], rot: [-0.03, 0, 0], bevel: 0.008 });
     },
   },
 
@@ -297,7 +297,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       support: [0, 0.07, 0.24],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0.1, -1, 0.1],
-      butt: -0.36,
+      butt: -0.31,
       muzzle: [0, 0.17, 0.98],
       muzzleKind: 'heavy',
     },
@@ -341,16 +341,16 @@ const DESIGNS: Record<string, WeaponDesign> = {
         WALNUT,
         [
           [-0.16, 0.22],
-          [-0.34, 0.19],
-          [-0.36, 0.175],
-          [-0.36, 0.03],
-          [-0.32, 0.015],
+          [-0.29, 0.19],
+          [-0.31, 0.175],
+          [-0.31, 0.03],
+          [-0.27, 0.015],
           [-0.16, 0.09],
         ],
         0.074,
         { bevel: 0.024 },
       );
-      kit.box(WALNUT_DARK, [0.076, 0.16, 0.022], { at: [0, 0.1, -0.365], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.076, 0.16, 0.022], { at: [0, 0.1, -0.315], bevel: 0.008 });
     },
   },
 
@@ -407,7 +407,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       support: [0, 0.1, 0.26],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.2],
-      butt: -0.38,
+      butt: -0.33,
       muzzle: [0, 0.165, 1.04],
       muzzleKind: 'heavy',
     },
@@ -437,11 +437,11 @@ const DESIGNS: Record<string, WeaponDesign> = {
         WALNUT,
         [
           [-0.06, 0.19],
-          [-0.22, 0.175],
-          [-0.35, 0.15],
-          [-0.375, 0.135],
-          [-0.385, -0.04],
-          [-0.34, -0.055],
+          [-0.17, 0.175],
+          [-0.3, 0.15],
+          [-0.325, 0.135],
+          [-0.335, -0.04],
+          [-0.29, -0.055],
           [-0.16, -0.005],
           [-0.07, -0.09],
           [0.03, -0.085],
@@ -455,7 +455,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         0.064,
         { bevel: 0.022 },
       );
-      kit.box(WALNUT_DARK, [0.066, 0.18, 0.022], { at: [0, 0.045, -0.39], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.066, 0.18, 0.022], { at: [0, 0.045, -0.34], bevel: 0.008 });
     },
   },
 
@@ -683,7 +683,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       support: [0, 0.1, 0.26],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.15],
-      butt: -0.36,
+      butt: -0.31,
       muzzle: [0, 0.2, 0.72],
       muzzleKind: null,
     },
@@ -693,10 +693,10 @@ const DESIGNS: Record<string, WeaponDesign> = {
         WALNUT,
         [
           [-0.06, 0.18],
-          [-0.32, 0.15],
-          [-0.35, 0.13],
-          [-0.36, -0.03],
-          [-0.32, -0.045],
+          [-0.27, 0.15],
+          [-0.3, 0.13],
+          [-0.31, -0.03],
+          [-0.27, -0.045],
           [-0.15, 0.005],
           [-0.07, -0.09],
           [0.03, -0.085],
@@ -730,7 +730,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       kit.box(BLACK, [0.04, 0.05, 0.04], { at: [0, 0.2, 0.05], bevel: 0.01 });
       kit.tube(STEEL_DARK, [[0.03, 0.16, 0.64], [0.06, 0.08, 0.68], [0, 0.04, 0.7], [-0.06, 0.08, 0.68], [-0.03, 0.16, 0.64]], 0.01, { segments: 5, samples: 9 });
       triggerGuard(kit, STEEL_DARK, 0.1, 0.02, 0.1);
-      kit.box(WALNUT_DARK, [0.072, 0.17, 0.02], { at: [0, 0.05, -0.365], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.072, 0.17, 0.02], { at: [0, 0.05, -0.315], bevel: 0.008 });
     },
   },
 

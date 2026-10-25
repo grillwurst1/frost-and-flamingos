@@ -50,6 +50,8 @@ export interface HeroWeapon {
   readonly pose: HeroHoldPose;
   /** Socket at the muzzle; its +Z points out of the barrel. */
   readonly muzzle: TransformNode | null;
+  /** Weapon-space z of the stock butt, or null when nothing sits behind the grip. */
+  readonly rear: number | null;
   readonly vertexCount: number;
   /** Shot feedback on the prop: muzzle flash / plume / sound rings, umbrella pop. */
   fire(): void;
@@ -206,6 +208,7 @@ class HeroWeaponProp implements HeroWeapon {
   readonly muzzle: TransformNode | null;
   readonly pose: HeroHoldPose;
   readonly vertexCount: number;
+  readonly rear: number | null;
   private readonly flash: Mesh | null;
   private readonly flashLife: number;
   private flashAge = Infinity;
@@ -266,6 +269,7 @@ class HeroWeaponProp implements HeroWeapon {
       this.open = null;
     }
     this.vertexCount = vertices;
+    this.rear = hold.butt !== undefined ? hold.butt + origin[2] : null;
     this.pose = {
       shoulder: [hold.shoulder[0], hold.shoulder[1], hold.shoulder[2]],
       tilt: hold.tilt,

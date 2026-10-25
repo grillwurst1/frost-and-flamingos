@@ -36,3 +36,4 @@ logs/
 
 # Agent worktrees (local only)
 .claude/worktrees/
+.autorig/
