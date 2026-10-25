@@ -12,6 +12,7 @@ import {
   INTERIM_CABLE_CAR_SPAWNS,
   INTERMISSION_TICKS,
   PhysicsWorld,
+  captureZoneIndexAt,
   type Faction,
   type TowerId,
   type Vec3,
@@ -76,6 +77,30 @@ describe('pad audit (static blueprint)', () => {
       }
     }
     expect(poor).toEqual([]);
+  });
+
+  test('no pad or plate lies inside a capture zone (defenders walk in like everyone else)', () => {
+    const inside = ALL_PADS.filter((pad) => captureZoneIndexAt(pad.position) !== -1).map((pad) => pad.id);
+    expect(inside).toEqual([]);
+  });
+
+  test('interim cable-car plates keep 45 m (or 40 m behind cover) from every rival Tower B pad', () => {
+    const rivalPads = FJORD_MAP.towers.find((tower) => tower.id === 'tower_b')?.spawnPads ?? [];
+    expect(rivalPads.length).toBeGreaterThan(0);
+    const exposed: string[] = [];
+    for (const plate of INTERIM_CABLE_CAR_SPAWNS.pads) {
+      for (const pad of rivalPads) {
+        const distance = Math.hypot(pad.position.x - plate.position.x, pad.position.z - plate.position.z);
+        if (distance >= 45) continue;
+        const eye = { x: plate.position.x, y: plate.position.y + 1.6, z: plate.position.z };
+        const target = { x: pad.position.x, y: pad.position.y + 1.6, z: pad.position.z };
+        const length = Math.hypot(target.x - eye.x, target.y - eye.y, target.z - eye.z);
+        const direction = { x: (target.x - eye.x) / length, y: (target.y - eye.y) / length, z: (target.z - eye.z) / length };
+        const covered = world.raycast(eye, direction, length) !== null;
+        if (distance < 40 || !covered) exposed.push(`${plate.id} → ${pad.id}: ${distance.toFixed(1)} m${covered ? '' : ' in sight'}`);
+      }
+    }
+    expect(exposed).toEqual([]);
   });
 
   test('facing turns away from a wall right in front of the pad', () => {

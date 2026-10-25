@@ -640,7 +640,8 @@ export class MatchRoom {
     const candidates = [...this.players.values()].map((player) => ({
       faction: player.profile.faction,
       classId: player.profile.cosmetics.classId,
-      alive: player.alive,
+      // A freshly spawned (immune) player does not tip a zone until the protection ends.
+      alive: player.alive && this.physicsTick >= player.spawnProtectionUntil,
       position: player.character.position,
     }));
     for (const event of this.conquest.step(countTowerPresence(candidates))) this.handleConquestEvent(event);

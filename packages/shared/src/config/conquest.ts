@@ -6,7 +6,7 @@
  */
 import { MATCH_TICKETS, PHYSICS_TICK_RATE } from '../constants.js';
 import type { Faction, SpawnPoint, TowerDefinition, TowerId, Vec3 } from '../types/index.js';
-import { FJORD_TOWERS, selectSpawn } from './map-fjord.js';
+import { FJORD_TOWERS, sampleMapHeight, selectSpawn } from './map-fjord.js';
 
 /** Wire and HUD order of the weather towers (badges A, B, C). */
 export const TOWER_ORDER = ['tower_a', 'tower_b', 'tower_c'] as const satisfies readonly TowerId[];
@@ -134,7 +134,7 @@ const VILLAGE_SQUARE = FJORD_TOWERS.find((tower) => tower.id === 'tower_b')?.pos
 function interimPad(index: number, x: number, z: number): SpawnPoint {
   return {
     id: `cablecar_mid_pad_${index}`,
-    position: { x, y: 18.05, z },
+    position: { x, y: sampleMapHeight(x, z) + 0.05, z },
     rotationY: Math.atan2(VILLAGE_SQUARE.x - x, VILLAGE_SQUARE.z - z),
     zone: 'village',
     faction: 'alpine',
@@ -150,7 +150,7 @@ function interimPad(index: number, x: number, z: number): SpawnPoint {
  * League won 7 of 7 bot rounds). While Peak Guard holds Tower C, `share` of
  * the spawns that would use its Tower C pads use these plates beside the
  * cable-car mid station on the village side instead (they also show only
- * while Peak Guard holds Tower C). From these plates Tower B is ~13 s away.
+ * while Peak Guard holds Tower C). From these plates Tower B is ~15 s away.
  * With half the Tower C spawns here, the measured mean time from a spawn to
  * the Tower B zone is 35.9 s for Peak Guard vs 36.8 s for the Lagoon League
  * (120-minute bot soak, apps/server/test/time-to-b.ts; rounds 6:10 instead
@@ -169,8 +169,9 @@ export const INTERIM_CABLE_CAR_SPAWNS: {
   faction: 'alpine',
   heldTower: 'tower_c',
   share: 0.5,
-  // Open plateau south of the mid station (open sky, flat, no clutter; audited by test/spawn.test.ts).
-  pads: [interimPad(0, 38, 42), interimPad(1, 42, 46), interimPad(2, 48, 40), interimPad(3, 46, 36)],
+  // Open plateau east of the mid station, 49–53 m from every Tower B pad (open sky, flat,
+  // no clutter, ≥ 45 m from rival Tower B spawns; audited by test/spawn.test.ts).
+  pads: [interimPad(0, 70, 48), interimPad(1, 73, 51), interimPad(2, 73, 45), interimPad(3, 70, 54)],
 };
 
 /**

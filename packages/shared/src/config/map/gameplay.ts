@@ -70,9 +70,24 @@ function bothFactions(tower: TowerId, zone: ZoneId, positions: readonly Vec3[], 
 }
 
 const A = TOWER_A_POSITION;
-const harborPads: Vec3[] = Array.from({ length: 6 }, (_, index) => {
-  const angle = (index / 6) * Math.PI * 2 + 0.3;
-  return vec3(A.x + Math.sin(angle) * 11.5, HARBOR_DECK_HEIGHT + 0.05, A.z + Math.cos(angle) * 11.5);
+/**
+ * Tower A pads on the pier heads, 19–24 m from the lighthouse: outside the
+ * 16 m capture zone (a defender walks in like at Towers B and C instead of
+ * respawning inside it; audited by test/spawn.test.ts).
+ */
+const harborPads: Vec3[] = (
+  [
+    ['pier_ne', 3],
+    ['pier_ne', 8],
+    ['pier_e', 3],
+    ['pier_e', 8],
+    ['pier_s', 3],
+    ['pier_w', 3],
+  ] as const
+).map(([id, along]) => {
+  const layout = PIER_LAYOUTS.find((candidate) => candidate.id === id);
+  const point = layout ? localToWorld(layout.start, layout.yaw, vec3(0, 0, along)) : vec3(A.x, 0, A.z);
+  return vec3(point.x, HARBOR_DECK_HEIGHT + 0.05, point.z);
 });
 const villagePads: Vec3[] = [
   vec3(-20, VILLAGE_HEIGHT + 0.05, 36),
