@@ -89,6 +89,7 @@ other soldiers. The two drifter characters keep only their own clips.
 | `apps/client/public/models/lagoon-infiltrator.glb` | Lagoon League infiltrator | `art-src/meshy/meshy-lagoon-infiltrator.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/alpine-ghostgirl.glb` | Creepy Mountain Girl (drifter) | `art-src/meshy/meshy-alpine-ghostgirl.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/lagoon-beachgirl.glb` | Hot Beach Girl (drifter; Meshy's static export, rigged in the project) | `art-src/meshy/meshy-lagoon-beachgirl.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/hen.glb` (+ `hen-basecolor.webp`, 1024²; simplified to 7.8k triangles) | Wandering hen (ambient critter) | `art-src/meshy/meshy-hen.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 
 ## Music
 

@@ -326,6 +326,7 @@ export const de: TranslationDictionary = {
     ponk: { text: 'PONK!', sprite: 'ponk' },
     plosh: { text: 'PLOSH!', sprite: 'plosh' },
     bouch: { text: 'AUTSCH!', sprite: '' },
+    bok: { text: 'GACK!', sprite: '' },
   },
   audio: {
     title: 'Audio-Mix',
@@ -744,5 +745,15 @@ export const de: TranslationDictionary = {
       bump: 'STUPS!',
       dazed: 'SCHWINDLIG!',
     },
+  },
+  critters: {
+    species: {
+      hen: 'Huhn',
+    },
+    killFeed: {
+      hen: '{name} hat ein Huhn erlegt',
+      henAnonymous: 'Ein Huhn wurde erlegt',
+    },
+    bagged: 'Huhn erlegt!',
   },
 };

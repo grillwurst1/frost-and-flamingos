@@ -46,6 +46,8 @@ import { audio, type AmbienceKind } from '../audio/synth';
 import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
+import { CritterFx } from '../rendering/critter-fx';
+import { createCritterViewFactory } from '../rendering/critters/hen-view';
 import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
 import { WardrobeStage } from '../rendering/glb/wardrobe-stage';
 import { MascotFx } from '../rendering/mascot-fx';
@@ -101,6 +103,7 @@ import { setPaintedModels } from '../state/painted-models';
 import { CameraRig } from './camera-rig';
 import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
+import { CritterClient } from './critter-client';
 import { cameraProfileFor, MascotClient } from './mascot-client';
 
 const INTERPOLATION_DELAY_MS = 110;
@@ -329,6 +332,7 @@ export class GameClient {
   private previewView: AvatarView | null = null;
   private mascotFx: MascotFx | null = null;
   private mascots: MascotClient | null = null;
+  private critters: CritterClient | null = null;
   private previewKey: string | null = null;
   private previewYaw = 0.35;
   private previewSpin = true;
@@ -364,6 +368,10 @@ export class GameClient {
   private lastDamageAt = 0;
   private lastCombatAt = 0;
   private pendingRespawnSnap = false;
+  /** DEV capture tool: physics steps left with the trigger held (see installCritterDevTools). */
+  private devFireSteps = 0;
+  /** DEV capture tool: close-up camera that follows one hen (see installCritterDevTools). */
+  private devFrame: { id: number; x: number; z: number; distance: number; lift: number } | null = null;
 
   private currentPhase: GamePhase = 'booting';
   private accumulator = 0;
@@ -553,11 +561,18 @@ export class GameClient {
         (window as unknown as { __ffPreviewFacing?: (offset: number | null) => void }).__ffPreviewFacing = (offset) =>
           this.setPreviewFacing(offset);
       }
-      this.mascotFx = new MascotFx(scene, (x, z, fromY) => {
+      const groundProbe = (x: number, z: number, fromY: number): number => {
         const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 6);
         return hit ? hit.point.y : fromY - 1.5;
-      });
+      };
+      this.mascotFx = new MascotFx(scene, groundProbe);
       this.mascots = new MascotClient(this.mascotFx);
+      this.critters = new CritterClient({
+        fx: new CritterFx(scene, groundProbe),
+        mascotFx: this.mascotFx,
+        viewFactory: createCritterViewFactory(scene),
+      });
+      if (import.meta.env.DEV) this.installCritterDevTools();
       this.look?.attachMap(this.visuals);
       if (import.meta.env.DEV) {
         installMapDevTools({
@@ -765,6 +780,7 @@ export class GameClient {
     for (const remote of this.remoteViews.values()) remote.view.dispose();
     this.remoteViews.clear();
     this.mascotFx?.dispose();
+    this.critters?.dispose();
     audio.setRollRumble(0);
     this.physics?.dispose();
     this.look?.dispose();
@@ -774,6 +790,89 @@ export class GameClient {
     this.scene = null;
     this.engine = null;
     this.physics = null;
+  }
+
+  /**
+   * DEV-only critter probes for the headless capture tool (comma-free calls):
+   * `__ffCritters.info()`, `.gather('x z')` (hens of that half ring the point,
+   * server dev tools), `.nearest()`, `.aim(id)` (points the camera at a hen
+   * from the eye), `.fire(steps)` (holds the trigger through the normal fire
+   * path), `.frame(id)` / `.release()` (close-up camera following a hen) and
+   * `.ready(seconds)` (waits for the painted hen views).
+   */
+  private installCritterDevTools(): void {
+    const holder = window as unknown as { __ffCritters?: Record<string, unknown> };
+    holder.__ffCritters = {
+      info: () => this.critters?.debugInfo() ?? {},
+      gather: async (spec: string) => {
+        const [x = 0, z = 0] = spec.trim().split(/\s+/).map(Number);
+        const response = await fetch(`/api/dev/critters?x=${x}&z=${z}`, { method: 'POST' });
+        return response.json();
+      },
+      /** Aims at a hen (default: the framed one). */
+      aim: (id?: number) => {
+        const character = this.localCharacter;
+        const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
+        const target = id ?? this.devFrame?.id ?? 0;
+        const hen = latest?.critters.find((critter) => critter.id === target);
+        if (!character || !hen || !this.cameraRig) return false;
+        const eye = character.position;
+        const dx = hen.position.x - eye.x;
+        const dy = hen.position.y + 0.21 - (eye.y + character.eyeHeight);
+        const dz = hen.position.z - eye.z;
+        this.cameraRig.resetAngles(Math.atan2(dx, dz), Math.atan2(dy, Math.hypot(dx, dz)));
+        return { yaw: Math.atan2(dx, dz), distance: Math.hypot(dx, dy, dz) };
+      },
+      fire: (steps = 2) => {
+        this.devFireSteps = Math.max(1, Math.min(120, steps));
+        return true;
+      },
+      /** Id of the living hen nearest to the local player (0 when none). */
+      nearest: () => {
+        const feet = this.localCharacter?.position;
+        const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
+        if (!feet || !latest) return 0;
+        let best = 0;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (const critter of latest.critters) {
+          if (!critter.alive) continue;
+          const distance = Math.hypot(critter.position.x - feet.x, critter.position.z - feet.z);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = critter.id;
+          }
+        }
+        return best;
+      },
+      /** Close-up camera following a hen, `distance` m out on the local player's side. */
+      frame: (id: number, distance = 3, lift = 1) => {
+        const feet = this.localCharacter?.position;
+        const hen = this.critters?.renderedPosition(id);
+        if (!feet || !hen) return false;
+        const dx = feet.x - hen.x;
+        const dz = feet.z - hen.z;
+        const length = Math.hypot(dx, dz) || 1;
+        this.devFrame = { id, x: dx / length, z: dz / length, distance, lift };
+        return true;
+      },
+      release: () => {
+        this.devFrame = null;
+        this.devCamera = null;
+        return true;
+      },
+      /** Resolves true once a living hen has its painted view (false after `seconds`). */
+      ready: (seconds = 60) =>
+        new Promise<boolean>((resolve) => {
+          const started = performance.now();
+          const check = (): void => {
+            const critters = (this.critters?.debugInfo().critters ?? []) as Array<{ alive: boolean; view: boolean }>;
+            if (critters.some((critter) => critter.alive && critter.view)) resolve(true);
+            else if (performance.now() - started > seconds * 1000) resolve(false);
+            else setTimeout(check, 250);
+          };
+          check();
+        }),
+    };
   }
 
   private handlePointerLockChange(locked: boolean): void {
@@ -812,6 +911,7 @@ export class GameClient {
     this.latestLocalState = null;
     this.profiles.clear();
     this.clearRemoteViews();
+    this.critters?.reset();
     this.deathKillerId = 0;
     this.deathKillerName = '';
     this.deathAt = 0;
@@ -1110,6 +1210,11 @@ export class GameClient {
         audio.playSkill(event.paramX, actor?.position);
         return;
       }
+      case 'CRITTER_KILLED': {
+        if (event.actorId === this.localId) this.lastCombatAt = now;
+        this.critters?.handleKill(event, { localId: this.localId, profiles: this.profiles });
+        return;
+      }
       case 'PROP_EXPLODE': {
         audio.playExplosion({
           x: event.paramX,
@@ -1127,7 +1232,9 @@ export class GameClient {
     if (this.disposed) return;
     this.snapshotCount += 1;
     this.lastSnapshotTick = snapshot.serverTick;
-    this.snapshotHistory.push({ snapshot, receivedAt: performance.now() });
+    const receivedAt = performance.now();
+    this.snapshotHistory.push({ snapshot, receivedAt });
+    this.critters?.onSnapshot(snapshot.critters, receivedAt);
     if (this.snapshotHistory.length > SNAPSHOT_HISTORY) this.snapshotHistory.shift();
     updateConnection({
       playersOnline: snapshot.players.length,
@@ -1303,6 +1410,8 @@ export class GameClient {
     this.updateLocalView(delta);
     this.updatePreviewView(delta);
     this.updateRemoteViews(delta, now);
+    const listener = this.cameraRig?.camera.position;
+    this.critters?.update(delta, now, listener ? { x: listener.x, y: listener.y, z: listener.z } : null);
     this.mascotFx?.update(delta);
     this.updateAudio(delta);
     this.updateMaterials(now);
@@ -1319,7 +1428,11 @@ export class GameClient {
     if (!character || !camera || !this.network) return;
     if (this.latestLocalState && !this.latestLocalState.alive) return;
 
-    const buttons = this.input?.buttons() ?? 0;
+    let buttons = this.input?.buttons() ?? 0;
+    if (this.devFireSteps > 0) {
+      this.devFireSteps -= 1;
+      buttons |= InputButton.FirePrimary;
+    }
     const slot = this.input?.currentWeaponSlot() ?? 1;
     if (slot !== this.lastWeaponSlot) {
       this.lastWeaponSlot = slot;
@@ -1417,6 +1530,16 @@ export class GameClient {
   private updateCamera(delta: number): void {
     const camera = this.cameraRig;
     if (!camera) return;
+    if (this.devFrame) {
+      const frame = this.devFrame;
+      const hen = this.critters?.renderedPosition(frame.id);
+      if (hen) {
+        this.devCamera = {
+          position: new Vector3(hen.x + frame.x * frame.distance, hen.y + frame.lift, hen.z + frame.z * frame.distance),
+          target: new Vector3(hen.x, hen.y + 0.25, hen.z),
+        };
+      }
+    }
     if (this.devCamera) {
       camera.camera.position.copyFrom(this.devCamera.position);
       camera.camera.setTarget(this.devCamera.target);
