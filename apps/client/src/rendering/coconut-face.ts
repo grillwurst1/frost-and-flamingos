@@ -315,9 +315,10 @@ export class CoconutFacePainter {
     for (const side of [-1, 1]) {
       const [x, y] = at(side * 0.25, 0.27);
       context.beginPath();
-      context.moveTo(x - side * 36, y - 24);
-      context.lineTo(x + side * 26, y);
-      context.lineTo(x - side * 36, y + 24);
+      // Squeezed shut ">_<": each chevron points toward the nose.
+      context.moveTo(x + side * 36, y - 24);
+      context.lineTo(x - side * 26, y);
+      context.lineTo(x + side * 36, y + 24);
       context.lineWidth = 12;
       context.strokeStyle = INK;
       context.stroke();

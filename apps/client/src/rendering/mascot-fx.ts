@@ -70,8 +70,9 @@ class PuffPool {
     this.mesh = CreateIcoSphere(`mascot-puff-${kind}`, { radius: 0.5, subdivisions: 2, flat: false }, scene);
     this.material = new StandardMaterial(`mascot-puff-${kind}-material`, scene);
     const color = Color3.FromHexString(PUFF_COLORS[kind]);
-    this.material.diffuseColor = color;
-    this.material.emissiveColor = color.scale(0.5);
+    // Mostly self-lit so puffs read as bright toon clouds from any side.
+    this.material.diffuseColor = color.scale(0.45);
+    this.material.emissiveColor = color.scale(0.78);
     this.material.specularColor = Color3.Black();
     this.mesh.material = this.material;
     this.mesh.isPickable = false;

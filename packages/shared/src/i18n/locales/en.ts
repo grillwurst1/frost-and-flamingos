@@ -628,7 +628,7 @@ export const en = {
     popups: {
       boing: 'BOING!',
       tock: 'TOCK!',
-      clang: 'KLONG!',
+      clang: 'CLANG!',
       moo: 'MOOO!',
       stomp: 'STOMP!',
       pound: 'WHAM!',
