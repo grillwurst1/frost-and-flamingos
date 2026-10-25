@@ -435,61 +435,38 @@ export class VehicleBody {
       this.events.push({ type: 'boost' });
     }
 
-    const sin = Math.sin(this.heading);
-    const cos = Math.cos(this.heading);
-    let forward = this.linear.x * sin + this.linear.z * cos;
-    let lateral = this.linear.x * cos - this.linear.z * sin;
-
     const surface = chassis === 'boat' ? 'water' : surfaceTagAt(this.base.x, this.base.z, this.base.y);
     const traction = chassis === 'boat' ? { grip: 1, speed: 1 } : tractionFor(chassis, surface);
     const boostScale = this.boost > 0 && boostDefinition ? boostDefinition.speedScale : 1;
     const maxForward = definition.maxForwardSpeed * traction.speed * boostScale;
     const maxReverse = definition.maxReverseSpeed * traction.speed;
     const driving = chassis === 'boat' ? this.isAfloat : this.isGrounded;
+    const speedAlong = this.linear.x * Math.sin(this.heading) + this.linear.z * Math.cos(this.heading);
 
-    if (driving) {
-      const target = throttle > 0 ? maxForward : throttle < 0 ? -maxReverse : 0;
-      if (throttle !== 0 && Math.sign(forward) === -throttle && Math.abs(forward) > 0.3) {
-        forward = moveTowards(forward, 0, definition.braking * traction.grip * dt);
-      } else if (throttle !== 0 && Math.abs(target) >= Math.abs(forward)) {
-        const acceleration = definition.acceleration * traction.grip * (this.boost > 0 ? 3.2 : 1);
-        forward = moveTowards(forward, target, acceleration * dt);
-      } else {
-        // Coasting, or faster than the throttle allows (after a turbo).
-        forward = moveTowards(forward, target, definition.coastDrag * dt);
-      }
-      if (this.braking) forward = moveTowards(forward, 0, definition.braking * 0.5 * traction.grip * dt);
-      const grip = definition.lateralGrip * traction.grip * (this.braking ? 0.16 : 1);
-      lateral = moveTowards(lateral, 0, grip * dt);
-    } else if (chassis === 'boat') {
-      // Beached: the hull grinds to a halt on the sand.
-      forward = moveTowards(forward, 0, 9 * dt);
-      lateral = moveTowards(lateral, 0, 9 * dt);
-    }
-
-    // Steering.
+    // Steering first: the hull turns, its momentum lags behind (side slip),
+    // and the tyres / tracks / water then grip it back into the new heading.
     let targetRate = 0;
     if (chassis === 'tracked') {
       if (this.isGrounded) {
-        const speedFactor = Math.abs(forward) > maxForward * 0.6 ? 0.8 : 1;
+        const speedFactor = Math.abs(speedAlong) > maxForward * 0.6 ? 0.8 : 1;
         targetRate = steerInput * definition.turnRate * speedFactor * traction.grip;
       }
       this.turnRate += (targetRate - this.turnRate) * (1 - Math.exp(-definition.turnResponse * dt));
     } else if (chassis === 'boat') {
       if (this.isAfloat) {
-        const authority = Math.min(1, 0.35 + Math.abs(forward) / 6);
-        const direction = forward < -0.5 ? -1 : 1;
+        const authority = Math.min(1, 0.35 + Math.abs(speedAlong) / 6);
+        const direction = speedAlong < -0.5 ? -1 : 1;
         targetRate = steerInput * definition.turnRate * authority * direction * (this.boost > 0 ? 0.55 : 1);
       }
       this.turnRate += (targetRate - this.turnRate) * (1 - Math.exp(-definition.turnResponse * dt));
     } else {
-      const speedRatio = Math.min(1, Math.abs(forward) / definition.maxForwardSpeed);
+      const speedRatio = Math.min(1, Math.abs(speedAlong) / definition.maxForwardSpeed);
       const maxSteer = definition.turnRate * (1 - 0.62 * speedRatio);
       const targetSteer = steerInput * maxSteer;
       this.steerAngle += (targetSteer - this.steerAngle) * (1 - Math.exp(-definition.turnResponse * dt));
       if (this.isGrounded) {
         const drift = this.braking ? 1.45 : 1;
-        targetRate = (forward * Math.tan(this.steerAngle) * drift) / SIDECAR_WHEELBASE;
+        targetRate = (speedAlong * Math.tan(this.steerAngle) * drift) / SIDECAR_WHEELBASE;
         this.turnRate += (targetRate - this.turnRate) * (1 - Math.exp(-12 * dt));
       } else {
         this.turnRate *= Math.exp(-1.5 * dt);
@@ -505,7 +482,29 @@ export class VehicleBody {
     this.heading = nextYaw;
     const nextSin = Math.sin(this.heading);
     const nextCos = Math.cos(this.heading);
-    // Forward speed carries into the new heading; side slip stays in the body frame.
+    let forward = this.linear.x * nextSin + this.linear.z * nextCos;
+    let lateral = this.linear.x * nextCos - this.linear.z * nextSin;
+
+    if (driving) {
+      const target = throttle > 0 ? maxForward : throttle < 0 ? -maxReverse : 0;
+      if (throttle !== 0 && Math.sign(forward) === -throttle && Math.abs(forward) > 0.3) {
+        forward = moveTowards(forward, 0, definition.braking * traction.grip * dt);
+      } else if (throttle !== 0 && Math.abs(target) >= Math.abs(forward)) {
+        const acceleration = definition.acceleration * traction.grip * (this.boost > 0 ? 3.2 : 1);
+        forward = moveTowards(forward, target, acceleration * dt);
+      } else {
+        // Coasting, or faster than the throttle allows (after a turbo).
+        forward = moveTowards(forward, target, definition.coastDrag * dt);
+      }
+      if (this.braking) forward = moveTowards(forward, 0, definition.braking * 0.35 * traction.grip * dt);
+      const grip = definition.lateralGrip * traction.grip * (this.braking ? 0.14 : 1);
+      lateral = moveTowards(lateral, 0, grip * dt);
+    } else if (chassis === 'boat') {
+      // Beached: the hull grinds to a halt on the sand.
+      forward = moveTowards(forward, 0, 9 * dt);
+      lateral = moveTowards(lateral, 0, 9 * dt);
+    }
+
     let vx = nextSin * forward + nextCos * lateral;
     let vz = nextCos * forward - nextSin * lateral;
 
