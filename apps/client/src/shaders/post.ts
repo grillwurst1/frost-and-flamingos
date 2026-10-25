@@ -209,18 +209,29 @@ float ffNormalEdge(vec3 n0, vec3 n1) {
 
 void main(void) {
   vec3 color = texture2D(textureSampler, vUV).rgb;
-  vec3 around = texture2D(textureSampler, vUV + vec2(uTexel.x, 0.0)).rgb + texture2D(textureSampler, vUV - vec2(uTexel.x, 0.0)).rgb
-    + texture2D(textureSampler, vUV + vec2(0.0, uTexel.y)).rgb + texture2D(textureSampler, vUV - vec2(0.0, uTexel.y)).rgb;
-  color = max(color + (color - around * 0.25) * uSharpen.x, vec3(0.0));
+  // uSharpen: x sharpen amount, y detailed edges (1 = 8 taps + wobble-aware near depth).
+  if (uSharpen.x > 0.0) {
+    vec3 around = texture2D(textureSampler, vUV + vec2(uTexel.x, 0.0)).rgb + texture2D(textureSampler, vUV - vec2(uTexel.x, 0.0)).rgb
+      + texture2D(textureSampler, vUV + vec2(0.0, uTexel.y)).rgb + texture2D(textureSampler, vUV - vec2(0.0, uTexel.y)).rgb;
+    color = max(color + (color - around * 0.25) * uSharpen.x, vec3(0.0));
+  }
   vec2 pixel = vUV / uTexel;
+  bool detailed = uSharpen.y > 0.5;
 
   // Hand-drawn wobble: a static low-frequency offset field and width noise.
-  vec2 wobble = vec2(ffNoise(pixel * 0.021), ffNoise(pixel * 0.021 + 17.3)) - 0.5;
-  vec2 uv = vUV + wobble * uInkParams.w * uTexel;
-  float widthNoise = 0.72 + 0.56 * ffNoise(pixel * 0.013 + 41.0);
+  vec2 uv = vUV;
+  float widthNoise = 1.0;
+  if (uInkParams.w > 0.0) {
+    vec2 wobble = vec2(ffNoise(pixel * 0.021), ffNoise(pixel * 0.021 + 17.3)) - 0.5;
+    uv = vUV + wobble * uInkParams.w * uTexel;
+    widthNoise = 0.72 + 0.56 * ffNoise(pixel * 0.013 + 41.0);
+  }
 
   float d0 = ffDepth(uv);
-  float near = min(d0, min(min(ffDepth(uv + vec2(uTexel.x, 0.0)), ffDepth(uv - vec2(uTexel.x, 0.0))), min(ffDepth(uv + vec2(0.0, uTexel.y)), ffDepth(uv - vec2(0.0, uTexel.y)))));
+  float near = d0;
+  if (detailed) {
+    near = min(d0, min(min(ffDepth(uv + vec2(uTexel.x, 0.0)), ffDepth(uv - vec2(uTexel.x, 0.0))), min(ffDepth(uv + vec2(0.0, uTexel.y)), ffDepth(uv - vec2(0.0, uTexel.y)))));
+  }
   float farMix = smoothstep(uInkFade.x, uInkFade.y, near);
   float width = uInkParams.x * widthNoise * mix(1.0, uInkFade.z, farMix);
   vec2 ox = vec2(uTexel.x * width, 0.0);
@@ -228,25 +239,14 @@ void main(void) {
   vec2 od1 = (ox + oy) * 0.7071;
   vec2 od2 = (ox - oy) * 0.7071;
 
-  float dl = ffDepth(uv - ox);
-  float dr = ffDepth(uv + ox);
-  float dd = ffDepth(uv - oy);
-  float du = ffDepth(uv + oy);
-  float da = ffDepth(uv - od1);
-  float db = ffDepth(uv + od1);
-  float dc = ffDepth(uv - od2);
-  float de = ffDepth(uv + od2);
-  float lap = max(
-    max(abs(d0 / dl + d0 / dr - 2.0), abs(d0 / dd + d0 / du - 2.0)),
-    max(abs(d0 / da + d0 / db - 2.0), abs(d0 / dc + d0 / de - 2.0))
-  );
-  float depthEdge = smoothstep(uInkParams.y, uInkParams.y * 2.2, lap);
-
+  float lap = max(abs(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), abs(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
   vec3 n0 = ffNormal(uv);
-  float nEdge = max(
-    max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy)))),
-    max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2)))
-  );
+  float nEdge = max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy))));
+  if (detailed) {
+    lap = max(lap, max(abs(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), abs(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
+    nEdge = max(nEdge, max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2))));
+  }
+  float depthEdge = smoothstep(uInkParams.y, uInkParams.y * 2.2, lap);
   float normalEdge = smoothstep(uInkParams.z, uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uInkFade.x * 0.7, uInkFade.y * 0.55, near));
 
   float ink = max(depthEdge, normalEdge) * mix(1.0, uInkFade.w, farMix);
@@ -259,9 +259,11 @@ void main(void) {
   color = mix(color, uInkColor.rgb, clamp(ink, 0.0, 1.0));
 
   // Paper grain and a faint canvas weave.
-  float grain = ffNoise(pixel * 0.75) * 0.55 + ffNoise(pixel * 0.19 + 9.0) * 0.45;
-  float weave = sin(pixel.x * 2.2) * sin(pixel.y * 2.2) * 0.5 + 0.5;
-  color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uGradeExtra.y;
+  if (uGradeExtra.y > 0.0) {
+    float grain = ffNoise(pixel * 0.75) * 0.55 + ffNoise(pixel * 0.19 + 9.0) * 0.45;
+    float weave = sin(pixel.x * 2.2) * sin(pixel.y * 2.2) * 0.5 + 0.5;
+    color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uGradeExtra.y;
+  }
 
   // Grading towards the painted palette: exposure, saturation + vibrance
   // (muted colours gain most), a soft S-curve that never clips, split tone.
@@ -347,19 +349,29 @@ fn ffNormalEdge(n0 : vec3f, n1 : vec3f) -> f32 {
 fn main(input : FragmentInputs) -> FragmentOutputs {
   var color = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV, 0.0).rgb;
   let texel = uniforms.uTexel;
-  let around = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(texel.x, 0.0), 0.0).rgb
-    + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV - vec2f(texel.x, 0.0), 0.0).rgb
-    + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(0.0, texel.y), 0.0).rgb
-    + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV - vec2f(0.0, texel.y), 0.0).rgb;
-  color = max(color + (color - around * 0.25) * uniforms.uSharpen.x, vec3f(0.0));
+  if (uniforms.uSharpen.x > 0.0) {
+    let around = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(texel.x, 0.0), 0.0).rgb
+      + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV - vec2f(texel.x, 0.0), 0.0).rgb
+      + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(0.0, texel.y), 0.0).rgb
+      + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV - vec2f(0.0, texel.y), 0.0).rgb;
+    color = max(color + (color - around * 0.25) * uniforms.uSharpen.x, vec3f(0.0));
+  }
   let pixel = input.vUV / texel;
+  let detailed = uniforms.uSharpen.y > 0.5;
 
-  let wobble = vec2f(ffNoise(pixel * 0.021), ffNoise(pixel * 0.021 + 17.3)) - 0.5;
-  let uv = input.vUV + wobble * uniforms.uInkParams.w * texel;
-  let widthNoise = 0.72 + 0.56 * ffNoise(pixel * 0.013 + 41.0);
+  var uv = input.vUV;
+  var widthNoise = 1.0;
+  if (uniforms.uInkParams.w > 0.0) {
+    let wobble = vec2f(ffNoise(pixel * 0.021), ffNoise(pixel * 0.021 + 17.3)) - 0.5;
+    uv = input.vUV + wobble * uniforms.uInkParams.w * texel;
+    widthNoise = 0.72 + 0.56 * ffNoise(pixel * 0.013 + 41.0);
+  }
 
   let d0 = ffDepth(uv);
-  let near = min(d0, min(min(ffDepth(uv + vec2f(texel.x, 0.0)), ffDepth(uv - vec2f(texel.x, 0.0))), min(ffDepth(uv + vec2f(0.0, texel.y)), ffDepth(uv - vec2f(0.0, texel.y)))));
+  var near = d0;
+  if (detailed) {
+    near = min(d0, min(min(ffDepth(uv + vec2f(texel.x, 0.0)), ffDepth(uv - vec2f(texel.x, 0.0))), min(ffDepth(uv + vec2f(0.0, texel.y)), ffDepth(uv - vec2f(0.0, texel.y)))));
+  }
   let farMix = smoothstep(uniforms.uInkFade.x, uniforms.uInkFade.y, near);
   let width = uniforms.uInkParams.x * widthNoise * mix(1.0, uniforms.uInkFade.z, farMix);
   let ox = vec2f(texel.x * width, 0.0);
@@ -367,25 +379,14 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let od1 = (ox + oy) * 0.7071;
   let od2 = (ox - oy) * 0.7071;
 
-  let dl = ffDepth(uv - ox);
-  let dr = ffDepth(uv + ox);
-  let dd = ffDepth(uv - oy);
-  let du = ffDepth(uv + oy);
-  let da = ffDepth(uv - od1);
-  let db = ffDepth(uv + od1);
-  let dc = ffDepth(uv - od2);
-  let de = ffDepth(uv + od2);
-  let lap = max(
-    max(abs(d0 / dl + d0 / dr - 2.0), abs(d0 / dd + d0 / du - 2.0)),
-    max(abs(d0 / da + d0 / db - 2.0), abs(d0 / dc + d0 / de - 2.0))
-  );
-  let depthEdge = smoothstep(uniforms.uInkParams.y, uniforms.uInkParams.y * 2.2, lap);
-
+  var lap = max(abs(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), abs(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
   let n0 = ffNormal(uv);
-  let nEdge = max(
-    max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy)))),
-    max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2)))
-  );
+  var nEdge = max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy))));
+  if (detailed) {
+    lap = max(lap, max(abs(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), abs(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
+    nEdge = max(nEdge, max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2))));
+  }
+  let depthEdge = smoothstep(uniforms.uInkParams.y, uniforms.uInkParams.y * 2.2, lap);
   let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.7, uniforms.uInkFade.y * 0.55, near));
 
   var ink = max(depthEdge, normalEdge) * mix(1.0, uniforms.uInkFade.w, farMix);
@@ -397,9 +398,11 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   ink *= uniforms.uInkColor.a;
   color = mix(color, uniforms.uInkColor.rgb, clamp(ink, 0.0, 1.0));
 
-  let grain = ffNoise(pixel * 0.75) * 0.55 + ffNoise(pixel * 0.19 + 9.0) * 0.45;
-  let weave = sin(pixel.x * 2.2) * sin(pixel.y * 2.2) * 0.5 + 0.5;
-  color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uniforms.uGradeExtra.y;
+  if (uniforms.uGradeExtra.y > 0.0) {
+    let grain = ffNoise(pixel * 0.75) * 0.55 + ffNoise(pixel * 0.19 + 9.0) * 0.45;
+    let weave = sin(pixel.x * 2.2) * sin(pixel.y * 2.2) * 0.5 + 0.5;
+    color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uniforms.uGradeExtra.y;
+  }
 
   color *= uniforms.uGrade.x;
   var luma = dot(color, vec3f(0.299, 0.587, 0.114));

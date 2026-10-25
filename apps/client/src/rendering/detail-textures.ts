@@ -482,15 +482,21 @@ export interface DetailTextureSet {
   dispose(): void;
 }
 
+const yieldToFrame = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Creates the three packed detail textures. They start neutral (no detail)
+ * so boot never waits on them; each channel is then filled asynchronously,
+ * one channel per task: from the painted tile when it exists, otherwise from
+ * the procedural painter. `painted` resolves with the number of painted tiles.
+ */
 export function createDetailTextures(scene: Scene): DetailTextureSet {
-  const channels = new Map<DetailTextureName, Array<Uint8ClampedArray | null>>();
+  const neutral = new Uint8Array(DETAIL_SIZE * DETAIL_SIZE * 4).fill(128);
   const textures = {} as Record<DetailTextureName, RawTexture>;
+  let disposed = false;
   for (const name of Object.keys(DETAIL_LAYOUT) as DetailTextureName[]) {
-    const specs = DETAIL_LAYOUT[name];
-    const data = specs.map((spec) => paintChannel(spec));
-    channels.set(name, data);
     const texture = RawTexture.CreateRGBATexture(
-      pack(data),
+      neutral,
       DETAIL_SIZE,
       DETAIL_SIZE,
       scene,
@@ -506,27 +512,29 @@ export function createDetailTextures(scene: Scene): DetailTextureSet {
   }
 
   const painted = (async () => {
-    let replaced = 0;
+    let fromArt = 0;
     for (const name of Object.keys(DETAIL_LAYOUT) as DetailTextureName[]) {
       const specs = DETAIL_LAYOUT[name];
-      const data = channels.get(name);
-      if (!data) continue;
-      let changed = false;
-      for (let index = 0; index < specs.length; index += 1) {
-        const art = specs[index]?.art;
-        if (!art) continue;
-        const image = await loadArtImage(`tex/${art.file}`);
-        if (!image) continue;
-        const channel = paintedChannel(image, art.repeat);
-        if (!channel) continue;
-        data[index] = channel;
-        changed = true;
-        replaced += 1;
+      const data: Array<Uint8ClampedArray | null> = [];
+      for (const spec of specs) {
+        let channel: Uint8ClampedArray | null = null;
+        if (spec.art) {
+          const image = await loadArtImage(`tex/${spec.art.file}`);
+          if (image) channel = paintedChannel(image, spec.art.repeat);
+          if (channel) fromArt += 1;
+        }
+        if (!channel) {
+          await yieldToFrame();
+          channel = paintChannel(spec);
+        }
+        data.push(channel);
+        if (disposed) return fromArt;
       }
       const texture = textures[name];
-      if (changed && texture.getInternalTexture()) texture.update(pack(data));
+      if (texture.getInternalTexture()) texture.update(pack(data));
+      await yieldToFrame();
     }
-    return replaced;
+    return fromArt;
   })();
 
   return {
@@ -535,6 +543,7 @@ export function createDetailTextures(scene: Scene): DetailTextureSet {
     detailC: textures.detailC,
     painted,
     dispose() {
+      disposed = true;
       textures.detailA.dispose();
       textures.detailB.dispose();
       textures.detailC.dispose();

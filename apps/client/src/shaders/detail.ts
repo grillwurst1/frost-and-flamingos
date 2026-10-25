@@ -137,7 +137,9 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
     wA = vec4(0.0, wood, 0.0, 0.0) / total;
     wB = vec4(snow, sand, grass, rock) / total;
     wC = vec4(brush, foliage, 0.0, 0.0) / total;
-    sparkleWeight = snow * smoothstep(0.55, 0.85, up);
+    // Glitter only on big world-space meshes (terrain, merged map props), not on
+    // small local-space objects such as mascots, vehicles or instanced props.
+    sparkleWeight = snow * smoothstep(0.55, 0.85, up) * smoothstep(18.0, 30.0, length(localPos.xz));
   } else {
     float id = floor(vertexColor.a * 32.0);
     wA = vec4(ffIsId(id, 1.0), ffIsId(id, 2.0), ffIsId(id, 3.0), ffIsId(id, 4.0));
@@ -295,7 +297,9 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
     wA = vec4f(0.0, wood, 0.0, 0.0) / total;
     wB = vec4f(snow, sand, grass, rock) / total;
     wC = vec4f(brush, foliage, 0.0, 0.0) / total;
-    sparkleWeight = snow * smoothstep(0.55, 0.85, up);
+    // Glitter only on big world-space meshes (terrain, merged map props), not on
+    // small local-space objects such as mascots, vehicles or instanced props.
+    sparkleWeight = snow * smoothstep(0.55, 0.85, up) * smoothstep(18.0, 30.0, length(localPos.xz));
   } else {
     let id = floor(vertexColor.a * 32.0);
     wA = vec4f(ffIsId(id, 1.0), ffIsId(id, 2.0), ffIsId(id, 3.0), ffIsId(id, 4.0));

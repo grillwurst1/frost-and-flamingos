@@ -124,7 +124,7 @@ const QUALITY: Record<VisualQuality, QualityProfile> = {
     detailMode: 0,
     hatch: 0,
     grain: 0,
-    sharpen: 0.2,
+    sharpen: 0,
     shadowSize: 1024,
     shadowFilter: 1,
     msaa: 1,
@@ -203,10 +203,10 @@ const WEATHER_ICY: WeatherPreset = {
   waterShallow: hex('#5FCFD6'),
   waterMid: hex('#2E9DB8'),
   waterDeep: hex('#1B5E8C'),
-  grade: new Vector4(1.0, 1.12, 0.88, 0.12),
+  grade: new Vector4(0.98, 1.12, 0.8, 0.1),
   shadowTone: new Color3(-0.02, 0.01, 0.07),
   highlightTone: new Color3(-0.01, 0.005, 0.03),
-  tint: new Color3(0.9, 0.95, 1.03),
+  tint: new Color3(0.8, 0.9, 1.02),
 };
 
 const WEATHER_GOLDEN: WeatherPreset = {
@@ -294,6 +294,11 @@ export class SceneLook {
   private readonly tmpForward = new Vector3();
   private readonly tmpRight = new Vector3();
   private readonly tmpUp = new Vector3();
+  private readonly shadowDirection = new Vector3();
+  private readonly shadowFlat = new Vector3();
+  private readonly shadowCenter = new Vector3();
+  private readonly shadowRight = new Vector3();
+  private readonly shadowUp = new Vector3();
 
   constructor(scene: Scene, camera: Camera) {
     this.scene = scene;
@@ -569,22 +574,25 @@ export class SceneLook {
 
   private fitShadowFrustum(): void {
     const camera = this.camera;
-    const direction = this.sun.direction.normalizeToNew();
+    const direction = this.shadowDirection.copyFrom(this.sun.direction).normalize();
     const forward = this.tmpForward;
-    const flat = new Vector3(forward.x, 0, forward.z);
+    const flat = this.shadowFlat.set(forward.x, 0, forward.z);
     if (flat.lengthSquared() < 0.0001) flat.set(0, 0, 1);
     flat.normalize();
-    const center = camera.globalPosition.add(flat.scale(SHADOW_FRUSTUM * 0.32));
+    const center = this.shadowCenter.copyFrom(camera.globalPosition).addInPlace(flat.scaleInPlace(SHADOW_FRUSTUM * 0.32));
     // Snap the centre to whole shadow texels in light space to stop shimmering.
     const size = this.shadowGenerator?.mapSize ?? 2048;
     const texel = SHADOW_FRUSTUM / size;
-    const right = Vector3.Cross(Vector3.Up(), direction).normalize();
-    const up = Vector3.Cross(direction, right).normalize();
+    const right = Vector3.CrossToRef(Vector3.UpReadOnly, direction, this.shadowRight).normalize();
+    const up = Vector3.CrossToRef(direction, right, this.shadowUp).normalize();
     const cx = Math.round(Vector3.Dot(center, right) / texel) * texel;
     const cy = Math.round(Vector3.Dot(center, up) / texel) * texel;
-    const cz = Vector3.Dot(center, direction);
-    const snapped = right.scale(cx).addInPlace(up.scale(cy)).addInPlace(direction.scale(cz));
-    this.sun.position.copyFrom(snapped.subtract(direction.scale(SHADOW_DEPTH_RANGE * 0.5)));
+    const cz = Vector3.Dot(center, direction) - SHADOW_DEPTH_RANGE * 0.5;
+    this.sun.position.set(
+      right.x * cx + up.x * cy + direction.x * cz,
+      right.y * cx + up.y * cy + direction.y * cz,
+      right.z * cx + up.z * cy + direction.z * cz,
+    );
   }
 
   private registerPostShaders(): void {
@@ -672,7 +680,7 @@ export class SceneLook {
     effect.setVector4('uGradeExtra', this.gradeExtra);
     effect.setColor3('uShadowTone', this.shadowTone);
     effect.setColor3('uHighlightTone', this.highlightTone);
-    effect.setFloat4('uSharpen', QUALITY[this.quality].sharpen, 0, 0, 0);
+    effect.setFloat4('uSharpen', QUALITY[this.quality].sharpen, QUALITY[this.quality].paint ? 1 : 0, 0, 0);
     const gbr = this.geometryBuffer;
     const fallback: BaseTexture = this.context.textures.sceneDepth;
     if (gbr) {
