@@ -56,6 +56,8 @@ export interface PaintedModelAsset extends RigInfo {
   height: number;
   /** Index ranges of the body and the removable painted headgear. */
   hatSplit: { bodyCount: number; hatCount: number } | null;
+  /** Bind-pose top of the drawn body without the removable painted hat (= height without a split). */
+  bodyTop: number;
   /**
    * Bind-pose torso depth around the chest joint (armature z, +Z forward):
    * where back items sit and how far held props stay in front. Null for
@@ -73,6 +75,18 @@ export interface TorsoDepth {
   front: number;
   /** Back surface behind the spine at chest height. */
   back: number;
+}
+
+/** Highest bind-pose vertex referenced by the first `indexCount` indices (the body sub-mesh). */
+function bodyTopOf(mesh: Mesh, indexCount: number): number | null {
+  const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
+  const indices = mesh.getIndices();
+  if (!positions || !indices) return null;
+  let top = -Infinity;
+  for (let index = 0; index < Math.min(indexCount, indices.length); index += 1) {
+    top = Math.max(top, positions[(indices[index] ?? 0) * 3 + 1] ?? -Infinity);
+  }
+  return Number.isFinite(top) ? top : null;
 }
 
 /** Measures the bind-pose torso around Spine2 from the skinned vertices. */
@@ -272,6 +286,7 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
     clipNames: new Set(baked.size > 0 ? [...baked.values()].map((clip) => clip.name) : container.animationGroups.map((group) => group.name)),
     height,
     hatSplit,
+    bodyTop: hatSplit ? bodyTopOf(mesh, hatSplit.bodyCount) ?? height : height,
     torso: skeleton ? measureTorso(mesh, rig) : null,
     clips: new Map(),
   };

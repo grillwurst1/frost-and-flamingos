@@ -2,7 +2,7 @@ import '@babylonjs/core/Bones/skeleton';
 import { AnimationGroup } from '@babylonjs/core/Animations/animationGroup';
 import type { InstantiatedEntries } from '@babylonjs/core/assetContainer';
 import { BoundingInfo } from '@babylonjs/core/Culling/boundingInfo';
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
+import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { SubMesh } from '@babylonjs/core/Meshes/subMesh';
@@ -29,6 +29,7 @@ import {
   wearsNative,
   type ClipRole,
 } from './glb/catalog';
+import { gaitContactPhase } from './glb/clips';
 import {
   BAKE_FPS,
   bindWorldTransform,
@@ -65,7 +66,16 @@ import { GlbRig, type RigJoint } from './glb/rig';
  */
 type GlbPose = AvatarPose;
 
-const LOOPING: Readonly<Record<ClipRole, boolean>> = {
+/**
+ * Animation roles plus the speed-picked gaits that reuse a model's run cycle:
+ * a fast crouch plays it under the procedural crouch, a fast backpedal plays
+ * it reversed.
+ */
+type BindingRole = ClipRole | 'crouchRun' | 'runBack';
+
+const LOOPING: Readonly<Record<BindingRole, boolean>> = {
+  crouchRun: true,
+  runBack: true,
   idle: true,
   walk: true,
   combatWalk: true,
@@ -85,25 +95,44 @@ const LOOPING: Readonly<Record<ClipRole, boolean>> = {
  * Painted models measure it per clip at load (BakedClip.naturalSpeed, the
  * stance-foot speed); these values only cover clips without leg motion.
  */
-const NATURAL_SPEED: Partial<Record<ClipRole, number>> = {
+const NATURAL_SPEED: Partial<Record<BindingRole, number>> = {
   walk: 1.3,
   combatWalk: 0.7,
   run: 3.9,
   sprint: 3.9,
   backpedal: 0.95,
 };
-/**
- * Highest playback rate of an in-place loop. The motor's crouch-walk and
- * backpedal speeds need up to ~7.5× the Meshy cycles' natural pace (the
- * infiltrator), so the cap sits above that and the feet never slide.
- */
+/** Highest playback rate of any in-place loop. */
 const MAX_LOOP_RATE = 8;
+/**
+ * Plausible cadence ceilings (steps per second; every cycle is one stride,
+ * two steps). Above them the stride lengthens (up to MAX_STRIDE) and the
+ * remaining speed difference shows as a little foot slide instead of
+ * strobing legs.
+ */
+const CADENCE_CAP: Readonly<Record<string, number>> = {
+  walk: 3.0,
+  combatWalk: 3.0,
+  backpedal: 3.0,
+  crouchRun: 3.3,
+  runBack: 3.3,
+  run: 3.6,
+  sprint: 4.5,
+};
+/** Longest stride: the leg swing (UpLeg/Leg rotation from bind) scaled up to this factor. */
+const MAX_STRIDE = 1.3;
 
-const LOCOMOTION: readonly ClipRole[] = ['walk', 'combatWalk', 'run', 'sprint', 'backpedal'];
-const OVERLAY_ROLES: readonly ClipRole[] = ['reload', 'taunt'];
+const LOCOMOTION: readonly BindingRole[] = ['walk', 'combatWalk', 'run', 'sprint', 'backpedal', 'crouchRun', 'runBack'];
+const OVERLAY_ROLES: readonly BindingRole[] = ['reload', 'taunt'];
+const STRIDE_JOINTS = ['LeftUpLeg', 'LeftLeg', 'RightUpLeg', 'RightLeg'] as const;
+
+/** Step length (model units) of a cycle at 1×: natural speed × duration / 2 steps. */
+function stepLength(clip: BakedClip, fallback: number): number {
+  return ((clip.naturalSpeed ?? fallback) * clip.duration) / 2;
+}
 
 interface ClipBinding {
-  role: ClipRole;
+  role: BindingRole;
   clip: BakedClip;
   /** Instance joint index → clip bone index (-1 = bind pose). */
   map: Int16Array;
@@ -117,6 +146,8 @@ interface ClipBinding {
   reverse: boolean;
   /** Frozen frame (seconds) instead of advancing, or null. */
   hold: number | null;
+  /** Stride lengthening (≥ 1) used while the cadence is capped. */
+  stride: number;
 }
 
 /** Hold offsets in the aim frame: x = character right, y = up, z = forward. */
@@ -206,8 +237,13 @@ export class GlbCharacterView implements AvatarView {
   private readonly rollPivot: TransformNode;
   /** Height of the roll pivot above the feet (tucked body centre). */
   private readonly rollCentre: number;
-  /** Top of the painted head or hat above the Head joint (armature units). */
-  private readonly headTop: number;
+  /** Current roll pivot height and safety lift (both rate-limited). */
+  private rollPivotY: number;
+  private rollLift = 0;
+  /** Armature space → model-root space (static glTF root chain), cached on first roll. */
+  private armatureToModel: Matrix | null = null;
+  /** Head attachment (headgear/face items), part of the roll clearance. */
+  private headAttachment: Mesh | null = null;
   private readonly modelRoot: TransformNode;
   private readonly entries: InstantiatedEntries;
   private readonly armature: TransformNode;
@@ -228,7 +264,7 @@ export class GlbCharacterView implements AvatarView {
   private readonly bindHips: Vector3;
   private readonly accumulator: Float32Array;
   private readonly hipsAccumulator = new Vector3();
-  private readonly bindings = new Map<ClipRole, ClipBinding>();
+  private readonly bindings = new Map<BindingRole, ClipBinding>();
   private readonly weapons = new Map<WeaponId, WeaponProp | null>();
   private readonly attachments: Mesh[] = [];
   private readonly height: number;
@@ -300,6 +336,7 @@ export class GlbCharacterView implements AvatarView {
     // Roll pivot at the tucked body centre, so the curled figure stays above the ground.
     const rollCentre = 0.36 * this.height;
     this.rollCentre = rollCentre;
+    this.rollPivotY = rollCentre;
     this.rollPivot.position.y = rollCentre;
     this.modelRoot = new TransformNode('glb-model-root', scene);
     this.modelRoot.parent = this.rollPivot;
@@ -364,8 +401,6 @@ export class GlbCharacterView implements AvatarView {
     const hipsNode = nodes.get('Hips');
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
-    const bindHead = asset.bindPositions.get('Head');
-    this.headTop = bindHead ? Math.max(spec.head.radius * 1.2, asset.height - bindHead.y) : 0.25;
 
     const upperRoots = new Set(['Spine1', 'Spine2']);
     const isUpper = (name: string): boolean => {
@@ -386,9 +421,23 @@ export class GlbCharacterView implements AvatarView {
       if (air) air.hold = run.duration * 0.3;
     }
     if (!this.bindings.has('backpedal') && walk) {
-      this.bind('backpedal', walk, isUpper, ordered);
+      // Reversed walk: its backward heel strike is the forward cycle's most trailing foot.
+      this.bind('backpedal', { ...walk, contactPhase: gaitContactPhase(walk, asset, true) }, isUpper, ordered);
       const backpedal = this.bindings.get('backpedal');
       if (backpedal) backpedal.reverse = true;
+    }
+    if (run) {
+      // Speed-picked gaits (see BindingRole).
+      this.bind('crouchRun', run, isUpper, ordered);
+      this.bind('runBack', { ...run, contactPhase: gaitContactPhase(run, asset, true) }, isUpper, ordered);
+      const runBack = this.bindings.get('runBack');
+      if (runBack) runBack.reverse = true;
+      // Sprint on whichever of the sprint and run cycles takes the longer
+      // step, i.e. the lower cadence at sprint speed.
+      const sprint = this.bindings.get('sprint');
+      if (sprint && sprint.clip !== run && stepLength(run, NATURAL_SPEED.run ?? 3.9) > stepLength(sprint.clip, NATURAL_SPEED.sprint ?? 3.9)) {
+        this.bind('sprint', run, isUpper, ordered);
+      }
     }
 
     this.attachCosmetics(profile, nodes);
@@ -473,7 +522,10 @@ export class GlbCharacterView implements AvatarView {
     }
     const face = !wearsNative(profile, spec, 'face') && cosmetics.face !== 'face_none' ? cosmetics.face : null;
     const head = buildHeadAttachment(this.scene, headgear, face, hairHex, this.propMaterial);
-    if (head) this.attach(head, nodes, 'Head', new Vector3(0, spec.head.y, spec.head.z), spec.head.radius / HEAD_UNIT, true);
+    if (head) {
+      this.attach(head, nodes, 'Head', new Vector3(0, spec.head.y, spec.head.z), spec.head.radius / HEAD_UNIT, true);
+      if (!head.isDisposed()) this.headAttachment = head;
+    }
 
     if (!wearsNative(profile, spec, 'back') && cosmetics.back !== 'back_none') {
       const back = buildBackAttachment(this.scene, cosmetics.back, this.propMaterial);
@@ -527,7 +579,7 @@ export class GlbCharacterView implements AvatarView {
     this.attachments.push(mesh);
   }
 
-  private bind(role: ClipRole, clip: BakedClip, isUpper: (name: string) => boolean, ordered: readonly string[]): void {
+  private bind(role: BindingRole, clip: BakedClip, isUpper: (name: string) => boolean, ordered: readonly string[]): void {
     const clipIndex = new Map<string, number>();
     clip.bones.forEach((bone, index) => clipIndex.set(bone, index));
     const map = new Int16Array(ordered.length);
@@ -547,6 +599,7 @@ export class GlbCharacterView implements AvatarView {
       rate: 1,
       reverse: false,
       hold: null,
+      stride: 1,
     });
   }
 
@@ -640,14 +693,15 @@ export class GlbCharacterView implements AvatarView {
     const airborne = !pose.grounded && !swimming && (this.airTime > 0.12 || this.parachute > 0.2);
     this.swim = approach(this.swim, swimming ? 1 : 0, dt * 4 * snap);
     this.crouch = approach(this.crouch, rolling ? 1 : crouchTarget, dt * 7 * snap);
-    this.aliveBlend = approach(this.aliveBlend, alive ? 1 : 0, dt * 6 * snap);
+    // Alive and death state always ease, even on a swap snap: the server may
+    // already have revived a player whose dead snapshot is still current.
+    this.aliveBlend = approach(this.aliveBlend, alive ? 1 : 0, dt * 6);
     if (alive) this.deathTime = 0;
-    else if (snap > 1) this.deathTime = 60;
     else this.deathTime += dt;
 
     // ---- clip weights -------------------------------------------------
-    const targets: Partial<Record<ClipRole, number>> = {};
-    const has = (role: ClipRole): boolean => this.bindings.has(role);
+    const targets: Partial<Record<BindingRole, number>> = {};
+    const has = (role: BindingRole): boolean => this.bindings.has(role);
     if (!alive) {
       if (has('death')) targets.death = 1;
       else targets.idle = 1;
@@ -662,9 +716,15 @@ export class GlbCharacterView implements AvatarView {
     } else {
       const move = smoothstep(0.35, 1.6, speed);
       if (backward && has('backpedal')) {
-        targets.backpedal = move;
+        // Fast backpedal: the run cycle reversed (the backpedal cycle would strobe).
+        const fast = has('runBack') ? smoothstep(1.3, 2.0, speed) : 0;
+        targets.backpedal = move * (1 - fast);
+        targets.runBack = move * fast;
       } else if (this.crouch > 0.5) {
-        targets.combatWalk = move;
+        // Fast crouch: the run cycle under the procedural crouch.
+        const fast = has('crouchRun') ? smoothstep(1.2, 1.5, speed) : 0;
+        targets.combatWalk = move * (1 - fast);
+        targets.crouchRun = move * fast;
       } else if (sprinting) {
         targets.sprint = move;
       } else {
@@ -674,13 +734,22 @@ export class GlbCharacterView implements AvatarView {
       }
       targets.idle = 1 - move;
     }
-    const fade = dt * (alive ? 9 : 5) * snap;
+    const fade = dt * (alive ? 9 : 5);
     for (const binding of this.bindings.values()) {
       if (OVERLAY_ROLES.includes(binding.role)) continue;
       binding.target = targets[binding.role] ?? 0;
-      binding.weight = approach(binding.weight, binding.target, fade);
+      // A swap snap jumps the gait weights, never the death clip (see above).
+      binding.weight = approach(binding.weight, binding.target, binding.role === 'death' ? fade : fade * snap);
       const natural = binding.clip.naturalSpeed ?? NATURAL_SPEED[binding.role];
-      binding.rate = natural ? Math.min(MAX_LOOP_RATE, Math.max(0.55, speed / natural)) : 1;
+      binding.rate = 1;
+      binding.stride = 1;
+      if (natural) {
+        // Cadence-capped rate; the stride lengthens to cover what the cap leaves.
+        const cap = CADENCE_CAP[binding.role];
+        const capRate = cap ? (cap * binding.clip.duration) / 2 : MAX_LOOP_RATE;
+        binding.rate = Math.min(MAX_LOOP_RATE, capRate, Math.max(0.55, speed / natural));
+        binding.stride = Math.min(MAX_STRIDE, Math.max(1, speed / (natural * binding.rate)));
+      }
       if (binding.role === 'swim') binding.rate = 0.8 + Math.min(1, speed / 4) * 0.5;
       if (binding.role === 'combatWalk' && swimming && !has('swim')) binding.rate = 0.7;
     }
@@ -752,6 +821,7 @@ export class GlbCharacterView implements AvatarView {
     }
 
     this.sampleClips();
+    this.lengthenStride();
 
     // ---- procedural layers ---------------------------------------------
     this.breath += dt;
@@ -783,10 +853,10 @@ export class GlbCharacterView implements AvatarView {
     else this.rollPhase = 0;
     this.rollTuck = approach(this.rollTuck, rolling ? 1 : 0, dt * 10);
     this.rollPivot.rotation.x = this.rollPhase;
-    this.rollPivot.position.y = this.rollCentre + (rolling ? this.rollClearance() : 0);
+    this.updateRollPivot(rolling, dt);
     const proneSwim = swimming && !has('swim') ? 1.2 : 0;
     const deathTarget = !alive && !has('death') ? -1.45 : 0;
-    this.deathTilt = approach(this.deathTilt, deathTarget, dt * (deathTarget !== 0 ? 4.5 : 8) * snap);
+    this.deathTilt = approach(this.deathTilt, deathTarget, dt * (deathTarget !== 0 ? 4.5 : 8));
     this.tiltPivot.rotation.x = this.deathTilt + proneSwim * this.swim;
     this.tiltPivot.position.y = has('swim') ? 0 : -0.32 * this.swim;
     this.updateMaterial();
@@ -839,6 +909,41 @@ export class GlbCharacterView implements AvatarView {
     const hipsIndex = this.jointIndex.get('Hips');
     const hipsNode = hipsIndex === undefined ? null : this.joints[hipsIndex];
     hipsNode?.position.copyFrom(hips);
+  }
+
+  /**
+   * Lengthens the stride while a gait plays at its cadence cap: the thigh
+   * and knee rotations away from bind are scaled by the weighted stride
+   * factor of the locomotion cycles.
+   */
+  private lengthenStride(): void {
+    let factor = 0;
+    let weight = 0;
+    for (const role of LOCOMOTION) {
+      const binding = this.bindings.get(role);
+      if (!binding || binding.weight < 0.002) continue;
+      factor += binding.stride * binding.weight;
+      weight += binding.weight;
+    }
+    if (weight < 0.01) return;
+    const stride = 1 + (factor / weight - 1) * Math.min(1, weight);
+    if (stride < 1.005) return;
+    for (const name of STRIDE_JOINTS) {
+      const index = this.jointIndex.get(name);
+      const rotation = index === undefined ? null : this.joints[index]?.rotationQuaternion;
+      const bind = this.asset.bindPose.get(name)?.rotation;
+      if (!rotation || !bind) continue;
+      // delta = bind^-1 * current, scaled by angle, re-applied on bind.
+      const delta = Quaternion.Inverse(bind).multiply(rotation);
+      if (delta.w < 0) delta.scaleInPlace(-1);
+      const half = Math.acos(Math.min(1, delta.w));
+      const sinHalf = Math.sin(half);
+      if (sinHalf < 1e-5) continue;
+      const scaledHalf = half * stride;
+      const k = Math.sin(scaledHalf) / sinHalf;
+      delta.set(delta.x * k, delta.y * k, delta.z * k, Math.cos(scaledHalf));
+      rotation.copyFrom(bind.multiply(delta));
+    }
   }
 
   private frameOf(binding: ClipBinding): [number, number, number] {
@@ -945,39 +1050,102 @@ export class GlbCharacterView implements AvatarView {
   }
 
   /**
-   * Lift that keeps the head, the painted hat, chest and hands above the
-   * ground while the tucked body spins about the roll pivot (models differ
-   * in head and hat size, so a fixed pivot cannot fit them all).
+   * Keeps the tucked roll above the ground. Clearance points: the head and
+   * whatever hat is drawn (painted hat, or the body top when it was swapped
+   * out, plus any attached headgear) as spheres, the chest, shoulders and the
+   * hand tips (knuckle plus the fingers). From the current pose the pivot
+   * height is chosen so a full turn about it keeps every point 2 cm up
+   * (c >= (y² + z² - (m + r)²) / 2(y - m - r) per point), and a small
+   * safety lift covers what the pose changes mid-roll. Both move at a
+   * bounded rate, so no hop happens in one frame.
    */
-  private rollClearance(): number {
+  private updateRollPivot(rolling: boolean, dt: number): void {
+    const margin = 0.02;
+    let pivotTarget = this.rollCentre;
+    let liftTarget = 0;
+    const spheres = rolling ? this.rollClearanceSpheres() : [];
+    if (spheres.length > 0) {
+      for (const [y, z, r] of spheres) {
+        const reach = margin + r;
+        if (y <= reach + 0.05) continue;
+        pivotTarget = Math.max(pivotTarget, (y * y + z * z - reach * reach) / (2 * (y - reach)));
+      }
+      pivotTarget = Math.min(pivotTarget, 0.75 * this.height);
+    }
+    // Moving the pivot shifts the body by Δc·(1 - cos φ): free at the start
+    // of the turn, so it may move fast there and barely at all mid-roll.
+    const half = Math.cos(this.rollPhase * 0.5);
+    this.rollPivotY = approach(this.rollPivotY, pivotTarget, dt * (0.5 + 8 * half * half));
+    if (spheres.length > 0) {
+      const c = this.rollPivotY;
+      const cos = Math.cos(this.rollPhase);
+      const sin = Math.sin(this.rollPhase);
+      let lowest = Infinity;
+      for (const [y, z, r] of spheres) lowest = Math.min(lowest, c + (y - c) * cos - z * sin - r);
+      liftTarget = Math.max(0, margin - lowest);
+    }
+    this.rollLift = approach(this.rollLift, liftTarget, dt * 2);
+    this.rollPivot.position.y = this.rollPivotY + this.rollLift;
+    this.modelRoot.position.y = -this.rollPivotY;
+  }
+
+  /** Clearance spheres [height above the feet, forward offset, radius] in unrotated roll space. */
+  private rollClearanceSpheres(): Array<[number, number, number]> {
     const rig = this.rig;
     const hips = rig.node('Hips');
     const armature = hips?.parent instanceof TransformNode ? hips.parent : null;
-    if (!armature) return 0;
-    this.rollPivot.position.y = this.rollCentre;
-    const chain: TransformNode[] = [];
-    for (let node: TransformNode | null = armature; node && node !== this.root; node = node.parent instanceof TransformNode ? node.parent : null) {
-      chain.unshift(node);
+    if (!armature) return [];
+    if (!this.armatureToModel) {
+      // The glTF root chain between the model root and the armature is static.
+      this.modelRoot.computeWorldMatrix(true);
+      const chain: TransformNode[] = [];
+      for (let node: TransformNode | null = armature; node && node !== this.modelRoot; node = node.parent instanceof TransformNode ? node.parent : null) {
+        chain.unshift(node);
+      }
+      for (const node of chain) node.computeWorldMatrix(true);
+      this.armatureToModel = armature.getWorldMatrix().multiply(Matrix.Invert(this.modelRoot.getWorldMatrix()));
     }
-    this.root.computeWorldMatrix(true);
-    for (const node of chain) node.computeWorldMatrix(true);
-    const world = armature.getWorldMatrix();
-    let lowest = Infinity;
-    const ground = this.root.position.y;
-    for (const joint of ['Spine2', 'LeftHand', 'RightHand', 'LeftShoulder', 'RightShoulder'] as const) {
+    const toModel = this.armatureToModel;
+    const scale = this.scale;
+    const out: Array<[number, number, number]> = [];
+    const add = (point: Vector3, radius: number): void => {
+      const local = Vector3.TransformCoordinates(point, toModel);
+      out.push([local.y * scale, local.z * scale, radius * scale]);
+    };
+    for (const joint of ['Spine2', 'LeftShoulder', 'RightShoulder'] as const) {
       const position = rig.position(joint);
-      if (position) lowest = Math.min(lowest, Vector3.TransformCoordinates(position, world).y - ground);
+      if (position) add(position, 0.06);
     }
-    // Head and painted hat as one sphere from the Head joint up to the top.
+    for (const side of ['Left', 'Right'] as const) {
+      const hand = rig.position(`${side}Hand`);
+      const knuckle = rig.position(`${side}HandMiddle1`);
+      if (!hand || !knuckle) continue;
+      const toKnuckle = knuckle.subtract(hand);
+      // Fingertips: the knuckle plus about the finger length beyond it.
+      add(knuckle.add(toKnuckle.scale(1.3)), 0.03);
+      add(knuckle, 0.04);
+    }
     const head = rig.position('Head');
     const neck = rig.position('Neck');
-    if (head && neck) {
+    const bindHead = this.asset.bindPositions.get('Head');
+    if (head && neck && bindHead) {
+      const top = (this.hatHidden || !this.asset.hatSplit ? this.asset.bodyTop : this.asset.height) - bindHead.y;
+      const headTop = Math.max(this.asset.spec.head.radius * 1.2, top);
       const up = head.subtract(neck).normalize();
-      const radius = Math.max(this.headTop * 0.5, this.asset.spec.head.radius) * 1.15;
-      const centre = Vector3.TransformCoordinates(head.add(up.scale(this.headTop * 0.5)), world);
-      lowest = Math.min(lowest, centre.y - ground - radius * this.scale);
+      add(head.add(up.scale(headTop * 0.5)), Math.max(headTop * 0.5, this.asset.spec.head.radius) * 1.1);
     }
-    return Number.isFinite(lowest) ? Math.max(0, 0.02 - lowest) : 0;
+    const attachment = this.headAttachment;
+    const headRotation = rig.rotation('Head');
+    if (attachment && head && headRotation) {
+      // Attached headgear and face items: their bounding-box corners carried by the animated head.
+      const box = attachment.getBoundingInfo().boundingBox;
+      const rotation = attachment.rotationQuaternion ?? Quaternion.Identity();
+      for (const corner of box.vectors) {
+        const inHead = attachment.position.add(corner.multiply(attachment.scaling).rotateByQuaternionToRef(rotation, new Vector3()));
+        add(head.add(inHead.rotateByQuaternionToRef(headRotation, new Vector3())), 0.01);
+      }
+    }
+    return out;
   }
 
   private applyProcedural(alive: boolean, style: HoldStyle | null): void {
