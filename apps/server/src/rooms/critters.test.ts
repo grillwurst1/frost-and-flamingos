@@ -60,6 +60,13 @@ function assertLegal(physics: PhysicsWorld, critter: CritterState, tick: number)
   const where = `tick ${tick} critter ${critter.id} at ${critter.position.x.toFixed(2)},${critter.position.y.toFixed(2)},${critter.position.z.toFixed(2)}`;
   if (critterHalfAt(critter.position.x, critter.position.z) !== critter.half) throw new Error(`left its half: ${where}`);
   if (critter.position.y < WATER_LEVEL + 0.04) throw new Error(`in the water: ${where}`);
+  // Headroom: the head never pokes into a ceiling (bridge decks, overhangs), standing or hopping.
+  const above = physics.raycast(
+    { x: critter.position.x, y: critter.position.y + 0.02, z: critter.position.z },
+    { x: 0, y: 1, z: 0 },
+    HEN.height - 0.03,
+  );
+  if (above) throw new Error(`head in a ceiling (${(above.distance + 0.02).toFixed(2)} m clear): ${where}`);
   if (!critter.airborne) {
     // Standing on a real surface, not inside a prop: the floor right below the feet.
     // Exactly on a collider edge a vertical ray may see either the edge or the
@@ -600,5 +607,180 @@ describe('every damage source bags a hen', () => {
     expect(status.critters.alive).toBe(6);
     expect(inner.critters.states().every((critter) => critter.alive)).toBe(true);
     room.stop();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review fixes: cornered flee, headroom, alert lanes, shockwave reach, test rooms
+// ---------------------------------------------------------------------------
+
+const DOWN = { x: 0, y: -1, z: 0 };
+const UP = { x: 0, y: 1, z: 0 };
+
+/**
+ * Low lagoon beach spots right at the waterline: dry under the feet, water
+ * 0.8 m ahead, dry ground 1.5 m to both sides and 3 m inland (a shore, not a spit).
+ */
+function shorelineSpots(physics: PhysicsWorld, count: number): Array<{ position: Vec3; toWater: number }> {
+  const spots: Array<{ position: Vec3; toWater: number }> = [];
+  const dryAt = (x: number, z: number, nearY: number): number | null => {
+    const hit = physics.raycast({ x, y: nearY + 1.5, z }, DOWN, 4);
+    if (!hit || hit.distance < 0.05 || !isCritterDryGround(hit.point.y) || Math.abs(hit.point.y - nearY) > 0.8) return null;
+    return hit.point.y;
+  };
+  for (let x = -330; x <= 220 && spots.length < count; x += 6) {
+    for (let z = -340; z <= -40 && spots.length < count; z += 6) {
+      if (critterHalfAt(x, z) !== 'lagoon') continue;
+      const ground = physics.raycast({ x, y: 60, z }, DOWN, 80);
+      if (!ground || !isCritterDryGround(ground.point.y) || ground.point.y > WATER_LEVEL + 0.6) continue;
+      const floor = ground.point.y;
+      if (physics.raycast({ x, y: floor + 0.05, z }, UP, 1.2)) continue;
+      if (spots.some((spot) => horizontal(spot.position, { x, y: floor, z }) < 25)) continue;
+      for (let index = 0; index < 16; index += 1) {
+        const angle = (index / 16) * Math.PI * 2;
+        const sin = Math.sin(angle);
+        const cos = Math.cos(angle);
+        const wet = physics.raycast({ x: x + sin * 0.8, y: floor + 1, z: z + cos * 0.8 }, DOWN, 4);
+        if (wet && isCritterDryGround(wet.point.y)) continue;
+        if (dryAt(x - sin * 3, z - cos * 3, floor) === null) continue;
+        if (dryAt(x + cos * 1.5, z - sin * 1.5, floor) === null || dryAt(x - cos * 1.5, z + sin * 1.5, floor) === null) continue;
+        spots.push({ position: { x, y: floor, z }, toWater: angle });
+        break;
+      }
+    }
+  }
+  return spots;
+}
+
+describe('review fixes', () => {
+  test('a hen cornered at the waterline by a player on the land side runs along the shore (> 2 m in 3 s)', async () => {
+    const physics = await PhysicsWorld.create();
+    const spots = shorelineSpots(physics, 6);
+    expect(spots.length).toBe(6);
+    const results: string[] = [];
+    for (const [index, spot] of spots.entries()) {
+      const system = new CritterSystem(physics, { seed: 900 + index });
+      const hen = system.states().find((critter) => critter.half === 'lagoon');
+      if (!hen) throw new Error('no lagoon hen');
+      system.placeForTest(hen.id, spot.position, spot.toWater);
+      const threat: CritterThreat = {
+        position: { x: spot.position.x - Math.sin(spot.toWater) * 3, y: spot.position.y, z: spot.position.z - Math.cos(spot.toWater) * 3 },
+      };
+      let furthest = 0;
+      let fled = false;
+      for (let tick = 1; tick <= 3 * PHYSICS_TICK_RATE; tick += 1) {
+        system.step(tick, [threat]);
+        const state = system.states().find((critter) => critter.id === hen.id);
+        if (!state) throw new Error('lost hen');
+        assertLegal(physics, state, tick);
+        fled ||= state.behaviour === 'flee';
+        furthest = Math.max(furthest, horizontal(state.position, spot.position));
+      }
+      results.push(`${spot.position.x},${spot.position.z}: ${furthest.toFixed(2)} m`);
+      expect(fled).toBe(true);
+      if (furthest <= 2) throw new Error(`hen stuck at the shore (${results.join(' | ')})`);
+    }
+    console.log(`shoreline flee: ${results.join(' | ')}`);
+    physics.dispose();
+  });
+
+  test('a startled hen under the bridge deck hops without its head entering the deck', async () => {
+    const physics = await PhysicsWorld.create();
+    const system = new CritterSystem(physics, { seed: 31 });
+    const hen = system.states().find((critter) => critter.half === 'alpine');
+    if (!hen) throw new Error('no alpine hen');
+    const x = -0.88;
+    const z = 78.09;
+    const floor = physics.raycast({ x, y: 2.0, z }, DOWN, 2);
+    const deck = floor ? physics.raycast({ x, y: floor.point.y + 0.02, z }, UP, 3) : null;
+    if (!floor || !deck) throw new Error('bridge spot moved');
+    // Low clearance under the deck: a full hop (~0.36 m) would poke through.
+    expect(deck.distance).toBeLessThan(HEN.height + 0.36);
+    system.placeForTest(hen.id, { x, y: floor.point.y, z }, 0);
+    let airborne = 0;
+    for (let tick = 1; tick <= 2 * PHYSICS_TICK_RATE; tick += 1) {
+      const state = system.states().find((critter) => critter.id === hen.id);
+      if (!state) throw new Error('lost hen');
+      system.step(tick, [{ position: { x: state.position.x + 2, y: state.position.y, z: state.position.z } }]);
+      const after = system.states().find((critter) => critter.id === hen.id);
+      if (!after) throw new Error('lost hen');
+      assertLegal(physics, after, tick);
+      if (after.airborne) airborne += 1;
+    }
+    expect(airborne).toBeGreaterThan(0);
+    physics.dispose();
+  });
+
+  test('the shockwave volume has the players’ vertical reach', async () => {
+    const physics = await PhysicsWorld.create();
+    const system = new CritterSystem(physics, { seed: 3 });
+    const hen = system.states()[0];
+    if (!hen) throw new Error('no hen');
+    const feet = { x: 10, y: 20, z: 10 };
+    // Landing 3 m below and 2.5 m to the side (Hoof Stomp: radius 4, reach 2.5).
+    const impact = { x: 12.5, y: 17, z: 10 };
+    system.placeForTest(hen.id, feet, 0);
+    expect(system.killInSphere(impact, 4, 1, 'hoof_stomp', null, 2.5)).toBe(0);
+    expect(system.killInSphere({ ...impact, y: 18.5 }, 4, 1, 'hoof_stomp', null, 2.5)).toBe(1);
+    system.placeForTest(hen.id, feet, 0);
+    // A plain blast sphere still reaches it (splash is 3D).
+    expect(system.killInSphere(impact, 4, 1, 'bazooka', null)).toBe(1);
+
+    // The room passes the wave's reach.
+    const { room, inner } = await quietRoom(408);
+    const { id } = joinPlayer(room, 'mascot');
+    ticks(inner, 3);
+    const reaches: Array<number | null> = [];
+    const original = inner.critters.killInSphere.bind(inner.critters);
+    inner.critters.killInSphere = (center, radius, killerId, weaponId, rewindTick = null, verticalReach = null) => {
+      reaches.push(verticalReach);
+      return original(center, radius, killerId, weaponId, rewindTick, verticalReach);
+    };
+    const shockwave = (room as unknown as { applyMascotShockwave(player: unknown, kind: 'stomp' | 'pound', position: Vec3): void }).applyMascotShockwave.bind(room);
+    shockwave(inner.players.get(id), 'stomp', { x: 0, y: 30, z: 0 });
+    expect(reaches).toEqual([2.5]);
+    room.stop();
+    physics.dispose();
+  });
+
+  test('the gunfire alert lane ends where the shot meets the world; a rocket only scatters the shooter’s surroundings', async () => {
+    const { room, inner } = await quietRoom(409);
+    const sniper = joinPlayer(room, 'allrounder', { primary: 'sniper', secondary: 'shotgun', gimmick: 'horn' });
+    const rocket = joinPlayer(room, 'heavy', { primary: 'lmg', secondary: 'bazooka', gimmick: 'horn' });
+    const lanes: number[] = [];
+    const original = inner.critters.alertShot.bind(inner.critters);
+    inner.critters.alertShot = (origin, direction, length) => {
+      lanes.push(length);
+      original(origin, direction, length);
+    };
+    room.handleInput(rocket.socket, { sequence: 10, buttons: 0, yaw: 0, pitch: 0, weaponSlot: 2 });
+    ticks(inner, 90);
+    // Straight into the ground at the shooter's feet: the lane is ~ the eye height, not 400 m.
+    const shooter = inner.players.get(sniper.id);
+    if (!shooter) throw new Error('no shooter');
+    const feet = { ...shooter.character.position };
+    fireAt(room, inner, sniper.socket, sniper.id, feet, { x: feet.x + 0.4, y: feet.y - 1, z: feet.z }, 'sniper', 1, 20);
+    const gunner = inner.players.get(rocket.id);
+    if (!gunner) throw new Error('no gunner');
+    const at = { ...gunner.character.position };
+    fireAt(room, inner, rocket.socket, rocket.id, at, { x: at.x + 20, y: at.y + 2, z: at.z }, 'bazooka', 2, 21);
+    expect(lanes.length).toBe(2);
+    expect(lanes[0]).toBeLessThan(3);
+    expect(lanes[0]).toBeGreaterThan(0.5);
+    expect(lanes[1]).toBe(0);
+    room.stop();
+  });
+
+  test('test rooms have no critters unless asked; asked-for ones are seeded', async () => {
+    const plain = await MatchRoom.create({ bots: 0 });
+    expect(plain.getStatus().critters.total).toBe(0);
+    plain.stop();
+    const first = await MatchRoom.create({ bots: 0, critters: true });
+    const second = await MatchRoom.create({ bots: 0, critters: true });
+    const statesOf = (room: MatchRoom): CritterState[] => (room as unknown as RoomInternals).critters.states();
+    expect(statesOf(first).length).toBe(6);
+    expect(statesOf(first)).toEqual(statesOf(second));
+    first.stop();
+    second.stop();
   });
 });

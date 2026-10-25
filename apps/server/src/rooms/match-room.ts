@@ -247,8 +247,14 @@ export interface JoinError {
 export interface MatchRoomOptions {
   /** Number of AI bots (default 4). Tests use 0 for a quiet room. */
   bots?: number;
-  /** Seed of the critter simulation (default: random per server start). */
+  /** Seed of the critter simulation (default: random per server start; fixed under tests). */
   critterSeed?: number;
+  /**
+   * Ambient critters (wandering hens). Default true, except under `bun test`
+   * (NODE_ENV=test): test rooms have none unless they pass `critters: true`
+   * or a `critterSeed`, so hens never wander into other suites' firing lines.
+   */
+  critters?: boolean;
 }
 
 export interface RoomStatus {
@@ -385,18 +391,22 @@ export class MatchRoom {
   private windAngle = 0.6;
   private windStrength = 0;
 
-  private constructor(physics: PhysicsWorld, critterSeed: number) {
+  private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean) {
     this.physics = physics;
     this.critters = new CritterSystem(physics, {
       seed: critterSeed,
+      enabled: critters,
       onKill: (kill) => this.broadcastCritterKill(kill),
     });
   }
 
   static async create(options: MatchRoomOptions = {}): Promise<MatchRoom> {
     const physics = await PhysicsWorld.create();
-    const seed = options.critterSeed ?? Math.floor(Math.random() * 0xffffffff);
-    const room = new MatchRoom(physics, seed);
+    const testRun = process.env.NODE_ENV === 'test';
+    const critters = options.critters ?? (!testRun || options.critterSeed !== undefined);
+    // Tests are reproducible: a fixed seed unless one is given.
+    const seed = options.critterSeed ?? (testRun ? 0x3e9 : Math.floor(Math.random() * 0xffffffff));
+    const room = new MatchRoom(physics, seed, critters);
     room.spawnBots(options.bots ?? BOT_COUNT);
     return room;
   }
@@ -719,12 +729,16 @@ export class MatchRoom {
       paramZ: Math.round(player.lastInput.pitch * 100),
       paramValue: WEAPON_TABLE.code[weaponId],
     });
-    // Gunfire scatters the critters near the shooter and along the shot.
-    this.critters.alertShot(
-      this.eyePosition(player),
-      directionFromAngles(player.lastInput.yaw, player.lastInput.pitch),
-      stats.range,
-    );
+    // Gunfire scatters the critters near the shooter and along the shot up to
+    // where it meets the world. A projectile arcs: only the shooter's
+    // surroundings scatter now, the impact blast does the rest.
+    {
+      const eye = this.eyePosition(player);
+      const aim = directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
+      const lane =
+        stats.fireMode === 'projectile' ? 0 : Math.min(stats.range, this.physics.raycast(eye, aim, stats.range)?.distance ?? stats.range);
+      this.critters.alertShot(eye, aim, lane);
+    }
 
     if (stats.fireMode === 'projectile') {
       const direction = directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
@@ -1123,7 +1137,8 @@ export class MatchRoom {
     const wave = MASCOT_SHOCKWAVE[kind];
     const heading = player.character.heading;
     this.mascotStats.shockwaves += 1;
-    this.critterBlast(position, skill.radius, player.id, kind === 'stomp' ? 'hoof_stomp' : 'ground_pound');
+    // Same volume as for players: the radius on the ground, within the wave's vertical reach.
+    this.critterBlast(position, skill.radius, player.id, kind === 'stomp' ? 'hoof_stomp' : 'ground_pound', wave.verticalReach);
     this.broadcastEvent({
       eventType: 'MASCOT_IMPACT',
       actorId: player.id,
@@ -1495,8 +1510,14 @@ export class MatchRoom {
   }
 
   /** Splash, shockwaves and area skills: critters inside die, those nearby scatter. */
-  private critterBlast(position: Vec3, radius: number, killerId: number, weaponId: WeaponId | null): void {
-    this.critters.killInSphere(position, radius, killerId, weaponId, null);
+  private critterBlast(
+    position: Vec3,
+    radius: number,
+    killerId: number,
+    weaponId: WeaponId | null,
+    verticalReach: number | null = null,
+  ): void {
+    this.critters.killInSphere(position, radius, killerId, weaponId, null, verticalReach);
     this.critters.alertBlast(position, radius);
   }
 
