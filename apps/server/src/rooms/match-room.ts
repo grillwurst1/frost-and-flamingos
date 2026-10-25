@@ -407,7 +407,8 @@ export class MatchRoom {
   static async create(): Promise<MatchRoom> {
     const physics = await PhysicsWorld.create();
     const room = new MatchRoom(physics);
-    room.spawnBots();
+    // Local capture tooling: FF_NO_BOTS=1 starts an empty resort (no AI vacationers).
+    if (process.env.FF_NO_BOTS !== '1') room.spawnBots();
     return room;
   }
 
