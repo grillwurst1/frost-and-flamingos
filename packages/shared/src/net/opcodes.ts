@@ -25,6 +25,7 @@ export const CLASS_CODE = {
   heavy: 1,
   infiltrator: 2,
   mascot: 3,
+  drifter: 4,
 } as const;
 
 export const PLAYER_FLAG = {
@@ -44,6 +45,12 @@ export const PLAYER_STATUS_FLAG = {
   Slowed: 1 << 1,
   Boosted: 1 << 2,
   Slippery: 1 << 3,
+  /** Protocol 7: a friendly drifter's aura heals this player. */
+  AuraHealed: 1 << 4,
+  /** Protocol 7: a friendly drifter's aura refills this player's reserve ammo. */
+  AuraResupplied: 1 << 5,
+  /** Protocol 7, drifters only: the aura is supplying at least one teammate. */
+  AuraActive: 1 << 6,
 } as const;
 
 /** Mascot block flags; bits 4–5 carry the coconut's used jumps. */

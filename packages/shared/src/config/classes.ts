@@ -1,8 +1,9 @@
-import type { ClassId, Faction, Loadout, MascotForm } from '../types/index.js';
+import type { ClassId, DrifterForm, Faction, Loadout, MascotForm } from '../types/index.js';
+import { DRIFTER_FORM_AVAILABLE, DRIFTER_TUNING, drifterFormForFaction } from './drifter.js';
 import { createIdTable } from './ids.js';
 
 /** Wire codes are array indices: append new classes at the end, never reorder. */
-export const CLASS_IDS = ['allrounder', 'heavy', 'infiltrator', 'mascot'] as const satisfies readonly ClassId[];
+export const CLASS_IDS = ['allrounder', 'heavy', 'infiltrator', 'mascot', 'drifter'] as const satisfies readonly ClassId[];
 
 export const CLASS_TABLE = createIdTable<ClassId>(CLASS_IDS);
 
@@ -91,7 +92,93 @@ export const CLASS_STATS: Record<ClassId, ClassStats> = {
   // Nominal entry only (the cow): a mascot's real body depends on its form.
   // Always use classStatsFor(classId, faction) for gameplay numbers.
   mascot: MASCOT_FORM_STATS.cow,
+  // Both drifter forms share one slim body. She cannot be hurt, so maxHp is
+  // only the (hidden) vitality value the snapshot carries; the motor uses
+  // DRIFTER_TUNING for every movement number.
+  drifter: {
+    id: 'drifter',
+    maxHp: 100,
+    moveSpeed: DRIFTER_TUNING.walkSpeed,
+    sprintMultiplier: 1,
+    radius: 0.34,
+    height: 1.68,
+    jumpSpeed: 0,
+    groundAcceleration: DRIFTER_TUNING.groundAcceleration,
+    airAcceleration: DRIFTER_TUNING.groundAcceleration * DRIFTER_TUNING.airControl,
+    groundFriction: DRIFTER_TUNING.groundDeceleration,
+  },
 };
+
+/**
+ * What a class may do in a round. Gameplay code asks these flags instead of
+ * comparing class ids, so a later class can opt in or out explicitly.
+ */
+export interface ClassCapabilities {
+  /** Carries and fires weapons (and reloads). */
+  readonly armed: boolean;
+  /** Has the Q/E/T class skills. */
+  readonly skills: boolean;
+  /** Can take damage, die and be credited as a kill. */
+  readonly damageable: boolean;
+  /** Is hit by shots, splash, rams, shockwaves and status effects; blocks nothing otherwise. */
+  readonly targetable: boolean;
+  /** Counts toward a weather tower's capture balance (read by the M5 conquest code). */
+  readonly canCapture: boolean;
+  /** Counts when the server balances the two teams. */
+  readonly countsTowardBalance: boolean;
+  /** Bots may play the class. */
+  readonly botsMayPick: boolean;
+}
+
+const COMBAT_CLASS: ClassCapabilities = {
+  armed: true,
+  skills: true,
+  damageable: true,
+  targetable: true,
+  canCapture: true,
+  countsTowardBalance: true,
+  botsMayPick: true,
+};
+
+export const CLASS_CAPABILITIES: Readonly<Record<ClassId, ClassCapabilities>> = {
+  allrounder: COMBAT_CLASS,
+  heavy: COMBAT_CLASS,
+  infiltrator: COMBAT_CLASS,
+  // Mascots fight with their bodies: no firearms, motor-driven moves.
+  mascot: { ...COMBAT_CLASS, armed: false, skills: false },
+  // Untouchable support walker: no weapons, no skills, no towers, no team weight.
+  drifter: {
+    armed: false,
+    skills: false,
+    damageable: false,
+    targetable: false,
+    canCapture: false,
+    countsTowardBalance: false,
+    botsMayPick: false,
+  },
+};
+
+export function classCapabilities(classId: ClassId): ClassCapabilities {
+  return CLASS_CAPABILITIES[classId];
+}
+
+export function drifterFormOf(classId: ClassId, faction: Faction): DrifterForm | null {
+  return classId === 'drifter' ? drifterFormForFaction(faction) : null;
+}
+
+/** False for a drifter form whose painted model has not shipped yet. */
+export function classAvailableForFaction(classId: ClassId, faction: Faction): boolean {
+  if (classId !== 'drifter') return true;
+  return DRIFTER_FORM_AVAILABLE[drifterFormForFaction(faction)];
+}
+
+/**
+ * The class a player actually plays on a side: a drifter requested for a side
+ * whose form is not available falls back to the default class.
+ */
+export function resolveClassForFaction(classId: ClassId, faction: Faction): ClassId {
+  return classAvailableForFaction(classId, faction) ? classId : DEFAULT_CLASS;
+}
 
 /** Peak Guard brings the cow, the Lagoon League rolls in the coconut. */
 export function mascotFormForFaction(faction: Faction): MascotForm {
@@ -165,6 +252,12 @@ export const CLASS_DEFAULT_LOADOUTS: Record<ClassId, Loadout> = {
   // Mascots carry no firearms. The loadout stays valid so the profile can
   // round-trip, but the server never equips it for a mascot.
   mascot: {
+    primary: 'smg',
+    secondary: 'shotgun',
+    gimmick: 'horn',
+  },
+  // Same for the unarmed drifter: the profile keeps a valid kit, never equipped.
+  drifter: {
     primary: 'smg',
     secondary: 'shotgun',
     gimmick: 'horn',

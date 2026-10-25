@@ -7,3 +7,4 @@ export * from './weapons.js';
 
 export * from './skills.js';
 export * from './mascot.js';
+export * from './drifter.js';

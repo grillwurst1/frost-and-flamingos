@@ -58,6 +58,7 @@ const CLASS_BY_CODE: Record<number, ClassId> = {
   1: 'heavy',
   2: 'infiltrator',
   3: 'mascot',
+  4: 'drifter',
 };
 
 const EVENT_BY_CODE = new Map<GameEventCodeValue, GameEventType>(
@@ -360,7 +361,7 @@ export function decodeProfileUpdate(
 }
 
 export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
-  const writer = new BinaryWriter(512 + snapshot.players.length * 56);
+  const writer = new BinaryWriter(512 + snapshot.players.length * 58);
   writer
     .writeUint8(Opcode.S2C_WORLD_SNAPSHOT)
     .writeUint32(snapshot.serverTick)
@@ -406,9 +407,14 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
         (player.dazed ? PLAYER_STATUS_FLAG.Dazed : 0) |
           (player.slowed ? PLAYER_STATUS_FLAG.Slowed : 0) |
           (player.boosted ? PLAYER_STATUS_FLAG.Boosted : 0) |
-          (player.slippery ? PLAYER_STATUS_FLAG.Slippery : 0),
+          (player.slippery ? PLAYER_STATUS_FLAG.Slippery : 0) |
+          (player.auraHealed ? PLAYER_STATUS_FLAG.AuraHealed : 0) |
+          (player.auraResupplied ? PLAYER_STATUS_FLAG.AuraResupplied : 0) |
+          (player.auraActive ? PLAYER_STATUS_FLAG.AuraActive : 0),
       )
-      .writeUint8(shortTimerToWire(player.launchSeconds));
+      .writeUint8(shortTimerToWire(player.launchSeconds))
+      // Protocol 7: support points (drifter supply aura).
+      .writeUint16(Math.max(0, Math.min(65535, Math.floor(player.support))));
     // The class is known before this point, so the block is implicit.
     if (player.classId === 'mascot') {
       writeMascotState(
@@ -484,6 +490,7 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       const lastProcessedInput = reader.readUint16();
       const status = reader.readUint8();
       const launchSeconds = wireToShortTimer(reader.readUint8());
+      const support = reader.readUint16();
       const mascot = classId === 'mascot' ? readMascotState(reader) : null;
       players.push({
         id,
@@ -519,6 +526,10 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
         slowed: (status & PLAYER_STATUS_FLAG.Slowed) !== 0,
         boosted: (status & PLAYER_STATUS_FLAG.Boosted) !== 0,
         slippery: (status & PLAYER_STATUS_FLAG.Slippery) !== 0,
+        support,
+        auraHealed: (status & PLAYER_STATUS_FLAG.AuraHealed) !== 0,
+        auraResupplied: (status & PLAYER_STATUS_FLAG.AuraResupplied) !== 0,
+        auraActive: (status & PLAYER_STATUS_FLAG.AuraActive) !== 0,
         mascot,
       });
     }

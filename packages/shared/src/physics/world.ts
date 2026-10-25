@@ -6,10 +6,16 @@ import type { Vec3 } from '../types/index.js';
 import type { MapProp, PropCollider } from '../types/map.js';
 import { CharacterBody, type CharacterBodyOptions } from './character.js';
 
-/** Membership bit 1 = static world, filter accepts world and player bodies. */
-export const WORLD_COLLISION_GROUP = 0x00010003;
+/** Membership bit 1 = static world, filter accepts world, player and drifter bodies. */
+export const WORLD_COLLISION_GROUP = 0x00010007;
 /** Membership bit 2 = player bodies, filter accepts world and player bodies. */
 export const PLAYER_COLLISION_GROUP = 0x00020003;
+/**
+ * Membership bit 3 = untouchable drifter bodies, filter accepts the world
+ * only: no contact pair with any player or mascot exists in either direction.
+ * (Movement and world raycasts additionally skip every character collider.)
+ */
+export const DRIFTER_COLLISION_GROUP = 0x00040001;
 
 let rapierInitialization: Promise<void> | null = null;
 
