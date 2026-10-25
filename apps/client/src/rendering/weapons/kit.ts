@@ -88,8 +88,14 @@ export class WeaponKit {
   private readonly colors: number[] = [];
   private readonly indices: number[] = [];
   private readonly frames: Matrix[] = [Matrix.Identity()];
-  /** Strength of the painted top-light / under-shade tint (0 = flat colour). */
-  paintTint = 0.14;
+  /**
+   * Painted tone baked per part: surfaces facing `paintUp` (the direction
+   * that is up while the weapon is held) get a lighter top-edge tone, the
+   * undersides a deeper shade, so the cel bands read as painted highlights.
+   */
+  paintUp: V3 = [0, 1, 0];
+  highlight = 0.2;
+  underShade = 0.15;
 
   get vertexCount(): number {
     return this.positions.length / 3;
@@ -120,8 +126,11 @@ export class WeaponKit {
     const index = this.positions.length / 3;
     this.positions.push(tmpPoint.x, tmpPoint.y, tmpPoint.z);
     this.normals.push(tmpNormal.x, tmpNormal.y, tmpNormal.z);
-    const tint = 1 - this.paintTint * 0.5 + this.paintTint * (tmpNormal.y * 0.5 + 0.5);
-    this.colors.push(Math.min(1, color.r * tint), Math.min(1, color.g * tint), Math.min(1, color.b * tint), 1);
+    const up = tmpNormal.x * this.paintUp[0] + tmpNormal.y * this.paintUp[1] + tmpNormal.z * this.paintUp[2];
+    const lift = up > 0.45 ? this.highlight * Math.min(1, (up - 0.45) / 0.35) : 0;
+    const tint = 1 + lift - (up < -0.3 ? this.underShade * Math.min(1, (-up - 0.3) / 0.5) : 0);
+    const add = lift * 0.12;
+    this.colors.push(Math.min(1, color.r * tint + add), Math.min(1, color.g * tint + add), Math.min(1, color.b * tint + add), 1);
     return index;
   }
 

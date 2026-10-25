@@ -184,8 +184,18 @@ function vec(value: V3, mirror: boolean): Vector3 {
   return new Vector3(mirror ? -value[0] : value[0], value[1], value[2]);
 }
 
-function buildPart(scene: Scene, name: string, material: Material | null, draw: (kit: WeaponKit) => void, origin: V3, mirror: boolean): { mesh: Mesh; vertices: number } {
+function buildPart(
+  scene: Scene,
+  name: string,
+  material: Material | null,
+  draw: (kit: WeaponKit) => void,
+  origin: V3,
+  mirror: boolean,
+  tilt = 0,
+): { mesh: Mesh; vertices: number } {
   const kit = new WeaponKit();
+  // World up in gun space while held (the hold pitches the gun by `tilt`).
+  kit.paintUp = [0, Math.cos(tilt), Math.sin(tilt)];
   kit.frame({ at: origin }, () => draw(kit));
   if (mirror) kit.mirrorX();
   return { mesh: kit.build(scene, name, material), vertices: kit.vertexCount };
@@ -216,7 +226,7 @@ class HeroWeaponProp implements HeroWeapon {
   ) {
     const mirror = options.mirrorX;
     const origin: V3 = options.origin === 'wrist' ? GRIP_FROM_WRIST : [0, 0, 0];
-    const body = buildPart(scene, `hero-weapon-${id}`, material, design.build, origin, mirror);
+    const body = buildPart(scene, `hero-weapon-${id}`, material, design.build, origin, mirror, design.hold.tilt);
     this.mesh = body.mesh;
     let vertices = body.vertices;
     const hold = design.hold;
@@ -243,7 +253,7 @@ class HeroWeaponProp implements HeroWeapon {
       this.flashLife = 0;
     }
     if (design.extra) {
-      const closed = buildPart(scene, `hero-weapon-${id}-closed`, material, design.extra.closed, origin, mirror);
+      const closed = buildPart(scene, `hero-weapon-${id}-closed`, material, design.extra.closed, origin, mirror, design.hold.tilt);
       const open = buildPart(scene, `hero-weapon-${id}-open`, material, design.extra.open, origin, mirror);
       closed.mesh.parent = this.mesh;
       open.mesh.parent = this.mesh;

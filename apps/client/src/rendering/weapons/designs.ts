@@ -70,15 +70,15 @@ export interface WeaponDesign {
 }
 
 // ---- palette (from the icons) ------------------------------------------------
-const WALNUT = '#a8652f';
-const WALNUT_DARK = '#71401d';
-const STEEL = '#5d6976';
-const STEEL_DARK = '#3c4550';
-const STEEL_LIGHT = '#a7b3be';
-const BLACK = '#2a2e35';
-const BRASS = '#e2ab3f';
-const BRASS_DARK = '#b07a2c';
-const BLUE_STEEL = '#4f6f97';
+const WALNUT = '#b8652a';
+const WALNUT_DARK = '#7c3f18';
+const STEEL = '#6c7886';
+const STEEL_DARK = '#444d59';
+const STEEL_LIGHT = '#bcc8d3';
+const BLACK = '#30363f';
+const BRASS = '#f0b13a';
+const BRASS_DARK = '#bf7f28';
+const BLUE_STEEL = '#4f78a8';
 const OLIVE = '#6e8b3d';
 const MAROON = '#8b3a2a';
 const SNOW_YELLOW = '#f4c430';
@@ -159,16 +159,17 @@ const DESIGNS: Record<string, WeaponDesign> = {
   smg: {
     hold: {
       pose: 'rifle',
-      shoulder: [0.09, -0.155, 0.08],
+      shoulder: [0.22, -0.09, 0.13],
       tilt: 0.04,
-      yaw: 0.26,
-      support: [0, 0.03, 0.3],
+      yaw: 0.0,
+      support: [0, 0.01, 0.22],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0, -1, 0.1],
       butt: -0.34,
       muzzle: [0, 0.165, 0.7],
       muzzleKind: 'bullet',
     },
+    preview: { shoulder: [0.09, -0.155, 0.08], tilt: 0.04, yaw: 0.26 },
     build: (kit) => {
       // Receiver with a top rib and rear sight.
       kit.box(STEEL, [0.1, 0.125, 0.34], { at: [0, 0.162, 0.08], bevel: 0.026 });
@@ -186,26 +187,30 @@ const DESIGNS: Record<string, WeaponDesign> = {
       // Drum magazine (axis across the gun) with a raised hub.
       kit.lathe(
         [
-          { z: -0.045, r: 0.075, hex: BLACK },
-          { z: -0.04, r: 0.098 },
-          { z: 0.04, r: 0.098 },
-          { z: 0.045, r: 0.075 },
-          { z: 0.045, r: 0.04, hard: true, hex: STEEL_LIGHT },
+          { z: -0.045, r: 0.075, hex: STEEL_DARK },
+          { z: -0.04, r: 0.1, hex: STEEL_LIGHT },
+          { z: -0.03, r: 0.1, hex: STEEL_DARK },
+          { z: 0.03, r: 0.1 },
+          { z: 0.04, r: 0.1, hex: STEEL_LIGHT },
+          { z: 0.045, r: 0.075, hex: STEEL_DARK },
+          { z: 0.045, r: 0.04, hard: true, hex: BRASS },
           { z: 0.06, r: 0.03 },
         ],
         { at: [0, 0.06, 0.14], rot: [0, HALF_PI, 0], segments: 16, capStart: true, capEnd: true },
       );
-      kit.blob(STEEL_LIGHT, [0.015, 0.03, 0.03], { at: [-0.05, 0.06, 0.14], segments: 8, rings: 4 });
+      kit.blob(BRASS, [0.015, 0.03, 0.03], { at: [-0.05, 0.06, 0.14], segments: 8, rings: 4 });
       // Walnut grips.
-      pistolGrip(kit, WALNUT, 0.11, 0.2);
+      pistolGrip(kit, WALNUT, 0.11, 0.24, 0.062);
       kit.lathe(
         [
-          { z: -0.12, r: 0.026, hex: WALNUT },
-          { z: -0.09, r: 0.032 },
-          { z: -0.06, r: 0.026 },
-          { z: -0.03, r: 0.032 },
-          { z: 0.0, r: 0.027 },
-          { z: 0.05, r: 0.024 },
+          { z: -0.18, r: 0.03, hex: WALNUT },
+          { z: -0.15, r: 0.036 },
+          { z: -0.13, r: 0.031 },
+          { z: -0.1, r: 0.037 },
+          { z: -0.07, r: 0.031 },
+          { z: -0.04, r: 0.037 },
+          { z: -0.01, r: 0.032 },
+          { z: 0.05, r: 0.028 },
         ],
         { at: [0, 0.1, 0.31], rot: [-HALF_PI - 0.14, 0, 0], segments: 10, capStart: true, capEnd: true },
       );
@@ -222,10 +227,10 @@ const DESIGNS: Record<string, WeaponDesign> = {
           [-0.16, 0.07],
           [-0.08, 0.1],
         ],
-        0.064,
-        { bevel: 0.02 },
+        0.074,
+        { bevel: 0.024 },
       );
-      kit.box(BLACK, [0.066, 0.17, 0.02], { at: [0, 0.08, -0.34], rot: [-0.06, 0, 0], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.066, 0.17, 0.02], { at: [0, 0.08, -0.34], rot: [-0.06, 0, 0], bevel: 0.008 });
     },
   },
 
@@ -233,16 +238,17 @@ const DESIGNS: Record<string, WeaponDesign> = {
   shotgun: {
     hold: {
       pose: 'rifle',
-      shoulder: [0.09, -0.155, 0.08],
+      shoulder: [0.22, -0.1, 0.13],
       tilt: 0.05,
-      yaw: 0.26,
-      support: [0, 0.09, 0.29],
+      yaw: 0.0,
+      support: [0, 0.1, 0.24],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.1],
       butt: -0.36,
       muzzle: [0, 0.18, 0.8],
       muzzleKind: 'heavy',
     },
+    preview: { shoulder: [0.09, -0.155, 0.08], tilt: 0.05, yaw: 0.26 },
     build: (kit) => {
       kit.box(STEEL, [0.1, 0.13, 0.26], { at: [0, 0.15, 0.06], bevel: 0.026, top: [0.82, 1] });
       barrel(kit, STEEL_DARK, 0.18, 0.17, 0.8, 0.033, 1.22);
@@ -277,7 +283,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         0.068,
         { bevel: 0.022 },
       );
-      kit.box(BLACK, [0.07, 0.18, 0.022], { at: [0, 0.055, -0.365], rot: [-0.03, 0, 0], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.07, 0.18, 0.022], { at: [0, 0.055, -0.365], rot: [-0.03, 0, 0], bevel: 0.008 });
     },
   },
 
@@ -285,18 +291,19 @@ const DESIGNS: Record<string, WeaponDesign> = {
   lmg: {
     hold: {
       pose: 'hip',
-      shoulder: [0.1, -0.185, 0.08],
+      shoulder: [0.29, -0.3, 0.1],
       tilt: 0.06,
-      yaw: 0.26,
-      support: [0, 0.07, 0.3],
+      yaw: -0.06,
+      support: [0, 0.07, 0.24],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0.1, -1, 0.1],
       butt: -0.36,
       muzzle: [0, 0.17, 0.98],
       muzzleKind: 'heavy',
     },
+    preview: { shoulder: [0.1, -0.185, 0.08], tilt: 0.06, yaw: 0.26 },
     build: (kit) => {
-      kit.box(STEEL_DARK, [0.12, 0.16, 0.44], { at: [0, 0.16, 0.06], bevel: 0.026 });
+      kit.box(STEEL, [0.12, 0.16, 0.44], { at: [0, 0.16, 0.06], bevel: 0.026 });
       kit.box(BLACK, [0.115, 0.04, 0.24], { at: [0, 0.245, 0.0], bevel: 0.014 });
       // Perforated jacket (dark rings) and barrel with a flash hider.
       const jacket: Ring[] = [{ z: 0.28, r: 0.055, hex: STEEL }];
@@ -310,7 +317,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       kit.tube(BLACK, [[0, 0.215, 0.4], [0, 0.285, 0.44], [0, 0.29, 0.54], [0, 0.215, 0.58]], 0.014, { segments: 6, samples: 8 });
       kit.box(STEEL_DARK, [0.02, 0.06, 0.03], { at: [0, 0.215, 0.9], bevel: 0.007 });
       // Walnut handguard under the jacket.
-      kit.box(WALNUT, [0.11, 0.075, 0.22], { at: [0, 0.105, 0.36], bevel: 0.028 });
+      kit.box(WALNUT, [0.12, 0.085, 0.24], { at: [0, 0.105, 0.37], bevel: 0.03 });
       bipod(kit, BLACK, 0.12, 0.64, 0.24);
       // Olive ammo box on the left; the brass belt loops out on the right
       // (the side the over-the-shoulder camera sees) and back under the gun.
@@ -328,7 +335,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         0.032,
         { segments: 6, samples: 17, ry: 0.5 },
       );
-      pistolGrip(kit, WALNUT_DARK, 0.09, 0.19);
+      pistolGrip(kit, WALNUT, 0.09, 0.19, 0.058);
       triggerGuard(kit, BLACK, 0.085, 0.03, 0.1);
       kit.extrude(
         WALNUT,
@@ -343,7 +350,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         0.074,
         { bevel: 0.024 },
       );
-      kit.box(BLACK, [0.076, 0.16, 0.022], { at: [0, 0.1, -0.365], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.076, 0.16, 0.022], { at: [0, 0.1, -0.365], bevel: 0.008 });
     },
   },
 
@@ -394,16 +401,17 @@ const DESIGNS: Record<string, WeaponDesign> = {
   sniper: {
     hold: {
       pose: 'rifle',
-      shoulder: [0.09, -0.115, 0.08],
+      shoulder: [0.22, -0.1, 0.12],
       tilt: 0.03,
-      yaw: 0.26,
-      support: [0, 0.1, 0.28],
+      yaw: 0.02,
+      support: [0, 0.1, 0.26],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.2],
       butt: -0.38,
       muzzle: [0, 0.165, 1.04],
       muzzleKind: 'heavy',
     },
+    preview: { shoulder: [0.09, -0.115, 0.08], tilt: 0.03, yaw: 0.26 },
     build: (kit) => {
       kit.box(STEEL_DARK, [0.07, 0.07, 0.24], { at: [0, 0.16, 0.06], bevel: 0.02 });
       barrel(kit, STEEL_DARK, 0.165, 0.17, 1.04, 0.027, 1.4);
@@ -447,7 +455,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         0.064,
         { bevel: 0.022 },
       );
-      kit.box(BLACK, [0.066, 0.18, 0.022], { at: [0, 0.045, -0.39], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.066, 0.18, 0.022], { at: [0, 0.045, -0.39], bevel: 0.008 });
     },
   },
 
@@ -478,7 +486,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         { at: [0, 0.14, 0], segments: 12, capStart: true, capEnd: true },
       );
       kit.extrude(
-        BLUE_STEEL,
+        WALNUT,
         [
           [-0.045, 0.085],
           [0.035, 0.085],
@@ -487,23 +495,10 @@ const DESIGNS: Record<string, WeaponDesign> = {
           [-0.048, -0.105],
           [-0.06, -0.01],
         ],
-        0.05,
-        { bevel: 0.012 },
+        0.056,
+        { bevel: 0.016 },
       );
-      for (const side of [-1, 1]) {
-        kit.extrude(
-          WALNUT,
-          [
-            [-0.035, 0.06],
-            [0.022, 0.06],
-            [0.01, -0.085],
-            [-0.042, -0.088],
-            [-0.05, -0.01],
-          ],
-          0.012,
-          { at: [side * 0.027, 0, 0], bevel: 0.004 },
-        );
-      }
+      kit.box(BLUE_STEEL, [0.058, 0.02, 0.1], { at: [0, -0.1, -0.018], rot: [0.25, 0, 0], bevel: 0.007 });
       triggerGuard(kit, BLUE_STEEL, 0.075, 0.03, 0.09);
     },
   },
@@ -561,15 +556,16 @@ const DESIGNS: Record<string, WeaponDesign> = {
   snow_cannon: {
     hold: {
       pose: 'hip',
-      shoulder: [0.1, -0.255, 0.1],
+      shoulder: [0.28, -0.32, 0.1],
       tilt: 0.1,
-      yaw: 0.24,
+      yaw: -0.04,
       support: [0, 0.36, 0.06],
       gripAxis: [0, -1, -0.2],
       supportAxis: [1, 0, 0],
       muzzle: [0, 0.2, 0.52],
       muzzleKind: 'snow',
     },
+    preview: { shoulder: [0.1, -0.255, 0.1], tilt: 0.1, yaw: 0.24 },
     build: (kit) => {
       kit.lathe(
         [
@@ -623,15 +619,16 @@ const DESIGNS: Record<string, WeaponDesign> = {
   sand_flamer: {
     hold: {
       pose: 'hip',
-      shoulder: [0.09, -0.185, 0.08],
+      shoulder: [0.28, -0.3, 0.1],
       tilt: 0.08,
-      yaw: 0.26,
+      yaw: -0.06,
       support: [0, 0.05, 0.27],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0, -1, 0.2],
       muzzle: [0, 0.155, 0.76],
       muzzleKind: 'flame',
     },
+    preview: { shoulder: [0.09, -0.185, 0.08], tilt: 0.08, yaw: 0.26 },
     build: (kit) => {
       kit.box(FLAMER_COPPER, [0.1, 0.12, 0.36], { at: [0, 0.155, 0.04], bevel: 0.03 });
       kit.lathe(
@@ -680,16 +677,17 @@ const DESIGNS: Record<string, WeaponDesign> = {
   crossbow: {
     hold: {
       pose: 'rifle',
-      shoulder: [0.09, -0.125, 0.08],
+      shoulder: [0.22, -0.11, 0.12],
       tilt: 0.03,
-      yaw: 0.26,
-      support: [0, 0.1, 0.28],
+      yaw: 0.02,
+      support: [0, 0.1, 0.26],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.15],
       butt: -0.36,
       muzzle: [0, 0.2, 0.72],
       muzzleKind: null,
     },
+    preview: { shoulder: [0.09, -0.125, 0.08], tilt: 0.03, yaw: 0.26 },
     build: (kit) => {
       kit.extrude(
         WALNUT,
@@ -725,14 +723,14 @@ const DESIGNS: Record<string, WeaponDesign> = {
         { segments: 8, samples: 15, capStart: true, capEnd: true, ry: 0.65 },
       );
       kit.box(STEEL_DARK, [0.1, 0.07, 0.08], { at: [0, 0.185, 0.6], bevel: 0.018 });
-      kit.tube('#f1e4c4', [[0.38, 0.18, 0.44], [0, 0.205, 0.16], [-0.38, 0.18, 0.44]], 0.006, { segments: 4, samples: 3 });
+      kit.tube('#fff6dc', [[0.38, 0.18, 0.44], [0, 0.205, 0.16], [-0.38, 0.18, 0.44]], 0.011, { segments: 5, samples: 3 });
       // Bolt with fletching and a brass tip.
       kit.lathe([{ z: 0.12, r: 0.01, hex: WALNUT_DARK }, { z: 0.64, r: 0.01 }, { z: 0.64, r: 0.02, hard: true, hex: BRASS }, { z: 0.72, r: 0 }], { at: [0, 0.205, 0], segments: 6 });
       kit.extrude('#e8433b', [[0.12, 0.205], [0.2, 0.205], [0.2, 0.235], [0.13, 0.25]], 0.006, { bevel: 0 });
       kit.box(BLACK, [0.04, 0.05, 0.04], { at: [0, 0.2, 0.05], bevel: 0.01 });
       kit.tube(STEEL_DARK, [[0.03, 0.16, 0.64], [0.06, 0.08, 0.68], [0, 0.04, 0.7], [-0.06, 0.08, 0.68], [-0.03, 0.16, 0.64]], 0.01, { segments: 5, samples: 9 });
       triggerGuard(kit, STEEL_DARK, 0.1, 0.02, 0.1);
-      kit.box(BLACK, [0.072, 0.17, 0.02], { at: [0, 0.05, -0.365], bevel: 0.008 });
+      kit.box(WALNUT_DARK, [0.072, 0.17, 0.02], { at: [0, 0.05, -0.365], bevel: 0.008 });
     },
   },
 
@@ -810,9 +808,9 @@ const DESIGNS: Record<string, WeaponDesign> = {
   umbrella: {
     hold: {
       pose: 'umbrella',
-      shoulder: [0.2, -0.105, 0.16],
-      tilt: 0.25,
-      yaw: 0.1,
+      shoulder: [0.26, -0.12, 0.1],
+      tilt: 0.42,
+      yaw: -0.1,
       support: null,
       gripAxis: [0, 1, 0],
       supportAxis: [0, 1, 0],
