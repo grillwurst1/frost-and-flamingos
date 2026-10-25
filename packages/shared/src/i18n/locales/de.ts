@@ -330,6 +330,17 @@ export const de: TranslationDictionary = {
     hint: 'Änderungen werden auf diesem Gerät gespeichert und sofort angewendet.',
     unlockHint: 'Klicke irgendwo, um die Browser-Audioausgabe freizuschalten.',
   },
+  graphics: {
+    title: 'Bildqualität',
+    subtitle: 'Pinselstrich-Malpass, Tuschekonturen, Schatten, Oberflächendetails und Renderauflösung.',
+    auto: 'Automatisch',
+    high: 'Hoch',
+    medium: 'Mittel',
+    low: 'Niedrig',
+    active: 'Aktuell: {tier}',
+    activeAuto: 'Aktuell: {tier} (passend für dieses Gerät gewählt)',
+    hint: 'Automatisch wählt eine Stufe für deinen Grafikchip und schaltet einmal herunter, wenn das Menü ruckelt. Deine Wahl wird auf diesem Gerät gespeichert.',
+  },
   classNames: {
     alpine: {
       allrounder: 'Geissen-Major',

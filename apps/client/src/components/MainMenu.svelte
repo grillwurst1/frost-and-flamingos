@@ -7,6 +7,7 @@
   import AudioSettings from './AudioSettings.svelte';
   import ControlsList from './ControlsList.svelte';
   import CoverLogo from './CoverLogo.svelte';
+  import GraphicsSettings from './GraphicsSettings.svelte';
   import PaperModal from './PaperModal.svelte';
   import { COVER_URL, MENU_KEYART_URL, menuKeyart, probeMenuKeyart } from './icons/painted';
 
@@ -131,6 +132,8 @@
     <PaperModal title={$t('menu.settings')} onClose={() => (showSettings = false)}>
       <AudioSettings />
       <p class="field-hint">{$t('menu.audioBody')}</p>
+      <div class="hairline panel-gap"></div>
+      <GraphicsSettings />
     </PaperModal>
   {/if}
 

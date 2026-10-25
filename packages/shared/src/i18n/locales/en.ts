@@ -328,6 +328,17 @@ export const en = {
     hint: 'Changes are saved on this device and applied immediately.',
     unlockHint: 'Click anywhere to unlock browser audio.',
   },
+  graphics: {
+    title: 'Picture quality',
+    subtitle: 'Brush-stroke paint pass, ink outlines, shadows, surface detail and render resolution.',
+    auto: 'Auto',
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
+    active: 'Rendering now: {tier}',
+    activeAuto: 'Rendering now: {tier} (picked for this device)',
+    hint: 'Auto picks a tier for your graphics chip and steps down once if the menu runs slowly. Your choice is saved on this device.',
+  },
   classNames: {
     alpine: {
       allrounder: 'Chamois Major',
