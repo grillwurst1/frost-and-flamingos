@@ -47,6 +47,9 @@ import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
 import { MascotFx } from '../rendering/mascot-fx';
+import { installMascotDevHandle } from '../rendering/mascot-dev';
+import { preloadMascotModels } from '../rendering/mascot-models';
+import { preloadMascotTextures } from '../rendering/mascot-view';
 import {
   createShadowMaterial,
   createToonMaterial,
@@ -471,7 +474,7 @@ export class GameClient {
         onToggleDebug: () => debugVisible.update((visible) => !visible),
         onTaunt: () => {
           const profile = this.localProfile;
-          if (profile && !this.mascots?.playTaunt(profile)) {
+          if (profile && !this.mascots?.playTaunt(profile, this.localView)) {
             audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
           }
         },
@@ -506,6 +509,9 @@ export class GameClient {
         return hit ? hit.point.y : fromY - 1.5;
       });
       this.mascots = new MascotClient(this.mascotFx);
+      preloadMascotModels(scene);
+      preloadMascotTextures(scene);
+      installMascotDevHandle(scene, this.mascotFx);
       this.look?.attachMap(this.visuals);
       this.rebuildPreviewView(getProfile());
       setLoadingProgress(0.7);
@@ -1263,7 +1269,12 @@ export class GameClient {
     if (character.form) {
       const events = character.drainMascotEvents();
       if (events.length > 0) {
-        this.mascots?.onLocalMotorEvents(events, character.form, this.localProfile?.cosmetics.voicePitch ?? 1);
+        this.mascots?.onLocalMotorEvents(
+          events,
+          character.form,
+          this.localProfile?.cosmetics.voicePitch ?? 1,
+          this.localView,
+        );
       }
     }
     this.pendingInputs.push({
@@ -1383,6 +1394,8 @@ export class GameClient {
       mascot: character.mascotState,
       launchSeconds: character.launchSeconds,
       dazed: this.latestLocalState?.dazed ?? false,
+      vitality: this.latestLocalState ? this.latestLocalState.hp / Math.max(1, this.latestLocalState.maxHp) : 1,
+      kills: this.latestLocalState?.kills,
       grounded: character.grounded,
       alive: this.latestLocalState?.alive ?? true,
       crouched: character.crouched,
@@ -1505,6 +1518,8 @@ export class GameClient {
         mascot: player.mascot ? { ...player.mascot, heading } : null,
         launchSeconds: player.launchSeconds,
         dazed: player.dazed,
+        vitality: player.hp / Math.max(1, player.maxHp),
+        kills: player.kills,
         grounded: player.grounded,
         alive: player.alive,
         crouched: player.crouched,

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "models": {
+    "cow": {
+      "file": "cow.glb",
+      "bytes": 2173400,
+      "rig": {
+        "headYaw": 0.1961854465171795,
+        "bellVertices": 1149,
+        "earVertices": [
+          517,
+          349
+        ]
+      }
+    },
+    "coconut": {
+      "file": "coconut.glb",
+      "bytes": 4218832
+    }
+  }
+}

@@ -60,7 +60,9 @@ interface Puff {
 class PuffPool {
   readonly mesh: Mesh;
   private readonly material: StandardMaterial;
+  /** Fixed ring of puffs, reused: spawning never allocates. */
   private readonly puffs: Puff[] = [];
+  private next = 0;
   private readonly matrices = new Float32Array(MAX_PUFFS * 16);
   private readonly scratch = Matrix.Identity();
   private readonly scale = new Vector3();
@@ -82,31 +84,30 @@ class PuffPool {
   }
 
   spawn(position: Vec3, velocity: Vec3, size: number, life: number): void {
-    if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
-    this.puffs.push({
-      position: new Vector3(position.x, position.y, position.z),
-      velocity: new Vector3(velocity.x, velocity.y, velocity.z),
-      age: 0,
-      life,
-      size,
-    });
+    let puff = this.puffs[this.next];
+    if (!puff) {
+      puff = { position: new Vector3(), velocity: new Vector3(), age: 0, life: 0, size: 0 };
+      this.puffs[this.next] = puff;
+    }
+    this.next = (this.next + 1) % MAX_PUFFS;
+    puff.position.set(position.x, position.y, position.z);
+    puff.velocity.set(velocity.x, velocity.y, velocity.z);
+    puff.age = 0;
+    puff.life = life;
+    puff.size = size;
   }
 
   update(delta: number): void {
     let count = 0;
-    for (let index = this.puffs.length - 1; index >= 0; index -= 1) {
-      const puff = this.puffs[index];
-      if (!puff) continue;
+    for (const puff of this.puffs) {
+      if (puff.age >= puff.life) continue;
       puff.age += delta;
-      if (puff.age >= puff.life) {
-        this.puffs.splice(index, 1);
-        continue;
-      }
-      puff.position.addInPlace(puff.velocity.scale(delta));
+      if (puff.age >= puff.life) continue;
+      puff.position.x += puff.velocity.x * delta;
+      puff.position.y += puff.velocity.y * delta;
+      puff.position.z += puff.velocity.z * delta;
       puff.velocity.scaleInPlace(Math.max(0, 1 - delta * 2.6));
       puff.velocity.y += delta * 0.6;
-    }
-    for (const puff of this.puffs) {
       const t = puff.age / puff.life;
       const size = puff.size * Math.sin(Math.PI * Math.min(1, t * 1.15)) ** 0.6;
       this.scale.set(size, size * 0.92, size);
@@ -162,8 +163,34 @@ interface Ring {
 
 interface Dizzy {
   mesh: Mesh;
+  birds: Mesh | null;
   phase: number;
   seen: boolean;
+}
+
+/** Little cartoon bird (body + two raised wings), flying along +X around the ring. */
+function createBird(scene: Scene, angle: number, radius: number): Mesh {
+  const parts: Mesh[] = [];
+  const body = CreateIcoSphere('mascot-bird-body', { radius: 0.05, subdivisions: 1 }, scene);
+  body.scaling.set(1.5, 0.85, 0.9);
+  parts.push(body);
+  const head = CreateIcoSphere('mascot-bird-head', { radius: 0.034, subdivisions: 1 }, scene);
+  head.position.set(0.07, 0.03, 0);
+  parts.push(head);
+  for (const side of [-1, 1]) {
+    const wing = CreateIcoSphere('mascot-bird-wing', { radius: 0.05, subdivisions: 1 }, scene);
+    wing.scaling.set(0.7, 0.18, 1.5);
+    wing.position.set(-0.005, 0.04, side * 0.065);
+    wing.rotation.x = side * -0.55;
+    parts.push(wing);
+  }
+  for (const part of parts) part.bakeCurrentTransformIntoVertices();
+  const bird = Mesh.MergeMeshes(parts, true, true) ?? (parts[0] as Mesh);
+  // Tangent to the ring, slightly bobbing above the stars' plane.
+  bird.rotation.y = -angle - Math.PI / 2;
+  bird.position.set(Math.cos(angle) * radius, 0.12, Math.sin(angle) * radius);
+  bird.bakeCurrentTransformIntoVertices();
+  return bird;
 }
 
 /** Ground height lookup supplied by the client (terrain + props). */
@@ -194,7 +221,13 @@ export class MascotFx {
     this.starMaterial.diffuseColor = Color3.FromHexString('#ffd23f');
     this.starMaterial.emissiveColor = Color3.FromHexString('#c99a10');
     this.starMaterial.specularColor = Color3.Black();
+    this.birdMaterial = new StandardMaterial('mascot-dizzy-bird', scene);
+    this.birdMaterial.diffuseColor = Color3.FromHexString('#bfe6ff');
+    this.birdMaterial.emissiveColor = Color3.FromHexString('#7fb6dc');
+    this.birdMaterial.specularColor = Color3.Black();
   }
+
+  private readonly birdMaterial: StandardMaterial;
 
   private pool(kind: PuffKind): PuffPool {
     let pool = this.pools.get(kind);
@@ -374,8 +407,14 @@ export class MascotFx {
       const merged = Mesh.MergeMeshes(stars, true, true);
       if (!merged) return;
       merged.material = this.starMaterial;
+      const birds = Mesh.MergeMeshes([createBird(this.scene, 1.05, 0.5), createBird(this.scene, 4.2, 0.5)], true, true);
+      if (birds) {
+        birds.material = this.birdMaterial;
+        birds.isPickable = false;
+        birds.parent = merged;
+      }
       merged.isPickable = false;
-      dizzy = { mesh: merged, phase: Math.random() * 6, seen: true };
+      dizzy = { mesh: merged, birds, phase: Math.random() * 6, seen: true };
       this.dizzy.set(id, dizzy);
     }
     dizzy.seen = true;
@@ -448,6 +487,11 @@ export class MascotFx {
       dizzy.phase += delta * 4.2;
       dizzy.mesh.rotation.y = dizzy.phase;
       dizzy.mesh.rotation.z = Math.sin(dizzy.phase * 0.7) * 0.18;
+      if (dizzy.birds) {
+        // Birds flap and fly the other way round, a little faster.
+        dizzy.birds.rotation.y = -dizzy.phase * 1.9;
+        dizzy.birds.scaling.y = 1 + Math.sin(dizzy.phase * 9) * 0.35;
+      }
     }
   }
 
@@ -470,5 +514,6 @@ export class MascotFx {
     this.dizzy.clear();
     this.puddleMaterial.dispose();
     this.starMaterial.dispose();
+    this.birdMaterial.dispose();
   }
 }
