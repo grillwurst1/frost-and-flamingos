@@ -66,7 +66,7 @@
     },
     "vehicle-coconut-tank": {
       "file": "vehicle-coconut-tank.glb",
-      "bytes": 1943158,
+      "bytes": 1936822,
       "textures": {
         "basecolor": "vehicle-coconut-tank-basecolor.webp",
         "normal": "vehicle-coconut-tank-normal.webp"
@@ -82,7 +82,7 @@
     },
     "vehicle-fondue-crawler": {
       "file": "vehicle-fondue-crawler.glb",
-      "bytes": 1717850,
+      "bytes": 1709910,
       "textures": {
         "basecolor": "vehicle-fondue-crawler-basecolor.webp",
         "normal": "vehicle-fondue-crawler-normal.webp"

@@ -65,6 +65,12 @@ export interface VehiclePartSpec {
   /** Game-space XZ point (after scaling) that becomes the origin. */
   center: [number, number];
   rules: PartRule[];
+  /**
+   * Tracked hulls: only the biggest N road wheels per side stay separate
+   * spinning parts; the rest (barely visible inside the tracks) join the hull
+   * to keep draw calls low.
+   */
+  spinningWheelsPerSide?: number;
 }
 
 const inBox = (c: Component, min: V3, max: V3): boolean =>
@@ -106,6 +112,7 @@ export const VEHICLE_PART_SPECS: Readonly<Record<string, VehiclePartSpec>> = {
     forward: '-x',
     scale: 4.9,
     center: [0, 0],
+    spinningWheelsPerSide: 1,
     rules: [
       {
         name: 'barrel',
@@ -129,6 +136,7 @@ export const VEHICLE_PART_SPECS: Readonly<Record<string, VehiclePartSpec>> = {
     forward: '-x',
     scale: 4.8,
     center: [0, 0],
+    spinningWheelsPerSide: 1,
     rules: [
       {
         name: 'barrel',
@@ -412,6 +420,33 @@ function assignParts(spec: VehiclePartSpec, components: Component[]): PartOut[] 
     for (let axis = 0; axis < 3; axis += 1) {
       part.bounds.min[axis] = Math.min(part.bounds.min[axis] ?? 0, component.bounds.min[axis] ?? 0);
       part.bounds.max[axis] = Math.max(part.bounds.max[axis] ?? 0, component.bounds.max[axis] ?? 0);
+    }
+  }
+  const axleRadius = (wheel: PartOut, all: PartOut[]): number => {
+    let radius = 0;
+    for (const other of all) {
+      if (Math.hypot(other.pivot[1] - wheel.pivot[1], other.pivot[2] - wheel.pivot[2]) > 0.08) continue;
+      radius = Math.max(radius, ((other.bounds.max[1] - other.bounds.min[1]) + (other.bounds.max[2] - other.bounds.min[2])) / 4);
+    }
+    return radius;
+  };
+  const keep = spec.spinningWheelsPerSide;
+  if (keep !== undefined) {
+    const hull = parts.get('hull');
+    const all = [...parts.values()].filter((part) => part.role === 'wheel');
+    for (const side of [-1, 1]) {
+      const sideWheels = all
+        .filter((part) => !part.parent && Math.sign(part.pivot[0]) === side)
+        .sort((a, b) => axleRadius(b, all) - axleRadius(a, all) || a.pivot[2] - b.pivot[2]);
+      for (const extra of sideWheels.slice(keep)) {
+        if (!hull) break;
+        hull.triangles.push(...extra.triangles);
+        for (let axis = 0; axis < 3; axis += 1) {
+          hull.bounds.min[axis] = Math.min(hull.bounds.min[axis] ?? 0, extra.bounds.min[axis] ?? 0);
+          hull.bounds.max[axis] = Math.max(hull.bounds.max[axis] ?? 0, extra.bounds.max[axis] ?? 0);
+        }
+        parts.delete(extra.name);
+      }
     }
   }
   // Wheels spin by the radius of their axle: hubs and spokes are separate
