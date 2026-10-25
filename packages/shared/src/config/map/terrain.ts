@@ -670,6 +670,11 @@ export function terrainBiomeAt(
   // The coastal ramp is packed sand.
   const ramp = roadInfluence(x, z, [CARVED_ROADS[1] as CarvedRoad], 1.5);
   sand = Math.max(sand, ramp);
+  // Lagoon base: sandy launch strip from the bamboo garage door to the boat dock.
+  if (x < -250 && z < -240) {
+    const strip = capsuleSignedDistance(x, z, -318, -326, -305, -272, 4.5);
+    sand = Math.max(sand, 1 - smoothstep(-1, 1.5, strip));
+  }
 
   const square = 1 - smoothstep(SQUARE_HALF - 0.5, SQUARE_HALF + 1.5, Math.max(Math.abs(x), Math.abs(z)));
   const lanes = roadInfluence(x, z, COBBLE_ROADS.filter((_, index) => index !== 1), 1);

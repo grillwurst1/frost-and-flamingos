@@ -78,20 +78,28 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
     surface = 'sand';
   }
   if (biome.cobble > 0) {
-    const stone = (Math.floor(x * 1.1) + Math.floor(z * 1.1)) % 2 === 0 ? P.cobble : P.cobbleWarm;
-    bare = mix(bare, mix(stone, P.cobbleDark, fine * 0.35), biome.cobble);
+    // Per-vertex flagstone tones with real contrast; the plaza disc is dark grout under the paving mesh.
+    const stone = hash3(Math.floor(x / 1.6), Math.floor(z / 1.6), 41) > 0.5 ? P.cobble : mix(P.cobbleWarm, P.cobbleDark, 0.25);
+    const grout = Math.hypot(x, z) < 24.8 ? 1 : 0;
+    bare = mix(bare, mix(mix(stone, P.cobbleDark, fine * 0.55), shade(P.cobbleDark, 0.8), grout), biome.cobble);
     if (biome.cobble > 0.5) surface = 'cobble';
   }
-  if (biome.rock > 0) {
+  // Rock outcrops breaking through the snow on the high alps (relief for the NE massif).
+  const ridge = Math.sin(x * 0.11 + Math.sin(z * 0.07) * 2) * Math.sin(z * 0.09 + Math.sin(x * 0.05) * 2);
+  const outcrop = height > SNOWLINE_Y + 9 ? smooth((ridge - 0.3) / 0.25) * smooth((slope - 0.24) / 0.16) : 0;
+  const rockWeight = Math.max(biome.rock, outcrop);
+  if (rockWeight > 0) {
     const strata = Math.sin(height * 1.7 + patch * 2) * 0.5 + 0.5;
     const rock = mix(mix(P.rockShade, P.rock, strata), P.rockLight, fine > 0.75 ? 0.4 : 0);
-    bare = mix(bare, rock, biome.rock);
-    if (biome.rock > 0.5) surface = 'rock';
+    bare = mix(bare, rock, rockWeight);
+    if (rockWeight > 0.5) surface = 'rock';
   }
   let final = bare;
-  const snow = height >= WATER_LEVEL ? terrainSnowWeight(height, biome.snowBias, biome.rock, SNOWLINE_Y) : 0;
+  const snow = height >= WATER_LEVEL ? terrainSnowWeight(height, biome.snowBias, rockWeight, SNOWLINE_Y) : 0;
   if (snow > 0) {
-    const snowColor = mix(P.snowShade, P.snow, 0.55 + Math.min(1, snow) * 0.45 - biome.rock * 0.3);
+    // Steeper, wind-blown slopes read cooler and bluer than the sheltered flats.
+    const windBlown = smooth((slope - 0.16) / 0.34) * 0.6;
+    const snowColor = mix(mix(P.snowShade, P.snow, 0.55 + Math.min(1, snow) * 0.45 - rockWeight * 0.3), P.snowShade, windBlown);
     final = mix(bare, snowColor, Math.min(1, snow * 1.15));
     if (snow > 0.5 && surface !== 'cobble') surface = 'snow';
   }

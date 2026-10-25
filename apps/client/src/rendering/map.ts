@@ -31,7 +31,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import { createSkyMaterial, createWaterMaterial } from './materials';
 import { drawBuilding } from './map/buildings';
-import { BRAKE_LEVER_HINGE, drawBrakeLeverBase, drawBrakeLeverHandle, drawBuildingExtras, drawBuildingSurroundings } from './map/extras';
+import { BRAKE_LEVER_HINGE, drawBrakeLeverBase, drawBrakeLeverHandle, drawBuildingExtras } from './map/extras';
 import { Affine, GeometryBatch, hash3 } from './map/geometry';
 import {
   drawBillboardFrame,
@@ -44,6 +44,7 @@ import {
   drawClockPavilion,
   drawCoasterPlatform,
   drawCoasterTrack,
+  drawPlazaPaving,
   drawHammock,
   drawHarborPlatform,
   drawLadder,
@@ -481,11 +482,10 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
       batch = chunks.at(prop.position.x, prop.position.z);
     }
     drawPropAt(batch, prop);
-    if (prop.building) {
-      const chunk = chunks.at(prop.position.x, prop.position.z);
-      chunk.at(prop.position.x, prop.position.y, prop.position.z, prop.rotationY, () => drawBuildingSurroundings(chunk, prop));
-    }
   }
+
+  // Radial cobblestone paving around the Tower B fountain.
+  drawPlazaPaving(chunks.at(1, 1));
 
   // Cable-car emergency brakes: static pedestal in the chunk, handle as its own mesh.
   const brakeLevers = new Map<string, Mesh>();

@@ -632,6 +632,8 @@ function villageSeeds(): PropSeed[] {
   );
   seeds.push(simple('village_well', 'well', -14, 12, 0.3, 0, [cylinderCollider(1.25, 0.5, 0, 0.5, 0)], VILLAGE_HEIGHT));
   seeds.push(simple('village_maypole', 'flag', 20, 22, 0, 1, [cylinderCollider(0.32, 6, 0, 6, 0)], VILLAGE_HEIGHT));
+  // The palm leaning over the Tiki-Alm's back (survives the building).
+  seeds.push(simple('tiki_alm_palm', 'palm', -9, -38.6, 0.6, 1, [cylinderCollider(0.37, 1.76, 0, 1.76, 0)], VILLAGE_HEIGHT, 1.1));
   const benches: [number, number, number][] = [
     [9, 9, Math.PI * 1.25],
     [-9, 9, Math.PI * 0.75],

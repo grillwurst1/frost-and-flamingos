@@ -7,7 +7,6 @@
  */
 import { CHALET_TERRACES, type BuildingLayout, type MapProp } from '@frost-and-flamingos/shared';
 import { Affine, GeometryBatch, hash3, mix, shade, type RGB, type V3 } from './geometry';
-import { drawPalm } from './nature';
 import { P } from './palette';
 
 /** Blank hanging sign on a wrought-iron bracket sticking out from a wall corner. */
@@ -243,18 +242,6 @@ export function drawBuildingExtras(batch: GeometryBatch, prop: MapProp): void {
     default:
       break;
   }
-}
-
-/**
- * Static surroundings of a building that must survive its destruction (drawn
- * into the terrain chunk, in prop-local space): the Tiki-Alm's palm.
- */
-export function drawBuildingSurroundings(batch: GeometryBatch, prop: MapProp): boolean {
-  const layout = prop.building;
-  if (!layout || prop.id !== 'chalet_south') return false;
-  const seed = Math.floor(prop.position.x * 3 + prop.position.z);
-  batch.with(Affine.translation(-layout.width / 2 + 1.5, 0, -layout.depth / 2 - 2.6), () => drawPalm(batch, 1.1, 1, seed, 0.6));
-  return true;
 }
 
 /** Height of the brake lever's hinge above the station platform. */

@@ -304,6 +304,61 @@ function drawClockFace(batch: GeometryBatch, radius: number, hour: number, rim: 
   batch.blob(0, 0, 0.16, 0.12, 0.12, 0.06, P.gold, 'metal', { segments: 6, rings: 3 });
 }
 
+/**
+ * Radial cobblestone paving around the Tower B fountain: rings of slightly
+ * raised stones over dark grout, a darker band every sixth ring, eight warm
+ * "sun ray" spokes and a kerb ring. Spawn pads stay uncovered.
+ */
+export function drawPlazaPaving(batch: GeometryBatch): void {
+  const pads = FJORD_MAP.spawns.filter((spawn) => Math.hypot(spawn.position.x, spawn.position.z) < 30).map((spawn) => spawn.position);
+  const inner = PAVILION.basinRadius + 1.0;
+  const outer = 24;
+  const ringWidth = 0.95;
+  const tones = [P.cobble, P.cobbleWarm, mix(P.cobble, P.cobbleDark, 0.35), mix(P.cobbleWarm, P.cobble, 0.5)];
+  const stone = (r0: number, r1: number, a0: number, a1: number, color: RGB, lift: number): void => {
+    const corners: V3[] = [
+      [Math.sin(a0) * r0, 0, Math.cos(a0) * r0],
+      [Math.sin(a1) * r0, 0, Math.cos(a1) * r0],
+      [Math.sin(a1) * r1, 0, Math.cos(a1) * r1],
+      [Math.sin(a0) * r1, 0, Math.cos(a0) * r1],
+    ];
+    const cx = (corners[0]![0] + corners[2]![0]) / 2;
+    const cz = (corners[0]![2] + corners[2]![2]) / 2;
+    if (pads.some((pad) => Math.hypot(pad.x - cx, pad.z - cz) < 1.9)) return;
+    batch.orientedPolygon(
+      corners.map((corner): V3 => [corner[0], sampleMapHeight(corner[0], corner[2]) + lift, corner[2]]),
+      [0, 1, 0],
+      color,
+      'cobble',
+    );
+  };
+  let ring = 0;
+  for (let r0 = inner; r0 + ringWidth <= outer; r0 += ringWidth, ring += 1) {
+    const r1 = r0 + ringWidth - 0.1;
+    const mid = (r0 + r1) / 2;
+    const count = Math.max(8, Math.round((2 * Math.PI * mid) / 1.05));
+    const gap = 0.09 / mid;
+    const phase = (hash3(ring, 3, 1) * 2 * Math.PI) / count;
+    const band = ring % 6 === 5;
+    for (let index = 0; index < count; index += 1) {
+      const a0 = phase + (index / count) * Math.PI * 2;
+      const a1 = phase + ((index + 1) / count) * Math.PI * 2 - gap;
+      const centre = (a0 + a1) / 2;
+      const sector = ((centre % (Math.PI / 4)) + Math.PI / 4) % (Math.PI / 4);
+      const spoke = Math.min(sector, Math.PI / 4 - sector) < 0.55 / mid;
+      const base = band ? P.cobbleDark : spoke ? mix(P.cobbleWarm, P.sandShade, 0.45) : (tones[Math.floor(hash3(ring, index, 7) * tones.length)] ?? P.cobble);
+      stone(r0, r1, a0, a1, shade(base, 0.92 + hash3(index, ring, 2) * 0.16), 0.05 + hash3(ring, index, 5) * 0.03);
+    }
+  }
+  // Kerb ring of long dark stones.
+  const kerb = 72;
+  for (let index = 0; index < kerb; index += 1) {
+    const a0 = (index / kerb) * Math.PI * 2;
+    const a1 = ((index + 1) / kerb) * Math.PI * 2 - 0.004;
+    stone(outer, outer + 0.6, a0, a1, shade(P.cobbleDark, 0.9 + hash3(index, 9, 9) * 0.15), 0.09);
+  }
+}
+
 export function drawClockPavilion(batch: GeometryBatch): void {
   const C = PAVILION;
   // Round stone fountain basin
