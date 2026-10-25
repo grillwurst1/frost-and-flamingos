@@ -42,7 +42,7 @@ import {
   type WelcomeMessage,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
-import { createBotRoute, steerAlongRoute, type BotRoute } from './bot-nav.js';
+import { createBotRoute, engagementBlocked, routeTowards, steerAlongRoute, type BotRoute } from './bot-nav.js';
 import {
   normalizeDirection,
   raycastTargets,
@@ -935,7 +935,31 @@ export class MatchRoom {
       pitch = Math.atan2(dy, Math.max(0.001, horizontal)) + bot.aimError;
       const distance = Math.hypot(horizontal, dy);
 
-      if (distance > Math.max(9, weapon.range * 0.45)) buttons |= InputButton.Forward;
+      // Out of sight (across the gorge, behind a chalet) or blocked while
+      // charging: follow the waypoint graph towards the target instead.
+      const route = bot.route;
+      if (this.physicsTick >= route.nextSightTick) {
+        route.nextSightTick = this.physicsTick + 12;
+        route.seesTarget = this.hasLineOfSight(origin, targetPoint, distance, normalizeDirection({ x: dx, y: dy, z: dz }));
+      }
+      if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
+        routeTowards(route, player.character.position, target.character.position, this.physicsTick);
+        const steer = steerAlongRoute(route, player.character.position, this.physicsTick, Math.random);
+        let chaseButtons = InputButton.Forward;
+        if (steer.sprint) chaseButtons |= InputButton.Sprint;
+        if (steer.jump) chaseButtons |= InputButton.Jump;
+        const chaseAmmo = player.ammo[0];
+        if (chaseAmmo && chaseAmmo.magazine <= 0 && chaseAmmo.reserve > 0) chaseButtons |= InputButton.Reload;
+        return { sequence: player.lastProcessedInput + 1, buttons: chaseButtons, yaw: steer.yaw, pitch: -0.05, weaponSlot: 1 };
+      }
+
+      if (distance > Math.max(9, weapon.range * 0.45)) {
+        buttons |= InputButton.Forward;
+        if (engagementBlocked(route, player.character.position, this.physicsTick)) route.chaseUntilTick = this.physicsTick + 300;
+      } else {
+        route.engageCheckTick = this.physicsTick;
+        route.engageCheckPosition = { ...player.character.position };
+      }
       if (distance > 24) buttons |= InputButton.Sprint;
       if (distance < 5) buttons |= InputButton.Backward;
       if (this.physicsTick >= bot.nextStrafeTick) {

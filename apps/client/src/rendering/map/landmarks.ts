@@ -925,8 +925,8 @@ function drawMidSupport(batch: GeometryBatch, rise: number): void {
   }
   // Switchback stairs on the outside of the tower.
   for (const [x, z0, z1, y0, y1] of [
-    [5.2, -6.8, 1.2, 0, rise / 2],
-    [4.2, 3.6, -2.6, rise / 2, rise],
+    [5.6, -6.8, 1.2, 0, rise / 2],
+    [4.0, 3.6, -2.6, rise / 2, rise],
   ] as const) {
     const steps = Math.round((y1 - y0) / 0.28);
     for (let step = 0; step < steps; step += 1) {
@@ -936,9 +936,9 @@ function drawMidSupport(batch: GeometryBatch, rise: number): void {
     for (const side of [-1, 1]) batch.log([x + side * 0.82, y0 - 0.2, z0], [x + side * 0.82, y1 - 0.2, z1], 0.08, P.metalDark, 'metal', { segments: 4 });
     batch.log([x + 0.85, y0 + 1.0, z0], [x + 0.85, y1 + 1.0, z1], 0.05, P.alpineRed, 'metal', { segments: 4 });
   }
-  batch.box(5.2, rise / 2 - 0.15, 2.4, 2.4, 0.3, 2.4, P.plank, 'wood', 0.04);
-  batch.log([5.2, 0, 2.4], [5.2, rise / 2 - 0.3, 2.4], 0.14, P.steel, 'metal', { segments: 5 });
-  batch.log([5.2, 0, -6.6], [5.2, 0.4, -6.6], 0.14, P.steel, 'metal', { segments: 5 });
+  batch.box(4.8, rise / 2 - 0.15, 2.4, 3.2, 0.3, 2.4, P.plank, 'wood', 0.04);
+  batch.log([5.6, 0, 2.4], [5.6, rise / 2 - 0.3, 2.4], 0.14, P.steel, 'metal', { segments: 5 });
+  batch.log([5.6, 0, -6.6], [5.6, 0.4, -6.6], 0.14, P.steel, 'metal', { segments: 5 });
 
   // Two lattice masts carrying the cross-arm and the sheave train above the deck.
   const mastTop = rise + 5.6;

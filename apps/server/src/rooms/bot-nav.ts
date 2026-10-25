@@ -88,10 +88,57 @@ export interface BotRoute {
   checkTick: number;
   checkPosition: Vec3;
   stuckStrikes: number;
+  /** Final node of the current plan (-1 when none). */
+  goalNode: number;
+  /** Combat pursuit: line of sight to the target, refreshed every 12 ticks. */
+  seesTarget: boolean;
+  nextSightTick: number;
+  /** Until this tick the bot follows the graph to its target even with sight (it was blocked). */
+  chaseUntilTick: number;
+  engageCheckTick: number;
+  engageCheckPosition: Vec3;
 }
 
 export function createBotRoute(): BotRoute {
-  return { nodes: [], index: 0, checkTick: 0, checkPosition: { x: 0, y: 0, z: 0 }, stuckStrikes: 0 };
+  return {
+    nodes: [],
+    index: 0,
+    checkTick: 0,
+    checkPosition: { x: 0, y: 0, z: 0 },
+    stuckStrikes: 0,
+    goalNode: -1,
+    seesTarget: true,
+    nextSightTick: 0,
+    chaseUntilTick: 0,
+    engageCheckTick: 0,
+    engageCheckPosition: { x: 0, y: 0, z: 0 },
+  };
+}
+
+/**
+ * Points the route at a world position (a combat target out of sight or
+ * behind an obstacle). Re-plans only when the target's nearest node changes.
+ */
+export function routeTowards(route: BotRoute, position: Vec3, goal: Vec3, tick: number): void {
+  const goalNode = nearestNode(goal);
+  if (route.goalNode === goalNode && route.nodes.length > 0 && route.index < route.nodes.length) return;
+  route.nodes = planRoute(nearestNode(position), goalNode);
+  route.index = 0;
+  route.goalNode = goalNode;
+  route.checkTick = tick;
+  route.checkPosition = { ...position };
+}
+
+/**
+ * Engagement stuck check while charging a visible target in a straight line:
+ * returns true when the bot barely moved for two seconds (railing, cliff, gorge).
+ */
+export function engagementBlocked(route: BotRoute, position: Vec3, tick: number): boolean {
+  if (tick - route.engageCheckTick < 120) return false;
+  const moved = horizontal(position, route.engageCheckPosition);
+  route.engageCheckTick = tick;
+  route.engageCheckPosition = { ...position };
+  return moved < 1.2;
 }
 
 /** Picks a new goal: mostly the contested towers, sometimes a random waypoint. */
@@ -122,7 +169,8 @@ export interface SteerResult {
 export function steerAlongRoute(route: BotRoute, position: Vec3, tick: number, random: () => number): SteerResult {
   if (route.nodes.length === 0 || route.index >= route.nodes.length) {
     const start = nearestNode(position);
-    route.nodes = planRoute(start, chooseGoal(random));
+    route.goalNode = chooseGoal(random);
+    route.nodes = planRoute(start, route.goalNode);
     route.index = 0;
     route.checkTick = tick;
     route.checkPosition = { ...position };
