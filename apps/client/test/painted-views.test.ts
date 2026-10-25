@@ -2,7 +2,7 @@
  * Package 3C animator and stand-in checks, headless (Babylon NullEngine)
  * against the committed painted models:
  *
- *   bun test scripts/tests
+ *   bun run test   (bun test test, in apps/client)
  */
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
@@ -19,6 +19,7 @@ import type { AvatarPose, AvatarView } from '../src/rendering/avatar';
 import { GlbCharacterView, createPaintedAvatarView } from '../src/rendering/glb-character';
 import { PAINTED_MODELS } from '../src/rendering/glb/catalog';
 import { paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
+import { interpolateRemote } from '../src/engine/remote-interp';
 import type { PaintedTextures } from '../src/rendering/glb/material';
 
 const MODELS = resolve(import.meta.dir, '..', 'public', 'models');
@@ -105,23 +106,74 @@ describe('locomotion clips (gait phase and natural speed)', () => {
     }
   });
 
-  test('loops cover the motor speeds without sliding (rate within the cap)', () => {
-    const MAX_LOOP_RATE = 8;
-    for (const [key, asset] of assets) {
+});
+
+/** Gait ceilings in steps/s (glb-character.ts CADENCE_CAP). */
+const CADENCE_CAP: Record<string, number> = { walk: 3.0, combatWalk: 3.0, backpedal: 3.0, crouchRun: 3.3, runBack: 3.3, run: 3.6, sprint: 4.5 };
+
+interface BindingProbe {
+  role: string;
+  weight: number;
+  rate: number;
+  stride: number;
+  clip: { duration: number; naturalSpeed?: number };
+}
+
+describe('locomotion cadence', () => {
+  test('every gait at motor speed stays under its cadence ceiling', async () => {
+    const scene = makeScene();
+    const library = paintedModelLibrary(scene);
+    for (const key of Object.keys(PAINTED_MODELS)) {
+      const asset = await library.load(key);
+      if (!asset) throw new Error(`${key} did not load`);
       const stats = CLASS_STATS[profileOf(key).cosmetics.classId];
-      const scale = stats.height / asset.height;
-      const motor: Record<string, number> = {
-        run: stats.moveSpeed,
-        sprint: stats.moveSpeed * 1.35,
-        combatWalk: stats.moveSpeed * 0.55,
-        backpedal: stats.moveSpeed * 0.7,
-      };
-      for (const [role, speed] of Object.entries(motor)) {
-        const natural = asset.clips.get(role as 'run')?.naturalSpeed ?? 1;
-        const rate = speed / scale / natural;
-        expect(rate).toBeLessThanOrEqual(MAX_LOOP_RATE);
+      const gaits: Array<[number, number, Partial<AvatarPose>]> = [
+        [1.6, 1, {}],
+        [stats.moveSpeed, 1, {}],
+        [stats.moveSpeed * 1.35, 1, { sprinting: true }],
+        [1.0, 1, { crouched: true, crouchBlend: 1 }],
+        [stats.moveSpeed * 0.55, 1, { crouched: true, crouchBlend: 1 }],
+        [stats.moveSpeed * 0.7, -1, {}],
+      ];
+      for (const [speed, direction, extra] of gaits) {
+        const view = new GlbCharacterView(scene, new StandardMaterial('shadow', scene), profileOf(key), asset, {
+          albedo: new Texture(null, scene),
+          normal: null,
+        });
+        for (let frame = 0; frame < 90; frame += 1) {
+          view.update(1 / 60, pose({ velocity: { x: 0, y: 0, z: speed * direction }, ...extra }));
+        }
+        const bindings = (view as unknown as { bindings: Map<string, BindingProbe> }).bindings;
+        let dominant: BindingProbe | null = null;
+        for (const binding of bindings.values()) {
+          if (!(binding.role in CADENCE_CAP)) continue;
+          if (!dominant || binding.weight > dominant.weight) dominant = binding;
+        }
+        expect(dominant).not.toBeNull();
+        if (!dominant) continue;
+        const cadence = (2 * dominant.rate) / dominant.clip.duration;
+        expect(cadence).toBeLessThanOrEqual((CADENCE_CAP[dominant.role] ?? 4.5) + 1e-6);
+        // What the ceiling leaves shows as slide, bounded by the stride lengthening.
+        const modelSpeed = speed / (stats.height / asset.height);
+        const slide = 1 - (dominant.rate * (dominant.clip.naturalSpeed ?? 1) * dominant.stride) / modelSpeed;
+        expect(slide).toBeLessThan(0.4);
+        view.dispose();
       }
     }
+  });
+});
+
+describe('remote interpolation', () => {
+  test('velocity is the displayed motion between the bracketing snapshots', () => {
+    // 7 m/s along +x, snapshots 33 ms apart, rendered halfway between them.
+    const older = { position: { x: 0, y: 0, z: 0 }, velocity: { x: 21, y: 0, z: 0 }, yaw: 0, heading: 0 };
+    const newer = { position: { x: 0.231, y: 0, z: 0 }, velocity: { x: 7, y: 0, z: 0 }, yaw: 0.2, heading: 0.2 };
+    const sample = interpolateRemote(older, newer, 0.5, 33);
+    expect(sample.velocity.x).toBeCloseTo(7, 3);
+    expect(sample.position.x).toBeCloseTo(0.1155, 4);
+    expect(sample.yaw).toBeCloseTo(0.1, 6);
+    expect(interpolateRemote(older, newer, 0.5, 0).velocity.x).toBe(7);
+    expect(interpolateRemote(undefined, newer, 0.5, 33).position.x).toBe(0.231);
   });
 });
 
@@ -186,44 +238,94 @@ describe('stand-in swaps', () => {
   });
 });
 
-describe('dodge roll', () => {
-  test('head and painted hat stay above the ground', async () => {
+describe('stand-in swaps after a revive', () => {
+  test('a placeholder swapped on a stale dead snapshot does not play the corpse pose', async () => {
     const scene = makeScene();
-    const library = paintedModelLibrary(scene);
-    for (const key of Object.keys(PAINTED_MODELS)) {
-      const asset = await library.load(key);
-      if (!asset) throw new Error(`${key} did not load`);
-      const view = new GlbCharacterView(scene, new StandardMaterial('shadow', scene), profileOf(key), asset, {
-        albedo: new Texture(null, scene),
-        normal: null,
-      });
-      const internals = view as unknown as { bodyMesh: Mesh; root: TransformNode };
-      const bind = internals.bodyMesh.getVerticesData('position') ?? new Float32Array();
-      for (let frame = 0; frame < 20; frame += 1) view.update(1 / 60, pose());
-      let lowest = Infinity;
-      for (let frame = 0; frame < 36; frame += 1) {
-        view.update(1 / 60, pose({ rolling: true, velocity: { x: 0, y: 0, z: 9 } }));
-        const queue: TransformNode[] = [internals.root];
-        while (queue.length > 0) {
-          const node = queue.shift();
-          if (!node) break;
-          node.computeWorldMatrix(true);
-          queue.push(...(node.getChildren() as TransformNode[]));
-        }
-        internals.bodyMesh.skeleton?.prepare(true);
-        const skinned = internals.bodyMesh.getPositionData(true, false) ?? new Float32Array();
-        const world = internals.bodyMesh.getWorldMatrix();
-        for (let vertex = 0; vertex < skinned.length / 3; vertex += 1) {
-          if ((bind[vertex * 3 + 1] ?? 0) < asset.height * 0.82) continue;
-          const point = Vector3.TransformCoordinates(
-            new Vector3(skinned[vertex * 3] ?? 0, skinned[vertex * 3 + 1] ?? 0, skinned[vertex * 3 + 2] ?? 0),
-            world,
-          );
-          lowest = Math.min(lowest, point.y);
-        }
-      }
-      expect(lowest).toBeGreaterThanOrEqual(0);
-      view.dispose();
+    fakeTextures(scene);
+    await paintedModelLibrary(scene).load('alpine-allrounder');
+    scene.render();
+    // The frame's build budget is taken, so this one starts as a placeholder.
+    const first = createPaintedAvatarView(scene, new StandardMaterial('shadow-a', scene), profileOf('alpine-allrounder'));
+    const late = createPaintedAvatarView(scene, new StandardMaterial('shadow-b', scene), profileOf('alpine-allrounder'));
+    if (!first || !late) throw new Error('no view');
+    scene.render();
+    late.update(1 / 60, pose({ alive: false }));
+    let worstDeath = 0;
+    for (let frame = 0; frame < 12; frame += 1) {
+      scene.render();
+      late.update(1 / 60, pose());
+      const current = (late as unknown as { current: { bindings?: Map<string, { weight: number }> } }).current;
+      worstDeath = Math.max(worstDeath, current.bindings?.get('death')?.weight ?? 0);
     }
+    expect((late as unknown as { isPainted: boolean }).isPainted).toBe(true);
+    expect(worstDeath).toBeLessThan(0.15);
+    first.dispose();
+    late.dispose();
   });
+});
+
+describe('dodge roll', () => {
+  const cases: Array<[string, string | null]> = [
+    ...Object.keys(PAINTED_MODELS).map((key): [string, string | null] => [key, null]),
+    ['alpine-heavy', 'head_none'],
+    ['lagoon-allrounder', 'head_fondue_pot'],
+  ];
+  for (const fps of [60, 30]) {
+    test(`head, hat, chest and hands stay above the ground (${fps} fps)`, async () => {
+      const scene = makeScene();
+      const library = paintedModelLibrary(scene);
+      for (const [key, headgear] of cases) {
+        const asset = await library.load(key);
+        if (!asset) throw new Error(`${key} did not load`);
+        const profile = profileOf(key);
+        if (headgear) profile.cosmetics = { ...profile.cosmetics, headgear: headgear as typeof profile.cosmetics.headgear };
+        const view = new GlbCharacterView(scene, new StandardMaterial('shadow', scene), profile, asset, {
+          albedo: new Texture(null, scene),
+          normal: null,
+        });
+        const internals = view as unknown as { bodyMesh: Mesh; root: TransformNode; attachments: Mesh[]; rollLift: number };
+        const bind = internals.bodyMesh.getVerticesData('position') ?? new Float32Array();
+        const indices = internals.bodyMesh.getIndices() ?? [];
+        const drawn = new Set<number>();
+        for (const sub of internals.bodyMesh.subMeshes) {
+          for (let index = sub.indexStart; index < sub.indexStart + sub.indexCount; index += 1) drawn.add(indices[index] ?? 0);
+        }
+        for (let frame = 0; frame < 20; frame += 1) view.update(1 / fps, pose());
+        let lowest = Infinity;
+        let lift = internals.rollLift;
+        for (let frame = 0; frame < Math.round(0.6 * fps); frame += 1) {
+          view.update(1 / fps, pose({ rolling: true, velocity: { x: 0, y: 0, z: 9 } }));
+          // The safety lift moves at most 2 m/s: no one-frame hop.
+          expect(Math.abs(internals.rollLift - lift)).toBeLessThanOrEqual(2 / fps + 1e-6);
+          lift = internals.rollLift;
+          const queue: TransformNode[] = [internals.root];
+          while (queue.length > 0) {
+            const node = queue.shift();
+            if (!node) break;
+            node.computeWorldMatrix(true);
+            queue.push(...(node.getChildren() as TransformNode[]));
+          }
+          internals.bodyMesh.skeleton?.prepare(true);
+          const skinned = internals.bodyMesh.getPositionData(true, false) ?? new Float32Array();
+          const world = internals.bodyMesh.getWorldMatrix();
+          for (const vertex of drawn) {
+            // Upper body (hands hang at about half height in the bind pose) and head.
+            if ((bind[vertex * 3 + 1] ?? 0) < asset.height * 0.42) continue;
+            const point = new Vector3(skinned[vertex * 3] ?? 0, skinned[vertex * 3 + 1] ?? 0, skinned[vertex * 3 + 2] ?? 0);
+            lowest = Math.min(lowest, Vector3.TransformCoordinates(point, world).y);
+          }
+          for (const attachment of internals.attachments) {
+            const positions = attachment.getVerticesData('position') ?? [];
+            const matrix = attachment.getWorldMatrix();
+            for (let vertex = 0; vertex < positions.length / 3; vertex += 1) {
+              const point = new Vector3(positions[vertex * 3] ?? 0, positions[vertex * 3 + 1] ?? 0, positions[vertex * 3 + 2] ?? 0);
+              lowest = Math.min(lowest, Vector3.TransformCoordinates(point, matrix).y);
+            }
+          }
+        }
+        expect(lowest).toBeGreaterThanOrEqual(0.01);
+        view.dispose();
+      }
+    });
+  }
 });
