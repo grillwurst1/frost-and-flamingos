@@ -46,6 +46,7 @@ import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
 import { CritterFx } from '../rendering/critter-fx';
+import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
 import { MascotFx } from '../rendering/mascot-fx';
 import {
   createShadowMaterial,
@@ -95,6 +96,7 @@ import {
   profile as profileStore,
   profileFingerprint,
 } from '../state/profile';
+import { setPaintedModels } from '../state/painted-models';
 import { CameraRig } from './camera-rig';
 import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
@@ -392,9 +394,31 @@ export class GameClient {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => {
       this.resizeTimer = null;
-      this.engine?.resize();
+      this.applyCanvasSize();
     }, RESIZE_SETTLE_MS);
   };
+  /** Exact device-pixel canvas size (fractional DPR), when the browser reports it. */
+  private devicePixelBox: { width: number; height: number } | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * At full device resolution (hardware scaling = 1 / DPR) the backing store
+   * takes the browser's exact device-pixel box, so fractional DPRs (1.25,
+   * 1.5) are not resampled; with a DPR cap Babylon's own sizing applies.
+   */
+  private applyCanvasSize(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const box = this.devicePixelBox;
+    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    if (box && Math.abs(engine.getHardwareScalingLevel() * dpr - 1) < 0.001) {
+      if (engine.getRenderWidth() !== box.width || engine.getRenderHeight() !== box.height) {
+        engine.setSize(box.width, box.height);
+      }
+    } else {
+      engine.resize();
+    }
+  }
   private readonly handleFullscreenChange = (): void => {
     if (this.resizeTimer) {
       clearTimeout(this.resizeTimer);
@@ -481,6 +505,7 @@ export class GameClient {
           const profile = this.localProfile;
           if (profile && !this.mascots?.playTaunt(profile)) {
             audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
+            this.localView?.taunt?.();
           }
         },
         onPointerLockChange: (locked) => this.handlePointerLockChange(locked),
@@ -492,6 +517,19 @@ export class GameClient {
       });
       window.addEventListener('resize', this.handleResize);
       document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver((entries) => {
+          const size = entries[0]?.devicePixelContentBoxSize?.[0];
+          this.devicePixelBox = size ? { width: Math.round(size.inlineSize), height: Math.round(size.blockSize) } : null;
+          this.handleResize();
+        });
+        try {
+          this.resizeObserver.observe(this.canvas, { box: 'device-pixel-content-box' });
+        } catch {
+          // Safari: no device-pixel box; Babylon's own sizing stays in charge.
+          this.resizeObserver.observe(this.canvas);
+        }
+      }
 
       this.engine.runRenderLoop(() => this.frame());
       setLoadingStep('engine', 'done');
@@ -509,6 +547,11 @@ export class GameClient {
       this.physics = physics;
       this.toonMaterial = createToonMaterial(scene, 'fjord-toon-material');
       this.visuals = buildFjordFiesta(scene, this.toonMaterial);
+      if (import.meta.env.DEV) {
+        // Screenshot probe: hold the wardrobe preview at an angle to the camera.
+        (window as unknown as { __ffPreviewFacing?: (offset: number | null) => void }).__ffPreviewFacing = (offset) =>
+          this.setPreviewFacing(offset);
+      }
       const groundProbe = (x: number, z: number, fromY: number): number => {
         const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 6);
         return hit ? hit.point.y : fromY - 1.5;
@@ -713,6 +756,8 @@ export class GameClient {
     if (import.meta.env.DEV) uninstallMapDevTools();
     window.removeEventListener('resize', this.handleResize);
     document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.input?.dispose();
     this.network?.disconnect();
     this.localView?.dispose();
@@ -824,6 +869,17 @@ export class GameClient {
 
   private handleWelcome(welcome: WelcomeMessage): void {
     if (this.disposed || !this.scene || !this.physics || !this.toonMaterial) return;
+    if (!this.booted) {
+      // Owner-painted GLB characters: the local player's model is prefetched
+      // once the resort answered (the handshake never waits on model
+      // decoding); every other model loads when its character first appears
+      // on screen. Views made before their model arrives show the procedural
+      // rig and swap in place.
+      const scene = this.scene;
+      void preloadPaintedModels(scene, getProfile()).then(() => {
+        if (!this.disposed) setPaintedModels(paintedModelsAvailable(scene));
+      });
+    }
     this.booted = true;
     if (this.bootTimeout) {
       clearTimeout(this.bootTimeout);
@@ -1054,6 +1110,7 @@ export class GameClient {
         if (event.actorId === this.localId) return;
         const weaponId = WEAPON_TABLE.byCode[event.paramValue];
         if (weaponId) audio.playWeaponFire(weaponId, actor?.position);
+        this.remoteViews.get(event.actorId)?.view.kick?.(event.paramZ / 100);
         return;
       }
       case 'COMIC_HIT': {
@@ -1450,6 +1507,7 @@ export class GameClient {
       weaponId: WEAPON_TABLE.code[weaponId],
     });
     audio.playWeaponFire(weaponId, undefined, true);
+    this.localView?.kick?.();
     if (stats.magazine > 0 && state && state.ammo <= 0) audio.playDryFire();
   }
 
@@ -1534,6 +1592,11 @@ export class GameClient {
       parachuteState: character.parachuteState,
       parachuteBlend: character.parachuteBlend,
       parachuteSway: character.parachuteSwayAngle,
+      weaponId: this.localProfile
+        ? weaponForSlot(this.localProfile.loadout, this.input?.currentWeaponSlot() ?? 1)
+        : null,
+      pitch: this.cameraRig?.lookPitch ?? 0,
+      reloading: this.latestLocalState?.reloading ?? false,
     };
     view.update(delta, pose);
     if (this.localId !== null) {
@@ -1568,7 +1631,7 @@ export class GameClient {
     view.root.setEnabled(menuLike);
     if (!menuLike) return;
     if (this.previewSpin && this.previewFacing === null) this.previewYaw += delta * 0.55;
-    view.updatePreview(delta, this.previewYaw);
+    view.updatePreview(delta, this.previewYaw, getProfile().loadout.primary);
   }
 
   private updateRemoteViews(delta: number, now: number): void {
@@ -1653,6 +1716,8 @@ export class GameClient {
         sprinting: player.sprinting,
         rolling: player.rolling,
         parachuteState: player.parachuteState,
+        weaponId: weaponForSlot(profile.loadout, player.weaponSlot),
+        reloading: player.reloading,
       });
 
       const remoteSpeed = Math.hypot(velocity.x, velocity.z);

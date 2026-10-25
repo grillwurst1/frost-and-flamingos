@@ -123,6 +123,13 @@ export const en = {
     voicePreview: 'Preview voice',
     slots: 'Cosmetic slots',
     slotsHint: 'Every item is visible on your character and on every other player.',
+    paintedTitle: 'Painted model',
+    paintedHint:
+      'You wear the hand-painted 3D soldier. Torso, legs and feet (and body type, skin and hair) come with the painting; headgear, face, back and hands items go on top. Pick any other torso, legs or feet for a custom outfit.',
+    customTitle: 'Custom outfit',
+    customHint:
+      'You changed torso, legs or feet, so the mix-and-match vacationer stands in for the painted soldier.',
+    wearPainted: 'Wear the painted outfit',
     headgear: 'Headgear',
     face: 'Face',
     torso: 'Torso',

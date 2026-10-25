@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "models": {
+    "alpine-allrounder": {
+      "file": "alpine-allrounder.glb",
+      "bytes": 2626830,
+      "textures": {
+        "basecolor": "alpine-allrounder-basecolor.webp",
+        "normal": "alpine-allrounder-normal.webp"
+      }
+    },
+    "alpine-ghostgirl": {
+      "file": "alpine-ghostgirl.glb",
+      "bytes": 1469332,
+      "textures": {
+        "basecolor": "alpine-ghostgirl-basecolor.webp"
+      }
+    },
+    "alpine-heavy": {
+      "file": "alpine-heavy.glb",
+      "bytes": 2309284,
+      "textures": {
+        "basecolor": "alpine-heavy-basecolor.webp",
+        "normal": "alpine-heavy-normal.webp"
+      }
+    },
+    "alpine-infiltrator": {
+      "file": "alpine-infiltrator.glb",
+      "bytes": 2614596,
+      "textures": {
+        "basecolor": "alpine-infiltrator-basecolor.webp",
+        "normal": "alpine-infiltrator-normal.webp"
+      }
+    },
+    "lagoon-allrounder": {
+      "file": "lagoon-allrounder.glb",
+      "bytes": 2616234,
+      "textures": {
+        "basecolor": "lagoon-allrounder-basecolor.webp",
+        "normal": "lagoon-allrounder-normal.webp"
+      }
+    },
+    "lagoon-beachgirl": {
+      "file": "lagoon-beachgirl.glb",
+      "bytes": 2130504,
+      "textures": {
+        "basecolor": "lagoon-beachgirl-basecolor.webp",
+        "normal": "lagoon-beachgirl-normal.webp"
+      }
+    },
+    "lagoon-heavy": {
+      "file": "lagoon-heavy.glb",
+      "bytes": 2177930,
+      "textures": {
+        "basecolor": "lagoon-heavy-basecolor.webp",
+        "normal": "lagoon-heavy-normal.webp"
+      }
+    },
+    "lagoon-infiltrator": {
+      "file": "lagoon-infiltrator.glb",
+      "bytes": 2745896,
+      "textures": {
+        "basecolor": "lagoon-infiltrator-basecolor.webp",
+        "normal": "lagoon-infiltrator-normal.webp"
+      }
+    }
+  }
+}

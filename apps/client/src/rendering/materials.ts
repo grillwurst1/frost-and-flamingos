@@ -183,6 +183,14 @@ export function isLookSolidMaterial(material: unknown): boolean {
   );
 }
 
+/**
+ * Marks an extra character shader (e.g. the painted GLB characters) as a
+ * solid, lit, inked look material so it casts directional shadows.
+ */
+export function markCharacterLookMaterial(material: ShaderMaterial): void {
+  characterMaterials.add(material);
+}
+
 export function isWaterMaterial(material: unknown): boolean {
   return material instanceof ShaderMaterial && waterMaterials.has(material);
 }
