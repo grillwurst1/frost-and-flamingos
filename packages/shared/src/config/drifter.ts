@@ -52,7 +52,7 @@ export interface DrifterTuning {
 }
 
 export const DRIFTER_TUNING: DrifterTuning = {
-  walkSpeed: 3.2,
+  walkSpeed: 3,
   strafeScale: 0.85,
   backwardScale: 0.65,
   groundAcceleration: 18,

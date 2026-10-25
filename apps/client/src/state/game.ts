@@ -50,6 +50,13 @@ export interface LocalPlayerView {
   cloaked: boolean;
   alive: boolean;
   zoneKey: TranslationKey;
+  /** Support points earned with the drifter supply aura. */
+  support: number;
+  /** A friendly drifter's aura is healing / refilling the local player. */
+  auraHealed: boolean;
+  auraResupplied: boolean;
+  /** Drifter only: teammates her aura supplies right now. */
+  auraTargets: number;
 }
 
 export interface ConnectionState {
@@ -120,6 +127,23 @@ export const connection = writable<ConnectionState>({
   towerProgress: [0, 0, 0],
 });
 export const localPlayer = writable<LocalPlayerView | null>(null);
+
+/** One line of the live scoreboard (hold Tab). */
+export interface ScoreboardRow {
+  id: number;
+  name: string;
+  faction: Faction;
+  classId: ClassId;
+  kills: number;
+  deaths: number;
+  /** Support points (drifter supply aura). */
+  support: number;
+  alive: boolean;
+  local: boolean;
+}
+
+export const scoreboardOpen = writable(false);
+export const scoreboard = writable<ScoreboardRow[]>([]);
 export const hud = writable<HudState>({
   fps: 0,
   frameMs: 0,

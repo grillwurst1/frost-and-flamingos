@@ -345,12 +345,14 @@ export const en = {
       heavy: 'Dairy Colossus',
       infiltrator: 'Ibex Hunter',
       mascot: 'Alpine Cow',
+      drifter: 'Creepy Mountain Girl',
     },
     lagoon: {
       allrounder: 'Yacht Captain',
       heavy: 'Harbor Hulk',
       infiltrator: 'Reef Smuggler',
       mascot: 'Battle Coconut',
+      drifter: 'Hot Beach Girl',
     },
   },
   controls: {
@@ -377,6 +379,8 @@ export const en = {
     reload: 'Reload',
     interact: 'Interact',
     taunt: 'Taunt',
+    scoreboard: 'Scoreboard',
+    scoreboardKey: 'Hold Tab',
     parachute: 'Parachute',
     parachuteHint: 'Open in a long fall · Space / C cut away',
     hold: 'Hold',
@@ -612,6 +616,10 @@ export const en = {
       name: 'Mascot',
       role: 'Mascot',
     },
+    drifter: {
+      name: 'Drifter',
+      role: 'Untouchable support',
+    },
   },
   debug: {
     title: 'Network & engine telemetry',
@@ -735,6 +743,64 @@ export const en = {
       bump: 'BOOP!',
       dazed: 'DIZZY!',
     },
+  },
+  drifter: {
+    description: "Can't be touched. Just walks.",
+    classBadge: 'Untouchable · supply aura',
+    forms: {
+      mountain_girl: 'Creepy Mountain Girl',
+      beach_girl: 'Hot Beach Girl',
+    },
+    formFaction: {
+      mountain_girl: 'Peak Guard · Alps',
+      beach_girl: 'Lagoon League · Beach',
+    },
+    stats: 'Untouchable · walks {speed} m/s',
+    wardrobeTitle: 'Untouchable walker',
+    yourForm: 'Your form',
+    wardrobeBody:
+      'Nothing can hurt her: bullets, blasts and bodies pass straight through. She carries no weapons and no skills — she only walks, and floats over water.',
+    wardrobeAura:
+      'Supply aura: teammates within {radius} m regain {heal} vitality per second once they have taken no damage for {seconds} s, and their reserve ammo refills by one magazine every {magazine} s.',
+    wardrobeAuraTheme: {
+      mountain_girl: 'She hums a music-box lullaby; soft blue notes drift to the teammates she heals.',
+      beach_girl: 'She hands out coconut cocktails; warm coral sparkles rise over the teammates she heals.',
+    },
+    wardrobePoints: 'Each {vitality} vitality healed and each magazine refilled earns her a support point.',
+    wardrobeRules: 'She cannot capture weather towers and does not count toward team balance. Bots leave her alone.',
+    wardrobeFixed: 'Fixed appearance: only the call sign can be changed.',
+    hud: {
+      card: 'Drifter status',
+      untouchable: 'Untouchable',
+      untouchableHint: 'Nothing can hurt you. Walk to your team to supply them.',
+      support: 'Support',
+      supportPoints: '{points} support',
+      auraRadius: 'Aura {radius} m',
+      auraIdle: 'No teammate in reach',
+      auraActive: 'Supplying: {count}',
+      healed: {
+        mountain_girl: 'Lullaby',
+        beach_girl: 'Cocktail',
+      },
+      resupplied: 'Ammo refill',
+      plusPoint: '+{points}',
+    },
+    controls: {
+      walk: 'Walk',
+      walkKey: 'W A S D',
+      hint: 'Walk',
+      noActions: 'No jump, sprint, crouch or weapons: she only walks.',
+    },
+  },
+  scoreboard: {
+    title: 'Scoreboard',
+    hint: 'Hold Tab',
+    player: 'Vacationer',
+    kills: 'Kills',
+    deaths: 'Deaths',
+    support: 'Support',
+    you: 'you',
+    empty: 'Nobody here yet',
   },
 };
 

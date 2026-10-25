@@ -3,6 +3,7 @@ import type { StandardMaterial } from '@babylonjs/core/Materials/standardMateria
 import type { Scene } from '@babylonjs/core/scene';
 import type { MascotWireState, PlayerProfile, Vec3 } from '@frost-and-flamingos/shared';
 import { CharacterView, type CharacterPose } from './character';
+import { createDrifterView } from './drifter-view';
 import type { CharacterMaterialState } from './materials';
 import type { MascotFx } from './mascot-fx';
 import { MascotPreviewPair, MascotView } from './mascot-view';
@@ -13,6 +14,10 @@ export interface AvatarPose extends CharacterPose {
   mascot?: MascotWireState | null;
   launchSeconds?: number;
   dazed?: boolean;
+  /** Drifter: head of the nearest enemy within 15 m (her slow creepy stare), or null. */
+  stare?: Vec3 | null;
+  /** Drifter: 0–1 while another body passes through her (cosmetic shimmer). */
+  shimmer?: number;
 }
 
 /**
@@ -43,6 +48,8 @@ export function createAvatarView(
   profile: PlayerProfile,
   options: AvatarOptions = {},
 ): AvatarView {
+  // The drifter is only ever her painted model (never the procedural rig).
+  if (profile.cosmetics.classId === 'drifter') return createDrifterView(scene, shadowMaterial, profile);
   if (profile.cosmetics.classId === 'mascot') {
     if (options.preview) return new MascotPreviewPair(scene, shadowMaterial, profile);
     return new MascotView(scene, shadowMaterial, profile, options.fx ?? null);

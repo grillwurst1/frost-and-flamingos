@@ -6,6 +6,8 @@ export interface InputHandlers {
   onSwapShoulder: () => void;
   onToggleDebug: () => void;
   onTaunt: () => void;
+  /** Tab held / released: the live scoreboard. */
+  onScoreboard: (held: boolean) => void;
   onPointerLockChange: (locked: boolean) => void;
   onPointerLockError: () => void;
   onEscape: () => void;
@@ -133,6 +135,11 @@ export class InputController {
       this.handlers.onTaunt();
       return;
     }
+    if (event.code === 'Tab') {
+      event.preventDefault();
+      if (!event.repeat) this.handlers.onScoreboard(true);
+      return;
+    }
     if (event.code === 'KeyC' && !event.repeat) {
       const sprinting = this.pressed.has('ShiftLeft') || this.pressed.has('ShiftRight');
       const forward = this.pressed.has('KeyW') || this.pressed.has('ArrowUp');
@@ -167,6 +174,7 @@ export class InputController {
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
+    if (event.code === 'Tab') this.handlers.onScoreboard(false);
     this.pressed.delete(event.code);
   };
 
@@ -220,6 +228,7 @@ export class InputController {
   private readonly handleBlur = (): void => {
     this.pressed.clear();
     this.mouseButtons.clear();
+    this.handlers.onScoreboard(false);
   };
 
   private readonly handleVisibility = (): void => {
