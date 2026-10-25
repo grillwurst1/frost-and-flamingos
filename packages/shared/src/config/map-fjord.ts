@@ -86,7 +86,7 @@ export {
   SUMMIT_CLOCK_HOUSE,
   SUMMIT_YAW,
 } from './map/structures.js';
-export { TBAR_MAST_OFFSET } from './map/routes.js';
+export { TBAR_CABLE_ROAD_CLEARANCE, TBAR_CABLE_TERRAIN_CLEARANCE, TBAR_MAST_OFFSET } from './map/routes.js';
 export { FJORD_NAV, FJORD_TOWERS, FJORD_BASES, FJORD_VEHICLE_SPAWNS, FJORD_ZONES, ROUND_START_TOWERS, zoneAt };
 
 // ---------------------------------------------------------------------------

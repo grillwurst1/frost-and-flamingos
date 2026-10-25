@@ -189,6 +189,26 @@ const TBAR_PYLON_SPACING = 26;
 export const TBAR_MAST_OFFSET = 2.8;
 /** Where the lift line crosses the tank road, masts keep 1.5 m clear of the road edge (+ mast radius). */
 const TBAR_MAST_ROAD_CLEARANCE = TANK_ROAD_WIDTH / 2 + 1.5 + 0.5;
+/** The cable stays this high over the snow, and over the tank road (tanks pass under it). */
+export const TBAR_CABLE_TERRAIN_CLEARANCE = 2.5;
+export const TBAR_CABLE_ROAD_CLEARANCE = 4.5;
+
+/** Lowest clearance deficit of one straight cable span (and where along it, 0–1). */
+function cableSpanDeficit(a: Vec3, b: Vec3): { deficit: number; at: number } {
+  let worst = { deficit: Number.NEGATIVE_INFINITY, at: 0.5 };
+  const steps = Math.max(8, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+  for (let step = 0; step <= steps; step += 1) {
+    const u = step / steps;
+    const x = lerp(a.x, b.x, u);
+    const z = lerp(a.z, b.z, u);
+    let need = sampleMapHeight(x, z) + TBAR_CABLE_TERRAIN_CLEARANCE;
+    const road = projectOnPolyline(x, z, TANK_ROAD_POINTS);
+    if (road.distance <= TANK_ROAD_WIDTH / 2 + 1) need = Math.max(need, road.y + TBAR_CABLE_ROAD_CLEARANCE);
+    const deficit = need - lerp(a.y, b.y, u);
+    if (deficit > worst.deficit) worst = { deficit, at: u };
+  }
+  return worst;
+}
 
 function buildTBar(): TBarRoute {
   const dx = TBAR_TOP.x - TBAR_BOTTOM.x;
@@ -224,11 +244,37 @@ function buildTBar(): TBarRoute {
     }
     const x = TBAR_BOTTOM.x + dx * t;
     const z = TBAR_BOTTOM.z + dz * t;
-    const top = vec3(x, sampleMapHeight(x, z) + TBAR_CABLE_HEIGHT, z);
-    pylons.push(top);
-    cablePoints.push(top);
+    pylons.push(vec3(x, sampleMapHeight(x, z) + TBAR_CABLE_HEIGHT, z));
   }
-  cablePoints.push(vec3(TBAR_TOP.x, sampleMapHeight(TBAR_TOP.x, TBAR_TOP.z) + TBAR_CABLE_HEIGHT - 1, TBAR_TOP.z));
+  // Masts beside a span that sags too close to the snow or the tank road grow
+  // taller (the stations at both ends keep their height).
+  const stations = [cablePoints[0] ?? vec3(0, 0, 0), vec3(TBAR_TOP.x, sampleMapHeight(TBAR_TOP.x, TBAR_TOP.z) + TBAR_CABLE_HEIGHT - 1, TBAR_TOP.z)] as const;
+  const line = (): Vec3[] => [stations[0], ...pylons, stations[1]];
+  for (let pass = 0; pass < 16; pass += 1) {
+    let raised = false;
+    const points = line();
+    for (let span = 0; span + 1 < points.length; span += 1) {
+      const a = points[span];
+      const b = points[span + 1];
+      if (!a || !b) continue;
+      const { deficit, at } = cableSpanDeficit(a, b);
+      if (deficit <= 0.01) continue;
+      const lift = deficit + 0.05;
+      const startMast = span >= 1 ? pylons[span - 1] : undefined;
+      const endMast = span + 1 <= pylons.length ? pylons[span] : undefined;
+      if (startMast && endMast) {
+        startMast.y += lift;
+        endMast.y += lift;
+      } else if (endMast) {
+        endMast.y += lift / Math.max(0.2, at);
+      } else if (startMast) {
+        startMast.y += lift / Math.max(0.2, 1 - at);
+      }
+      raised = true;
+    }
+    if (!raised) break;
+  }
+  cablePoints.push(...pylons, stations[1]);
   return {
     ridePath: makeRoute('tbar_ride', ride),
     cable: makeRoute('tbar_cable', cablePoints),
