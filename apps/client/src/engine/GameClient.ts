@@ -1,7 +1,7 @@
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine';
 import { Engine } from '@babylonjs/core/Engines/engine';
 import { WebGPUEngine } from '@babylonjs/core/Engines/webgpuEngine';
-import { Color3, Color4, Vector3 } from '@babylonjs/core/Maths/math';
+import { Vector3 } from '@babylonjs/core/Maths/math';
 import { Scene } from '@babylonjs/core/scene';
 import {
   CLASS_STATS,
@@ -54,6 +54,7 @@ import {
   updateToonMaterial,
   updateWaterMaterial,
 } from '../rendering/materials';
+import { createSceneLook, type SceneLook } from '../rendering/scene-look';
 import {
   clearCombatUi,
   damageFlash,
@@ -257,6 +258,7 @@ export class GameClient {
   private network: NetworkClient | null = null;
   private visuals: MapVisuals | null = null;
   private toonMaterial: ReturnType<typeof createToonMaterial> | null = null;
+  private look: SceneLook | null = null;
 
   private localId: number | null = null;
   private localFaction: Faction = 'alpine';
@@ -384,13 +386,13 @@ export class GameClient {
       setLoadingProgress(0.2);
 
       const scene = new Scene(engine);
-      scene.clearColor = new Color4(0.58, 0.78, 0.84, 1);
-      scene.ambientColor = new Color3(0.34, 0.44, 0.5);
       scene.skipPointerMovePicking = true;
       scene.collisionsEnabled = false;
       this.scene = scene;
 
       this.cameraRig = new CameraRig(scene);
+      // Lights, shadows, g-buffer, ink/paint post stack, sky/water look.
+      this.look = createSceneLook(scene, this.cameraRig.camera);
       this.input = new InputController(this.canvas, {
         onMouseMove: (deltaX, deltaY) => this.cameraRig?.handleMouse(deltaX, deltaY),
         onWheel: (delta) => this.cameraRig?.zoom(delta),
@@ -432,6 +434,7 @@ export class GameClient {
         return hit ? hit.point.y : fromY - 1.5;
       });
       this.mascots = new MascotClient(this.mascotFx);
+      this.look?.attachMap(this.visuals);
       this.rebuildPreviewView(getProfile());
       setLoadingProgress(0.7);
       setLoadingStep('world', 'done');
@@ -555,6 +558,8 @@ export class GameClient {
     this.mascotFx?.dispose();
     audio.setRollRumble(0);
     this.physics?.dispose();
+    this.look?.dispose();
+    this.look = null;
     this.scene?.dispose();
     this.engine?.dispose();
     this.scene = null;
@@ -1548,6 +1553,7 @@ export class GameClient {
     const camera = this.cameraRig?.camera;
     if (!camera || !this.visuals || !this.toonMaterial) return;
     const time = now / 1000;
+    this.look?.update(time);
     updateToonMaterial(this.toonMaterial, camera.position);
     updateWaterMaterial(this.visuals.waterMaterial, camera.position, time);
     updateSkyMaterial(this.visuals.skyMaterial, time);

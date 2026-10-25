@@ -1,4 +1,17 @@
-/** Gradient sky dome with a hard cartoon sun, horizon haze and drifting cloud bands. */
+/**
+ * Painterly sky dome: azure gradient, a bright sun disc with soft glow and
+ * slow rays, big puffy comic cumulus (procedural fallback when no painted
+ * cloud billboards are loaded) and an optional painted horizon panorama band
+ * (art/sky/horizon-panorama.jpg) that fades into the shader sky at its top.
+ *
+ * Clouds are evaluated analytically: every cloud is a smooth union of six
+ * circles in the local (azimuth, elevation) plane with a flat base. Each pixel
+ * is shaded from the dominant puff's sphere normal, so neighbouring puffs
+ * meet in crisp shaded creases like the inked clouds of the reference art.
+ *
+ * Panorama mapping: u = azimuth / 360° with u = 0 at +Z (north), increasing
+ * clockwise towards +X (east); v = horizonV - elevation / (PI / 2).
+ */
 export const skyVertexGLSL = /* glsl */ `
 precision highp float;
 
@@ -24,27 +37,138 @@ uniform vec3 zenithColor;
 uniform vec3 horizonColor;
 uniform vec3 sunColor;
 uniform float time;
+uniform vec3 uGlowColor;
+uniform vec3 uGroundHaze;
+uniform vec3 uCloudLit;
+uniform vec3 uCloudShade;
+uniform vec4 uCloudParams;
+uniform vec4 uPanoParams;
+uniform vec4 uPanoFade;
+uniform vec3 uPanoTint;
+uniform sampler2D panorama;
+
+const float TAU = 6.2831853;
+
+float ffHash(float n) {
+  return fract(sin(n * 12.9898) * 43758.5453);
+}
+
+float ffWrap(float a) {
+  return atan(sin(a), cos(a));
+}
+
+vec4 ffClouds(vec3 dir, float aa, float sunAz, float sunEl) {
+  float az = atan(dir.x, dir.z);
+  float el = asin(clamp(dir.y, -1.0, 1.0));
+  vec4 result = vec4(0.0);
+  for (int i = 0; i < 12; i++) {
+    float fi = float(i);
+    float h1 = ffHash(fi + 1.31);
+    float h2 = ffHash(fi * 1.73 + 4.11);
+    float h3 = ffHash(fi * 2.37 + 7.73);
+    float cloudAz = fi / 12.0 * TAU + (h1 - 0.5) * 0.4 + time * uCloudParams.y * (0.7 + 0.6 * h2);
+    float cloudEl = uCloudParams.z + h2 * 0.24;
+    float size = (0.075 + 0.085 * h3) * uCloudParams.x * (1.0 - cloudEl * 0.9);
+    float du = ffWrap(az - cloudAz);
+    vec2 p = vec2(du * cos(el), el - cloudEl) / size;
+    if (abs(p.x) > 2.6 || p.y < -0.3 || p.y > 2.2) continue;
+
+    float field = 100.0;
+    float best = 100.0;
+    vec2 bestNormal = vec2(0.0, 1.0);
+    for (int j = 0; j < 9; j++) {
+      float fj = float(j);
+      float r1 = ffHash(fi * 7.13 + fj * 1.91);
+      float r2 = ffHash(fi * 3.37 + fj * 5.29);
+      float top = step(4.5, fj);
+      float spread = mix(fj / 4.0 - 0.5, (fj - 5.0) / 3.0 - 0.5, top);
+      float middle = 1.0 - abs(spread) * 2.0;
+      float radius = mix(0.34 + 0.2 * middle, 0.34 + 0.26 * middle, top) * (0.8 + 0.4 * r2);
+      float lift = mix(radius * (0.55 + 0.3 * r1), 0.5 + 0.35 * middle + radius * 0.4 + h1 * 0.25, top);
+      vec2 center = vec2(spread * mix(2.0 + h3 * 0.7, 1.3 + h3 * 0.4, top) + (r1 - 0.5) * 0.25, lift);
+      float d = length(p - center) - radius;
+      float k = 0.12;
+      float blend = clamp(0.5 + 0.5 * (field - d) / k, 0.0, 1.0);
+      field = mix(field, d, blend) - k * blend * (1.0 - blend);
+      if (d < best) {
+        best = d;
+        bestNormal = (p - center) / radius;
+      }
+    }
+    float sd = max(field, -p.y);
+    float aaLocal = aa / size;
+    float alpha = 1.0 - smoothstep(-aaLocal, aaLocal, sd);
+    if (alpha <= 0.001) continue;
+
+    float sunSide = clamp(ffWrap(sunAz - cloudAz) * 1.5, -1.0, 1.0);
+    vec3 lightDir = normalize(vec3(sunSide * 0.75, 0.55 + sunEl, 0.4));
+    float nz = sqrt(max(0.0, 1.0 - dot(bestNormal, bestNormal)));
+    vec3 n = normalize(vec3(bestNormal, nz));
+    float ndl = dot(n, lightDir);
+    float bottom = smoothstep(0.02, 0.62, p.y);
+    float light = smoothstep(-0.42, -0.18, ndl) * mix(0.3, 1.0, bottom);
+    float band = smoothstep(0.38, 0.5, light);
+    vec3 col = mix(uCloudShade, uCloudLit, band);
+    col = mix(col, uCloudShade * 0.9, (1.0 - smoothstep(0.0, 0.18, p.y)) * 0.55);
+    float rimBand = smoothstep(-aaLocal * 4.0, -aaLocal * 1.2, sd);
+    col = mix(col, uCloudShade * 0.82, rimBand * 0.55);
+    float sunNear = pow(max(dot(dir, normalize(sunDirection)), 0.0), 24.0);
+    col += uGlowColor * sunNear * rimBand * 0.8;
+
+    result.rgb += (1.0 - result.a) * col * alpha;
+    result.a += (1.0 - result.a) * alpha;
+  }
+  return result;
+}
 
 void main(void) {
-  vec3 direction = normalize(vDirection);
-  float height = clamp(direction.y, -0.25, 1.0);
-  float gradient = pow(max(height, 0.0), 0.52);
-  vec3 color = mix(horizonColor, zenithColor, gradient);
+  vec3 dir = normalize(vDirection);
+  float aa = fwidth(dir.y) * 1.2 + 0.0006;
+  float up = clamp(dir.y, 0.0, 1.0);
+  vec3 color = mix(horizonColor, zenithColor, smoothstep(0.0, 1.0, pow(up, 0.55)));
+  color = mix(uGroundHaze, color, smoothstep(-0.14, 0.01, dir.y));
 
-  float belowHorizon = smoothstep(-0.25, 0.02, height);
-  color = mix(horizonColor * 0.55, color, belowHorizon);
+  vec3 sun = normalize(sunDirection);
+  float sunDot = clamp(dot(dir, sun), -1.0, 1.0);
+  float angle = acos(sunDot);
+  float sunAz = atan(sun.x, sun.z);
+  float sunEl = asin(sun.y);
 
-  float sunDot = max(dot(direction, normalize(sunDirection)), 0.0);
-  float sunDisc = smoothstep(0.9982, 0.9995, sunDot);
-  float sunHalo = pow(sunDot, 18.0) * 0.28;
-  color += sunColor * (sunDisc * 1.5 + sunHalo);
+  float horizonGlow = pow(max(dot(normalize(vec3(dir.x, 0.0, dir.z) + 0.0001), normalize(vec3(sun.x, 0.0, sun.z))), 0.0), 3.0);
+  color += uGlowColor * horizonGlow * (1.0 - smoothstep(0.0, 0.35, up)) * 0.16;
 
-  float cloudBand = smoothstep(0.08, 0.32, height) * (1.0 - smoothstep(0.55, 0.78, height));
-  float clouds =
-    sin(direction.x * 11.0 + direction.z * 7.0 + time * 0.006) *
-    sin(direction.z * 13.0 - direction.x * 5.0 - time * 0.004);
-  clouds = smoothstep(0.35, 0.92, clouds) * cloudBand * 0.22;
-  color = mix(color, vec3(1.0, 0.98, 0.92), clouds);
+  float sunVisible = 1.0;
+  if (uCloudParams.x > 0.0) {
+    vec4 clouds = ffClouds(dir, aa, sunAz, sunEl);
+    color = mix(color, clouds.rgb / max(clouds.a, 0.0001), clouds.a);
+    sunVisible *= 1.0 - clouds.a;
+  }
+
+  if (uPanoParams.x > 0.5) {
+    float u = fract(atan(dir.x, dir.z) / TAU + 1.0);
+    float elevation = asin(clamp(dir.y, -1.0, 1.0));
+    float v = uPanoParams.y - elevation / uPanoParams.z;
+    if (v > 0.0 && v < 1.0) {
+      vec3 pano = texture2DLodEXT(panorama, vec2(u, v), 0.0).rgb * uPanoTint;
+      float fadeIn = smoothstep(uPanoFade.x, uPanoFade.y, v) * uPanoParams.w;
+      color = mix(color, pano, fadeIn);
+      float paleness = smoothstep(0.78, 0.93, dot(pano, vec3(0.299, 0.587, 0.114)));
+      sunVisible *= 1.0 - paleness * fadeIn;
+    }
+  }
+
+  vec3 sx = normalize(cross(vec3(0.0, 1.0, 0.0), sun));
+  vec3 sy = cross(sun, sx);
+  float rayAngle = atan(dot(dir, sy), dot(dir, sx));
+  float rays = smoothstep(0.35, 1.0, 0.5 + 0.5 * sin(rayAngle * 9.0 + sin(rayAngle * 4.0) * 0.8 + time * 0.03));
+  rays *= exp(-angle * 7.5) * step(0.0, sunDot) * smoothstep(0.045, 0.09, angle);
+  float glow = exp(-angle * 16.0) * 0.55 + exp(-angle * 4.5) * 0.14;
+  color += uGlowColor * (glow * uCloudParams.w + rays * 0.16 * uCloudParams.w) * mix(0.35, 1.0, sunVisible);
+
+  float disc = 1.0 - smoothstep(0.045, 0.05, angle);
+  float ring = smoothstep(0.044, 0.05, angle) * (1.0 - smoothstep(0.05, 0.062, angle));
+  color = mix(color, sunColor, disc * sunVisible);
+  color += uGlowColor * ring * 0.35 * sunVisible;
 
   gl_FragColor = vec4(color, 1.0);
 }
@@ -70,30 +194,139 @@ uniform zenithColor : vec3f;
 uniform horizonColor : vec3f;
 uniform sunColor : vec3f;
 uniform time : f32;
+uniform uGlowColor : vec3f;
+uniform uGroundHaze : vec3f;
+uniform uCloudLit : vec3f;
+uniform uCloudShade : vec3f;
+uniform uCloudParams : vec4f;
+uniform uPanoParams : vec4f;
+uniform uPanoFade : vec4f;
+uniform uPanoTint : vec3f;
+var panoramaSampler : sampler;
+var panorama : texture_2d<f32>;
 
 varying vDirection : vec3f;
 
+const TAU : f32 = 6.2831853;
+
+fn ffHash(n : f32) -> f32 {
+  return fract(sin(n * 12.9898) * 43758.5453);
+}
+
+fn ffWrap(a : f32) -> f32 {
+  return atan2(sin(a), cos(a));
+}
+
+fn ffClouds(dir : vec3f, aa : f32, sunAz : f32, sunEl : f32) -> vec4f {
+  let az = atan2(dir.x, dir.z);
+  let el = asin(clamp(dir.y, -1.0, 1.0));
+  var result = vec4f(0.0);
+  for (var i = 0; i < 12; i++) {
+    let fi = f32(i);
+    let h1 = ffHash(fi + 1.31);
+    let h2 = ffHash(fi * 1.73 + 4.11);
+    let h3 = ffHash(fi * 2.37 + 7.73);
+    let cloudAz = fi / 12.0 * TAU + (h1 - 0.5) * 0.4 + uniforms.time * uniforms.uCloudParams.y * (0.7 + 0.6 * h2);
+    let cloudEl = uniforms.uCloudParams.z + h2 * 0.24;
+    let size = (0.075 + 0.085 * h3) * uniforms.uCloudParams.x * (1.0 - cloudEl * 0.9);
+    let du = ffWrap(az - cloudAz);
+    let p = vec2f(du * cos(el), el - cloudEl) / size;
+    if (abs(p.x) > 2.6 || p.y < -0.3 || p.y > 2.2) { continue; }
+
+    var field = 100.0;
+    var best = 100.0;
+    var bestNormal = vec2f(0.0, 1.0);
+    for (var j = 0; j < 9; j++) {
+      let fj = f32(j);
+      let r1 = ffHash(fi * 7.13 + fj * 1.91);
+      let r2 = ffHash(fi * 3.37 + fj * 5.29);
+      let top = step(4.5, fj);
+      let spread = mix(fj / 4.0 - 0.5, (fj - 5.0) / 3.0 - 0.5, top);
+      let middle = 1.0 - abs(spread) * 2.0;
+      let radius = mix(0.34 + 0.2 * middle, 0.34 + 0.26 * middle, top) * (0.8 + 0.4 * r2);
+      let lift = mix(radius * (0.55 + 0.3 * r1), 0.5 + 0.35 * middle + radius * 0.4 + h1 * 0.25, top);
+      let center = vec2f(spread * mix(2.0 + h3 * 0.7, 1.3 + h3 * 0.4, top) + (r1 - 0.5) * 0.25, lift);
+      let d = length(p - center) - radius;
+      let k = 0.12;
+      let blend = clamp(0.5 + 0.5 * (field - d) / k, 0.0, 1.0);
+      field = mix(field, d, blend) - k * blend * (1.0 - blend);
+      if (d < best) {
+        best = d;
+        bestNormal = (p - center) / radius;
+      }
+    }
+    let sd = max(field, -p.y);
+    let aaLocal = aa / size;
+    let alpha = 1.0 - smoothstep(-aaLocal, aaLocal, sd);
+    if (alpha <= 0.001) { continue; }
+
+    let sunSide = clamp(ffWrap(sunAz - cloudAz) * 1.5, -1.0, 1.0);
+    let lightDir = normalize(vec3f(sunSide * 0.75, 0.55 + sunEl, 0.4));
+    let nz = sqrt(max(0.0, 1.0 - dot(bestNormal, bestNormal)));
+    let n = normalize(vec3f(bestNormal, nz));
+    let ndl = dot(n, lightDir);
+    let bottom = smoothstep(0.02, 0.62, p.y);
+    let light = smoothstep(-0.42, -0.18, ndl) * mix(0.3, 1.0, bottom);
+    let band = smoothstep(0.38, 0.5, light);
+    var col = mix(uniforms.uCloudShade, uniforms.uCloudLit, band);
+    col = mix(col, uniforms.uCloudShade * 0.9, (1.0 - smoothstep(0.0, 0.18, p.y)) * 0.55);
+    let rimBand = smoothstep(-aaLocal * 4.0, -aaLocal * 1.2, sd);
+    col = mix(col, uniforms.uCloudShade * 0.82, rimBand * 0.55);
+    let sunNear = pow(max(dot(dir, normalize(uniforms.sunDirection)), 0.0), 24.0);
+    col += uniforms.uGlowColor * sunNear * rimBand * 0.8;
+
+    result = vec4f(result.rgb + (1.0 - result.a) * col * alpha, result.a + (1.0 - result.a) * alpha);
+  }
+  return result;
+}
+
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
-  let direction = normalize(input.vDirection);
-  let height = clamp(direction.y, -0.25, 1.0);
-  let gradient = pow(max(height, 0.0), 0.52);
-  var color = mix(uniforms.horizonColor, uniforms.zenithColor, gradient);
+  let dir = normalize(input.vDirection);
+  let aa = fwidth(dir.y) * 1.2 + 0.0006;
+  let up = clamp(dir.y, 0.0, 1.0);
+  var color = mix(uniforms.horizonColor, uniforms.zenithColor, smoothstep(0.0, 1.0, pow(up, 0.55)));
+  color = mix(uniforms.uGroundHaze, color, smoothstep(-0.14, 0.01, dir.y));
 
-  let belowHorizon = smoothstep(-0.25, 0.02, height);
-  color = mix(uniforms.horizonColor * 0.55, color, belowHorizon);
+  let sun = normalize(uniforms.sunDirection);
+  let sunDot = clamp(dot(dir, sun), -1.0, 1.0);
+  let angle = acos(sunDot);
+  let sunAz = atan2(sun.x, sun.z);
+  let sunEl = asin(sun.y);
 
-  let sunDot = max(dot(direction, normalize(uniforms.sunDirection)), 0.0);
-  let sunDisc = smoothstep(0.9982, 0.9995, sunDot);
-  let sunHalo = pow(sunDot, 18.0) * 0.28;
-  color += uniforms.sunColor * (sunDisc * 1.5 + sunHalo);
+  let horizonGlow = pow(max(dot(normalize(vec3f(dir.x, 0.0, dir.z) + 0.0001), normalize(vec3f(sun.x, 0.0, sun.z))), 0.0), 3.0);
+  color += uniforms.uGlowColor * horizonGlow * (1.0 - smoothstep(0.0, 0.35, up)) * 0.16;
 
-  let cloudBand = smoothstep(0.08, 0.32, height) * (1.0 - smoothstep(0.55, 0.78, height));
-  var clouds =
-    sin(direction.x * 11.0 + direction.z * 7.0 + uniforms.time * 0.006) *
-    sin(direction.z * 13.0 - direction.x * 5.0 - uniforms.time * 0.004);
-  clouds = smoothstep(0.35, 0.92, clouds) * cloudBand * 0.22;
-  color = mix(color, vec3f(1.0, 0.98, 0.92), clouds);
+  var sunVisible = 1.0;
+  if (uniforms.uCloudParams.x > 0.0) {
+    let clouds = ffClouds(dir, aa, sunAz, sunEl);
+    color = mix(color, clouds.rgb / max(clouds.a, 0.0001), clouds.a);
+    sunVisible *= 1.0 - clouds.a;
+  }
+
+  let u = fract(atan2(dir.x, dir.z) / TAU + 1.0);
+  let elevation = asin(clamp(dir.y, -1.0, 1.0));
+  let v = uniforms.uPanoParams.y - elevation / uniforms.uPanoParams.z;
+  let pano = textureSampleLevel(panorama, panoramaSampler, vec2f(u, clamp(v, 0.0, 1.0)), 0.0).rgb * uniforms.uPanoTint;
+  if (uniforms.uPanoParams.x > 0.5 && v > 0.0 && v < 1.0) {
+    let fadeIn = smoothstep(uniforms.uPanoFade.x, uniforms.uPanoFade.y, v) * uniforms.uPanoParams.w;
+    color = mix(color, pano, fadeIn);
+    let paleness = smoothstep(0.78, 0.93, dot(pano, vec3f(0.299, 0.587, 0.114)));
+    sunVisible *= 1.0 - paleness * fadeIn;
+  }
+
+  let sx = normalize(cross(vec3f(0.0, 1.0, 0.0), sun));
+  let sy = cross(sun, sx);
+  let rayAngle = atan2(dot(dir, sy), dot(dir, sx));
+  var rays = smoothstep(0.35, 1.0, 0.5 + 0.5 * sin(rayAngle * 9.0 + sin(rayAngle * 4.0) * 0.8 + uniforms.time * 0.03));
+  rays *= exp(-angle * 7.5) * step(0.0, sunDot) * smoothstep(0.045, 0.09, angle);
+  let glow = exp(-angle * 16.0) * 0.55 + exp(-angle * 4.5) * 0.14;
+  color += uniforms.uGlowColor * (glow * uniforms.uCloudParams.w + rays * 0.16 * uniforms.uCloudParams.w) * mix(0.35, 1.0, sunVisible);
+
+  let disc = 1.0 - smoothstep(0.045, 0.05, angle);
+  let ring = smoothstep(0.044, 0.05, angle) * (1.0 - smoothstep(0.05, 0.062, angle));
+  color = mix(color, uniforms.sunColor, disc * sunVisible);
+  color += uniforms.uGlowColor * ring * 0.35 * sunVisible;
 
   fragmentOutputs.color = vec4f(color, 1.0);
 }

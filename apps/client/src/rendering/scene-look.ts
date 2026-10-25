@@ -1,0 +1,868 @@
+import '@babylonjs/core/Engines/Extensions/engine.multiRender';
+import '@babylonjs/core/Engines/WebGPU/Extensions/engine.multiRender';
+import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
+import '@babylonjs/core/Rendering/geometryBufferRendererSceneComponent';
+import type { Camera } from '@babylonjs/core/Cameras/camera';
+import { Constants } from '@babylonjs/core/Engines/constants';
+import { ShaderStore } from '@babylonjs/core/Engines/shaderStore';
+import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
+import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
+import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
+import type { Effect } from '@babylonjs/core/Materials/effect';
+import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
+import type { BaseTexture } from '@babylonjs/core/Materials/Textures/baseTexture';
+import { Texture } from '@babylonjs/core/Materials/Textures/texture';
+import { Color3, Color4, Vector3, Vector4 } from '@babylonjs/core/Maths/math';
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh';
+import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder';
+import { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
+import { PostProcess } from '@babylonjs/core/PostProcesses/postProcess';
+import { GeometryBufferRenderer } from '@babylonjs/core/Rendering/geometryBufferRenderer';
+import type { Scene } from '@babylonjs/core/scene';
+import type { Nullable } from '@babylonjs/core/types';
+import { WATER_LEVEL } from '@frost-and-flamingos/shared';
+import {
+  COMIC_SAMPLERS,
+  COMIC_UNIFORMS,
+  PAINT_UNIFORMS,
+  comicFragmentGLSL,
+  comicFragmentWGSL,
+  paintFragmentGLSL,
+  paintFragmentWGSL,
+} from '../shaders/post';
+import { PANORAMA_HORIZON_V, PANORAMA_RADIANS_PER_V, artUrl, loadArtImage, probeArt } from './art-assets';
+import { createDetailTextures, type DetailTextureSet } from './detail-textures';
+import { applyLookToAll, getLookContext, type LookContext, type LookValues } from './look-state';
+import type { MapVisuals } from './map';
+import {
+  SUN_DIRECTION,
+  createCloudMaterial,
+  excludeFromInk,
+  excludeFromShadows,
+  isInkExcluded,
+  isLookSolidMaterial,
+  isShadowExcluded,
+  isWaterMaterial,
+} from './materials';
+
+/**
+ * Global comic/painterly look for the whole scene:
+ *
+ *   lights      warm DirectionalLight sun (shadow caster) + sky/ground
+ *               HemisphericLight fill (for any StandardMaterial others add).
+ *   shadows     one ShadowGenerator map (R32F/R16F) fitted around the camera
+ *               every frame, texel-snapped; toon + character shaders sample it
+ *               with their own PCF and land shadows in the tinted shade band.
+ *   g-buffer    GeometryBufferRenderer (view depth + view normals) of every
+ *               solid mesh. Feeds the ink outlines and the water depth foam.
+ *   post        ffPaint (generalized Kuwahara, high/medium) -> ffComic (ink,
+ *               paper grain, grading, vignette; every tier).
+ *   sky/water   uniforms + optional painted panorama/cloud billboards.
+ *
+ * Quality tiers: high (default) / medium / low via {@link SceneLook.setVisualQuality}.
+ * Weather: {@link SceneLook.setWeatherLook} (-1 icy, 0 azure, +1 golden).
+ */
+export type VisualQuality = 'high' | 'medium' | 'low';
+
+const QUALITY_STORAGE_KEY = 'frost-and-flamingos.visualQuality';
+const SHADOW_FRUSTUM = 130;
+const SHADOW_DEPTH_RANGE = 420;
+const CLOUD_FILES = ['01', '02', '03', '04', '05', '06', '07', '08'].map((id) => `clouds/cloud-${id}.png`);
+
+interface QualityProfile {
+  paint: boolean;
+  paintRings: number;
+  /** Kuwahara radius in pixels at a 1080 px tall render. */
+  paintRadius1080: number;
+  paintStrength: number;
+  detailMode: number;
+  hatch: number;
+  grain: number;
+  sharpen: number;
+  shadowSize: number;
+  /** 2 = 12-tap filtered PCF, 1 = 4-tap bilinear PCF. */
+  shadowFilter: number;
+  msaa: number;
+  wobble: number;
+}
+
+const QUALITY: Record<VisualQuality, QualityProfile> = {
+  high: {
+    paint: true,
+    paintRings: 3,
+    paintRadius1080: 3.4,
+    paintStrength: 1,
+    detailMode: 2,
+    hatch: 0.16,
+    grain: 0.05,
+    sharpen: 0.55,
+    shadowSize: 2048,
+    shadowFilter: 2,
+    msaa: 4,
+    wobble: 1.6,
+  },
+  medium: {
+    paint: true,
+    paintRings: 2,
+    paintRadius1080: 2.6,
+    paintStrength: 0.85,
+    detailMode: 1,
+    hatch: 0.12,
+    grain: 0.04,
+    sharpen: 0.4,
+    shadowSize: 2048,
+    shadowFilter: 2,
+    msaa: 2,
+    wobble: 1.2,
+  },
+  low: {
+    paint: false,
+    paintRings: 1,
+    paintRadius1080: 0,
+    paintStrength: 0,
+    detailMode: 0,
+    hatch: 0,
+    grain: 0,
+    sharpen: 0.2,
+    shadowSize: 1024,
+    shadowFilter: 1,
+    msaa: 1,
+    wobble: 0,
+  },
+};
+
+interface WeatherPreset {
+  zenith: Color3;
+  horizon: Color3;
+  sunDisc: Color3;
+  glow: Color3;
+  sunColor: Color3;
+  skyFill: Color3;
+  groundFill: Color3;
+  shadeCool: Color3;
+  shadeWarm: Color3;
+  haze: Color4;
+  hazeStart: number;
+  groundHaze: Color3;
+  cloudShade: Color3;
+  cloudScale: number;
+  waterShallow: Color3;
+  waterMid: Color3;
+  waterDeep: Color3;
+  /** exposure, contrast, saturation, vibrance */
+  grade: Vector4;
+  shadowTone: Color3;
+  highlightTone: Color3;
+  tint: Color3;
+}
+
+function hex(value: string): Color3 {
+  return Color3.FromHexString(value);
+}
+
+const WEATHER_NEUTRAL: WeatherPreset = {
+  zenith: hex('#3E8FE0'),
+  horizon: hex('#9FD3F5'),
+  sunDisc: new Color3(1, 0.99, 0.9),
+  glow: new Color3(1, 0.93, 0.7),
+  sunColor: new Color3(1.02, 1.0, 0.97),
+  skyFill: new Color3(0.98, 1.0, 1.04),
+  groundFill: new Color3(1.04, 0.98, 0.93),
+  shadeCool: new Color3(0.83, 0.905, 0.98),
+  shadeWarm: new Color3(0.97, 0.91, 0.93),
+  haze: new Color4(0.7, 0.85, 0.97, 0.62),
+  hazeStart: 200,
+  groundHaze: new Color3(0.72, 0.86, 0.95),
+  cloudShade: hex('#C9DDF0'),
+  cloudScale: 1,
+  waterShallow: hex('#3FE0D0'),
+  waterMid: hex('#1FB5C9'),
+  waterDeep: hex('#0E6FA8'),
+  grade: new Vector4(1.02, 1.22, 1.13, 0.35),
+  shadowTone: new Color3(-0.015, 0.0, 0.04),
+  highlightTone: new Color3(0.03, 0.01, -0.012),
+  tint: new Color3(1, 1, 1),
+};
+
+const WEATHER_ICY: WeatherPreset = {
+  zenith: hex('#6E92BC'),
+  horizon: hex('#A8C8E8'),
+  sunDisc: new Color3(0.95, 0.97, 1.0),
+  glow: new Color3(0.8, 0.88, 1.0),
+  sunColor: new Color3(0.93, 0.97, 1.05),
+  skyFill: new Color3(0.95, 1.0, 1.08),
+  groundFill: new Color3(0.98, 0.98, 1.0),
+  shadeCool: new Color3(0.78, 0.87, 1.0),
+  shadeWarm: new Color3(0.88, 0.9, 0.98),
+  haze: new Color4(0.74, 0.83, 0.92, 0.64),
+  hazeStart: 170,
+  groundHaze: new Color3(0.78, 0.85, 0.92),
+  cloudShade: new Color3(0.7, 0.77, 0.86),
+  cloudScale: 1.25,
+  waterShallow: hex('#5FCFD6'),
+  waterMid: hex('#2E9DB8'),
+  waterDeep: hex('#1B5E8C'),
+  grade: new Vector4(1.0, 1.12, 0.88, 0.12),
+  shadowTone: new Color3(-0.02, 0.01, 0.07),
+  highlightTone: new Color3(-0.01, 0.005, 0.03),
+  tint: new Color3(0.9, 0.95, 1.03),
+};
+
+const WEATHER_GOLDEN: WeatherPreset = {
+  zenith: hex('#3F86D4'),
+  horizon: hex('#FFE098'),
+  sunDisc: new Color3(1, 0.96, 0.72),
+  glow: new Color3(1, 0.8, 0.38),
+  sunColor: new Color3(1.12, 1.0, 0.8),
+  skyFill: new Color3(1.0, 0.98, 0.98),
+  groundFill: new Color3(1.08, 0.97, 0.86),
+  shadeCool: new Color3(0.86, 0.88, 0.98),
+  shadeWarm: new Color3(1.0, 0.87, 0.84),
+  haze: new Color4(0.98, 0.9, 0.72, 0.46),
+  hazeStart: 300,
+  groundHaze: new Color3(0.98, 0.9, 0.74),
+  cloudShade: new Color3(0.98, 0.85, 0.7),
+  cloudScale: 0.75,
+  waterShallow: hex('#4AE8CC'),
+  waterMid: hex('#1EB8BE'),
+  waterDeep: hex('#0E6F9E'),
+  grade: new Vector4(1.05, 1.25, 1.16, 0.35),
+  shadowTone: new Color3(0.0, -0.01, 0.03),
+  highlightTone: new Color3(0.07, 0.035, -0.04),
+  tint: new Color3(1.06, 1.0, 0.9),
+};
+
+function clonePreset(preset: WeatherPreset): WeatherPreset {
+  const copy = { ...preset };
+  for (const key of Object.keys(copy) as Array<keyof WeatherPreset>) {
+    const value = copy[key];
+    if (value instanceof Color3 || value instanceof Color4 || value instanceof Vector4) {
+      (copy as Record<keyof WeatherPreset, unknown>)[key] = value.clone();
+    }
+  }
+  return copy;
+}
+
+function lerpColor3(a: Color3, b: Color3, t: number, out: Color3): void {
+  out.set(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t);
+}
+
+interface DevHandle {
+  setWeatherLook(balance: number): void;
+  setVisualQuality(tier: VisualQuality): void;
+  quality(): VisualQuality;
+  setCameraOverride(x: number, y: number, z: number, tx: number, ty: number, tz: number): void;
+  clearCameraOverride(): void;
+  /** Space-separated "x y z tx ty tz" (snap-tool friendly: no commas). */
+  cam(spec: string): void;
+  values: LookValues;
+  stats(): Record<string, unknown>;
+  /** Resolves after `count` more rendered frames (capture tooling). */
+  waitFrames(count: number): Promise<number>;
+}
+
+export class SceneLook {
+  readonly scene: Scene;
+  readonly camera: Camera;
+  readonly sun: DirectionalLight;
+  readonly fill: HemisphericLight;
+  private readonly context: LookContext;
+  private readonly webgpu: boolean;
+  private shadowGenerator: ShadowGenerator | null = null;
+  private readonly geometryBuffer: GeometryBufferRenderer | null;
+  private readonly detail: DetailTextureSet;
+  private paintPass: PostProcess | null = null;
+  private comicPass: PostProcess | null = null;
+  private visuals: MapVisuals | null = null;
+  private quality: VisualQuality = 'high';
+  private weather = 0;
+  private readonly grade = new Vector4(1, 1, 1, 0);
+  private readonly gradeExtra = new Vector4(0.2, 0.05, 1, 1);
+  private readonly shadowTone = new Color3(0, 0, 0);
+  private readonly highlightTone = new Color3(0, 0, 0);
+  private readonly inkParams = new Vector4(1.35, 0.06, 0.32, 1.6);
+  private readonly inkFade = new Vector4(70, 700, 0.45, 0.55);
+  private readonly gbufferList: AbstractMesh[] = [];
+  private cloudRoot: TransformNode | null = null;
+  private hasPainterlyClouds = false;
+  private hasPanorama = false;
+  /** Neutral weather preset, colour-matched to the painted panorama once loaded. */
+  private readonly neutral: WeatherPreset = clonePreset(WEATHER_NEUTRAL);
+  private cameraOverride: { position: Vector3; target: Vector3 } | null = null;
+  private disposed = false;
+  private readonly tmpForward = new Vector3();
+  private readonly tmpRight = new Vector3();
+  private readonly tmpUp = new Vector3();
+
+  constructor(scene: Scene, camera: Camera) {
+    this.scene = scene;
+    this.camera = camera;
+    this.webgpu = scene.getEngine().isWebGPU;
+    this.context = getLookContext(scene, SUN_DIRECTION);
+    const values = this.context.values;
+
+    scene.clearColor = new Color4(values.horizon.r, values.horizon.g, values.horizon.b, 1);
+    scene.ambientColor = new Color3(0.55, 0.62, 0.7);
+    scene.fogEnabled = false;
+
+    this.sun = new DirectionalLight('ff-sun', SUN_DIRECTION.scale(-1), scene);
+    this.sun.intensity = 1.15;
+    this.sun.autoUpdateExtends = false;
+    this.sun.autoCalcShadowZBounds = false;
+    this.sun.shadowFrustumSize = SHADOW_FRUSTUM;
+    this.sun.shadowMinZ = 0;
+    this.sun.shadowMaxZ = SHADOW_DEPTH_RANGE;
+    this.fill = new HemisphericLight('ff-sky-fill', new Vector3(0, 1, 0), scene);
+    this.fill.intensity = 0.55;
+
+    this.detail = createDetailTextures(scene);
+    this.context.textures.detailA = this.detail.detailA;
+    this.context.textures.detailB = this.detail.detailB;
+    this.context.textures.detailC = this.detail.detailC;
+
+    // Slim g-buffer: linear view depth in R32F, view normals in RGBA16F.
+    const gbr = scene.enableGeometryBufferRenderer(1, Constants.TEXTUREFORMAT_DEPTH24_STENCIL8, {
+      [GeometryBufferRenderer.DEPTH_TEXTURE_TYPE]: {
+        textureType: Constants.TEXTURETYPE_FLOAT,
+        textureFormat: Constants.TEXTUREFORMAT_R,
+      },
+      [GeometryBufferRenderer.NORMAL_TEXTURE_TYPE]: {
+        textureType: Constants.TEXTURETYPE_HALF_FLOAT,
+        textureFormat: Constants.TEXTUREFORMAT_RGBA,
+      },
+    });
+    this.geometryBuffer = gbr && gbr.isSupported ? gbr : null;
+    if (this.geometryBuffer) {
+      this.geometryBuffer.renderTransparentMeshes = false;
+      this.geometryBuffer.getGBuffer().getCustomRenderList = (_pass, defaultList, length) =>
+        this.filterGeometryBuffer(defaultList, length);
+      values.waterParams.x = 1;
+    }
+
+    this.setVisualQuality(this.readStoredQuality(), false);
+    this.setWeatherLook(0);
+    void this.loadPaintedSky();
+    this.installDevHandle();
+  }
+
+  /** Hooks the map's sky/water meshes once the world is built. */
+  attachMap(visuals: MapVisuals): void {
+    this.visuals = visuals;
+    if (this.geometryBuffer) {
+      visuals.skyMesh.isPickable = false;
+    }
+  }
+
+  get visualQuality(): VisualQuality {
+    return this.quality;
+  }
+
+  setVisualQuality(tier: VisualQuality, persist = true): void {
+    if (this.disposed) return;
+    this.quality = tier;
+    const profile = QUALITY[tier];
+    const values = this.context.values;
+    values.detailParams.set(profile.detailMode > 0 ? 0.62 : 0, 45, 170, profile.detailMode);
+    values.toonParams.w = profile.hatch;
+    this.gradeExtra.y = profile.grain;
+    this.inkParams.w = profile.wobble;
+    this.ensureShadows(profile.shadowSize);
+    values.shadowParams.w = profile.shadowFilter;
+    this.ensurePostProcesses(profile);
+    if (persist) {
+      try {
+        window.localStorage.setItem(QUALITY_STORAGE_KEY, tier);
+      } catch {
+        // Storage may be unavailable (private mode); the tier still applies.
+      }
+    }
+  }
+
+  /**
+   * Weather grading: -1 icy steel-blue sky and cool light, 0 azure default,
+   * +1 golden haze with a deep yellow sun. Drives sky, light, water and grade.
+   */
+  setWeatherLook(balance: number): void {
+    const b = Math.max(-1, Math.min(1, Number.isFinite(balance) ? balance : 0));
+    this.weather = b;
+    const target = b < 0 ? WEATHER_ICY : WEATHER_GOLDEN;
+    const t = Math.abs(b);
+    const n = this.neutral;
+    const v = this.context.values;
+    lerpColor3(n.zenith, target.zenith, t, v.zenith);
+    lerpColor3(n.horizon, target.horizon, t, v.horizon);
+    lerpColor3(n.sunDisc, target.sunDisc, t, v.sunDisc);
+    lerpColor3(n.glow, target.glow, t, v.glow);
+    lerpColor3(n.sunColor, target.sunColor, t, v.sunColor);
+    lerpColor3(n.skyFill, target.skyFill, t, v.skyFill);
+    lerpColor3(n.groundFill, target.groundFill, t, v.groundFill);
+    lerpColor3(n.shadeCool, target.shadeCool, t, v.shadeCool);
+    lerpColor3(n.shadeWarm, target.shadeWarm, t, v.shadeWarm);
+    lerpColor3(n.groundHaze, target.groundHaze, t, v.groundHaze);
+    lerpColor3(n.cloudShade, target.cloudShade, t, v.cloudShade);
+    lerpColor3(n.tint, target.tint, t, v.panoTint);
+    lerpColor3(n.tint, target.tint, t, v.billboardTint);
+    v.hazeColor.set(
+      n.haze.r + (target.haze.r - n.haze.r) * t,
+      n.haze.g + (target.haze.g - n.haze.g) * t,
+      n.haze.b + (target.haze.b - n.haze.b) * t,
+      n.haze.a + (target.haze.a - n.haze.a) * t,
+    );
+    v.hazeParams.x = n.hazeStart + (target.hazeStart - n.hazeStart) * t;
+    v.cloudParams.x = this.hasPainterlyClouds ? 0 : n.cloudScale + (target.cloudScale - n.cloudScale) * t;
+    const water = new Color3();
+    lerpColor3(n.waterShallow, target.waterShallow, t, water);
+    v.waterShallow.set(water.r, water.g, water.b, 1);
+    lerpColor3(n.waterMid, target.waterMid, t, water);
+    v.waterMid.set(water.r, water.g, water.b, 1);
+    lerpColor3(n.waterDeep, target.waterDeep, t, water);
+    v.waterDeep.set(water.r, water.g, water.b, 1);
+    v.waterSky.set(v.horizon.r, v.horizon.g, v.horizon.b, 1);
+    this.grade.set(
+      n.grade.x + (target.grade.x - n.grade.x) * t,
+      n.grade.y + (target.grade.y - n.grade.y) * t,
+      n.grade.z + (target.grade.z - n.grade.z) * t,
+      n.grade.w + (target.grade.w - n.grade.w) * t,
+    );
+    lerpColor3(n.shadowTone, target.shadowTone, t, this.shadowTone);
+    lerpColor3(n.highlightTone, target.highlightTone, t, this.highlightTone);
+    this.sun.diffuse.copyFrom(v.sunColor);
+    this.fill.diffuse.copyFrom(v.skyFill);
+    this.fill.groundColor.set(v.groundFill.r * 0.55, v.groundFill.g * 0.5, v.groundFill.b * 0.45);
+    this.scene.clearColor.set(v.horizon.r, v.horizon.g, v.horizon.b, 1);
+  }
+
+  get weatherBalance(): number {
+    return this.weather;
+  }
+
+  /** Per-frame: camera-derived uniforms, shadow frustum fit, material sync. */
+  update(time: number): void {
+    if (this.disposed) return;
+    const camera = this.camera;
+    if (this.cameraOverride && 'setTarget' in camera && typeof camera.setTarget === 'function') {
+      camera.position.copyFrom(this.cameraOverride.position);
+      (camera as Camera & { setTarget(target: Vector3): void }).setTarget(this.cameraOverride.target);
+    }
+    const v = this.context.values;
+    const engine = this.scene.getEngine();
+    v.time = time;
+    v.cameraPosition.copyFrom(camera.globalPosition);
+    camera.getDirectionToRef(Vector3.Forward(), this.tmpForward);
+    v.cameraForward.copyFrom(this.tmpForward);
+    v.screen.set(1 / Math.max(1, engine.getRenderWidth()), 1 / Math.max(1, engine.getRenderHeight()), 0, 0);
+
+    this.fitShadowFrustum();
+    const gbr = this.geometryBuffer;
+    if (gbr) {
+      const depth = gbr.getGBuffer().textures[gbr.getTextureIndex(GeometryBufferRenderer.DEPTH_TEXTURE_TYPE)];
+      if (depth) this.context.textures.sceneDepth = depth;
+    }
+    if (this.cloudRoot) {
+      this.cloudRoot.position.copyFrom(camera.globalPosition);
+      this.cloudRoot.rotation.y = Math.sin(time * 0.004) * 0.12;
+    }
+    applyLookToAll(this.context);
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.paintPass?.dispose(this.camera);
+    this.comicPass?.dispose(this.camera);
+    this.shadowGenerator?.dispose();
+    this.scene.disableGeometryBufferRenderer();
+    this.detail.dispose();
+    this.cloudRoot?.dispose(false, true);
+    this.sun.dispose();
+    this.fill.dispose();
+    if (import.meta.env.DEV) {
+      const holder = window as unknown as { __ff?: Record<string, unknown> };
+      if (holder.__ff) delete holder.__ff.look;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+
+  private readStoredQuality(): VisualQuality {
+    const isTier = (value: unknown): value is VisualQuality =>
+      value === 'high' || value === 'medium' || value === 'low';
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('quality');
+      if (isTier(fromUrl)) return fromUrl;
+      const stored = window.localStorage.getItem(QUALITY_STORAGE_KEY);
+      if (isTier(stored)) return stored;
+    } catch {
+      // Ignore storage/URL access problems and keep the default tier.
+    }
+    return this.isSoftwareRenderer() ? 'low' : 'high';
+  }
+
+  /** CPU rasterisers (SwiftShader, llvmpipe) cannot carry the painterly passes. */
+  private isSoftwareRenderer(): boolean {
+    const engine = this.scene.getEngine();
+    if (this.webgpu) return false;
+    try {
+      const info = (engine as unknown as { getGlInfo?: () => { renderer?: string; vendor?: string } }).getGlInfo?.();
+      const name = `${info?.renderer ?? ''} ${info?.vendor ?? ''}`.toLowerCase();
+      return /swiftshader|llvmpipe|softpipe|software/.test(name);
+    } catch {
+      return false;
+    }
+  }
+
+  private filterGeometryBuffer(list: Nullable<readonly AbstractMesh[]>, length: number): AbstractMesh[] {
+    const out = this.gbufferList;
+    out.length = 0;
+    if (!list) return out;
+    for (let index = 0; index < length; index += 1) {
+      const mesh = list[index];
+      if (!mesh || isInkExcluded(mesh)) continue;
+      const material = mesh.material;
+      if (!material || isWaterMaterial(material)) continue;
+      if (material.disableDepthWrite || material.needAlphaBlendingForMesh(mesh)) continue;
+      out.push(mesh);
+    }
+    return out;
+  }
+
+  private isShadowCaster(mesh: AbstractMesh): boolean {
+    if (!mesh.isEnabled() || !mesh.isVisible || isShadowExcluded(mesh)) return false;
+    if (!isLookSolidMaterial(mesh.material)) return false;
+    if (this.visuals && mesh === this.visuals.terrainMesh) return false;
+    if (mesh.name === 'fjord-terrain') return false;
+    const radius = mesh.getBoundingInfo().boundingSphere.radiusWorld;
+    if (radius > 360 && !(mesh instanceof Mesh && mesh.hasThinInstances)) return false;
+    return true;
+  }
+
+  private ensureShadows(size: number): void {
+    const values = this.context.values;
+    if (this.shadowGenerator && this.shadowGenerator.mapSize === size) return;
+    this.shadowGenerator?.dispose();
+    const generator = new ShadowGenerator(size, this.sun, true, undefined, true);
+    generator.filter = ShadowGenerator.FILTER_NONE;
+    generator.bias = 0.00014;
+    generator.normalBias = 0;
+    generator.transparencyShadow = false;
+    const shadowMap = generator.getShadowMap();
+    if (shadowMap) {
+      shadowMap.refreshRate = 1;
+      shadowMap.renderListPredicate = (mesh) => this.isShadowCaster(mesh);
+      this.context.textures.shadowMap = shadowMap;
+      const packed = shadowMap.textureType === Constants.TEXTURETYPE_UNSIGNED_BYTE ? 1 : 0;
+      const engine = this.scene.getEngine();
+      const minZ = !engine.useReverseDepthBuffer && engine.isNDCHalfZRange ? 0 : 1;
+      const maxZ = engine.useReverseDepthBuffer && engine.isNDCHalfZRange ? 0 : 1;
+      values.shadowDepth.set(minZ, minZ + maxZ, packed, 0);
+    }
+    generator.onAfterShadowMapRenderObservable.add(() => {
+      values.lightMatrix.copyFrom(generator.getTransformMatrix());
+      for (const [material, role] of this.context.materials) {
+        if (role === 'toon' || role === 'character') material.setMatrix('uFFLightMatrix', values.lightMatrix);
+      }
+    });
+    values.shadowParams.set(1 / size, (SHADOW_FRUSTUM / size) * 1.6, 1, 1);
+    this.shadowGenerator = generator;
+  }
+
+  private fitShadowFrustum(): void {
+    const camera = this.camera;
+    const direction = this.sun.direction.normalizeToNew();
+    const forward = this.tmpForward;
+    const flat = new Vector3(forward.x, 0, forward.z);
+    if (flat.lengthSquared() < 0.0001) flat.set(0, 0, 1);
+    flat.normalize();
+    const center = camera.globalPosition.add(flat.scale(SHADOW_FRUSTUM * 0.32));
+    // Snap the centre to whole shadow texels in light space to stop shimmering.
+    const size = this.shadowGenerator?.mapSize ?? 2048;
+    const texel = SHADOW_FRUSTUM / size;
+    const right = Vector3.Cross(Vector3.Up(), direction).normalize();
+    const up = Vector3.Cross(direction, right).normalize();
+    const cx = Math.round(Vector3.Dot(center, right) / texel) * texel;
+    const cy = Math.round(Vector3.Dot(center, up) / texel) * texel;
+    const cz = Vector3.Dot(center, direction);
+    const snapped = right.scale(cx).addInPlace(up.scale(cy)).addInPlace(direction.scale(cz));
+    this.sun.position.copyFrom(snapped.subtract(direction.scale(SHADOW_DEPTH_RANGE * 0.5)));
+  }
+
+  private registerPostShaders(): void {
+    ShaderStore.ShadersStore.ffPaintPixelShader = paintFragmentGLSL;
+    ShaderStore.ShadersStoreWGSL.ffPaintPixelShader = paintFragmentWGSL;
+    ShaderStore.ShadersStore.ffComicPixelShader = comicFragmentGLSL;
+    ShaderStore.ShadersStoreWGSL.ffComicPixelShader = comicFragmentWGSL;
+  }
+
+  private ensurePostProcesses(profile: QualityProfile): void {
+    const engine = this.scene.getEngine();
+    const language = this.webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL;
+    if (!this.comicPass) {
+      this.registerPostShaders();
+      this.paintPass = new PostProcess('ff-paint', 'ffPaint', {
+        uniforms: [...PAINT_UNIFORMS],
+        samplers: [],
+        size: 1,
+        camera: this.camera,
+        samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
+        engine,
+        shaderLanguage: language,
+      });
+      this.paintPass.onApplyObservable.add((effect) => {
+        const current = QUALITY[this.quality];
+        const height = engine.getRenderHeight();
+        const radius = Math.max(1, (current.paintRadius1080 * height) / 1080);
+        effect.setFloat2('uTexel', 1 / Math.max(1, engine.getRenderWidth()), 1 / Math.max(1, height));
+        effect.setFloat4('uPaintParams', radius, current.paintRings, 260, current.paintStrength);
+      });
+      this.comicPass = new PostProcess('ff-comic', 'ffComic', {
+        uniforms: [...COMIC_UNIFORMS],
+        samplers: [...COMIC_SAMPLERS],
+        size: 1,
+        camera: this.camera,
+        samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
+        engine,
+        shaderLanguage: language,
+      });
+      this.comicPass.onApplyObservable.add((effect) => this.bindComic(effect));
+    }
+    const paint = this.paintPass;
+    const comic = this.comicPass;
+    if (!paint || !comic) return;
+    const attached = this.camera._postProcesses.includes(paint);
+    if (profile.paint && !attached) this.camera.attachPostProcess(paint, 0);
+    if (!profile.paint && attached) this.camera.detachPostProcess(paint);
+    if (profile.paint) {
+      paint.samples = profile.msaa;
+      comic.samples = 1;
+    } else {
+      comic.samples = profile.msaa;
+    }
+  }
+
+  private bindComic(effect: Effect): void {
+    const engine = this.scene.getEngine();
+    const width = Math.max(1, engine.getRenderWidth());
+    const height = Math.max(1, engine.getRenderHeight());
+    const camera = this.camera;
+    const ink = this.context.values.inkColor;
+    const scale = height / 1080;
+    effect.setFloat2('uTexel', 1 / width, 1 / height);
+    effect.setFloat4('uInkColor', ink.r, ink.g, ink.b, this.geometryBuffer ? 1 : 0);
+    effect.setFloat4(
+      'uInkParams',
+      Math.max(1.1, this.inkParams.x * Math.max(0.62, scale) * 1.85),
+      this.inkParams.y,
+      this.inkParams.z,
+      this.inkParams.w * Math.max(0.6, scale) * 1.4,
+    );
+    effect.setVector4('uInkFade', this.inkFade);
+    effect.setFloat4('uWaterLevel', WATER_LEVEL + 0.04, 0, 0, 0);
+    const position = camera.globalPosition;
+    effect.setFloat3('uCamPos', position.x, position.y, position.z);
+    camera.getDirectionToRef(Vector3.Forward(), this.tmpForward);
+    camera.getDirectionToRef(Vector3.Right(), this.tmpRight);
+    camera.getDirectionToRef(Vector3.Up(), this.tmpUp);
+    const tanHalf = Math.tan(camera.fov / 2);
+    const aspect = width / height;
+    effect.setFloat3('uCamForward', this.tmpForward.x, this.tmpForward.y, this.tmpForward.z);
+    effect.setFloat3('uCamRight', this.tmpRight.x * tanHalf * aspect, this.tmpRight.y * tanHalf * aspect, this.tmpRight.z * tanHalf * aspect);
+    effect.setFloat3('uCamUp', this.tmpUp.x * tanHalf, this.tmpUp.y * tanHalf, this.tmpUp.z * tanHalf);
+    effect.setVector4('uGrade', this.grade);
+    effect.setVector4('uGradeExtra', this.gradeExtra);
+    effect.setColor3('uShadowTone', this.shadowTone);
+    effect.setColor3('uHighlightTone', this.highlightTone);
+    effect.setFloat4('uSharpen', QUALITY[this.quality].sharpen, 0, 0, 0);
+    const gbr = this.geometryBuffer;
+    const fallback: BaseTexture = this.context.textures.sceneDepth;
+    if (gbr) {
+      const textures = gbr.getGBuffer().textures;
+      effect.setTexture('depthSampler', textures[gbr.getTextureIndex(GeometryBufferRenderer.DEPTH_TEXTURE_TYPE)] ?? fallback);
+      effect.setTexture('normalSampler', textures[gbr.getTextureIndex(GeometryBufferRenderer.NORMAL_TEXTURE_TYPE)] ?? fallback);
+    } else {
+      effect.setTexture('depthSampler', fallback);
+      effect.setTexture('normalSampler', fallback);
+    }
+  }
+
+  private async loadPaintedSky(): Promise<void> {
+    const values = this.context.values;
+    const [panoramaImage, foam, ...clouds] = await Promise.all([
+      loadArtImage('sky/horizon-panorama.jpg'),
+      probeArt('tex/water_foam.png'),
+      ...CLOUD_FILES.map((file) => probeArt(file)),
+    ]);
+    if (this.disposed) return;
+    if (panoramaImage) {
+      this.matchSkyToPanorama(panoramaImage);
+      const texture = new Texture(artUrl('sky/horizon-panorama.jpg'), this.scene, {
+        noMipmap: true,
+        invertY: false,
+        samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
+        onLoad: () => {
+          if (this.disposed) return;
+          texture.wrapU = Constants.TEXTURE_WRAP_ADDRESSMODE;
+          texture.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+          this.context.textures.panorama = texture;
+          // The painting already carries its sky, clouds and mountains down to the
+          // horizon; only its very top row blends into the colour-matched shader sky.
+          values.panoParams.set(1, PANORAMA_HORIZON_V, PANORAMA_RADIANS_PER_V, 1);
+          values.panoFade.set(0.0, 0.06, 0, 0);
+          this.hasPanorama = true;
+          this.setWeatherLook(this.weather);
+        },
+      });
+    }
+    if (foam) {
+      const texture = new Texture(artUrl('tex/water_foam.png'), this.scene, {
+        onLoad: () => {
+          if (this.disposed) return;
+          texture.wrapU = Constants.TEXTURE_WRAP_ADDRESSMODE;
+          texture.wrapV = Constants.TEXTURE_WRAP_ADDRESSMODE;
+          this.context.textures.foam = texture;
+          values.waterParams.w = 1;
+        },
+      });
+    }
+    const available = CLOUD_FILES.filter((_, index) => clouds[index]);
+    if (available.length > 0) this.buildCloudBillboards(available);
+  }
+
+  /**
+   * Samples the painted panorama so the shader sky above it (zenith) and the
+   * colours derived from the horizon (clear colour, water reflection, aerial
+   * haze) continue the painting instead of fighting it.
+   */
+  private matchSkyToPanorama(image: HTMLImageElement): void {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const average = (v0: number, v1: number, u0: number, u1: number): Color3 => {
+      const data = ctx.getImageData(
+        Math.floor(u0 * canvas.width),
+        Math.floor(v0 * canvas.height),
+        Math.max(1, Math.floor((u1 - u0) * canvas.width)),
+        Math.max(1, Math.floor((v1 - v0) * canvas.height)),
+      ).data;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      const count = data.length / 4;
+      for (let i = 0; i < data.length; i += 4) {
+        r += data[i] ?? 0;
+        g += data[i + 1] ?? 0;
+        b += data[i + 2] ?? 0;
+      }
+      return new Color3(r / count / 255, g / count / 255, b / count / 255);
+    };
+    const top = average(0, 0.03, 0, 1);
+    // Clear sky just above the open sea (azimuth 235-320 deg, no mountains).
+    const low = average(PANORAMA_HORIZON_V - 0.2, PANORAMA_HORIZON_V - 0.04, 235 / 360, 320 / 360);
+    const neutral = this.neutral;
+    neutral.zenith.copyFrom(top.scale(0.97));
+    neutral.horizon.copyFrom(low);
+    neutral.groundHaze.copyFrom(low);
+    neutral.haze.set(low.r, low.g, low.b, neutral.haze.a);
+  }
+
+  private buildCloudBillboards(files: string[]): void {
+    const root = new TransformNode('ff-cloud-billboards', this.scene);
+    this.cloudRoot = root;
+    // A few large painted clouds: low ones over the open sea (no peaks to hide),
+    // higher ones over the alps so the painted summits stay visible.
+    const layout: Array<{ azimuth: number; elevation: number; width: number }> = [
+      { azimuth: 250, elevation: 7, width: 560 },
+      { azimuth: 296, elevation: 11, width: 470 },
+      { azimuth: 214, elevation: 16, width: 420 },
+      { azimuth: 338, elevation: 21, width: 500 },
+      { azimuth: 62, elevation: 27, width: 560 },
+      { azimuth: 128, elevation: 25, width: 500 },
+      { azimuth: 176, elevation: 13, width: 430 },
+    ];
+    let created = 0;
+    layout.forEach((slot, index) => {
+      const file = files[index % files.length];
+      if (!file) return;
+      const texture = new Texture(artUrl(file), this.scene, { noMipmap: false, invertY: true });
+      texture.hasAlpha = true;
+      texture.wrapU = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+      texture.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+      const material = createCloudMaterial(this.scene, `ff-cloud-${index}`, texture);
+      const azimuth = (slot.azimuth * Math.PI) / 180;
+      const elevation = (slot.elevation * Math.PI) / 180;
+      const distance = 1350;
+      const plane = CreatePlane(`ff-cloud-${index}`, { width: slot.width, height: slot.width * 0.5 }, this.scene);
+      plane.material = material;
+      plane.parent = root;
+      plane.position.set(
+        Math.sin(azimuth) * Math.cos(elevation) * distance,
+        Math.sin(elevation) * distance,
+        Math.cos(azimuth) * Math.cos(elevation) * distance,
+      );
+      plane.billboardMode = Mesh.BILLBOARDMODE_Y;
+      plane.isPickable = false;
+      plane.alwaysSelectAsActiveMesh = true;
+      plane.alphaIndex = -1000 + index;
+      excludeFromInk(plane);
+      excludeFromShadows(plane);
+      created += 1;
+    });
+    if (created > 0) {
+      this.hasPainterlyClouds = true;
+      this.context.values.cloudParams.x = 0;
+    }
+  }
+
+  private installDevHandle(): void {
+    if (!import.meta.env.DEV) return;
+    const holder = window as unknown as { __ff?: Record<string, unknown> };
+    const handle: DevHandle = {
+      setWeatherLook: (balance) => this.setWeatherLook(balance),
+      setVisualQuality: (tier) => this.setVisualQuality(tier),
+      quality: () => this.quality,
+      setCameraOverride: (x, y, z, tx, ty, tz) => {
+        this.cameraOverride = { position: new Vector3(x, y, z), target: new Vector3(tx, ty, tz) };
+      },
+      clearCameraOverride: () => {
+        this.cameraOverride = null;
+      },
+      cam: (spec) => {
+        const [x = 0, y = 0, z = 0, tx = 0, ty = 0, tz = 1] = spec.trim().split(/\s+/).map(Number);
+        this.cameraOverride = { position: new Vector3(x, y, z), target: new Vector3(tx, ty, tz) };
+      },
+      values: this.context.values,
+      waitFrames: (count) =>
+        new Promise((resolve) => {
+          let remaining = Math.max(1, Math.floor(count));
+          const observer = this.scene.onAfterRenderObservable.add(() => {
+            remaining -= 1;
+            if (remaining > 0) return;
+            this.scene.onAfterRenderObservable.remove(observer);
+            resolve(this.scene.getEngine().frameId);
+          });
+        }),
+      stats: () => ({
+        quality: this.quality,
+        weather: this.weather,
+        webgpu: this.webgpu,
+        frameId: this.scene.getEngine().frameId,
+        drawCalls: this.scene.getEngine()._drawCalls.current,
+        activeMeshes: this.scene.getActiveMeshes().length,
+        shadowCasters: this.shadowGenerator?.getShadowMap()?.renderList?.length ?? 0,
+        shadowMapSize: this.shadowGenerator?.mapSize ?? 0,
+        gbuffer: Boolean(this.geometryBuffer),
+        postProcesses: this.camera._postProcesses.filter(Boolean).map((pass) => pass?.name),
+        painterlyClouds: this.hasPainterlyClouds,
+        panorama: this.hasPanorama,
+      }),
+    };
+    holder.__ff = { ...(holder.__ff ?? {}), look: handle };
+  }
+}
+
+export function createSceneLook(scene: Scene, camera: Camera): SceneLook {
+  return new SceneLook(scene, camera);
+}

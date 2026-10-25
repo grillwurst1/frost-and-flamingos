@@ -1,3 +1,5 @@
+import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
+
 /**
  * Character cel shader. Vertex-colour alpha is repurposed as a skin mask:
  * alpha 1 = skin (tinted by uSkinColor), alpha 0 = cloth/cosmetic paint.
@@ -47,6 +49,7 @@ uniform float uBattleDamage;
 uniform float uCharredState;
 uniform float uFrozenState;
 uniform float uTime;
+${LOOK_FRAGMENT_GLSL}
 
 float hash13(vec3 p) {
   p = fract(p * 0.1031);
@@ -56,8 +59,6 @@ float hash13(vec3 p) {
 
 void main(void) {
   vec3 normal = normalize(vWorldNormal);
-  vec3 light = normalize(lightDirection);
-  vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
 
   float skinMask = clamp(vColor.a, 0.0, 1.0);
   vec3 base = mix(vColor.rgb, uSkinColor, skinMask);
@@ -68,28 +69,16 @@ void main(void) {
   base = mix(base, vec3(0.045, 0.04, 0.038), clamp(uCharredState, 0.0, 1.0) * 0.94);
   base = mix(base, vec3(0.66, 0.9, 1.0), clamp(uFrozenState, 0.0, 1.0) * 0.62);
 
-  float ndl = dot(normal, light);
-  float diffuse = 0.28;
-  if (ndl > 0.0) diffuse = 0.48;
-  if (ndl > 0.34) diffuse = 0.72;
-  if (ndl > 0.68) diffuse = 0.93;
-  if (ndl > 0.9) diffuse = 1.0;
-
-  float skyBounce = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
-  vec3 ambient = mix(vec3(0.16, 0.22, 0.3), vec3(0.42, 0.55, 0.66), skyBounce);
-  vec3 lit = base * (ambient + vec3(diffuse) * 0.72);
-
-  float rim = pow(1.0 - clamp(dot(normal, viewDirection), 0.0, 1.0), 3.0) * rimStrength;
-  lit += vec3(0.42, 0.78, 0.95) * rim * 0.65;
+  // Shared comic lighting (look-common.ts): cel bands, tinted shade, cast
+  // shadows, rim and a soft vinyl glint so the rig reads like a painted toy.
+  float vinyl = (1.0 - skinMask) * 0.32 * (1.0 - clamp(uCharredState, 0.0, 1.0)) + clamp(uFrozenState, 0.0, 1.0) * 0.6;
+  vec3 lit = ffToon(base, normal, vWorldPosition, vinyl, rimStrength * 1.6, 1.0);
 
   float iceShimmer = sin(uTime * 4.0 + vWorldPosition.y * 18.0) * 0.5 + 0.5;
   lit += vec3(0.55, 0.85, 1.0) * uFrozenState * (0.22 + iceShimmer * 0.18);
   lit += vec3(1.0, 0.42, 0.12) * uCharredState * (0.04 + sootMask * 0.05);
 
-  float distanceToCamera = length(cameraPosition - vWorldPosition);
-  float fog = clamp((distanceToCamera - fogNear) / max(1.0, fogFar - fogNear), 0.0, 1.0);
-  fog = fog * fog * 0.58;
-  lit = mix(lit, fogColor.rgb, fog);
+  lit = ffHaze(lit, vWorldPosition);
 
   gl_FragColor = vec4(lit, 1.0);
 }
@@ -129,6 +118,7 @@ uniform uBattleDamage : f32;
 uniform uCharredState : f32;
 uniform uFrozenState : f32;
 uniform uTime : f32;
+${LOOK_FRAGMENT_WGSL}
 
 varying vWorldPosition : vec3f;
 varying vWorldNormal : vec3f;
@@ -143,8 +133,6 @@ fn hash13(pIn : vec3f) -> f32 {
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
   let normal = normalize(input.vWorldNormal);
-  let light = normalize(uniforms.lightDirection);
-  let viewDirection = normalize(uniforms.cameraPosition - input.vWorldPosition);
 
   let skinMask = clamp(input.vColor.a, 0.0, 1.0);
   var base = mix(input.vColor.rgb, uniforms.uSkinColor, skinMask);
@@ -155,28 +143,16 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   base = mix(base, vec3f(0.045, 0.04, 0.038), clamp(uniforms.uCharredState, 0.0, 1.0) * 0.94);
   base = mix(base, vec3f(0.66, 0.9, 1.0), clamp(uniforms.uFrozenState, 0.0, 1.0) * 0.62);
 
-  let ndl = dot(normal, light);
-  var diffuse = 0.28;
-  if (ndl > 0.0) { diffuse = 0.48; }
-  if (ndl > 0.34) { diffuse = 0.72; }
-  if (ndl > 0.68) { diffuse = 0.93; }
-  if (ndl > 0.9) { diffuse = 1.0; }
-
-  let skyBounce = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
-  let ambient = mix(vec3f(0.16, 0.22, 0.3), vec3f(0.42, 0.55, 0.66), skyBounce);
-  var lit = base * (ambient + vec3f(diffuse) * 0.72);
-
-  let rim = pow(1.0 - clamp(dot(normal, viewDirection), 0.0, 1.0), 3.0) * uniforms.rimStrength;
-  lit += vec3f(0.42, 0.78, 0.95) * rim * 0.65;
+  // Shared comic lighting (look-common.ts): cel bands, tinted shade, cast
+  // shadows, rim and a soft vinyl glint so the rig reads like a painted toy.
+  let vinyl = (1.0 - skinMask) * 0.32 * (1.0 - clamp(uniforms.uCharredState, 0.0, 1.0)) + clamp(uniforms.uFrozenState, 0.0, 1.0) * 0.6;
+  var lit = ffToon(base, normal, input.vWorldPosition, vinyl, uniforms.rimStrength * 1.6, 1.0);
 
   let iceShimmer = sin(uniforms.uTime * 4.0 + input.vWorldPosition.y * 18.0) * 0.5 + 0.5;
   lit += vec3f(0.55, 0.85, 1.0) * uniforms.uFrozenState * (0.22 + iceShimmer * 0.18);
   lit += vec3f(1.0, 0.42, 0.12) * uniforms.uCharredState * (0.04 + sootMask * 0.05);
 
-  let distanceToCamera = length(uniforms.cameraPosition - input.vWorldPosition);
-  var fog = clamp((distanceToCamera - uniforms.fogNear) / max(1.0, uniforms.fogFar - uniforms.fogNear), 0.0, 1.0);
-  fog = fog * fog * 0.58;
-  lit = mix(lit, uniforms.fogColor.rgb, fog);
+  lit = ffHaze(lit, input.vWorldPosition);
 
   fragmentOutputs.color = vec4f(lit, 1.0);
 }
