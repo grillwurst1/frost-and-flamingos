@@ -360,7 +360,7 @@ function buildPosters(scene: Scene, props: readonly MapProp[]): Mesh[] {
     material.disableLighting = true;
     material.backFaceCulling = true;
     material.specularColor = Color3.Black();
-    material.emissiveColor = new Color3(0.96, 0.94, 0.9);
+    material.emissiveColor = Color3.Black();
     const plane = CreatePlane(`poster-${billboard.id}`, { width: billboard.width - 0.1, height: billboard.height - 0.1 }, scene);
     const texture = new Texture(
       `/art/billboards/poster-${billboard.posterId}.jpg`,
@@ -369,7 +369,9 @@ function buildPosters(scene: Scene, props: readonly MapProp[]): Mesh[] {
       true,
       Texture.TRILINEAR_SAMPLINGMODE,
       () => {
+        // StandardMaterial adds emissiveColor to the emissive texture: black keeps the poster's own colours.
         material.emissiveTexture = texture;
+        material.emissiveColor = Color3.Black();
         material.diffuseColor = Color3.Black();
         plane.setEnabled(true);
       },
@@ -380,13 +382,14 @@ function buildPosters(scene: Scene, props: readonly MapProp[]): Mesh[] {
     );
     plane.material = material;
     plane.setEnabled(false);
-    // Babylon planes face −Z; the billboard front is +Z in prop space.
+    // Babylon planes face −Z; the billboard front is +Z in prop space. 0.12 m sits in front of
+    // the vertex-colour fallback artwork and just behind the painted frame.
     plane.rotation.y = prop.rotationY + Math.PI;
     const forward = { x: Math.sin(prop.rotationY), z: Math.cos(prop.rotationY) };
     plane.position.set(
-      prop.position.x + forward.x * 0.04,
+      prop.position.x + forward.x * 0.12,
       prop.position.y + posts + billboard.height / 2,
-      prop.position.z + forward.z * 0.04,
+      prop.position.z + forward.z * 0.12,
     );
     plane.isPickable = false;
     plane.freezeWorldMatrix();
