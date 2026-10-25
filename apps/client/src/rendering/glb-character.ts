@@ -81,9 +81,9 @@ const LOOPING: Readonly<Record<ClipRole, boolean>> = {
 };
 
 /**
- * Ground speed (m/s, model space) at which each loop plays at 1×: the stance
- * foot speed measured over the Meshy cycles (walk 1.23-1.35, combat walk
- * 0.63-0.74, run 3.2-4.6, sprint 3.1-4.2, backpedal 0.88-1.04).
+ * Fallback ground speed (m/s, model space) at which each loop plays at 1×.
+ * Painted models measure it per clip at load (BakedClip.naturalSpeed, the
+ * stance-foot speed); these values only cover clips without leg motion.
  */
 const NATURAL_SPEED: Partial<Record<ClipRole, number>> = {
   walk: 1.3,
@@ -92,8 +92,12 @@ const NATURAL_SPEED: Partial<Record<ClipRole, number>> = {
   sprint: 3.9,
   backpedal: 0.95,
 };
-/** Highest playback rate of an in-place loop (fast crouch-walks stay readable). */
-const MAX_LOOP_RATE = 3.2;
+/**
+ * Highest playback rate of an in-place loop. The motor's crouch-walk and
+ * backpedal speeds need up to ~7.5× the Meshy cycles' natural pace (the
+ * infiltrator), so the cap sits above that and the feet never slide.
+ */
+const MAX_LOOP_RATE = 8;
 
 const LOCOMOTION: readonly ClipRole[] = ['walk', 'combatWalk', 'run', 'sprint', 'backpedal'];
 const OVERLAY_ROLES: readonly ClipRole[] = ['reload', 'taunt'];
@@ -200,6 +204,10 @@ export class GlbCharacterView implements AvatarView {
   private readonly asset: PaintedModelAsset;
   private readonly tiltPivot: TransformNode;
   private readonly rollPivot: TransformNode;
+  /** Height of the roll pivot above the feet (tucked body centre). */
+  private readonly rollCentre: number;
+  /** Top of the painted head or hat above the Head joint (armature units). */
+  private readonly headTop: number;
   private readonly modelRoot: TransformNode;
   private readonly entries: InstantiatedEntries;
   private readonly armature: TransformNode;
@@ -259,6 +267,8 @@ export class GlbCharacterView implements AvatarView {
   private swim = 0;
   private armed = 0;
   private aliveBlend = 1;
+  /** See {@link snapToPose}. */
+  private snapNext = false;
   private deathTilt = 0;
   private locoPhase = Math.random();
 
@@ -289,6 +299,7 @@ export class GlbCharacterView implements AvatarView {
     this.rollPivot.parent = this.tiltPivot;
     // Roll pivot at the tucked body centre, so the curled figure stays above the ground.
     const rollCentre = 0.36 * this.height;
+    this.rollCentre = rollCentre;
     this.rollPivot.position.y = rollCentre;
     this.modelRoot = new TransformNode('glb-model-root', scene);
     this.modelRoot.parent = this.rollPivot;
@@ -353,6 +364,8 @@ export class GlbCharacterView implements AvatarView {
     const hipsNode = nodes.get('Hips');
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
+    const bindHead = asset.bindPositions.get('Head');
+    this.headTop = bindHead ? Math.max(spec.head.radius * 1.2, asset.height - bindHead.y) : 0.25;
 
     const upperRoots = new Set(['Spine1', 'Spine2']);
     const isUpper = (name: string): boolean => {
@@ -582,9 +595,20 @@ export class GlbCharacterView implements AvatarView {
     });
   }
 
+  /**
+   * The next update jumps every blend straight to its target instead of
+   * easing in, for a view that replaces another mid-action (a stand-in swap
+   * while swimming, parachuting or dead must not restart the motion).
+   */
+  snapToPose(): void {
+    this.snapNext = true;
+  }
+
   update(deltaSeconds: number, pose: GlbPose): void {
     if (this.disposed) return;
     const dt = Math.min(0.1, Math.max(0, deltaSeconds));
+    const snap = this.snapNext ? 1e4 : 1;
+    this.snapNext = false;
     this.setPosition(pose.position);
     this.setYaw(pose.yaw);
 
@@ -601,7 +625,7 @@ export class GlbCharacterView implements AvatarView {
           (pose.parachuteState === ParachuteState.Intact || pose.parachuteState === ParachuteState.Tattered ? 1 : 0),
       ),
     );
-    this.parachute = approach(this.parachute, parachuteTarget, dt * 3);
+    this.parachute = approach(this.parachute, parachuteTarget, dt * 3 * snap);
     this.updateCanopy(dt, this.parachute, pose.parachuteSway ?? 0);
 
     // Local-space velocity: x = right, z = forward (Babylon root space).
@@ -614,10 +638,11 @@ export class GlbCharacterView implements AvatarView {
 
     this.airTime = pose.grounded || swimming ? 0 : this.airTime + dt;
     const airborne = !pose.grounded && !swimming && (this.airTime > 0.12 || this.parachute > 0.2);
-    this.swim = approach(this.swim, swimming ? 1 : 0, dt * 4);
-    this.crouch = approach(this.crouch, rolling ? 1 : crouchTarget, dt * 7);
-    this.aliveBlend = approach(this.aliveBlend, alive ? 1 : 0, dt * 6);
+    this.swim = approach(this.swim, swimming ? 1 : 0, dt * 4 * snap);
+    this.crouch = approach(this.crouch, rolling ? 1 : crouchTarget, dt * 7 * snap);
+    this.aliveBlend = approach(this.aliveBlend, alive ? 1 : 0, dt * 6 * snap);
     if (alive) this.deathTime = 0;
+    else if (snap > 1) this.deathTime = 60;
     else this.deathTime += dt;
 
     // ---- clip weights -------------------------------------------------
@@ -649,12 +674,12 @@ export class GlbCharacterView implements AvatarView {
       }
       targets.idle = 1 - move;
     }
-    const fade = dt * (alive ? 9 : 5);
+    const fade = dt * (alive ? 9 : 5) * snap;
     for (const binding of this.bindings.values()) {
       if (OVERLAY_ROLES.includes(binding.role)) continue;
       binding.target = targets[binding.role] ?? 0;
       binding.weight = approach(binding.weight, binding.target, fade);
-      const natural = NATURAL_SPEED[binding.role];
+      const natural = binding.clip.naturalSpeed ?? NATURAL_SPEED[binding.role];
       binding.rate = natural ? Math.min(MAX_LOOP_RATE, Math.max(0.55, speed / natural)) : 1;
       if (binding.role === 'swim') binding.rate = 0.8 + Math.min(1, speed / 4) * 0.5;
       if (binding.role === 'combatWalk' && swimming && !has('swim')) binding.rate = 0.7;
@@ -733,7 +758,7 @@ export class GlbCharacterView implements AvatarView {
     const style = this.weapon?.hold.style ?? null;
     const weaponVisible =
       alive && !swimming && !rolling && this.parachute < 0.2 && this.tauntTime < 0 && this.weapon !== null;
-    this.armed = approach(this.armed, weaponVisible ? 1 : 0, dt * 6);
+    this.armed = approach(this.armed, weaponVisible ? 1 : 0, dt * 6 * snap);
     this.setWeapon(this.armedModel ? pose.weaponId ?? null : null);
     if (this.weapon) this.weapon.mesh.setEnabled(this.armed > 0.3);
 
@@ -758,9 +783,10 @@ export class GlbCharacterView implements AvatarView {
     else this.rollPhase = 0;
     this.rollTuck = approach(this.rollTuck, rolling ? 1 : 0, dt * 10);
     this.rollPivot.rotation.x = this.rollPhase;
+    this.rollPivot.position.y = this.rollCentre + (rolling ? this.rollClearance() : 0);
     const proneSwim = swimming && !has('swim') ? 1.2 : 0;
     const deathTarget = !alive && !has('death') ? -1.45 : 0;
-    this.deathTilt = approach(this.deathTilt, deathTarget, dt * (deathTarget !== 0 ? 4.5 : 8));
+    this.deathTilt = approach(this.deathTilt, deathTarget, dt * (deathTarget !== 0 ? 4.5 : 8) * snap);
     this.tiltPivot.rotation.x = this.deathTilt + proneSwim * this.swim;
     this.tiltPivot.position.y = has('swim') ? 0 : -0.32 * this.swim;
     this.updateMaterial();
@@ -916,6 +942,42 @@ export class GlbCharacterView implements AvatarView {
         acc[o + 3] = (acc[o + 3] ?? 0) / length;
       }
     }
+  }
+
+  /**
+   * Lift that keeps the head, the painted hat, chest and hands above the
+   * ground while the tucked body spins about the roll pivot (models differ
+   * in head and hat size, so a fixed pivot cannot fit them all).
+   */
+  private rollClearance(): number {
+    const rig = this.rig;
+    const hips = rig.node('Hips');
+    const armature = hips?.parent instanceof TransformNode ? hips.parent : null;
+    if (!armature) return 0;
+    this.rollPivot.position.y = this.rollCentre;
+    const chain: TransformNode[] = [];
+    for (let node: TransformNode | null = armature; node && node !== this.root; node = node.parent instanceof TransformNode ? node.parent : null) {
+      chain.unshift(node);
+    }
+    this.root.computeWorldMatrix(true);
+    for (const node of chain) node.computeWorldMatrix(true);
+    const world = armature.getWorldMatrix();
+    let lowest = Infinity;
+    const ground = this.root.position.y;
+    for (const joint of ['Spine2', 'LeftHand', 'RightHand', 'LeftShoulder', 'RightShoulder'] as const) {
+      const position = rig.position(joint);
+      if (position) lowest = Math.min(lowest, Vector3.TransformCoordinates(position, world).y - ground);
+    }
+    // Head and painted hat as one sphere from the Head joint up to the top.
+    const head = rig.position('Head');
+    const neck = rig.position('Neck');
+    if (head && neck) {
+      const up = head.subtract(neck).normalize();
+      const radius = Math.max(this.headTop * 0.5, this.asset.spec.head.radius) * 1.15;
+      const centre = Vector3.TransformCoordinates(head.add(up.scale(this.headTop * 0.5)), world);
+      lowest = Math.min(lowest, centre.y - ground - radius * this.scale);
+    }
+    return Number.isFinite(lowest) ? Math.max(0, 0.02 - lowest) : 0;
   }
 
   private applyProcedural(alive: boolean, style: HoldStyle | null): void {
@@ -1144,8 +1206,47 @@ export class GlbCharacterView implements AvatarView {
   }
 }
 
-/** Frame of the last stand-in swap (one GlbCharacterView construction per frame). */
-let lastSwapFrame = -1;
+/** Invisible stand-in for the frame or two until a loaded painted view may be built. */
+class EmptyAvatarView implements AvatarView {
+  readonly root: TransformNode;
+
+  constructor(
+    scene: Scene,
+    private readonly shadowMaterial: StandardMaterial,
+  ) {
+    this.root = new TransformNode('glb-placeholder', scene);
+  }
+
+  update(_deltaSeconds: number, pose: AvatarPose): void {
+    this.setPosition(pose.position);
+  }
+
+  updatePreview(): void {}
+
+  setEffects(): void {}
+
+  setPosition(position: Vec3): void {
+    this.root.position.set(position.x, position.y, position.z);
+  }
+
+  setYaw(): void {}
+
+  dispose(): void {
+    this.root.dispose();
+    this.shadowMaterial.dispose();
+  }
+}
+
+/** Frame of the last painted-view construction per scene (one per rendered frame). */
+const lastSwapFrames = new WeakMap<Scene, number>();
+
+/** Claims this frame's painted-view construction for `scene`; false when already taken. */
+function takeSwapBudget(scene: Scene): boolean {
+  const frame = scene.getFrameId();
+  if (lastSwapFrames.get(scene) === frame) return false;
+  lastSwapFrames.set(scene, frame);
+  return true;
+}
 
 /** Characters further away than this never trigger a painted-model download. */
 const LAZY_LOAD_DISTANCE = 220;
@@ -1164,6 +1265,8 @@ class PendingPaintedView implements AvatarView {
   private disposed = false;
   private requested = false;
   private loaded: { asset: PaintedModelAsset; textures: PaintedTextures } | null = null;
+  /** The stand-in shows nothing (model already loaded), so it may swap at any time. */
+  private readonly placeholder: boolean;
   private checkIn = 0;
   private effects: Partial<CharacterMaterialState> = {};
   private lastYaw = 0;
@@ -1186,8 +1289,13 @@ class PendingPaintedView implements AvatarView {
     private readonly scene: Scene,
     shadowMaterial: StandardMaterial,
     private readonly profile: PlayerProfile,
+    /** Already loaded: show nothing for the frame or two until the swap budget allows. */
+    preloaded: { asset: PaintedModelAsset; textures: PaintedTextures } | null = null,
   ) {
-    this.current = new CharacterView(scene, shadowMaterial, profile);
+    this.current = preloaded ? new EmptyAvatarView(scene, shadowMaterial) : new CharacterView(scene, shadowMaterial, profile);
+    this.placeholder = preloaded !== null;
+    this.loaded = preloaded;
+    this.requested = preloaded !== null;
     this.label = shadowMaterial.name;
     this.key = paintedModelSpec(profile)?.key ?? null;
     lastLibrary = paintedModelLibrary(scene);
@@ -1241,10 +1349,9 @@ class PendingPaintedView implements AvatarView {
    */
   private trySwap(alive: boolean, steady: boolean): void {
     const loaded = this.loaded;
-    if (!loaded || this.painted || this.disposed || !alive || !steady) return;
-    const frame = this.scene.getFrameId();
-    if (lastSwapFrame === frame) return;
-    lastSwapFrame = frame;
+    if (!loaded || this.painted || this.disposed) return;
+    if (!this.placeholder && (!alive || !steady)) return;
+    if (!takeSwapBudget(this.scene)) return;
     try {
       const previous = this.current;
       const enabled = previous.root.isEnabled(false);
@@ -1255,6 +1362,7 @@ class PendingPaintedView implements AvatarView {
       next.setYaw(this.lastYaw, true);
       next.setEffects(this.effects);
       next.root.setEnabled(enabled);
+      next.snapToPose();
       previous.dispose();
       this.current = next;
       this.painted = true;
@@ -1279,7 +1387,11 @@ class PendingPaintedView implements AvatarView {
 
   update(deltaSeconds: number, pose: AvatarPose): void {
     this.lastYaw = pose.yaw;
-    this.trySwap(pose.alive, (pose.parachuteBlend ?? 0) < 0.05);
+    // Remote poses carry only parachuteState: read it the way the views do.
+    const chute =
+      pose.parachuteBlend ??
+      (pose.parachuteState === ParachuteState.Intact || pose.parachuteState === ParachuteState.Tattered ? 1 : 0);
+    this.trySwap(pose.alive, chute < 0.05);
     this.current.update(deltaSeconds, pose);
     this.checkOnScreen(deltaSeconds);
   }
@@ -1349,6 +1461,9 @@ export function createPaintedAvatarView(
   if (asset && !asset.skinned) return null;
   const textures = library.loadedTexturesOf(spec.key);
   if (asset && textures) {
+    // Same budget as the stand-in swaps: at most one painted view is built
+    // per frame (N remotes joining at once queue up, one per frame).
+    if (!takeSwapBudget(scene)) return new PendingPaintedView(scene, shadowMaterial, profile, { asset, textures });
     try {
       return new GlbCharacterView(scene, shadowMaterial, profile, asset, textures);
     } catch (error) {
