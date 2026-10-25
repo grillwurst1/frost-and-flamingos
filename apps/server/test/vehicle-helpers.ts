@@ -124,6 +124,12 @@ export function slotByKind(kind: string, trigger: 'base' | 'map' = 'base'): (typ
   return slot;
 }
 
+export function slotBySpawn(spawnId: string): (typeof VEHICLE_SLOTS)[number] {
+  const slot = VEHICLE_SLOTS.find((entry) => entry.spawn.id === spawnId);
+  if (!slot) throw new Error(`no slot ${spawnId}`);
+  return slot;
+}
+
 /** Moves a vehicle onto the ground (or the water) at x/z, facing `yaw`. */
 export function parkVehicle(room: MatchRoom, vehicleId: number, x: number, z: number, yaw: number): void {
   const body = room.vehicles.vehicleBody(vehicleId);
