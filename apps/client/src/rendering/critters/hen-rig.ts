@@ -83,6 +83,15 @@ const tmpQ = new Quaternion();
 const tmpQ2 = new Quaternion();
 const tmpV = new Vector3();
 const tmpV2 = new Vector3();
+const tmpContact = new Vector3();
+
+/**
+ * A skinned vertex low on a leg: its skin influences, each with the vertex
+ * offset in that joint's frame (linear blend skinning, like the GPU).
+ */
+export interface HenGroundContact {
+  influences: Array<{ joint: string; weight: number; offset: Vector3 }>;
+}
 const tmpOut = new Vector3();
 const tmpBack = new Vector3();
 
@@ -371,7 +380,8 @@ export class HenRig {
     }
 
     // Body posture: sprinting nose-down, tipping forward to peck. The legs
-    // counter-rotate so they stay under the body.
+    // counter-rotate so they stay under the body (the ground is re-planted
+    // after every layer, see plantFeet).
     const breathe = Math.sin(this.time * 2.4) * 0.025;
     const bodyPitch =
       this.flee * HEN_POSE.fleeBody + this.peck * (0.08 + peckDown * HEN_POSE.peckBody) + this.scratch * 0.1 - this.air * 0.16 + breathe;
@@ -463,6 +473,70 @@ export class HenRig {
       this.swing('tailstart', 'tail3', this.up, tailUp);
       this.solve();
     }
+
+    // Keep the lowest leg vertex on the ground whatever the layers did (in
+    // the air the hen is free; the blend follows the air weight).
+    this.plantFeet(1 - this.air);
+  }
+
+  /**
+   * Ground contacts: the lowest skinned vertices of every leg joint, as
+   * offsets in that joint's own frame (armature space), measured once on the
+   * fitted neutral pose. They ride with their joint, so the lowest of them
+   * follows wing flaps, pitch and gait; planting keeps it at the ground level
+   * of the neutral pose.
+   */
+  setGroundContacts(contacts: ReadonlyArray<HenGroundContact>): void {
+    this.contacts = contacts.filter((contact) => contact.influences.every((influence) => this.byName.has(influence.joint)));
+    this.groundLevel = this.contacts.length > 0 ? this.contactLevel() : 0;
+  }
+
+  /** The joint's armature-space rotation after the last solve. */
+  jointRotation(name: string): Quaternion | null {
+    return this.byName.get(name)?.world ?? null;
+  }
+
+  private contacts: ReadonlyArray<HenGroundContact> = [];
+  private groundLevel = 0;
+
+  /** Lowest point of the leg contacts along `up` after the last solve. */
+  private contactLevel(): number {
+    let lowest = Number.POSITIVE_INFINITY;
+    for (const contact of this.contacts) {
+      let height = 0;
+      for (const influence of contact.influences) {
+        const joint = this.byName.get(influence.joint);
+        if (!joint) continue;
+        influence.offset.rotateByQuaternionToRef(joint.world, tmpContact);
+        height += influence.weight * (Vector3.Dot(joint.position, this.up) + Vector3.Dot(tmpContact, this.up));
+      }
+      lowest = Math.min(lowest, height);
+    }
+    return lowest;
+  }
+
+  /**
+   * Moves the hips along `up` (by `weight` of the error) so the lowest leg
+   * contact is back on the ground level of the neutral pose: the posture
+   * pitch, the wing flaps and the gait otherwise lift the feet off the
+   * ground (flee, peck) or push them into it.
+   */
+  private plantFeet(weight: number): void {
+    const hips = this.byName.get('Hips');
+    if (!hips || this.contacts.length === 0 || weight <= 0.001) return;
+    const offset = (this.contactLevel() - this.groundLevel) * weight;
+    if (!Number.isFinite(offset) || Math.abs(offset) < 1e-6) return;
+    this.up.scaleToRef(-offset, tmpV);
+    const parentWorld = hips.parent?.world;
+    if (parentWorld) {
+      // Hips translate in their parent's frame.
+      Quaternion.InverseToRef(parentWorld, tmpQ);
+      tmpV.rotateByQuaternionToRef(tmpQ, tmpV2);
+      hips.node.position.addInPlace(tmpV2);
+    } else {
+      hips.node.position.addInPlace(tmpV);
+    }
+    this.solve();
   }
 
   /** Blends every joint toward the neutral standing frame by `weight`. */

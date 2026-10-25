@@ -34,7 +34,7 @@
     },
     "hen": {
       "file": "hen.glb",
-      "bytes": 1867062,
+      "bytes": 889826,
       "textures": {
         "basecolor": "hen-basecolor.webp"
       }

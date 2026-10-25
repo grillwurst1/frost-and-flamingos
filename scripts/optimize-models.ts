@@ -5,8 +5,7 @@
  *   bun run models art-src/meshy/meshy-lagoon-heavy.glb
  *   bun run models --normal-size=2048    # larger normal map (default 1024)
  *   bun run models --keep-normal=false   # also drop the normal map
- *   bun run models art-src/meshy/meshy-hen.glb --base-size=1024
- *                                        # shrink the base colour (small props/critters)
+ *   bun run models --base-size=1024      # override every model's base colour edge
  *   bun run models --manifest-only       # just rewrite models/manifest.json
  *
  * Input:  untouched Meshy downloads (rigged Mixamo skeleton, PBR material with
@@ -20,7 +19,9 @@
  *         cause a 404.
  *
  * Steps (lossless for the skeleton; clips as described in step 1):
- *   0. CLEAN_ISLANDS models: drop tiny floating mesh fragments (glb-islands.ts),
+ *   0. CLEAN_ISLANDS models: drop tiny floating mesh fragments (glb-islands.ts);
+ *      MODEL_TUNING models (small props, critters) are simplified to their
+ *      triangle budget (glb-simplify.ts) and get a smaller base colour,
  *   1. models of the bake set (the catalogue's soldiers plus EXTRA_BAKES) get
  *      their clips replaced by one `ff:<role>` animation per animation role:
  *      the model's own clip for the role (per-model clip table), else, for
@@ -48,6 +49,7 @@ import type { BakedClip } from '../apps/client/src/rendering/glb/clips';
 import { readGlb, writeBakedAnimations, writeGlb, type GlbParts } from '../apps/client/src/rendering/glb/glb-binary';
 import { bakeClipLibrary, type BakeSource } from '../apps/client/src/rendering/glb/offline-bake';
 import { removeSmallIslands, type GlbJson } from './glb-islands';
+import { simplifyGlb, type SimplifyJson } from './glb-simplify';
 
 const ROOT = resolve(import.meta.dir, '..');
 const SOURCE_DIR = join(ROOT, 'art-src', 'meshy');
@@ -59,6 +61,22 @@ const NORMAL_QUALITY = 90;
 const NAME_PATTERN = /^meshy-([a-z0-9]+(?:-[a-z0-9]+)*)\.glb$/;
 /** Models whose Meshy mesh carries tiny floating fragments (see glb-islands.ts). */
 const CLEAN_ISLANDS = new Set(['alpine-ghostgirl']);
+
+interface ModelTuning {
+  /** Base colour edge in px (the soldiers keep their full painted 2048²). */
+  baseSize?: number;
+  /** Triangle budget: the mesh is welded and simplified below it. */
+  maxTriangles?: number;
+}
+
+/**
+ * Per-model settings for small, numerous models: a 45 cm hen needs neither
+ * a soldier's 20k triangles nor a 2048² texture. A plain `bun run models`
+ * applies these; --base-size overrides the base colour edge of a run.
+ */
+const MODEL_TUNING: Readonly<Record<string, ModelTuning>> = {
+  hen: { baseSize: 1024, maxTriangles: 8000 },
+};
 
 interface BakeEntry {
   /** Role → candidate clip names, first match wins. */
@@ -136,7 +154,7 @@ interface Options {
   manifestOnly: boolean;
   keepNormal: boolean;
   normalSize: number;
-  /** Base colour edge in px; 0 keeps the painted texture at full size. */
+  /** Base colour edge in px for every model of the run; 0 uses MODEL_TUNING (else full size). */
   baseSize: number;
   files: string[];
 }
@@ -289,6 +307,18 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
     const report = removeSmallIslands(parts.json as GlbJson, parts.bin);
     console.log(`${name}: removed ${report.removedIslands} stray islands (${report.removedTriangles} tris), kept ${report.keptTriangles}`);
   }
+  const tuning = MODEL_TUNING[key] ?? {};
+  if (tuning.maxTriangles) {
+    const simplified = await simplifyGlb(parts.json as SimplifyJson, parts.bin, tuning.maxTriangles);
+    if (simplified) {
+      parts.bin = simplified.bin;
+      const report = simplified.report;
+      console.log(
+        `${name}: simplified ${report.trianglesBefore} -> ${report.trianglesAfter} triangles, ${report.verticesBefore} -> ${report.verticesAfter} vertices ` +
+          `(budget ${tuning.maxTriangles}, error ${report.error.toFixed(4)} within ${report.bound}${report.permissive ? ', permissive' : ''})`,
+      );
+    }
+  }
   const clips = baked.get(key);
   if (clips) writeBakedAnimations(parts, orderedClips(clips));
   stripUnusedTextures(parts, options.keepNormal);
@@ -297,8 +327,9 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
   await run(['prune', `${stem}-0.glb`, `${stem}-1.glb`]);
   const size = `${options.normalSize}`;
   await run(['resize', `${stem}-1.glb`, `${stem}-2.glb`, '--pattern', 'ff-normal', '--width', size, '--height', size]);
-  if (options.baseSize > 0) {
-    const base = `${options.baseSize}`;
+  const baseSize = options.baseSize > 0 ? options.baseSize : (tuning.baseSize ?? 0);
+  if (baseSize > 0) {
+    const base = `${baseSize}`;
     await run(['resize', `${stem}-2.glb`, `${stem}-2a.glb`, '--pattern', 'ff-basecolor', '--width', base, '--height', base]);
     await Bun.write(`${stem}-2.glb`, Bun.file(`${stem}-2a.glb`));
   }

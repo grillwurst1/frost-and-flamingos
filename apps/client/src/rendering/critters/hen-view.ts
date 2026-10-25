@@ -1,6 +1,7 @@
 import '@babylonjs/core/Bones/skeleton';
 import { AnimationGroup } from '@babylonjs/core/Animations/animationGroup';
 import type { InstantiatedEntries } from '@babylonjs/core/assetContainer';
+import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
@@ -14,7 +15,7 @@ import { registerPaintedModel, type PaintedModelSpec } from '../glb/catalog';
 import { jointName, paintedModelLibrary, type PaintedModelAsset } from '../glb/library';
 import { createGlbMaterial, updateGlbMaterial } from '../glb/material';
 import { createShadowMaterial, excludeFromShadows, type CharacterMaterialState } from '../materials';
-import { HenRig } from './hen-rig';
+import { HenRig, type HenGroundContact } from './hen-rig';
 
 /**
  * The owner's painted Meshy hen in the game: loaded once through package
@@ -78,9 +79,13 @@ interface HenFit {
   /** Body centre (model units, x/z) that is moved onto the root, under the hitbox. */
   centreX: number;
   centreZ: number;
+  /** The lowest vertices of every leg joint in the joint's frame (ground planting). */
+  contacts: HenGroundContact[];
 }
 
 const fits = new WeakMap<PaintedModelAsset, HenFit>();
+/** Lowest vertices kept per leg joint for ground planting. */
+const CONTACTS_PER_JOINT = 12;
 const materialFrames = new WeakMap<ShaderMaterial, number>();
 
 function measureFit(mesh: Mesh, armature: TransformNode, rig: HenRig): HenFit {
@@ -104,7 +109,46 @@ function measureFit(mesh: Mesh, armature: TransformNode, rig: HenRig): HenFit {
   const count = Math.max(1, positions.length / 3);
   const height = maxY - minY;
   const forward = Vector3.TransformNormal(rig.forwardAxis, armature.getWorldMatrix());
+  // Ground contacts: the lowest vertices of every leg joint, with their skin
+  // influences (offsets in each joint's frame), in armature space.
+  const toArmature = Matrix.Invert(armature.getWorldMatrix());
+  const joints = mesh.getVerticesData(VertexBuffer.MatricesIndicesKind) ?? [];
+  const weights = mesh.getVerticesData(VertexBuffer.MatricesWeightsKind) ?? [];
+  const bones = mesh.skeleton?.bones ?? [];
+  const up = rig.upAxis;
+  const perJoint = new Map<string, Array<{ height: number; contact: HenGroundContact }>>();
+  for (let index = 0; index < positions.length / 3; index += 1) {
+    const primary = jointName(bones[joints[index * 4] ?? 0]?.name ?? '');
+    if (!/leg/i.test(primary)) continue;
+    Vector3.TransformCoordinatesFromFloatsToRef(positions[index * 3] ?? 0, positions[index * 3 + 1] ?? 0, positions[index * 3 + 2] ?? 0, world, point);
+    Vector3.TransformCoordinatesToRef(point, toArmature, point);
+    const influences: HenGroundContact['influences'] = [];
+    let total = 0;
+    for (let slot = 0; slot < 4; slot += 1) {
+      const weight = weights[index * 4 + slot] ?? 0;
+      if (weight <= 0.001) continue;
+      const name = jointName(bones[joints[index * 4 + slot] ?? 0]?.name ?? '');
+      const joint = rig.jointPosition(name);
+      const rotation = rig.jointRotation(name);
+      if (!joint || !rotation) continue;
+      const offset = point.subtract(joint);
+      offset.rotateByQuaternionToRef(Quaternion.Inverse(rotation), offset);
+      influences.push({ joint: name, weight, offset });
+      total += weight;
+    }
+    if (total <= 0) continue;
+    for (const influence of influences) influence.weight /= total;
+    const list = perJoint.get(primary) ?? [];
+    list.push({ height: Vector3.Dot(point, up), contact: { influences } });
+    perJoint.set(primary, list);
+  }
+  const contacts: HenGroundContact[] = [];
+  for (const list of perJoint.values()) {
+    list.sort((a, b) => a.height - b.height);
+    for (const entry of list.slice(0, CONTACTS_PER_JOINT)) contacts.push(entry.contact);
+  }
   return {
+    contacts,
     scale: height > 1e-6 ? CRITTER_STATS.hen.height / height : 1,
     lift: Number.isFinite(minY) ? -minY : 0,
     yaw: -Math.atan2(forward.x, forward.z),
@@ -182,6 +226,8 @@ export class HenView implements CritterView {
       fit = measureFit(mesh, armature, this.rig);
       fits.set(asset, fit);
     }
+    // Still in the neutral pose the fit was measured on: that is the ground level.
+    this.rig.setGroundContacts(fit.contacts);
     gltfRoot.parent = this.modelRoot;
     this.modelRoot.scaling.setAll(fit.scale);
     this.modelRoot.rotation.y = fit.yaw;
