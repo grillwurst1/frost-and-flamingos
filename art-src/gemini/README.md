@@ -33,6 +33,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-sheet-bridge-stages.webp` | Bridge and pier segments: intact, destroyed, repaired |
 | `gemini-sheet-bases.webp` | Alpine base camp and lagoon beachhead |
 | `gemini-sheet-trees.webp` | Firs, palms, felled trunks, boulders, bushes |
+| `gemini-sheet-death-gags.webp` | Death gag mechanics reference (frozen, charred, blast-launch, dizzy) — see ART notes for what not to copy |
 | `gemini-vfx.webp` | Explosion, smoke, fire, snow, water, dust and muzzle-flash particle sprites |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
