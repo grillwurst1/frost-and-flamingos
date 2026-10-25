@@ -163,7 +163,8 @@ export class PhysicsWorld {
   }
 
   private createBoundaryColliders(): void {
-    const wallDistance = MAP_HALF_SIZE + 3;
+    // Inner faces at ±(MAP_HALF_SIZE - 0.5): on the heightfield, so no ground-less slot at dry edges.
+    const wallDistance = MAP_HALF_SIZE + 1.5;
     // Tall enough to fence in the edge summits (+96 m) as well as the sea.
     const wallHeight = 170;
     const walls: Array<{ position: Vec3; halfExtents: Vec3 }> = [

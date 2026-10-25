@@ -497,6 +497,14 @@ function drawGableRoof(batch: GeometryBatch, layout: BuildingLayout, style: Buil
     });
   }
   batch.box(0, top + rise + 0.12, 0, 0.42, 0.24, length + 0.1, thatch ? P.thatchDark : P.logDark, thatch ? 'thatch' : 'wood', 0.08);
+  if (thatch) {
+    // Crossed bamboo ridge poles over both gable ends.
+    for (const sign of [1, -1]) {
+      for (const side of [1, -1]) {
+        batch.log([side * 0.9, top + rise - 0.6, sign * (length / 2)], [-side * 0.5, top + rise + 0.9, sign * (length / 2)], 0.09, P.bamboo, 'wood', { segments: 5 });
+      }
+    }
+  }
   if (layout.roof.snow) {
     batch.blob(0, top + rise + 0.28, 0, 0.5, 0.3, length / 2 + 0.05, P.snow, 'snow', { segments: 10, rings: 4 });
     for (const sign of [1, -1]) {
@@ -511,36 +519,6 @@ function drawGableRoof(batch: GeometryBatch, layout: BuildingLayout, style: Buil
     batch.box(cx, base + 2.15, cz, 1.15, 0.22, 1.15, P.cobbleDark, 'stone', 0.06);
     if (layout.roof.snow) batch.blob(cx, base + 2.3, cz, 0.55, 0.18, 0.55, P.snow, 'snow', { segments: 6, rings: 3 });
   }
-}
-
-function drawThatchHip(batch: GeometryBatch, layout: BuildingLayout, seed: number): void {
-  const top = roofBase(layout);
-  const halfW = layout.width / 2 + layout.roof.overhang;
-  const halfD = layout.depth / 2 + layout.roof.overhang;
-  const rise = Math.tan(layout.roof.pitch) * Math.min(halfW, halfD) * 1.1;
-  const layers = 5;
-  for (let layer = 0; layer < layers; layer += 1) {
-    const t = layer / layers;
-    const w = halfW * (1 - t * 0.85);
-    const d = halfD * (1 - t * 0.85);
-    const y = top + t * rise;
-    const color = mix(P.thatchDark, P.thatch, 0.4 + hash3(layer, seed, 1) * 0.6);
-    batch.box(0, y + rise / layers / 2, 0, w * 2, rise / layers + 0.25, d * 2, color, 'thatch', 0.2);
-    // Shaggy fringe along the lowest layer
-    if (layer === 0) {
-      const tufts = Math.round((w + d) * 2.2);
-      for (let index = 0; index < tufts; index += 1) {
-        const p = index / tufts;
-        const perimeter = p * 4;
-        const side = Math.floor(perimeter);
-        const f = perimeter - side;
-        const x = side === 0 ? -w + f * w * 2 : side === 1 ? w : side === 2 ? w - f * w * 2 : -w;
-        const z = side === 0 ? d : side === 1 ? d - f * d * 2 : side === 2 ? -d : -d + f * d * 2;
-        batch.box(x, y - 0.1, z, 0.3, 0.45 + hash3(index, seed, 2) * 0.3, 0.3, mix(P.thatch, P.thatchDark, hash3(index, 1, seed)), 'thatch', 0.08);
-      }
-    }
-  }
-  batch.blob(0, top + rise + 0.2, 0, 0.5, 0.35, 0.5, P.thatchDark, 'thatch', { segments: 6, rings: 3 });
 }
 
 function drawBarrelRoof(batch: GeometryBatch, layout: BuildingLayout, style: BuildingStyle): void {
@@ -736,10 +714,6 @@ export function drawBuilding(batch: GeometryBatch, layout: BuildingLayout, optio
   switch (layout.roof.kind) {
     case 'gable':
       drawGableRoof(batch, layout, style, options.seed, { chimney: layout.floors.length > 1 || layout.style === 'side_hut', gableDecor: style.hearts });
-      break;
-    case 'thatch':
-    case 'hip':
-      drawThatchHip(batch, layout, options.seed);
       break;
     case 'barrel':
       drawBarrelRoof(batch, layout, style);

@@ -286,6 +286,7 @@ export class CharacterBody {
     const centerY = position.y + this.baseHeight / 2;
     this.body.setTranslation({ x: position.x, y: centerY, z: position.z }, true);
     this.body.setNextKinematicTranslation({ x: position.x, y: centerY, z: position.z });
+    this.syncColliderPose();
   }
 
   restore(
@@ -315,13 +316,31 @@ export class CharacterBody {
     const centerY = position.y + this.baseHeight / 2;
     this.body.setTranslation({ x: position.x, y: centerY, z: position.z }, true);
     this.body.setNextKinematicTranslation({ x: position.x, y: centerY, z: position.z });
+    this.syncColliderPose();
+  }
+
+  /** Crouch offset of the collider relative to the body. */
+  private colliderOffsetY(): number {
+    return (this.currentHeight - this.baseHeight) / 2;
+  }
+
+  /**
+   * Rapier only moves attached colliders to their body on world.step(), and
+   * Collider.setTranslation is world-space. Every time the motor moves the
+   * body directly (teleport, reconciliation restore, mantle, crouch) the
+   * collider's world pose is synced at once, so the character controller
+   * never sweeps from a stale pose.
+   */
+  private syncColliderPose(): void {
+    const center = this.body.translation();
+    this.collider.setTranslation({ x: center.x, y: center.y + this.colliderOffsetY(), z: center.z });
   }
 
   private updateColliderShape(): void {
     const halfHeight = Math.max(0.01, (this.currentHeight - this.stats.radius * 2) / 2);
     this.collider.setHalfHeight(halfHeight);
-    // Relative to the body: `setTranslation` would move the collider to world space.
-    this.collider.setTranslationWrtParent({ x: 0, y: (this.currentHeight - this.baseHeight) / 2, z: 0 });
+    this.collider.setTranslationWrtParent({ x: 0, y: this.colliderOffsetY(), z: 0 });
+    this.syncColliderPose();
   }
 
   private startRoll(forwardX: number, forwardZ: number): void {
@@ -490,6 +509,7 @@ export class CharacterBody {
       const centerY = this.feet.y + this.baseHeight / 2;
       this.body.setTranslation({ x: this.feet.x, y: centerY, z: this.feet.z }, true);
       this.body.setNextKinematicTranslation({ x: this.feet.x, y: centerY, z: this.feet.z });
+      this.syncColliderPose();
       if (this.mantleTimer <= 0) this.isGrounded = true;
       if (trackButtons) this.previousButtons = buttons;
       return;

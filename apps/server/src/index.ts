@@ -61,6 +61,10 @@ const server = Bun.serve<SocketData>({
     }
 
     if (url.pathname === '/api/dev/teleport' && process.env.FF_DEV_TOOLS === '1') {
+      // Local capture tooling only: POST from a loopback address.
+      const address = bunServer.requestIP(request)?.address ?? '';
+      const loopback = address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+      if (request.method !== 'POST' || !loopback) return json({ ok: false }, 403);
       const player = Number(url.searchParams.get('player'));
       const x = Number(url.searchParams.get('x'));
       const z = Number(url.searchParams.get('z'));

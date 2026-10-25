@@ -10,6 +10,7 @@ import {
   FJORD_MAP,
   FjordLayout,
   LIGHTHOUSE,
+  MID_SUPPORT_STAIRS,
   PAVILION,
   SUMMIT_CLOCK_HOUSE,
   bridgeDeckHeightAt,
@@ -410,13 +411,31 @@ export function drawClockPavilion(batch: GeometryBatch): void {
     });
   }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) batch.box(sx * (s / 2), yb + C.houseHeight / 2, sz * (s / 2), 0.36, C.houseHeight, 0.36, P.logDark, 'wood', 0.06);
-  // Pyramid roof of shingle courses with a spire.
+  // Pyramid roof: four sloped faces over overhanging eaves, shingle courses laid
+  // along each face, hip caps, an eave trim and the gold spire.
   const roofBase = yb + C.houseHeight;
-  const courses = 7;
-  for (let course = 0; course < courses; course += 1) {
-    const t0 = course / courses;
-    const half = (s / 2 + 0.9) * (1 - t0 * 0.92);
-    batch.box(0, roofBase + t0 * C.roofHeight + 0.2, 0, half * 2, C.roofHeight / courses + 0.18, half * 2, mix(P.shingle, P.shingleRed, course % 2 === 0 ? 0.25 : 0), 'shingle', 0.12);
+  const eave = s / 2 + 0.9;
+  const apexY = roofBase + C.roofHeight;
+  const slopeLength = Math.hypot(eave, C.roofHeight);
+  const pitch = Math.atan2(C.roofHeight, eave);
+  batch.box(0, roofBase + 0.05, 0, eave * 2, 0.1, eave * 2, P.logDark, 'wood', 0.02);
+  const courses = 8;
+  for (let side = 0; side < 4; side += 1) {
+    batch.with(Affine.rotationY((side * Math.PI) / 2), () => {
+      batch.orientedPolygon([[-eave, roofBase, eave], [eave, roofBase, eave], [0, apexY, 0]], [0, eave, C.roofHeight], P.shingle, 'shingle');
+      batch.with(Affine.translation(0, apexY, 0).rotateX(pitch), () => {
+        for (let course = 0; course < courses; course += 1) {
+          const upper = (course / courses) * slopeLength;
+          const along = ((course + 0.5) / courses) * slopeLength;
+          // Half-width of the face at the course's upper edge keeps the hips straight.
+          const half = Math.max(0.12, (upper / slopeLength) * eave);
+          const color = mix(shade(P.shingle, 0.88 + hash3(course, side, 5) * 0.16), P.shingleRed, course % 2 === 0 ? 0.25 : 0);
+          batch.box(0, 0.02 - (course % 2) * 0.02, along, half * 2, 0.16, slopeLength / courses + 0.14, color, 'shingle', 0.04);
+        }
+      });
+      batch.log([-eave, roofBase + 0.02, eave + 0.02], [eave, roofBase + 0.02, eave + 0.02], 0.12, P.trim, 'wood', { segments: 5 });
+      batch.log([eave, roofBase + 0.08, eave], [0, apexY + 0.05, 0], 0.13, shade(P.shingle, 0.7), 'wood', { segments: 5 });
+    });
   }
   batch.lathe([[0.25, roofBase + C.roofHeight], [0.06, roofBase + C.roofHeight + 1.6]], 6, P.gold, 'metal');
   batch.blob(0, roofBase + C.roofHeight + 1.7, 0, 0.22, 0.22, 0.22, P.gold, 'metal', { segments: 6, rings: 4 });
@@ -970,30 +989,58 @@ function drawMidSupport(batch: GeometryBatch, rise: number): void {
       batch.box(s * x1, y1, 0, 0.12, 0.12, z1 * 2, P.steel, 'metal', 0);
     }
   }
-  // Deck with a steel rim and side rails (the ±X edges stay open for the gondola).
+  // Deck with a steel rim and side rails (the ±X edges stay open for the gondola,
+  // the +Z rail has a gap where the stairs arrive).
   for (let index = 0; index < 16; index += 1) plank(batch, -3.6 + (index + 0.5) * 0.45, rise - 0.1, 0, 6, 0.45, index, false);
   batch.box(0, rise - 0.32, 0, 7.4, 0.26, 6.2, P.metalDark, 'metal', 0.04);
-  for (const s of [-1, 1]) {
-    for (let post = 0; post <= 8; post += 1) batch.box(-3.5 + post * 0.875, rise + 0.5, s * 2.92, 0.08, 1.0, 0.08, P.steel, 'metal', 0);
-    batch.box(0, rise + 1.0, s * 2.92, 7.1, 0.08, 0.1, P.alpineRed, 'metal', 0);
-    batch.box(0, rise + 0.5, s * 2.92, 7.1, 0.06, 0.06, P.steel, 'metal', 0);
+  const { width, lower, landing, upper, arrival } = MID_SUPPORT_STAIRS;
+  const railSpans: [number, number, number][] = [
+    [-1, -3.55, 3.55],
+    [1, -3.55, arrival.minX],
+    [1, arrival.maxX, 3.55],
+  ];
+  for (const [s, x0, x1] of railSpans) {
+    const posts = Math.max(1, Math.round((x1 - x0) / 0.875));
+    for (let post = 0; post <= posts; post += 1) batch.box(x0 + ((x1 - x0) * post) / posts, rise + 0.5, s * 2.92, 0.08, 1.0, 0.08, P.steel, 'metal', 0);
+    batch.box((x0 + x1) / 2, rise + 1.0, s * 2.92, x1 - x0, 0.08, 0.1, P.alpineRed, 'metal', 0);
+    batch.box((x0 + x1) / 2, rise + 0.5, s * 2.92, x1 - x0, 0.06, 0.06, P.steel, 'metal', 0);
   }
-  // Switchback stairs on the outside of the tower.
-  for (const [x, z0, z1, y0, y1] of [
-    [5.6, -6.8, 1.2, 0, rise / 2],
-    [4.0, 3.6, -2.6, rise / 2, rise],
+  // Switchback stairs climbing along the +Z side; the outer handrail faces away from the tower.
+  const half = rise / 2;
+  for (const [z, x0, x1, y0, y1, railSide] of [
+    [lower.z, lower.fromX, lower.toX, 0, half, 1],
+    [upper.z, upper.fromX, upper.toX, half, rise, -1],
   ] as const) {
     const steps = Math.round((y1 - y0) / 0.28);
     for (let step = 0; step < steps; step += 1) {
       const t = (step + 0.5) / steps;
-      batch.box(x, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t, 1.6, 0.12, Math.abs(z1 - z0) / steps + 0.05, P.plankLight, 'wood', 0.02);
+      batch.box(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z, Math.abs(x1 - x0) / steps + 0.05, 0.12, width, P.plankLight, 'wood', 0.02);
     }
-    for (const side of [-1, 1]) batch.log([x + side * 0.82, y0 - 0.2, z0], [x + side * 0.82, y1 - 0.2, z1], 0.08, P.metalDark, 'metal', { segments: 4 });
-    batch.log([x + 0.85, y0 + 1.0, z0], [x + 0.85, y1 + 1.0, z1], 0.05, P.alpineRed, 'metal', { segments: 4 });
+    for (const side of [-1, 1]) batch.log([x0, y0 - 0.2, z + side * (width / 2 + 0.02)], [x1, y1 - 0.2, z + side * (width / 2 + 0.02)], 0.08, P.metalDark, 'metal', { segments: 4 });
+    batch.log([x0, y0 + 1.0, z + railSide * (width / 2 + 0.05)], [x1, y1 + 1.0, z + railSide * (width / 2 + 0.05)], 0.05, P.alpineRed, 'metal', { segments: 4 });
   }
-  batch.box(4.8, rise / 2 - 0.15, 2.4, 3.2, 0.3, 2.4, P.plank, 'wood', 0.04);
-  batch.log([5.6, 0, 2.4], [5.6, rise / 2 - 0.3, 2.4], 0.14, P.steel, 'metal', { segments: 5 });
-  batch.log([5.6, 0, -6.6], [5.6, 0.4, -6.6], 0.14, P.steel, 'metal', { segments: 5 });
+  // Half-height landing on two steel posts with a rail round its outer end.
+  const landingX = (landing.minX + landing.maxX) / 2;
+  const landingZ = (landing.minZ + landing.maxZ) / 2;
+  batch.box(landingX, half - 0.15, landingZ, landing.maxX - landing.minX, 0.3, landing.maxZ - landing.minZ, P.plank, 'wood', 0.04);
+  for (const z of [landing.minZ + 0.25, landing.maxZ - 0.25]) {
+    batch.log([landing.maxX - 0.25, 0, z], [landing.maxX - 0.25, half - 0.3, z], 0.14, P.steel, 'metal', { segments: 5 });
+    batch.log([landing.maxX - 0.25, half, z], [landing.maxX - 0.25, half + 1.0, z], 0.05, P.steel, 'metal', { segments: 3 });
+  }
+  batch.log([landing.maxX - 0.25, half + 1.0, landing.minZ + 0.25], [landing.maxX - 0.25, half + 1.0, landing.maxZ - 0.25], 0.05, P.alpineRed, 'metal', { segments: 4 });
+  batch.log([lower.fromX, 0, lower.z], [lower.fromX, 0.3, lower.z], 0.14, P.steel, 'metal', { segments: 5 });
+  // Arrival landing beside the deck, railed on its open sides.
+  const arrivalX = (arrival.minX + arrival.maxX) / 2;
+  batch.box(arrivalX, rise - 0.15, (arrival.minZ + arrival.maxZ) / 2, arrival.maxX - arrival.minX, 0.3, arrival.maxZ - arrival.minZ, P.plank, 'wood', 0.04);
+  batch.log([arrival.minX + 0.05, rise + 1.0, 2.92], [arrival.minX + 0.05, rise + 1.0, arrival.maxZ - 0.05], 0.05, P.alpineRed, 'metal', { segments: 4 });
+  batch.log([arrival.minX + 0.05, rise + 1.0, arrival.maxZ - 0.05], [arrival.maxX, rise + 1.0, arrival.maxZ - 0.05], 0.05, P.alpineRed, 'metal', { segments: 4 });
+  for (const [x, z] of [
+    [arrival.minX + 0.05, arrival.maxZ - 0.05],
+    [arrival.maxX, arrival.maxZ - 0.05],
+  ] as const) {
+    batch.box(x, rise + 0.5, z, 0.08, 1.0, 0.08, P.steel, 'metal', 0);
+  }
+  batch.log([arrivalX, rise - 0.3, arrival.maxZ - 0.3], [arrivalX, rise - 3.2, 2.7], 0.08, P.steel, 'metal', { segments: 4 });
 
   // Two lattice masts carrying the cross-arm and the sheave train above the deck.
   const mastTop = rise + 5.6;
@@ -1267,7 +1314,9 @@ export function drawCoasterTrack(batch: GeometryBatch): void {
     rings.push(ring);
     outer.push(ringOuter);
   }
-  for (let index = 0; index + 1 < rings.length; index += 1) {
+  // The teal trough ends where the timber launch kicker begins.
+  const kickerStart = Math.min(rings.length - 1, coaster.kickerStart);
+  for (let index = 0; index + 1 <= kickerStart; index += 1) {
     const a = rings[index] as number[];
     const b = rings[index + 1] as number[];
     const oa = outer[index] as number[];
@@ -1279,7 +1328,9 @@ export function drawCoasterTrack(batch: GeometryBatch): void {
       batch.triangle(oa[k] as number, oa[k + 1] as number, ob[k + 1] as number);
     }
   }
+  drawCoasterKicker(batch, points.slice(kickerStart));
   const lip = coaster.rampEnd;
+  const lipBent = coaster.pillars[coaster.pillars.length - 1];
   for (const pillar of coaster.pillars) {
     const h = pillar.top.y - 0.4 - pillar.ground;
     if (h < 0.4) continue;
@@ -1300,11 +1351,66 @@ export function drawCoasterTrack(batch: GeometryBatch): void {
       const tz = after.z - before.z;
       const tl = Math.hypot(tx, tz) || 1;
       drawRampBent(batch, pillar.top.x, pillar.top.y, pillar.top.z, pillar.ground, tz / tl, -tx / tl);
+      if (pillar === lipBent) {
+        // Maintenance ladder beside the lip bent, just behind its legs, up to the deck edge.
+        const ux = tx / tl;
+        const uz = tz / tl;
+        const x = pillar.top.x - ux * 0.7 + uz * 1.55;
+        const z = pillar.top.z - uz * 0.7 - ux * 1.55;
+        const foot = sampleMapHeight(x, z) - 0.1;
+        batch.at(x, foot, z, Math.atan2(-uz, ux), () => drawLadder(batch, pillar.top.y + 0.9 - foot));
+      }
       continue;
     }
     batch.log([pillar.top.x, pillar.ground - 0.3, pillar.top.z], [pillar.top.x, pillar.top.y - 0.35, pillar.top.z], 0.22, P.steel, 'metal', { segments: 6 });
     batch.box(pillar.top.x, pillar.top.y - 0.45, pillar.top.z, 2.6, 0.2, 0.3, P.metalDark, 'metal', 0.04);
     batch.box(pillar.top.x, pillar.ground + 0.2, pillar.top.z, 1.0, 0.4, 1.0, P.cobble, 'stone', 0.08);
+  }
+}
+
+/**
+ * Launch kicker of the coaster: a plank deck on two log stringers with
+ * baluster railings along both edges, laid over the (unchanged) trough
+ * colliders from the end of the teal trough up to the 45° lip.
+ */
+function drawCoasterKicker(batch: GeometryBatch, kick: readonly { x: number; y: number; z: number }[]): void {
+  for (let index = 0; index + 1 < kick.length; index += 1) {
+    const a = kick[index];
+    const b = kick[index + 1];
+    if (!a || !b) continue;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dz = b.z - a.z;
+    const horizontal = Math.hypot(dx, dz) || 1e-6;
+    const length = Math.hypot(horizontal, dy);
+    const yaw = Math.atan2(dx, dz);
+    const pitch = -Math.atan2(dy, horizontal);
+    const sideX = dz / horizontal;
+    const sideZ = -dx / horizontal;
+    batch.with(Affine.translation(a.x, a.y, a.z).rotateY(yaw).rotateX(pitch), () => {
+      const planks = Math.max(1, Math.round(length / 0.45));
+      for (let plankIndex = 0; plankIndex < planks; plankIndex += 1) {
+        const along = ((plankIndex + 0.5) / planks) * length;
+        batch.box(0, -0.16, along, 2.7, 0.1, length / planks - 0.04, plankIndex % 2 === 0 ? P.plankLight : P.plank, 'wood', 0.02);
+      }
+      for (const side of [-1, 1]) {
+        batch.box(side * 1.12, -0.34, length / 2, 0.22, 0.26, length + 0.05, P.logDark, 'wood', 0.04);
+        const posts = Math.max(1, Math.round(length / 1.2));
+        for (let post = 0; post < posts; post += 1) {
+          batch.box(side * 1.3, 0.34, (post / posts) * length, 0.1, 1.0, 0.1, post % 2 === 0 ? P.plankLight : P.plank, 'wood', 0);
+        }
+      }
+    });
+    for (const side of [-1, 1]) {
+      batch.log(
+        [a.x + sideX * side * 1.3, a.y + 0.86, a.z + sideZ * side * 1.3],
+        [b.x + sideX * side * 1.3, b.y + 0.86, b.z + sideZ * side * 1.3],
+        0.05,
+        P.logDark,
+        'wood',
+        { segments: 4 },
+      );
+    }
   }
 }
 

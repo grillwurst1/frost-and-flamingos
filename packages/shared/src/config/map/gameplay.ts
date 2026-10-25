@@ -38,6 +38,8 @@ import { localToWorld, vec3, yawTowards } from './math.js';
 import {
   bridgeDeckHeightAt,
   CHALET_PLACEMENTS,
+  HARBOR_STEPS,
+  HARBOR_STEPS_RUN,
   LIGHTHOUSE,
   PAVILION,
   PIER_LAYOUTS,
@@ -298,7 +300,22 @@ export function zoneAt(x: number, z: number): MapZone {
 // Bot waypoint graph
 // ---------------------------------------------------------------------------
 
-type NodeSpec = [name: string, x: number, z: number, y?: number];
+type NodeSpec = [name: string, x: number, z: number, y?: number, water?: boolean];
+
+/** Feet height of a swimmer; swim-exit nodes sit at it so bots arrive there while swimming. */
+const SWIM_NODE_HEIGHT = -1.1;
+
+/** A node on the harbour deck above each water stair and one in the water at its foot. */
+function harborStepNodes(): NodeSpec[] {
+  return HARBOR_STEPS.flatMap((steps): NodeSpec[] => {
+    const top = localToWorld(steps.origin, steps.yaw, vec3(0, 0, -2.5));
+    const water = localToWorld(steps.origin, steps.yaw, vec3(0, 0, HARBOR_STEPS_RUN + 0.8));
+    return [
+      [`${steps.id}_top`, top.x, top.z, HARBOR_DECK_HEIGHT],
+      [`${steps.id}_water`, water.x, water.z, SWIM_NODE_HEIGHT, true],
+    ];
+  });
+}
 
 const harborRing = (name: string, angle: number): NodeSpec => [name, A.x + Math.sin(angle) * 11, A.z + Math.cos(angle) * 11, HARBOR_DECK_HEIGHT];
 
@@ -375,7 +392,8 @@ const NODES: NodeSpec[] = [
   ['spit_0', -268, -274],
   ['spit_1', -238, -252],
   ['spit_2', -210, -233],
-  ['pier_s_end', ...pierEnd('pier_s', 1.5)],
+  // 2 m past the foot of the landing ramp, on the beach.
+  ['pier_s_end', ...pierEnd('pier_s', 5.5)],
   ['pier_s_mid', ...pierPoint('pier_s', 8), HARBOR_DECK_HEIGHT],
   // Tower A platform ring and piers
   harborRing('harbor_s', Math.PI + 0.18),
@@ -389,6 +407,11 @@ const NODES: NodeSpec[] = [
   ['pier_e_end', ...pierEnd('pier_e', 4.5)],
   ['pier_w_mid', ...pierPoint('pier_w', 12), HARBOR_DECK_HEIGHT],
   ['pier_w_head', ...pierPoint('pier_w', 25), HARBOR_DECK_HEIGHT],
+  // Swim exits: water stairs and beach shore points between the piers.
+  ...harborStepNodes(),
+  ['shore_n', -178, -148],
+  ['shore_ne', -158, -171],
+  ['shore_se', -152, -195],
   // Beach in front of Tower A and the coastal ramp
   ['beach_bars', -160, -146],
   ['beach_east', -140, -176],
@@ -511,6 +534,17 @@ const EDGES: [string, string][] = [
   ['pier_e_mid', 'pier_e_end'],
   ['harbor_w', 'pier_w_mid'],
   ['pier_w_mid', 'pier_w_head'],
+  ['harbor_steps_west_top', 'pier_w_head'],
+  ['harbor_steps_west_top', 'harbor_steps_west_water'],
+  ['harbor_steps_0_top', 'harbor_s'],
+  ['harbor_steps_0_top', 'harbor_w'],
+  ['harbor_steps_0_top', 'harbor_steps_0_water'],
+  ['harbor_steps_1_top', 'harbor_s'],
+  ['harbor_steps_1_top', 'harbor_e'],
+  ['harbor_steps_1_top', 'harbor_steps_1_water'],
+  ['shore_n', 'beach_bars'],
+  ['shore_ne', 'beach_east'],
+  ['shore_se', 'beach_east'],
   ['pier_ne_end', 'beach_bars'],
   ['pier_e_end', 'beach_east'],
   ['beach_bars', 'ramp_0'],
@@ -600,9 +634,9 @@ const EDGES: [string, string][] = [
 ];
 
 function buildNavGraph(): NavGraph {
-  const nodes: NavNode[] = NODES.map(([, x, z, y], index) => {
+  const nodes: NavNode[] = NODES.map(([, x, z, y, water], index) => {
     const position = y !== undefined ? vec3(x, y, z) : ground(x, z);
-    return { id: index, position, zone: zoneAt(x, z).id };
+    return { id: index, position, zone: zoneAt(x, z).id, ...(water ? { water: true } : {}) };
   });
   const indexOf = new Map(NODES.map(([name], index) => [name, index]));
   // Join the summit ring and the base road to the nearest road nodes.

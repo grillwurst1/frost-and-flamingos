@@ -176,7 +176,10 @@ export function drawBuildingExtras(batch: GeometryBatch, prop: MapProp): void {
   }
   switch (prop.kind) {
     case 'beach_bar': {
-      // Hanging coconut lamps under the eaves and crossed ridge poles.
+      // Bamboo tie beam across the front gable with hanging coconut lamps
+      // (the crossed ridge poles come with the thatch gable roof).
+      const run = halfW + layout.roof.overhang;
+      batch.log([-run, top - 0.05, halfD + 0.9], [run, top - 0.05, halfD + 0.9], 0.1, P.bamboo, 'wood', { segments: 5 });
       for (let index = 0; index < 5; index += 1) {
         const x = -halfW + 0.9 + index * ((layout.width - 1.8) / 4);
         batch.box(x, top - 0.15, halfD + 0.9, 0.02, 0.5, 0.02, P.ropeDark, 'cloth', 0);

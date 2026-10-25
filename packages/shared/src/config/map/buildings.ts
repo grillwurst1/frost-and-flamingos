@@ -4,6 +4,7 @@
  * balconies and the roof; `buildingColliders` turns it into Rapier-ready
  * boxes with real door gaps, walkable stair ramps and upper floors.
  */
+import type { TranslationKey } from '../../i18n/schema.js';
 import type { Vec3 } from '../../types/index.js';
 import type {
   BuildingFloor,
@@ -467,7 +468,7 @@ export interface ChaletOptions {
   style: BuildingStyle;
   width: number;
   depth: number;
-  nameKey?: string;
+  nameKey?: TranslationKey;
   snow: boolean;
   doorOffset: number;
 }
@@ -523,7 +524,7 @@ export function chaletLayout(options: ChaletOptions): BuildingLayout {
   };
 }
 
-export function beachBarLayout(nameKey: string): BuildingLayout {
+export function beachBarLayout(nameKey: TranslationKey): BuildingLayout {
   return {
     style: 'beach_bar',
     width: 9,
@@ -544,7 +545,8 @@ export function beachBarLayout(nameKey: string): BuildingLayout {
     ],
     stairs: [],
     stairwells: [],
-    roof: { kind: 'thatch', pitch: (30 * Math.PI) / 180, overhang: 1.4, snow: false },
+    // Palm-thatch gable (the client lays thatch rows and crossed ridge poles).
+    roof: { kind: 'gable', pitch: (30 * Math.PI) / 180, overhang: 1.4, snow: false },
     nameKey,
   };
 }
@@ -563,7 +565,7 @@ export function fisherHutLayout(): BuildingLayout {
   };
 }
 
-export function sideHutLayout(nameKey: string): BuildingLayout {
+export function sideHutLayout(nameKey: TranslationKey): BuildingLayout {
   return {
     style: 'side_hut',
     width: 8.4,
@@ -664,6 +666,6 @@ export function bambooGarageLayout(): BuildingLayout {
     floors: [{ elevation: 0.2, height: 5.6, openings: [door('front', 0, 13.5, 5), door('back', 5, 1.5, 2.4)] }],
     stairs: [],
     stairwells: [],
-    roof: { kind: 'thatch', pitch: (26 * Math.PI) / 180, overhang: 1.4, snow: false },
+    roof: { kind: 'gable', pitch: (26 * Math.PI) / 180, overhang: 1.4, snow: false },
   };
 }

@@ -237,11 +237,11 @@ function buildCoaster(): CoasterRoute {
   control.push(lowPoint);
   const sampled = catmullRom(control, 2);
 
-  // Keep the trough above ground and well above the tank road and lanes.
+  // Raise the trough on trestles: well clear of the snow, higher still over the tank road.
   for (const point of sampled) {
     const ground = sampleMapHeight(point.x, point.z);
     const roadDistance = projectOnPolyline(point.x, point.z, TANK_ROAD_POINTS).distance;
-    const clearance = roadDistance < TANK_ROAD_WIDTH ? 6.5 : 1.6;
+    const clearance = roadDistance < TANK_ROAD_WIDTH ? 6.5 : 4.5;
     point.y = Math.max(point.y, ground + clearance);
   }
   // Smooth the profile so pillars and banking read as one continuous track.
@@ -252,8 +252,15 @@ function buildCoaster(): CoasterRoute {
       if (!point) continue;
       const average =
         ((copy[index - 2] ?? point.y) + (copy[index - 1] ?? point.y) + point.y + (copy[index + 1] ?? point.y) + (copy[index + 2] ?? point.y)) / 5;
-      point.y = Math.max(average, sampleMapHeight(point.x, point.z) + 1.2);
+      point.y = Math.max(average, sampleMapHeight(point.x, point.z) + 3.5);
     }
+  }
+  // Downhill all the way to the kicker: raise any point that is not above the
+  // next one (this lifts the upstream end; the start platform follows it).
+  for (let index = sampled.length - 2; index >= 0; index -= 1) {
+    const point = sampled[index];
+    const next = sampled[index + 1];
+    if (point && next) point.y = Math.max(point.y, next.y + 0.04);
   }
 
   // Parabolic kicker from the low point to the lip with a 45° exit tangent.
@@ -302,6 +309,7 @@ function buildCoaster(): CoasterRoute {
   return {
     track,
     bank,
+    kickerStart: sampled.length - 1,
     start: { ...(points[0] ?? COASTER_CONTROL[0] ?? COASTER_LIP) },
     rampEnd: { ...COASTER_LIP },
     rampAngle: COASTER_RAMP_ANGLE,

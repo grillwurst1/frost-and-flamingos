@@ -7,6 +7,7 @@
  * Coordinates: X = east, Z = north, Y = up. `rotationY` follows the shared
  * convention where local +Z points along `(sin rotationY, cos rotationY)`.
  */
+import type { TranslationKey } from '../i18n/schema.js';
 import type { Faction, Vec2, Vec3 } from './index.js';
 
 /** Surface tags drive footsteps, traction and later terrain destruction. */
@@ -52,7 +53,7 @@ export interface MapZone {
   /** Higher priority zones (buildings, the bridge) win over broad regions. */
   readonly priority: number;
   readonly climate: ClimateBand;
-  readonly labelKey: string;
+  readonly labelKey: TranslationKey;
 }
 
 export type PropCollider =
@@ -226,12 +227,13 @@ export interface BuildingLayout {
     readonly railHeight: number;
   };
   readonly roof: {
-    readonly kind: 'gable' | 'flat' | 'hip' | 'thatch' | 'barrel';
+    /** Pitched roofs are gables (thatch is a material of the building style, not a shape). */
+    readonly kind: 'gable' | 'flat' | 'barrel';
     readonly pitch: number;
     readonly overhang: number;
     readonly snow: boolean;
   };
-  readonly nameKey?: string;
+  readonly nameKey?: TranslationKey;
 }
 
 export interface MapProp {
@@ -282,7 +284,7 @@ export interface TowerAttachPoint {
 
 export interface TowerDefinition {
   readonly id: TowerId;
-  readonly labelKey: string;
+  readonly labelKey: TranslationKey;
   readonly position: Vec3;
   readonly captureRadius: number;
   /** Tower whose ownership a faction holds at round start. */
@@ -294,7 +296,7 @@ export interface TowerDefinition {
 
 export interface FactionBase {
   readonly faction: Faction;
-  readonly labelKey: string;
+  readonly labelKey: TranslationKey;
   readonly position: Vec3;
   readonly protectedRadius: number;
   readonly spawnPads: readonly SpawnPoint[];
@@ -335,7 +337,7 @@ export interface RoadRoute extends RoutePolyline {
 
 export interface CableCarStation {
   readonly id: 'valley' | 'mid' | 'mountain';
-  readonly labelKey: string;
+  readonly labelKey: TranslationKey;
   /** Boarding platform floor. */
   readonly platform: Vec3;
   /** Emergency brake lever position (`F`). */
@@ -373,6 +375,8 @@ export interface CoasterRoute {
   readonly track: RoutePolyline;
   /** Bank angle (radians, positive = leaning right) per track point. */
   readonly bank: readonly number[];
+  /** Index into `track.points` where the wooden launch kicker begins. */
+  readonly kickerStart: number;
   readonly start: Vec3;
   readonly rampEnd: Vec3;
   readonly rampAngle: number;
@@ -426,7 +430,7 @@ export interface DestructibleBuilding {
   readonly kind: DestructibleBuildingKind;
   readonly propId: string;
   readonly tower: TowerId;
-  readonly nameKey: string;
+  readonly nameKey: TranslationKey;
   readonly position: Vec3;
   readonly rotationY: number;
   readonly footprint: Vec2;
@@ -483,7 +487,7 @@ export interface TourismBillboard {
   readonly width: number;
   readonly height: number;
   /** i18n key of the localized title overlaid on the poster's top band. */
-  readonly adKey: string;
+  readonly adKey: TranslationKey;
   /** Painted textless poster (`/art/billboards/poster-<id>.jpg` on the client). */
   readonly posterId: BillboardPosterId;
 }
@@ -502,6 +506,8 @@ export interface NavNode {
   readonly id: number;
   readonly position: Vec3;
   readonly zone: ZoneId;
+  /** Swim exit at the foot of a water stair: bots in the water head here, but never patrol to it. */
+  readonly water?: boolean;
 }
 
 export interface NavGraph {

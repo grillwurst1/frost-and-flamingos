@@ -502,7 +502,7 @@ export const de: TranslationDictionary = {
       gasthof: 'Gasthof Gamsbart',
       bistro: 'Alpen-Bistro',
       tikiAlm: 'Tiki-Alm',
-      bakery: 'Bäckerei Edelweiss',
+      bakery: 'Bäckerei Edelweiß',
       coconutShack: 'Kokos-Hütte',
       flamingoBar: 'Flamingo-Bar',
       skiHut: 'Skihütte',
@@ -516,12 +516,12 @@ export const de: TranslationDictionary = {
       mountain: 'Bergstation Gipfel-Käserei',
     },
     billboards: {
-      cheese: 'Besuchen Sie die Gipfel-Käserei – 1000 Jahre gereift!',
+      cheese: 'Besuche die Gipfel-Käserei – 1000 Jahre gereift!',
       lagoon: 'Sonne satt in der Lagune!',
       cablecar: 'Mit der roten Seilbahn bis in die Wolken!',
       fondue: 'Fondue für alle – eintunken, bitte!',
       biplane: 'Rundflüge über die Fjord-Fiesta!',
-      cuckoo: 'Die Kuckucksuhr schlägt Spaß-Uhr!',
+      cuckoo: 'Die Kuckucksuhr schlägt: Spaßstunde!',
     },
     directions: {
       north: 'N',

@@ -27,7 +27,6 @@ import {
   type PlayerProfile,
   type PlayerState,
   type ProfileMessage,
-  type TranslationKey,
   type Vec3,
   type WelcomeMessage,
   type WeaponId,
@@ -80,7 +79,7 @@ import {
   profileFingerprint,
 } from '../state/profile';
 import { CameraRig } from './camera-rig';
-import { installMapDevTools, type DevCameraOverride } from './dev-tools';
+import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
 
 const INTERPOLATION_DELAY_MS = 110;
@@ -501,6 +500,7 @@ export class GameClient {
     this.unsubscribeWardrobe();
     this.unsubscribeSpin();
     this.unsubscribeEffect();
+    if (import.meta.env.DEV) uninstallMapDevTools();
     window.removeEventListener('resize', this.handleResize);
     this.input?.dispose();
     this.network?.disconnect();
@@ -1417,7 +1417,7 @@ export class GameClient {
         ] as [number, number, number],
         cloaked: state?.cloaked ?? false,
         alive: state?.alive ?? true,
-        zoneKey: zone.labelKey as TranslationKey,
+        zoneKey: zone.labelKey,
       });
     }
 

@@ -39,6 +39,10 @@ declare global {
   }
 }
 
+export function uninstallMapDevTools(): void {
+  delete window.__ffMap;
+}
+
 export function installMapDevTools(host: MapDevHost): void {
   window.__ffMap = {
     async teleport(x: number, z: number, y?: number) {

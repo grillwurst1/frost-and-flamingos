@@ -221,6 +221,36 @@ function makePierLayouts(): PierLayout[] {
 
 export const PIER_LAYOUTS: readonly PierLayout[] = makePierLayouts();
 
+/** Wooden stairs from a harbour deck down into the water (swim exits); origin is the deck-level top. */
+export interface HarborStepsLayout {
+  id: string;
+  origin: Vec3;
+  /** The flight descends along (sin yaw, cos yaw). */
+  yaw: number;
+}
+
+export const HARBOR_STEPS_RUN = 5.2;
+export const HARBOR_STEPS_DROP = HARBOR_DECK_HEIGHT + 1.6;
+
+function makeHarborSteps(): HarborStepsLayout[] {
+  const A = TOWER_A_POSITION;
+  const exits: HarborStepsLayout[] = [];
+  const west = PIER_LAYOUTS.find((pier) => pier.id === 'pier_w');
+  if (west) {
+    exits.push({ id: 'harbor_steps_west', origin: localToWorld(west.start, west.yaw, vec3(0, 0, west.length + 7.6)), yaw: west.yaw });
+  }
+  for (const [index, angle] of [-Math.PI / 4 - Math.PI / 2, Math.PI * 0.75 - 0.1].entries()) {
+    exits.push({
+      id: `harbor_steps_${index}`,
+      origin: vec3(A.x + Math.sin(angle) * (PLATFORM_APOTHEM - 0.2), HARBOR_DECK_HEIGHT, A.z + Math.cos(angle) * (PLATFORM_APOTHEM - 0.2)),
+      yaw: angle,
+    });
+  }
+  return exits;
+}
+
+export const HARBOR_STEPS: readonly HarborStepsLayout[] = makeHarborSteps();
+
 function pierDeck(from: number, to: number): PropCollider {
   return boxCollider(PIER_WIDTH / 2, 0.18, (to - from) / 2, 0, -0.18, (from + to) / 2, { surface: 'wood' });
 }
@@ -274,7 +304,7 @@ function harborSeeds(): PropSeed[] {
     if (difference < 0.38) continue;
     lighthouse.push(
       boxCollider(1.45, 0.55, 0.06, Math.sin(angle) * 6.2, 14.55, Math.cos(angle) * 6.2, {
-        rotation: { x: 0, y: angle + Math.PI / 2, z: 0 },
+        rotation: { x: 0, y: angle, z: 0 },
       }),
     );
   }
@@ -319,11 +349,16 @@ function harborSeeds(): PropSeed[] {
     const colliders: PropCollider[] = [pierDeck(0, restLength)];
     if (pier.landing) {
       const end = localToWorld(pier.start, pier.yaw, vec3(0, 0, pier.length + 3.5));
+      // A thick landing ramp and a solid fill under the shore half of the deck: there the beach
+      // rises to within a character height of the planks, and waders got wedged under them.
       colliders.push(
-        rampCollider(vec3(0, 0, restLength - 0.2), vec3(0, ground(end.x, end.z) - HARBOR_DECK_HEIGHT + 0.05, restLength + 3.5), PIER_WIDTH, 0.3, {
+        rampCollider(vec3(0, 0, restLength - 0.2), vec3(0, ground(end.x, end.z) - HARBOR_DECK_HEIGHT + 0.05, restLength + 3.5), PIER_WIDTH, 1.4, {
           surface: 'wood',
         }),
       );
+      const fillBottom = ground(restStart.x, restStart.z) - 0.4 - HARBOR_DECK_HEIGHT;
+      const fillTop = -0.36;
+      colliders.push(boxCollider(PIER_WIDTH / 2, (fillTop - fillBottom) / 2, restLength / 2, 0, (fillTop + fillBottom) / 2, restLength / 2, { surface: 'wood' }));
     }
     if (pier.id === 'pier_w') {
       // T-head deck for the fisher huts and the rowboat moorings.
@@ -406,18 +441,7 @@ function harborSeeds(): PropSeed[] {
   }
 
   // Stairs down into the water so swimmers can climb back onto the decks.
-  const exits: { id: string; origin: Vec3; yaw: number }[] = [];
-  if (west) {
-    exits.push({ id: 'harbor_steps_west', origin: localToWorld(west.start, west.yaw, vec3(0, 0, west.length + 7.6)), yaw: west.yaw });
-  }
-  for (const [index, angle] of [-Math.PI / 4 - Math.PI / 2, Math.PI * 0.75 - 0.1].entries()) {
-    exits.push({
-      id: `harbor_steps_${index}`,
-      origin: vec3(A.x + Math.sin(angle) * (PLATFORM_APOTHEM - 0.2), HARBOR_DECK_HEIGHT, A.z + Math.cos(angle) * (PLATFORM_APOTHEM - 0.2)),
-      yaw: angle,
-    });
-  }
-  for (const exit of exits) {
+  for (const exit of HARBOR_STEPS) {
     seeds.push({
       id: exit.id,
       kind: 'stairs',
@@ -426,9 +450,10 @@ function harborSeeds(): PropSeed[] {
       y: HARBOR_DECK_HEIGHT,
       rotationY: exit.yaw,
       variant: 0,
-      dimensions: { x: 2.2, y: HARBOR_DECK_HEIGHT + 1.6, z: 5.2 },
+      dimensions: { x: 2.2, y: HARBOR_STEPS_DROP, z: HARBOR_STEPS_RUN },
       surface: 'wood',
-      colliders: [rampCollider(vec3(0, 0, 0), vec3(0, -HARBOR_DECK_HEIGHT - 1.6, 5.2), 2.2, 0.3, { surface: 'wood' })],
+      // A thick slab whose toe continues under the water, so swimmers climb it instead of slipping beneath.
+      colliders: [stairCollider(vec3(0, -HARBOR_STEPS_DROP, HARBOR_STEPS_RUN), vec3(0, 0, 0), 2.2, { surface: 'wood' })],
     });
   }
 
@@ -510,10 +535,10 @@ function doorStepColliders(depth: number, plinth: number, doorOffset: number, pi
 }
 
 export const CHALET_PLACEMENTS = [
-  { id: 'chalet_west', nameKey: 'world.buildings.gasthof', x: -31, z: -12, rotationY: Math.PI / 2, style: 'log_chalet' as const, doorOffset: 2.6 },
-  { id: 'chalet_east', nameKey: 'world.buildings.bistro', x: 31, z: -6, rotationY: -Math.PI / 2, style: 'plaster_chalet' as const, doorOffset: -2.4 },
-  { id: 'chalet_south', nameKey: 'world.buildings.tikiAlm', x: -4, z: -31, rotationY: 0, style: 'tiki_chalet' as const, doorOffset: 2.8 },
-  { id: 'chalet_north', nameKey: 'world.buildings.bakery', x: -29, z: 31, rotationY: (3 * Math.PI) / 4, style: 'log_chalet' as const, doorOffset: -2.2 },
+  { id: 'chalet_west', nameKey: 'world.buildings.gasthof' as const, x: -31, z: -12, rotationY: Math.PI / 2, style: 'log_chalet' as const, doorOffset: 2.6 },
+  { id: 'chalet_east', nameKey: 'world.buildings.bistro' as const, x: 31, z: -6, rotationY: -Math.PI / 2, style: 'plaster_chalet' as const, doorOffset: -2.4 },
+  { id: 'chalet_south', nameKey: 'world.buildings.tikiAlm' as const, x: -4, z: -31, rotationY: 0, style: 'tiki_chalet' as const, doorOffset: 2.8 },
+  { id: 'chalet_north', nameKey: 'world.buildings.bakery' as const, x: -29, z: 31, rotationY: (3 * Math.PI) / 4, style: 'log_chalet' as const, doorOffset: -2.2 },
 ];
 
 function villageSeeds(): PropSeed[] {
@@ -526,7 +551,7 @@ function villageSeeds(): PropSeed[] {
     const r = PAVILION.basinRadius - 0.35;
     basin.push(
       boxCollider(1.3, PAVILION.basinHeight / 2, 0.36, Math.sin(angle) * r, PAVILION.basinHeight / 2, Math.cos(angle) * r, {
-        rotation: { x: 0, y: angle + Math.PI / 2, z: 0 },
+        rotation: { x: 0, y: angle, z: 0 },
         surface: 'cobblestone',
       }),
     );
@@ -736,7 +761,11 @@ function bridgeSeeds(): PropSeed[] {
       destructibleId: pieceId,
       surface: 'wood',
       colliders: [
-        rampCollider(vec3(0, 0, 0), vec3(0, y1 - y0, segment), BRIDGE_WIDTH, 0.4, { surface: 'wood', pieceId }),
+        // 5 cm longer at both ends so neighbouring segments overlap instead of leaving a crack.
+        rampCollider(vec3(0, -(y1 - y0) * (0.05 / segment), -0.05), vec3(0, (y1 - y0) * (1 + 0.05 / segment), segment + 0.05), BRIDGE_WIDTH, 0.4, {
+          surface: 'wood',
+          pieceId,
+        }),
         boxCollider(0.06, 0.55, segment / 2, -BRIDGE_WIDTH / 2 + 0.06, (y1 - y0) / 2 + 0.55, segment / 2, { pieceId }),
         boxCollider(0.06, 0.55, segment / 2, BRIDGE_WIDTH / 2 - 0.06, (y1 - y0) / 2 + 0.55, segment / 2, { pieceId }),
       ],
@@ -877,6 +906,21 @@ function bridgeSeeds(): PropSeed[] {
   return seeds;
 }
 
+/**
+ * Mid-support switchback stairs (station-local; the gondola runs along local X,
+ * so they climb along the +Z side). The lower flight rises to a landing at half
+ * height, the upper flight ends beside the deck and the arrival landing leads
+ * through a gap in the +Z railing onto it, between the legs and the mast.
+ * Shared by the colliders and the client mesh.
+ */
+export const MID_SUPPORT_STAIRS = {
+  width: 1.6,
+  lower: { z: 6.0, fromX: -1.3, toX: 6.7 },
+  landing: { minX: 6.7, maxX: 9.1, minZ: 3.6, maxZ: 6.8 },
+  upper: { z: 4.4, fromX: 6.7, toX: -0.6 },
+  arrival: { minX: -2.6, maxX: -0.6, minZ: 2.8, maxZ: 5.2 },
+} as const;
+
 /** Cable-car mid support at the village edge: a timber tower with a boarding deck at +28. */
 function midSupportSeeds(): PropSeed[] {
   const station = CABLE_CAR_STATIONS.mid;
@@ -884,14 +928,16 @@ function midSupportSeeds(): PropSeed[] {
   const rise = station.y - footY;
   const yaw = CABLE_STATION_YAWS.mid;
   const half = rise / 2;
+  const { width, lower, landing, upper, arrival } = MID_SUPPORT_STAIRS;
+  const slab = (minX: number, maxX: number, minZ: number, maxZ: number, top: number): PropCollider =>
+    boxCollider((maxX - minX) / 2, 0.15, (maxZ - minZ) / 2, (minX + maxX) / 2, top - 0.15, (minZ + maxZ) / 2, { surface: 'wood' });
   const colliders: PropCollider[] = [
     boxCollider(3.6, 0.2, 3, 0, rise - 0.2, 0, { surface: 'wood' }),
     ...[-1, 1].flatMap((sx) => [-1, 1].map((sz) => cylinderCollider(0.35, rise / 2, sx * 3.2, rise / 2, sz * 2.6))),
-    // Two switchback flights on the outside of the tower with a landing.
-    stairCollider(vec3(5.6, 0, -6.8), vec3(5.6, half, 1.2), 1.6, { surface: 'wood' }),
-    boxCollider(1.6, 0.15, 1.2, 4.8, half - 0.15, 2.4, { surface: 'wood' }),
-    stairCollider(vec3(4.0, half, 3.6), vec3(4.0, rise, -2.6), 1.6, { surface: 'wood' }),
-    boxCollider(0.6, 0.15, 1.2, 3.9, rise - 0.15, -2.2, { surface: 'wood' }),
+    stairCollider(vec3(lower.fromX, 0, lower.z), vec3(lower.toX, half, lower.z), width, { surface: 'wood' }),
+    slab(landing.minX, landing.maxX, landing.minZ, landing.maxZ, half),
+    stairCollider(vec3(upper.fromX, half, upper.z), vec3(upper.toX, rise, upper.z), width, { surface: 'wood' }),
+    slab(arrival.minX, arrival.maxX, arrival.minZ, arrival.maxZ, rise),
   ];
   return [
     {

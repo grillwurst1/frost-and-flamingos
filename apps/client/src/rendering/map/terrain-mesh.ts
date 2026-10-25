@@ -5,7 +5,6 @@
  * heightfield (same triangle diagonal), so what the player sees is exactly
  * what the Rapier collider walks on.
  */
-import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import type { Material } from '@babylonjs/core/Materials/material';
@@ -24,7 +23,7 @@ import {
   terrainBiomeAt,
   terrainSnowWeight,
 } from '@frost-and-flamingos/shared';
-import { GeometryBatch, hash3, mix, shade, type RGB, type V3 } from './geometry';
+import { GeometryBatch, hash3, mix, shade, type RGB } from './geometry';
 import { P } from './palette';
 import { SURFACE_ATTRIBUTE, surfaceId, type SurfaceKind } from './surfaces';
 
@@ -193,7 +192,7 @@ function ridgeNoise(a: number, b: number): number {
 }
 
 /** Height of the visual mountain ring / open sea beyond the playable square. */
-export function outerHeight(x: number, z: number): number {
+function outerHeight(x: number, z: number): number {
   const edge = Math.max(Math.abs(x), Math.abs(z));
   const clampedX = Math.max(-MAP_HALF_SIZE, Math.min(MAP_HALF_SIZE, x));
   const clampedZ = Math.max(-MAP_HALF_SIZE, Math.min(MAP_HALF_SIZE, z));
@@ -205,7 +204,8 @@ export function outerHeight(x: number, z: number): number {
   const distance = Math.hypot(x, z);
   const ridge = ridgeNoise(angle * 3.2, distance * 0.004);
   const mountain = 40 + smooth((edge - 430) / 520) * (150 + ridge * 230) + ridge * 40;
-  const ring = mountain * (1 - sea) + -7 * sea + sea * smooth((ridgeNoise(angle * 9, distance * 0.01) - 0.82) / 0.1) * 26;
+  // Open sea stays open: single-vertex islet peaks on the 50 m skirt grid read as floating pyramids.
+  const ring = mountain * (1 - sea) - 7 * sea;
   const blend = smooth((edge - MAP_HALF_SIZE) / 140);
   return edgeHeight + (ring - edgeHeight) * blend;
 }
@@ -389,15 +389,4 @@ export function buildStreamMesh(scene: Scene, material: Material): Mesh | null {
   mesh.material = material;
   mesh.isPickable = false;
   return mesh;
-}
-
-/** Checks a vertex buffer kind name is the one Babylon expects for colours. */
-export const TERRAIN_COLOR_KIND = VertexBuffer.ColorKind;
-
-export function terrainPoint(x: number, z: number): V3 {
-  return [x, sampleMapHeight(x, z), z];
-}
-
-export function shadeForHeight(color: RGB, y: number): RGB {
-  return shade(color, 0.92 + Math.min(0.12, y * 0.002));
 }
