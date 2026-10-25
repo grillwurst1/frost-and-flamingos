@@ -16,6 +16,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-icons.webp`, `gemini-skill-icons.webp` | Weapon and skill HUD icons |
 | `gemini-comic-words.webp` | Comic onomatopoeia popup stickers |
 | `gemini-billboards.webp` | Six textless 1930s tourism posters for the village billboards |
+| `gemini-crests.webp` | Peak Guard and Lagoon League team crests |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
 | `gemini-sheet-vehicles-alps.webp` | Fondue Crawler, sidecar motorcycle, cable-car gondola references |
