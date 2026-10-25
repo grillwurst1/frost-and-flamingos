@@ -19,6 +19,7 @@
     localPlayer,
   } from '../state/game';
   import { t } from '../state/locale';
+  import MascotHud from './MascotHud.svelte';
   import {
     classRoleKey,
     classNameKey,
@@ -46,7 +47,7 @@
   $: crosshairGap = Math.round(
     5 + weapon.spread * 640 + Math.min(8, speed * 0.55) + (player?.grounded ? 0 : 3),
   );
-  $: skills = player ? skillsForClass(player.classId) : skillsForClass('allrounder');
+  $: skills = player ? skillsForClass(player.classId, player.faction) : skillsForClass('allrounder');
   $: weaponIds = player?.weaponIds ?? (['smg', 'shotgun', 'snow_cannon'] as const);
   $: death = $deathState;
   $: dead = death !== null;
@@ -103,6 +104,7 @@
 </script>
 
 <div class="hud-root" class:is-dead={dead} aria-live="polite">
+  <MascotHud />
   <div
     class="hud-vignette hud-vignette-damage"
     style={`opacity:${Math.min(1, $damageFlash * 0.9)}`}

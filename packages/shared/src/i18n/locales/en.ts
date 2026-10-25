@@ -242,6 +242,14 @@ export const en = {
       halberd: { name: 'Guard halberd', role: 'Melee' },
       umbrella: { name: 'Armoured parasol', role: 'Defence' },
       horn: { name: 'Alphorn', role: 'Blast' },
+      cow_ram: { name: 'Cow ram', role: 'Body check' },
+      coconut_ram: { name: 'Coconut bowl', role: 'Body check' },
+      horn_charge: { name: 'Horn Charge', role: 'Ram burst' },
+      hoof_stomp: { name: 'Hoof Stomp', role: 'Shockwave' },
+      cowbell_clang: { name: 'Cowbell Clang', role: 'Daze' },
+      turbo_roll: { name: 'Turbo Roll', role: 'Speed burst' },
+      ground_pound: { name: 'Ground Pound', role: 'Slam' },
+      milk_splash: { name: 'Coconut Milk Splash', role: 'Slip zone' },
     },
   },
   skills: {
@@ -311,11 +319,13 @@ export const en = {
       allrounder: 'Chamois Major',
       heavy: 'Dairy Colossus',
       infiltrator: 'Ibex Hunter',
+      mascot: 'Alpine Cow',
     },
     lagoon: {
       allrounder: 'Yacht Captain',
       heavy: 'Harbor Hulk',
       infiltrator: 'Reef Smuggler',
+      mascot: 'Battle Coconut',
     },
   },
   controls: {
@@ -515,6 +525,10 @@ export const en = {
       name: 'Ibex Hunter',
       role: 'Infiltrator',
     },
+    mascot: {
+      name: 'Mascot',
+      role: 'Mascot',
+    },
   },
   debug: {
     title: 'Network & engine telemetry',
@@ -545,6 +559,83 @@ export const en = {
     yes: 'Yes',
     no: 'No',
     unavailable: 'n/a',
+  },
+  mascot: {
+    className: 'Mascot',
+    formsLine: 'Cow (Alps) / Coconut (Beach)',
+    classBadge: 'Mascot — Cow (Alps) / Coconut (Beach)',
+    forms: {
+      cow: 'Alpine Cow',
+      coconut: 'Battle Coconut',
+    },
+    formFaction: {
+      cow: 'Peak Guard · Alps',
+      coconut: 'Lagoon League · Beach',
+    },
+    stats: '{hp} vitality · rams up to {damage}',
+    wardrobeTitle: 'Mascot suit',
+    wardrobeBody:
+      'Mascots wear a fixed suit and carry no firearms. Your faction decides the form: Peak Guard plays the cow, the Lagoon League rolls in the coconut.',
+    wardrobeRam: 'Ram rivals at speed to bowl them over. Teammates only get a friendly bump.',
+    wardrobeMoves: 'Mascot moves',
+    wardrobeVoice: 'The voice slider tunes the moo and the hollow coconut knock.',
+    yourForm: 'Your form',
+    controlsCow: 'W/S throttle and brake · A/D steer · Shift gallop · Space hop · the camera orbits freely',
+    controlsCoconut: 'WASD roll with the camera · Space jump and double jump · slopes speed you up',
+    moves: {
+      hornCharge: {
+        name: 'Horn Charge',
+        description: 'Lower the horns and burst to full gallop for 2 s. Rams deal 30% more damage.',
+      },
+      hoofStomp: {
+        name: 'Hoof Stomp',
+        description: 'Rear up and slam the hooves: 35 damage and a knockback shockwave within 4 m.',
+      },
+      cowbellClang: {
+        name: 'Cowbell Clang',
+        description: 'Ring the giant cowbell. Rivals within 8 m are dazed and slowed for 1.5 s.',
+      },
+      turboRoll: {
+        name: 'Turbo Roll',
+        description: 'A 2 s burst of rolling speed. Bowl over everything in your path.',
+      },
+      groundPound: {
+        name: 'Ground Pound',
+        description: 'In the air only: slam straight down for 45 damage within 4.5 m and bounce back up.',
+      },
+      milkSplash: {
+        name: 'Coconut Milk Splash',
+        description: 'Spill a slippery coconut-milk puddle. Rivals in it slide as if on ice for 6 s.',
+      },
+    },
+    hud: {
+      card: 'Mascot status',
+      vitality: 'Vitality',
+      gallop: 'Gallop',
+      momentum: 'Momentum',
+      exhausted: 'Out of breath',
+      charging: 'Charging!',
+      turbo: 'Turbo!',
+      skidding: 'Skid!',
+      pounding: 'Incoming!',
+      dazed: 'Dazed',
+      slippery: 'Slippery!',
+      ready: 'Ready',
+      moveKeys: 'Q E T · or 1 2 3 + click',
+      speed: '{value} m/s',
+      cooldown: '{seconds}s',
+    },
+    popups: {
+      boing: 'BOING!',
+      tock: 'TOCK!',
+      clang: 'KLONG!',
+      moo: 'MOOO!',
+      stomp: 'STOMP!',
+      pound: 'WHAM!',
+      splash: 'SPLOSH!',
+      bump: 'BOOP!',
+      dazed: 'DIZZY!',
+    },
   },
 };
 

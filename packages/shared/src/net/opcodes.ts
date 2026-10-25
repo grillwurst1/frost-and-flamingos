@@ -24,6 +24,7 @@ export const CLASS_CODE = {
   allrounder: 0,
   heavy: 1,
   infiltrator: 2,
+  mascot: 3,
 } as const;
 
 export const PLAYER_FLAG = {
@@ -36,6 +37,23 @@ export const PLAYER_FLAG = {
   Reloading: 1 << 6,
   Cloaked: 1 << 7,
 } as const;
+
+/** Second per-player flag byte (protocol 5): authoritative status effects. */
+export const PLAYER_STATUS_FLAG = {
+  Dazed: 1 << 0,
+  Slowed: 1 << 1,
+  Boosted: 1 << 2,
+  Slippery: 1 << 3,
+} as const;
+
+/** Mascot block flags; bits 4–5 carry the coconut's used jumps. */
+export const MASCOT_FLAG = {
+  Pounding: 1 << 0,
+  Skidding: 1 << 1,
+  Galloping: 1 << 2,
+  Exhausted: 1 << 3,
+} as const;
+export const MASCOT_JUMPS_SHIFT = 4;
 
 export const GameEventCode = {
   COMIC_HIT: 1,
@@ -58,6 +76,12 @@ export const GameEventCode = {
   WEAPON_FIRED: 18,
   PLAYER_RESPAWNED: 19,
   SKILL_USED: 20,
+  /** actor = mascot, target = victim, param = contact point (dm), value = damage (0 = friendly bump). */
+  MASCOT_RAM: 21,
+  /** Hoof Stomp / Ground Pound shockwave. param = centre (dm), value = 1 stomp / 2 pound. */
+  MASCOT_IMPACT: 22,
+  /** Coconut-milk puddle. param = centre (dm), value = lifetime in deciseconds. */
+  MASCOT_PUDDLE: 23,
 } as const;
 
 export type GameEventCodeValue = (typeof GameEventCode)[keyof typeof GameEventCode];

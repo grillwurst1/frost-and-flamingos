@@ -1,5 +1,5 @@
 import { MAX_PLAYERS } from '../constants.js';
-import { CLASS_DEFAULT_LOADOUTS, CLASS_STATS, CLASS_TABLE } from '../config/classes.js';
+import { CLASS_DEFAULT_LOADOUTS, CLASS_TABLE, classStatsFor } from '../config/classes.js';
 import {
   BACK_TABLE,
   createDefaultCosmetics,
@@ -21,6 +21,7 @@ import type { IdTable } from '../config/ids.js';
 import type {
   BridgeState,
   ClassId,
+  MascotWireState,
   CraterState,
   DestructibleState,
   Faction,
@@ -41,8 +42,11 @@ import {
   CLASS_CODE,
   FACTION_CODE,
   GameEventCode,
+  MASCOT_FLAG,
+  MASCOT_JUMPS_SHIFT,
   Opcode,
   PLAYER_FLAG,
+  PLAYER_STATUS_FLAG,
   type GameEventCodeValue,
 } from './opcodes.js';
 import { BinaryReader } from './reader.js';
@@ -53,6 +57,7 @@ const CLASS_BY_CODE: Record<number, ClassId> = {
   0: 'allrounder',
   1: 'heavy',
   2: 'infiltrator',
+  3: 'mascot',
 };
 
 const EVENT_BY_CODE = new Map<GameEventCodeValue, GameEventType>(
@@ -118,6 +123,64 @@ function cooldownToWire(seconds: number): number {
 
 function wireToCooldown(value: number): number {
   return value / 10;
+}
+
+/** Short timers travel in centiseconds (0–2.55 s). */
+function shortTimerToWire(seconds: number): number {
+  return Math.max(0, Math.min(255, Math.round(seconds * 100)));
+}
+
+function writeMascotState(writer: BinaryWriter, mascot: MascotWireState): void {
+  writer
+    .writeAngle(mascot.heading)
+    .writeInt16(Math.max(-32767, Math.min(32767, Math.round(mascot.yawRate * 1000))))
+    .writeUint8(clampByte(mascot.stamina * 255))
+    .writeUint8(shortTimerToWire(mascot.boostSeconds))
+    .writeUint8(shortTimerToWire(mascot.actionSeconds))
+    .writeUint8(shortTimerToWire(mascot.hopSeconds))
+    .writeUint8(shortTimerToWire(mascot.coyoteSeconds))
+    .writeUint8(
+      (mascot.pounding ? MASCOT_FLAG.Pounding : 0) |
+        (mascot.skidding ? MASCOT_FLAG.Skidding : 0) |
+        (mascot.galloping ? MASCOT_FLAG.Galloping : 0) |
+        (mascot.exhausted ? MASCOT_FLAG.Exhausted : 0) |
+        ((Math.max(0, Math.min(3, mascot.jumpsUsed)) & 3) << MASCOT_JUMPS_SHIFT),
+    )
+    .writeUint16(Math.max(0, Math.min(65535, mascot.cooldownTicks[0])))
+    .writeUint16(Math.max(0, Math.min(65535, mascot.cooldownTicks[1])))
+    .writeUint16(Math.max(0, Math.min(65535, mascot.cooldownTicks[2])));
+}
+
+function readMascotState(reader: BinaryReader): MascotWireState {
+  const heading = reader.readAngle();
+  const yawRate = reader.readInt16() / 1000;
+  const stamina = reader.readUint8() / 255;
+  const boostSeconds = reader.readUint8() / 100;
+  const actionSeconds = reader.readUint8() / 100;
+  const hopSeconds = reader.readUint8() / 100;
+  const coyoteSeconds = reader.readUint8() / 100;
+  const flags = reader.readUint8();
+  const cooldownTicks: [number, number, number] = [
+    reader.readUint16(),
+    reader.readUint16(),
+    reader.readUint16(),
+  ];
+  return {
+    // Wire angles are 0…2π; the motor keeps -π…π.
+    heading: heading > Math.PI ? heading - Math.PI * 2 : heading,
+    yawRate,
+    stamina,
+    boostSeconds,
+    actionSeconds,
+    hopSeconds,
+    coyoteSeconds,
+    cooldownTicks,
+    pounding: (flags & MASCOT_FLAG.Pounding) !== 0,
+    skidding: (flags & MASCOT_FLAG.Skidding) !== 0,
+    galloping: (flags & MASCOT_FLAG.Galloping) !== 0,
+    exhausted: (flags & MASCOT_FLAG.Exhausted) !== 0,
+    jumpsUsed: (flags >> MASCOT_JUMPS_SHIFT) & 3,
+  };
 }
 
 /**
@@ -290,7 +353,7 @@ export function decodeProfileUpdate(
 }
 
 export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
-  const writer = new BinaryWriter(512 + snapshot.players.length * 32);
+  const writer = new BinaryWriter(512 + snapshot.players.length * 56);
   writer
     .writeUint8(Opcode.S2C_WORLD_SNAPSHOT)
     .writeUint32(snapshot.serverTick)
@@ -331,7 +394,35 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
       .writeUint16(cooldownToWire(player.skillCooldown1))
       .writeUint16(cooldownToWire(player.skillCooldown2))
       .writeUint16(cooldownToWire(player.skillCooldown3))
-      .writeUint16(player.lastProcessedInput & 0xffff);
+      .writeUint16(player.lastProcessedInput & 0xffff)
+      .writeUint8(
+        (player.dazed ? PLAYER_STATUS_FLAG.Dazed : 0) |
+          (player.slowed ? PLAYER_STATUS_FLAG.Slowed : 0) |
+          (player.boosted ? PLAYER_STATUS_FLAG.Boosted : 0) |
+          (player.slippery ? PLAYER_STATUS_FLAG.Slippery : 0),
+      )
+      .writeUint8(shortTimerToWire(player.launchSeconds));
+    // The class is known before this point, so the block is implicit.
+    if (player.classId === 'mascot') {
+      writeMascotState(
+        writer,
+        player.mascot ?? {
+          heading: player.heading,
+          yawRate: 0,
+          stamina: 1,
+          boostSeconds: 0,
+          actionSeconds: 0,
+          hopSeconds: 0,
+          coyoteSeconds: 0,
+          cooldownTicks: [0, 0, 0],
+          pounding: false,
+          skidding: false,
+          galloping: false,
+          exhausted: false,
+          jumpsUsed: 0,
+        },
+      );
+    }
   }
 
   writer.writeUint8(snapshot.vehicles.length & 0xff);
@@ -384,6 +475,9 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       const skillCooldown2 = wireToCooldown(reader.readUint16());
       const skillCooldown3 = wireToCooldown(reader.readUint16());
       const lastProcessedInput = reader.readUint16();
+      const status = reader.readUint8();
+      const launchSeconds = reader.readUint8() / 100;
+      const mascot = classId === 'mascot' ? readMascotState(reader) : null;
       players.push({
         id,
         faction,
@@ -392,7 +486,7 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
         velocity,
         yaw,
         hp,
-        maxHp: CLASS_STATS[classId].maxHp,
+        maxHp: classStatsFor(classId, faction).maxHp,
         grounded: (flags & PLAYER_FLAG.Grounded) !== 0,
         alive: (flags & PLAYER_FLAG.Alive) !== 0,
         crouched: (flags & PLAYER_FLAG.Crouched) !== 0,
@@ -412,6 +506,13 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
         skillCooldown3,
         cloaked: (flags & PLAYER_FLAG.Cloaked) !== 0,
         lastProcessedInput,
+        heading: mascot ? mascot.heading : yaw,
+        launchSeconds,
+        dazed: (status & PLAYER_STATUS_FLAG.Dazed) !== 0,
+        slowed: (status & PLAYER_STATUS_FLAG.Slowed) !== 0,
+        boosted: (status & PLAYER_STATUS_FLAG.Boosted) !== 0,
+        slippery: (status & PLAYER_STATUS_FLAG.Slippery) !== 0,
+        mascot,
       });
     }
 

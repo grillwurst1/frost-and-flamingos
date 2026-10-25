@@ -1,5 +1,7 @@
 export type Faction = 'alpine' | 'lagoon';
-export type ClassId = 'allrounder' | 'heavy' | 'infiltrator';
+export type ClassId = 'allrounder' | 'heavy' | 'infiltrator' | 'mascot';
+/** The mascot class has two physical forms, resolved from the player's faction. */
+export type MascotForm = 'cow' | 'coconut';
 export type Locale = 'en' | 'de';
 
 export interface Vec2 {
@@ -32,7 +34,21 @@ export type MainWeaponId =
   | 'silenced_pistol'
   | 'knife';
 
-export type WeaponId = MainWeaponId | GimmickWeaponId;
+/**
+ * Mascot "weapons" are their moves and ram attacks. They never appear in a
+ * loadout; they exist so kills, the kill feed and the slot HUD can name them.
+ */
+export type MascotWeaponId =
+  | 'cow_ram'
+  | 'coconut_ram'
+  | 'horn_charge'
+  | 'hoof_stomp'
+  | 'cowbell_clang'
+  | 'turbo_roll'
+  | 'ground_pound'
+  | 'milk_splash';
+
+export type WeaponId = MainWeaponId | GimmickWeaponId | MascotWeaponId;
 
 export interface Loadout {
   primary: MainWeaponId;
@@ -234,6 +250,45 @@ export interface PlayerState {
   skillCooldown3: number;
   cloaked: boolean;
   lastProcessedInput: number;
+  /** Body heading. Humans face their look yaw; the cow steers its own heading. */
+  heading: number;
+  /** Remaining knockback flight time in seconds (reduced air control). */
+  launchSeconds: number;
+  /** Cowbell daze: slowed and wobbly camera. */
+  dazed: boolean;
+  /** Any authoritative movement slow (smoke bomb, daze). */
+  slowed: boolean;
+  /** Authoritative speed skill (ram sprint). */
+  boosted: boolean;
+  /** Standing in an enemy coconut-milk puddle: ice-like traction. */
+  slippery: boolean;
+  /** Present only for the mascot class. */
+  mascot: MascotWireState | null;
+}
+
+/** Extra motor state of a mascot that prediction and remote views need. */
+export interface MascotWireState {
+  heading: number;
+  /** Cow steering yaw rate (rad/s); steering has inertia, so prediction needs it. */
+  yawRate: number;
+  /** Cow gallop meter, 0–1. Coconuts keep it full. */
+  stamina: number;
+  /** Remaining Horn Charge / Turbo Roll seconds. */
+  boostSeconds: number;
+  /** Remaining Hoof Stomp wind-up seconds. */
+  actionSeconds: number;
+  /** Cow hop / coconut water-hop cooldown seconds. */
+  hopSeconds: number;
+  /** Coconut ground-jump grace after leaving an edge. */
+  coyoteSeconds: number;
+  /** Motor-owned move cooldowns in physics ticks. */
+  cooldownTicks: [number, number, number];
+  pounding: boolean;
+  skidding: boolean;
+  galloping: boolean;
+  exhausted: boolean;
+  /** Coconut jumps used since the last landing (0–3). */
+  jumpsUsed: number;
 }
 
 export interface VehicleSnapshot {
@@ -282,7 +337,10 @@ export type GameEventType =
   | 'PARACHUTE_POPPED'
   | 'WEAPON_FIRED'
   | 'PLAYER_RESPAWNED'
-  | 'SKILL_USED';
+  | 'SKILL_USED'
+  | 'MASCOT_RAM'
+  | 'MASCOT_IMPACT'
+  | 'MASCOT_PUDDLE';
 
 export interface GameEvent {
   eventType: GameEventType;

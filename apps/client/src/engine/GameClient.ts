@@ -7,13 +7,18 @@ import {
   CLASS_STATS,
   FIXED_DT,
   InputButton,
+  MASCOT_SLOT_WEAPONS,
+  STATUS_BOOST_SCALE,
+  STATUS_SLOW_SCALE,
   MAX_PREDICTION_REPLAY,
   ParachuteState,
   PhysicsWorld,
   RESPAWN_DELAY_SECONDS,
   WEAPON_STATS,
   WEAPON_TABLE,
+  classStatsFor,
   createDefaultProfile,
+  mascotFormOf,
   profileAppearanceKey,
   skillsForClass,
   surfaceTagAt,
@@ -38,7 +43,8 @@ import {
 import { audio, type AmbienceKind } from '../audio/synth';
 import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
-import { CharacterView, type CharacterPose } from '../rendering/character';
+import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
+import { MascotFx } from '../rendering/mascot-fx';
 import {
   createShadowMaterial,
   createToonMaterial,
@@ -81,6 +87,7 @@ import {
 } from '../state/profile';
 import { CameraRig } from './camera-rig';
 import { InputController } from './input';
+import { cameraProfileFor, MascotClient } from './mascot-client';
 
 const INTERPOLATION_DELAY_MS = 110;
 const SNAPSHOT_HISTORY = 40;
@@ -98,6 +105,9 @@ interface PendingInput {
   velocity: Vec3;
   grounded: boolean;
   wind: WindState;
+  /** Authoritative status the input was predicted with (slow/boost, puddle). */
+  speedScale: number;
+  slippery: boolean;
 }
 
 interface SnapshotEntry {
@@ -106,7 +116,7 @@ interface SnapshotEntry {
 }
 
 interface RemoteView {
-  view: CharacterView;
+  view: AvatarView;
   key: string;
   lastSeenAt: number;
   stepDistance: number;
@@ -214,7 +224,7 @@ export class GameClient {
   private localFaction: Faction = 'alpine';
   private localClass: ClassId = 'allrounder';
   private localCharacter: CharacterBody | null = null;
-  private localView: CharacterView | null = null;
+  private localView: AvatarView | null = null;
   private localViewKey: string | null = null;
   private localProfile: PlayerProfile | null = null;
   private localSpawn: Vec3 = { x: 0, y: 0, z: 0 };
@@ -225,10 +235,13 @@ export class GameClient {
   private predictionError = 0;
 
   private readonly profiles = new Map<number, PlayerProfile>();
-  private previewView: CharacterView | null = null;
+  private previewView: AvatarView | null = null;
+  private mascotFx: MascotFx | null = null;
+  private mascots: MascotClient | null = null;
   private previewKey: string | null = null;
   private previewYaw = 0.35;
   private previewSpin = true;
+  private previewFacing: number | null = null;
   private previewEffect: WardrobeEffect = 'none';
   private wardrobeIsOpen = false;
   private lastSentProfileFingerprint: string | null = null;
@@ -345,7 +358,7 @@ export class GameClient {
         onToggleDebug: () => debugVisible.update((visible) => !visible),
         onTaunt: () => {
           const profile = this.localProfile;
-          if (profile) {
+          if (profile && !this.mascots?.playTaunt(profile)) {
             audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
           }
         },
@@ -374,6 +387,11 @@ export class GameClient {
       this.physics = physics;
       this.toonMaterial = createToonMaterial(scene, 'fjord-toon-material');
       this.visuals = buildFjordFiesta(scene, this.toonMaterial);
+      this.mascotFx = new MascotFx(scene, (x, z, fromY) => {
+        const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 6);
+        return hit ? hit.point.y : fromY - 1.5;
+      });
+      this.mascots = new MascotClient(this.mascotFx);
       this.rebuildPreviewView(getProfile());
       setLoadingProgress(0.7);
       setLoadingStep('world', 'done');
@@ -494,6 +512,8 @@ export class GameClient {
     this.previewView?.dispose();
     for (const remote of this.remoteViews.values()) remote.view.dispose();
     this.remoteViews.clear();
+    this.mascotFx?.dispose();
+    audio.setRollRumble(0);
     this.physics?.dispose();
     this.scene?.dispose();
     this.engine?.dispose();
@@ -620,10 +640,22 @@ export class GameClient {
   private ensureLocalCharacter(profile: PlayerProfile, position: Vec3): void {
     if (!this.physics) return;
     const classId = profile.cosmetics.classId;
-    if (this.localCharacter && this.localCharacter.stats.id === classId) return;
+    const form = mascotFormOf(classId, profile.faction);
+    if (
+      this.localCharacter &&
+      this.localCharacter.stats.id === classId &&
+      this.localCharacter.form === form
+    ) {
+      return;
+    }
     const spawn = this.localCharacter?.position ?? position;
     if (this.localCharacter) this.physics.removeCharacter(this.localCharacter);
-    this.localCharacter = this.physics.createCharacter({ position: spawn, classId });
+    this.localCharacter = this.physics.createCharacter({
+      position: spawn,
+      classId,
+      faction: profile.faction,
+    });
+    this.cameraRig?.setProfile(cameraProfileFor(form));
     this.pendingInputs.length = 0;
     this.latestLocalState = null;
   }
@@ -636,7 +668,7 @@ export class GameClient {
     const yaw = this.localCharacter?.yaw ?? 0;
     this.localView?.dispose();
     const shadow = createShadowMaterial(this.scene, `character-shadow-local-${this.nextViewSerial()}`);
-    this.localView = new CharacterView(this.scene, shadow, profile);
+    this.localView = createAvatarView(this.scene, shadow, profile, { fx: this.mascotFx });
     this.localViewKey = key;
     this.localView.setPosition(position);
     this.localView.setYaw(yaw, true);
@@ -648,7 +680,7 @@ export class GameClient {
     if (this.previewView && this.previewKey === key) return;
     this.previewView?.dispose();
     const shadow = createShadowMaterial(this.scene, `character-shadow-preview-${this.nextViewSerial()}`);
-    this.previewView = new CharacterView(this.scene, shadow, profile);
+    this.previewView = createAvatarView(this.scene, shadow, profile, { preview: true });
     this.previewKey = key;
     const stage = this.visuals?.previewStage;
     if (stage) this.previewView.setPosition(stage.position);
@@ -668,7 +700,7 @@ export class GameClient {
   private createRemoteView(playerId: number, profile: PlayerProfile): RemoteView | null {
     if (!this.scene || !this.toonMaterial) return null;
     const shadow = createShadowMaterial(this.scene, `shadow-${playerId}-${this.nextViewSerial()}`);
-    const view = new CharacterView(this.scene, shadow, profile);
+    const view = createAvatarView(this.scene, shadow, profile, { fx: this.mascotFx });
     return {
       view,
       key: profileAppearanceKey(profile),
@@ -704,6 +736,17 @@ export class GameClient {
     const now = performance.now();
     const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
     const actor = latest?.players.find((entry) => entry.id === event.actorId);
+    if (
+      this.mascots?.handleEvent(event, {
+        localId: this.localId,
+        profiles: this.profiles,
+        latest,
+        viewFor: (id) => (id === this.localId ? this.localView : this.remoteViews.get(id)?.view ?? null),
+      })
+    ) {
+      if (event.eventType === 'MASCOT_RAM') this.lastCombatAt = now;
+      return;
+    }
 
     switch (event.eventType) {
       case 'PARACHUTE_POPPED': {
@@ -764,7 +807,9 @@ export class GameClient {
             killerName,
             killerClassId: killerProfile?.cosmetics.classId ?? killer?.classId ?? null,
             killerHp: killer?.hp ?? 0,
-            killerMaxHp: killer?.maxHp ?? CLASS_STATS[killerProfile?.cosmetics.classId ?? 'allrounder'].maxHp,
+            killerMaxHp:
+              killer?.maxHp ??
+              classStatsFor(killerProfile?.cosmetics.classId ?? 'allrounder', killerProfile?.faction ?? 'alpine').maxHp,
             weaponId,
             headshot,
             stage: 'killcam',
@@ -772,8 +817,10 @@ export class GameClient {
             at: now,
           });
           audio.setRoundCue('dead');
-          audio.playDeathScream(undefined, this.localProfile?.cosmetics.voicePitch ?? 1);
-        } else {
+          if (!this.mascots?.playDeath(this.localProfile ?? undefined, victim)) {
+            audio.playDeathScream(undefined, this.localProfile?.cosmetics.voicePitch ?? 1);
+          }
+        } else if (!this.mascots?.playDeath(victimProfile, victim, victim?.position)) {
           audio.playDeathScream(victim?.position, victimProfile?.cosmetics.voicePitch ?? 1);
         }
         return;
@@ -913,14 +960,19 @@ export class GameClient {
       previousButtons,
       authoritative.parachuteState,
     );
+    character.restoreExtended(authoritative.launchSeconds, authoritative.mascot);
+    // Events from before the replay were already shown; replays re-emit them.
+    character.drainMascotEvents();
 
     if (this.physics) {
       for (const pending of this.pendingInputs) {
         character.setWind(pending.wind);
-        character.simulate(pending.input);
+        character.setSlippery(pending.slippery);
+        character.simulate(pending.input, true, pending.speedScale);
         this.physics.step();
       }
     }
+    character.drainMascotEvents();
 
     if (hardSnap) {
       this.cameraRig?.snapToPlayer(toVector3(character.position));
@@ -950,6 +1002,7 @@ export class GameClient {
     this.updateLocalView(delta);
     this.updatePreviewView(delta);
     this.updateRemoteViews(delta, now);
+    this.mascotFx?.update(delta);
     this.updateAudio(delta);
     this.updateMaterials(now);
     this.updateHud(now);
@@ -984,9 +1037,20 @@ export class GameClient {
     this.sequence = this.sequence >= 0xffff ? 1 : this.sequence + 1;
 
     const previousButtons = character.buttons;
+    // Predict with the same authoritative status the server applies.
+    const status = this.latestLocalState;
+    const speedScale = status?.slowed ? STATUS_SLOW_SCALE : status?.boosted ? STATUS_BOOST_SCALE : 1;
+    const slippery = status?.slippery ?? false;
     character.setWind(this.latestWind);
-    character.simulate(input);
+    character.setSlippery(slippery);
+    character.simulate(input, true, speedScale);
     this.physics?.step();
+    if (character.form) {
+      const events = character.drainMascotEvents();
+      if (events.length > 0) {
+        this.mascots?.onLocalMotorEvents(events, character.form, this.localProfile?.cosmetics.voicePitch ?? 1);
+      }
+    }
     this.pendingInputs.push({
       input,
       previousButtons,
@@ -994,10 +1058,13 @@ export class GameClient {
       velocity: character.velocity,
       grounded: character.grounded,
       wind: this.latestWind,
+      speedScale,
+      slippery,
     });
     if (this.pendingInputs.length > MAX_PREDICTION_REPLAY) this.pendingInputs.shift();
     this.network.sendInput(input);
-    this.maybeSendFire(buttons, slot, character, camera);
+    // Mascots carry no firearms: their slots are the motor-driven moves.
+    if (!character.form) this.maybeSendFire(buttons, slot, character, camera);
   }
 
   private maybeSendFire(
@@ -1061,8 +1128,15 @@ export class GameClient {
       this.currentPhase === 'deploying' ||
       (this.currentPhase === 'paused' && !this.wardrobeIsOpen);
     if (playerCamera) {
-      if (this.localCharacter && this.physics) {
-        camera.updatePlayer(delta, toVector3(this.localCharacter.position), this.physics);
+      const character = this.localCharacter;
+      if (character && this.physics) {
+        camera.setProfile(cameraProfileFor(character.form));
+        if (character.form === 'cow' && this.currentPhase === 'playing') {
+          const velocity = character.velocity;
+          camera.followHeading(delta, character.heading, Math.hypot(velocity.x, velocity.z));
+        }
+        camera.setWobble(this.latestLocalState?.dazed ? 1 : 0);
+        camera.updatePlayer(delta, toVector3(character.position), this.physics);
       }
       return;
     }
@@ -1085,10 +1159,14 @@ export class GameClient {
     view.root.setEnabled(showLocal);
     if (!showLocal) return;
     const moving = this.currentPhase === 'playing';
-    const pose: CharacterPose = {
+    const pose: AvatarPose = {
       position: character.position,
       velocity: moving ? character.velocity : { x: 0, y: 0, z: 0 },
       yaw: character.yaw,
+      heading: character.heading,
+      mascot: character.mascotState,
+      launchSeconds: character.launchSeconds,
+      dazed: this.latestLocalState?.dazed ?? false,
       grounded: character.grounded,
       alive: this.latestLocalState?.alive ?? true,
       crouched: character.crouched,
@@ -1101,18 +1179,38 @@ export class GameClient {
       parachuteSway: character.parachuteSwayAngle,
     };
     view.update(delta, pose);
+    if (this.localId !== null) {
+      this.mascots?.dizzy(
+        this.localId,
+        character.position,
+        character.form,
+        pose.dazed ?? false,
+        pose.alive,
+      );
+    }
+  }
+
+  /**
+   * Dev/playtest hook: hold the wardrobe preview at a fixed angle to the
+   * camera (radians; null = turntable). Used by the screenshot probes.
+   */
+  setPreviewFacing(offset: number | null): void {
+    this.previewFacing = offset;
   }
 
   private updatePreviewView(delta: number): void {
     const view = this.previewView;
     if (!view) return;
+    if (this.previewFacing !== null && this.cameraRig) {
+      this.previewYaw = this.cameraRig.previewAngle + this.previewFacing;
+    }
     const menuLike =
       this.currentPhase === 'menu' ||
       this.currentPhase === 'booting' ||
       (this.currentPhase === 'paused' && this.wardrobeIsOpen);
     view.root.setEnabled(menuLike);
     if (!menuLike) return;
-    if (this.previewSpin) this.previewYaw += delta * 0.55;
+    if (this.previewSpin && this.previewFacing === null) this.previewYaw += delta * 0.55;
     view.updatePreview(delta, this.previewYaw);
   }
 
@@ -1180,10 +1278,17 @@ export class GameClient {
       const yaw = previous
         ? previous.yaw + shortestAngle(previous.yaw, player.yaw) * t
         : player.yaw;
+      const heading = previous
+        ? previous.heading + shortestAngle(previous.heading, player.heading) * t
+        : player.heading;
       remote.view.update(delta, {
         position,
         velocity,
         yaw,
+        heading,
+        mascot: player.mascot ? { ...player.mascot, heading } : null,
+        launchSeconds: player.launchSeconds,
+        dazed: player.dazed,
         grounded: player.grounded,
         alive: player.alive,
         crouched: player.crouched,
@@ -1194,6 +1299,19 @@ export class GameClient {
       });
 
       const remoteSpeed = Math.hypot(velocity.x, velocity.z);
+      const remoteForm = this.mascots?.formOf(this.profiles.get(player.id), player) ?? null;
+      this.mascots?.dizzy(player.id, position, remoteForm, player.dazed, player.alive);
+      if (remoteForm && player.alive) {
+        this.mascots?.stride(
+          player.id,
+          remoteForm,
+          delta,
+          remoteSpeed,
+          player.grounded && !player.swimming,
+          player.mascot?.galloping ?? false,
+          position,
+        );
+      }
       if (player.swimming && !remote.wasSwimming) {
         audio.playSplash(position, true);
       } else if (!player.swimming && remote.wasSwimming) {
@@ -1202,7 +1320,7 @@ export class GameClient {
       if (player.grounded && !remote.wasGrounded && !player.swimming) {
         audio.playLand(position);
       }
-      if (player.rolling) {
+      if (player.rolling || remoteForm) {
         remote.stepDistance = 0;
       } else if (player.grounded && !player.swimming && remoteSpeed > 0.6) {
         remote.stepDistance += remoteSpeed * delta;
@@ -1234,6 +1352,8 @@ export class GameClient {
       if (now - remote.lastSeenAt > REMOTE_TIMEOUT_MS) {
         remote.view.dispose();
         this.remoteViews.delete(id);
+        this.mascots?.forget(id);
+        this.mascotFx?.setDizzy(id, null);
       }
     }
   }
@@ -1270,6 +1390,7 @@ export class GameClient {
 
     if (!character) return;
     if (this.currentPhase !== 'playing') {
+      audio.setRollRumble(0);
       this.lastAudioButtons = character.buttons;
       this.audioGrounded = character.grounded;
       this.audioSwimming = character.swimming;
@@ -1294,7 +1415,28 @@ export class GameClient {
     }
 
     const speed = Math.hypot(character.velocity.x, character.velocity.z);
-    if (character.grounded && !character.swimming && !character.rolling && speed > 0.6) {
+    if (character.form) {
+      // Mascots: hooves + cowbell, or coconut knocks and a rolling rumble.
+      this.mascots?.stride(
+        this.localId ?? 0,
+        character.form,
+        delta,
+        speed,
+        character.grounded && !character.swimming,
+        character.mascotState?.galloping ?? false,
+        undefined,
+        character.position,
+      );
+      audio.setRollRumble(
+        character.form === 'coconut' && character.grounded && !character.swimming ? speed : 0,
+      );
+      this.stepDistance = 0;
+    } else {
+      audio.setRollRumble(0);
+    }
+    if (character.form) {
+      // Footsteps are replaced by the mascot foley above.
+    } else if (character.grounded && !character.swimming && !character.rolling && speed > 0.6) {
       this.stepDistance += speed * delta;
       const stride = character.sprinting ? 1.9 : character.crouched ? 2.9 : 2.4;
       if (this.stepDistance >= stride) {
@@ -1351,7 +1493,18 @@ export class GameClient {
     const grounded = state?.grounded ?? character?.grounded ?? false;
     const zone = zoneAt(position.x, position.z);
     const weaponSlot = state?.weaponSlot ?? 1;
-    const weaponId = this.localProfile ? weaponForSlot(this.localProfile.loadout, weaponSlot) : 'smg';
+    const localForm = character?.form ?? null;
+    // Mascot slots show their three moves instead of a loadout.
+    const slotWeapons = localForm
+      ? MASCOT_SLOT_WEAPONS[localForm]
+      : this.localProfile
+        ? ([
+            this.localProfile.loadout.primary,
+            this.localProfile.loadout.secondary,
+            this.localProfile.loadout.gimmick,
+          ] as const)
+        : (['smg', 'shotgun', 'snow_cannon'] as const);
+    const weaponId = slotWeapons[weaponSlot - 1] ?? slotWeapons[0];
 
     if (state && state.reloading !== this.lastReloading) {
       this.lastReloading = state.reloading;
@@ -1365,8 +1518,8 @@ export class GameClient {
         id: this.localId,
         faction: this.localFaction,
         classId: this.localClass,
-        hp: state?.hp ?? CLASS_STATS[this.localClass].maxHp,
-        maxHp: state?.maxHp ?? CLASS_STATS[this.localClass].maxHp,
+        hp: state?.hp ?? classStatsFor(this.localClass, this.localFaction).maxHp,
+        maxHp: state?.maxHp ?? classStatsFor(this.localClass, this.localFaction).maxHp,
         position,
         velocity,
         grounded,
@@ -1378,13 +1531,7 @@ export class GameClient {
           state?.parachuteState ?? character?.parachuteState ?? ParachuteState.Closed,
         weaponSlot,
         weaponId,
-        weaponIds: this.localProfile
-          ? [
-              this.localProfile.loadout.primary,
-              this.localProfile.loadout.secondary,
-              this.localProfile.loadout.gimmick,
-            ]
-          : ['smg', 'shotgun', 'snow_cannon'],
+        weaponIds: [slotWeapons[0], slotWeapons[1], slotWeapons[2]],
         ammo: state?.ammo ?? WEAPON_STATS[weaponId].magazine,
         reserve: state?.reserve ?? WEAPON_STATS[weaponId].reserve,
         reloading: state?.reloading ?? false,
@@ -1400,6 +1547,7 @@ export class GameClient {
         alive: state?.alive ?? true,
         zoneKey: zone.labelKey as TranslationKey,
       });
+      this.mascots?.publishHud(character, state, this.localFaction, weaponSlot);
     }
 
     if (this.lastDamageAt > 0) {

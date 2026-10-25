@@ -1,4 +1,12 @@
-import type { GimmickWeaponId, Loadout, MainWeaponId, WeaponId, WeaponSlot } from '../types/index.js';
+import type {
+  GimmickWeaponId,
+  Loadout,
+  MainWeaponId,
+  MascotForm,
+  MascotWeaponId,
+  WeaponId,
+  WeaponSlot,
+} from '../types/index.js';
 import { createIdTable } from './ids.js';
 
 /** Slot 1: the primary workhorse. */
@@ -200,7 +208,41 @@ export const ALL_WEAPON_IDS = [
   'halberd',
   'umbrella',
   'horn',
+  'cow_ram',
+  'coconut_ram',
+  'horn_charge',
+  'hoof_stomp',
+  'cowbell_clang',
+  'turbo_roll',
+  'ground_pound',
+  'milk_splash',
 ] as const satisfies readonly WeaponId[];
+
+/** Mascot move ids per slot. Ram ids credit kills made by body contact. */
+export const MASCOT_WEAPON_IDS = [
+  'cow_ram',
+  'coconut_ram',
+  'horn_charge',
+  'hoof_stomp',
+  'cowbell_clang',
+  'turbo_roll',
+  'ground_pound',
+  'milk_splash',
+] as const satisfies readonly MascotWeaponId[];
+
+export const MASCOT_SLOT_WEAPONS: Record<MascotForm, readonly [MascotWeaponId, MascotWeaponId, MascotWeaponId]> = {
+  cow: ['horn_charge', 'hoof_stomp', 'cowbell_clang'],
+  coconut: ['turbo_roll', 'ground_pound', 'milk_splash'],
+};
+
+export const MASCOT_RAM_WEAPON: Record<MascotForm, MascotWeaponId> = {
+  cow: 'cow_ram',
+  coconut: 'coconut_ram',
+};
+
+export function isMascotWeapon(id: WeaponId): id is MascotWeaponId {
+  return (MASCOT_WEAPON_IDS as readonly string[]).includes(id);
+}
 
 export const WEAPON_TABLE = createIdTable<WeaponId>(ALL_WEAPON_IDS);
 
@@ -374,9 +416,42 @@ const GIMMICK_WEAPON_STATS: Record<GimmickWeaponId, WeaponStats> = {
   },
 };
 
+function mascotMoveStats(id: MascotWeaponId, damage: number, range: number, splashRadius: number): WeaponStats {
+  return {
+    id,
+    slot: 3,
+    damage,
+    rpm: 60,
+    magazine: 0,
+    reserve: 0,
+    pellets: 1,
+    spread: 0,
+    range,
+    automatic: false,
+    projectileSpeed: 0,
+    splashRadius,
+    headshotMultiplier: 1,
+    reloadSeconds: 0,
+    fireMode: 'melee',
+  };
+}
+
+/** HUD/kill-feed numbers only; mascot combat is resolved from MASCOT_RAM and SKILLS. */
+const MASCOT_WEAPON_STATS: Record<MascotWeaponId, WeaponStats> = {
+  cow_ram: mascotMoveStats('cow_ram', 85, 1.6, 0),
+  coconut_ram: mascotMoveStats('coconut_ram', 95, 1.5, 0),
+  horn_charge: mascotMoveStats('horn_charge', 110, 1.6, 0),
+  hoof_stomp: mascotMoveStats('hoof_stomp', 35, 4, 4),
+  cowbell_clang: mascotMoveStats('cowbell_clang', 0, 8, 8),
+  turbo_roll: mascotMoveStats('turbo_roll', 95, 1.5, 0),
+  ground_pound: mascotMoveStats('ground_pound', 45, 4.5, 4.5),
+  milk_splash: mascotMoveStats('milk_splash', 0, 4.5, 4.5),
+};
+
 export const WEAPON_STATS: Record<WeaponId, WeaponStats> = {
   ...MAIN_WEAPON_STATS,
   ...GIMMICK_WEAPON_STATS,
+  ...MASCOT_WEAPON_STATS,
 };
 
 export function weaponStats(id: WeaponId): WeaponStats {

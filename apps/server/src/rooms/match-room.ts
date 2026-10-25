@@ -1,19 +1,28 @@
 import {
   CLASS_DEFAULT_LOADOUTS,
-  CLASS_STATS,
   FALL_RESPAWN_Y,
   FIXED_DT,
   InputButton,
   MAP_ID,
+  MASCOT_FRIENDLY_BUMP,
+  MASCOT_RAM,
+  MASCOT_RAM_REWIND_TICKS,
+  MASCOT_RAM_WEAPON,
+  MASCOT_SHOCKWAVE,
+  MASCOT_STATUS,
   MAX_INPUT_BACKLOG,
   MAX_PLAYERS,
   PHYSICS_TICK_RATE,
   PROTOCOL_VERSION,
   RESPAWN_DELAY_SECONDS,
+  SKILLS,
   SNAPSHOT_INTERVAL,
+  STATUS_BOOST_SCALE,
+  STATUS_SLOW_SCALE,
   WEAPON_STATS,
   WEAPON_TABLE,
   PhysicsWorld,
+  classStatsFor,
   createDefaultProfile,
   encodeGameEvent,
   encodeMapStateSync,
@@ -21,6 +30,7 @@ import {
   encodeSnapshot,
   normalizeProfile,
   randomSpawnForFaction,
+  sampleMapHeight,
   sanitizeDisplayName,
   skillsForClass,
   weaponForSlot,
@@ -30,6 +40,8 @@ import {
   type GameEvent,
   type Loadout,
   type MapStateSync,
+  type MascotForm,
+  type MascotMotorEvent,
   type PlayerInput,
   type PlayerProfile,
   type PlayerState,
@@ -48,6 +60,7 @@ import {
   spreadDirection,
   type CombatTarget,
 } from './combat.js';
+import { mascotBotButtons, type MascotBotMemory } from './mascot-bot.js';
 
 export interface GameSocket {
   send(data: string | ArrayBuffer | Uint8Array): unknown;
@@ -76,6 +89,11 @@ interface BotState {
   strafeDirection: number;
   aimError: number;
   patrolYaw: number;
+  /** Probability of playing the mascot on each respawn (0 = never). */
+  mascotChance: number;
+  /** The human class this bot returns to when it is not a mascot. */
+  humanClass: ClassId;
+  mascot: MascotBotMemory;
 }
 
 interface PlayerConnection {
@@ -107,13 +125,43 @@ interface PlayerConnection {
   shieldUntilTick: number;
   cloakUntilTick: number;
   slowUntilTick: number;
+  /** Cowbell daze (also sets slowUntilTick). */
+  dazedUntilTick: number;
+  /** Mascot ram cooldown per victim id: earliest tick of the next ram. */
+  ramCooldowns: Map<number, number>;
   lastProfileUpdateAt: number;
   bot: BotState | null;
 }
 
+interface LagEntry {
+  position: Vec3;
+  crouched: boolean;
+  alive: boolean;
+  heading: number;
+}
+
 interface LagSample {
   tick: number;
-  players: Map<number, { position: Vec3; crouched: boolean; alive: boolean }>;
+  players: Map<number, LagEntry>;
+}
+
+/** Coconut-milk puddle: enemies of the owner's faction slide inside it. */
+interface MilkPuddle {
+  ownerId: number;
+  faction: Faction;
+  position: Vec3;
+  radius: number;
+  expiresAtTick: number;
+}
+
+export interface MascotRamRecord {
+  attackerId: number;
+  victimId: number;
+  form: MascotForm;
+  damage: number;
+  closingSpeed: number;
+  launch: Vec3;
+  tick: number;
 }
 
 interface Projectile {
@@ -151,6 +199,14 @@ export interface RoomStatus {
   mapId: string;
   tickets: { alpine: number; lagoon: number };
   weatherBalance: number;
+  mascots: {
+    active: number;
+    rams: number;
+    shockwaves: number;
+    dazes: number;
+    puddles: number;
+    lastRam: MascotRamRecord | null;
+  };
 }
 
 const PROFILE_UPDATE_COOLDOWN_MS = 120;
@@ -159,14 +215,31 @@ const SPAWN_PROTECTION_TICKS = 2 * PHYSICS_TICK_RATE;
 const LAG_HISTORY_TICKS = 2 * PHYSICS_TICK_RATE;
 const MAX_LAG_REWIND_TICKS = 30;
 const BOT_COUNT = 4;
+/**
+ * One bot per side may play the mascot (the cow for Peak Guard, the coconut
+ * for the Lagoon League). They start as mascots so the class is visible in
+ * every playtest and re-roll on each respawn.
+ */
 const BOT_NAMES = [
-  { name: 'Heidi Hangtime', faction: 'alpine', classId: 'allrounder' },
-  { name: 'Bruno Gletscher', faction: 'alpine', classId: 'heavy' },
-  { name: 'Coral Kai', faction: 'lagoon', classId: 'infiltrator' },
-  { name: 'Sandy Palms', faction: 'lagoon', classId: 'allrounder' },
-] as const satisfies readonly { name: string; faction: Faction; classId: ClassId }[];
+  { name: 'Heidi Hangtime', faction: 'alpine', classId: 'allrounder', mascotChance: 0 },
+  { name: 'Bruno Gletscher', faction: 'alpine', classId: 'heavy', mascotChance: 0.6 },
+  { name: 'Coral Kai', faction: 'lagoon', classId: 'infiltrator', mascotChance: 0 },
+  { name: 'Sandy Palms', faction: 'lagoon', classId: 'allrounder', mascotChance: 0.6 },
+] as const satisfies readonly { name: string; faction: Faction; classId: ClassId; mascotChance: number }[];
 
 const ZERO_VELOCITY: Vec3 = { x: 0, y: 0, z: 0 };
+
+/**
+ * Local playtest aid: FF_PLAYTEST_ARENA="x,z" spawns every player and bot
+ * within a few metres of one point (factions on opposite sides) so mascot
+ * encounters happen immediately. Unset in normal play.
+ */
+function parseArena(value: string | undefined): { x: number; z: number } | null {
+  if (!value) return null;
+  const [x, z] = value.split(',').map((part) => Number(part.trim()));
+  if (x === undefined || z === undefined || !Number.isFinite(x) || !Number.isFinite(z)) return null;
+  return { x, z };
+}
 
 function createAmmo(loadout: Loadout): SlotAmmo[] {
   const slots: WeaponSlot[] = [1, 2, 3];
@@ -193,12 +266,41 @@ function distance3(a: Vec3, b: Vec3): number {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
+function secondsToTicks(seconds: number): number {
+  return Math.max(1, Math.round(seconds * PHYSICS_TICK_RATE));
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+/** Positions travel as decimetres in the int16 event parameters. */
+function toDecimetres(value: number): number {
+  return Math.max(-32767, Math.min(32767, Math.round(value * 10)));
+}
+
+/** Shortest distance from a point to a vertical capsule (feet-based). */
+function distanceToCapsule(point: Vec3, feet: Vec3, radius: number, height: number): number {
+  const low = feet.y + radius;
+  const high = feet.y + Math.max(radius, height - radius);
+  const y = Math.min(high, Math.max(low, point.y));
+  return Math.hypot(point.x - feet.x, point.y - y, point.z - feet.z);
+}
+
 export class MatchRoom {
   private readonly physics: PhysicsWorld;
   private readonly players = new Map<number, PlayerConnection>();
   private readonly sockets = new Map<GameSocket, number>();
   private readonly lagHistory: LagSample[] = [];
   private readonly projectiles: Projectile[] = [];
+  private readonly puddles: MilkPuddle[] = [];
+  private readonly arena = parseArena(process.env.FF_PLAYTEST_ARENA);
+  private readonly mascotStats = {
+    rams: 0,
+    shockwaves: 0,
+    dazes: 0,
+    lastRam: null as MascotRamRecord | null,
+  };
   private nextPlayerId = 1;
   private physicsTick = 0;
   private snapshotTick = 0;
@@ -254,6 +356,7 @@ export class MatchRoom {
   private tick(): void {
     this.physicsTick += 1;
     const wind = this.currentWind();
+    this.updatePuddles();
 
     for (const player of this.players.values()) {
       this.tickTimers(player);
@@ -290,6 +393,7 @@ export class MatchRoom {
     }
 
     this.physics.step();
+    this.resolveMascotRams();
     this.updateProjectiles();
     this.recordLagHistory();
 
@@ -300,7 +404,8 @@ export class MatchRoom {
   }
 
   private tickTimers(player: PlayerConnection): void {
-    for (let index = 0; index < 3; index += 1) {
+    // Mascot cooldowns are motor state, mirrored after every simulate.
+    for (let index = 0; index < 3 && !player.character.form; index += 1) {
       const cooldown = player.skillCooldowns[index] ?? 0;
       if (cooldown > 0) {
         player.skillCooldowns[index] = Math.max(0, cooldown - FIXED_DT);
@@ -329,25 +434,38 @@ export class MatchRoom {
     }
     player.lastInput = input;
     player.lastProcessedInput = input.sequence;
+    const mascot = player.character.form !== null;
 
-    if ((input.buttons & InputButton.Reload) !== 0 && (previousButtons & InputButton.Reload) === 0) {
+    if (
+      !mascot &&
+      (input.buttons & InputButton.Reload) !== 0 &&
+      (previousButtons & InputButton.Reload) === 0
+    ) {
       this.startReload(player);
     }
-    this.handleSkillInput(player, input.buttons, previousButtons);
+    // Mascot moves are started by the shared motor (predicted on the client).
+    if (!mascot) this.handleSkillInput(player, input.buttons, previousButtons);
 
-    const speedScale =
-      this.physicsTick < player.slowUntilTick
-        ? 0.62
-        : this.physicsTick < player.speedUntilTick
-          ? 1.5
-          : 1;
     player.character.setWind(wind);
-    player.character.simulate(input, trackButtons, speedScale);
+    player.character.simulate(input, trackButtons, this.speedScaleFor(player));
+    if (mascot) {
+      player.skillCooldowns = player.character.mascotCooldownSeconds;
+      for (const event of player.character.drainMascotEvents()) {
+        this.handleMascotEvent(player, event);
+      }
+    }
 
-    if (player.isBot && (input.buttons & InputButton.FirePrimary) !== 0) {
+    if (!mascot && player.isBot && (input.buttons & InputButton.FirePrimary) !== 0) {
       this.tryFire(player, this.snapshotTick);
     }
     if (trackButtons) player.previousButtons = input.buttons;
+  }
+
+  /** Same formula as the client prediction (status bits travel in the snapshot). */
+  private speedScaleFor(player: PlayerConnection): number {
+    if (this.physicsTick < player.slowUntilTick) return STATUS_SLOW_SCALE;
+    if (this.physicsTick < player.speedUntilTick) return STATUS_BOOST_SCALE;
+    return 1;
   }
 
   private currentWind(): { angle: number; strength: number } {
@@ -357,18 +475,30 @@ export class MatchRoom {
     };
   }
 
+  /** Spawn point for a faction (the playtest arena when configured). */
+  private spawnFor(faction: Faction): { position: Vec3 } {
+    if (!this.arena) return randomSpawnForFaction(faction);
+    const side = faction === 'alpine' ? -1 : 1;
+    const x = this.arena.x + side * 9 + (Math.random() - 0.5) * 6;
+    const z = this.arena.z + (Math.random() - 0.5) * 6;
+    return { position: { x, y: sampleMapHeight(x, z) + 0.4, z } };
+  }
+
   private respawn(player: PlayerConnection): void {
-    const spawn = randomSpawnForFaction(player.profile.faction);
+    const spawn = this.spawnFor(player.profile.faction);
+    if (player.bot) this.rollBotClass(player, spawn.position);
     const classId = player.profile.cosmetics.classId;
     player.character.setColliderEnabled(true);
     player.character.teleport(spawn.position);
     player.character.restore(spawn.position, ZERO_VELOCITY, false, 0);
-    player.hp = CLASS_STATS[classId].maxHp;
+    player.hp = classStatsFor(classId, player.profile.faction).maxHp;
     player.shield = 0;
     player.alive = true;
     player.respawnAtTick = 0;
     player.killerId = 0;
     player.lastAttackerId = 0;
+    player.dazedUntilTick = 0;
+    player.ramCooldowns.clear();
     player.ammo = createAmmo(player.profile.loadout);
     player.activeSlot = 1;
     player.reloadEndsTick = 0;
@@ -408,6 +538,7 @@ export class MatchRoom {
 
   private startReload(player: PlayerConnection): void {
     if (!player.alive || player.reloadEndsTick > this.physicsTick) return;
+    if (player.character.form) return;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const stats = WEAPON_STATS[weaponId];
     if (stats.magazine <= 0 || stats.reloadSeconds <= 0) return;
@@ -430,6 +561,8 @@ export class MatchRoom {
 
   private tryFire(player: PlayerConnection, clientTick: number): void {
     if (!player.alive) return;
+    // Mascots carry no firearms.
+    if (player.character.form) return;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const stats = WEAPON_STATS[weaponId];
     if (stats.fireMode === 'melee' && stats.damage <= 0) return;
@@ -518,7 +651,7 @@ export class MatchRoom {
     for (const other of this.players.values()) {
       if (other.id === player.id) continue;
       if (other.profile.faction === player.profile.faction) continue;
-      const classStats = CLASS_STATS[other.profile.cosmetics.classId];
+      const classStats = classStatsFor(other.profile.cosmetics.classId, other.profile.faction);
       const state = sample?.players.get(other.id);
       targets.push({
         id: other.id,
@@ -527,6 +660,8 @@ export class MatchRoom {
         radius: classStats.radius,
         height: classStats.height,
         alive: state?.alive ?? other.alive,
+        form: other.character.form,
+        heading: state?.heading ?? other.character.heading,
       });
     }
     return targets;
@@ -549,12 +684,13 @@ export class MatchRoom {
   }
 
   private recordLagHistory(): void {
-    const players = new Map<number, { position: Vec3; crouched: boolean; alive: boolean }>();
+    const players = new Map<number, LagEntry>();
     for (const player of this.players.values()) {
       players.set(player.id, {
         position: { ...player.character.position },
         crouched: player.character.crouched,
         alive: player.alive,
+        heading: player.character.heading,
       });
     }
     this.lagHistory.push({ tick: this.physicsTick, players });
@@ -652,7 +788,7 @@ export class MatchRoom {
   private useSkill(player: PlayerConnection, index: 0 | 1 | 2): void {
     if (!player.alive) return;
     if ((player.skillCooldowns[index] ?? 0) > 0) return;
-    const skill = skillsForClass(player.profile.cosmetics.classId)[index];
+    const skill = skillsForClass(player.profile.cosmetics.classId, player.profile.faction)[index];
     player.skillCooldowns[index] = skill.cooldownSeconds;
     this.applySkill(player, skill);
     this.broadcastEvent({
@@ -669,9 +805,12 @@ export class MatchRoom {
     const classId = player.profile.cosmetics.classId;
     switch (skill.kind) {
       case 'heal': {
-        player.hp = Math.min(CLASS_STATS[classId].maxHp, player.hp + skill.amount);
+        player.hp = Math.min(classStatsFor(classId, player.profile.faction).maxHp, player.hp + skill.amount);
         return;
       }
+      case 'mascot':
+        // Resolved from motor events in handleMascotEvent.
+        return;
       case 'shield': {
         player.shield = Math.max(player.shield, skill.amount);
         player.shieldUntilTick = this.physicsTick + Math.round(skill.durationSeconds * PHYSICS_TICK_RATE);
@@ -797,19 +936,311 @@ export class MatchRoom {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Mascots: rams, shockwaves, cowbell daze and coconut-milk puddles
+  // ---------------------------------------------------------------------------
+
+  private handleMascotEvent(player: PlayerConnection, event: MascotMotorEvent): void {
+    const form = player.character.form;
+    if (!form || !player.alive) return;
+    if (event.type === 'move') {
+      this.broadcastEvent({
+        eventType: 'SKILL_USED',
+        actorId: player.id,
+        targetId: 0,
+        paramX: event.slot,
+        paramZ: 0,
+        paramValue: event.slot,
+      });
+      if (event.slot === 3 && form === 'cow') this.ringCowbell(player);
+      if (event.slot === 3 && form === 'coconut') this.spillMilk(player, event.position);
+      return;
+    }
+    if (event.type === 'impact') {
+      this.applyMascotShockwave(player, event.kind, event.position);
+    }
+  }
+
+  private isEnemy(a: PlayerConnection, b: PlayerConnection): boolean {
+    return a.id !== b.id && a.profile.faction !== b.profile.faction;
+  }
+
+  /** Hoof Stomp / Ground Pound: radial damage with outward knockback. */
+  private applyMascotShockwave(
+    player: PlayerConnection,
+    kind: 'stomp' | 'pound',
+    position: Vec3,
+  ): void {
+    const skill = kind === 'stomp' ? SKILLS.hoof_stomp : SKILLS.ground_pound;
+    const wave = MASCOT_SHOCKWAVE[kind];
+    const heading = player.character.heading;
+    this.mascotStats.shockwaves += 1;
+    this.broadcastEvent({
+      eventType: 'MASCOT_IMPACT',
+      actorId: player.id,
+      targetId: 0,
+      paramX: toDecimetres(position.x),
+      paramZ: toDecimetres(position.z),
+      paramValue: kind === 'stomp' ? 1 : 2,
+    });
+    for (const other of this.players.values()) {
+      if (!other.alive || !this.isEnemy(player, other)) continue;
+      const feet = other.character.position;
+      const dx = feet.x - position.x;
+      const dz = feet.z - position.z;
+      const distance = Math.hypot(dx, dz);
+      if (distance > skill.radius || Math.abs(feet.y - position.y) > wave.verticalReach) continue;
+      const closeness = 1 - distance / skill.radius;
+      const directionX = distance > 0.1 ? dx / distance : Math.sin(heading);
+      const directionZ = distance > 0.1 ? dz / distance : Math.cos(heading);
+      if (this.physicsTick >= other.spawnProtectionUntil) {
+        const push = wave.horizontal * (0.6 + 0.4 * closeness);
+        other.character.launch(
+          { x: directionX * push, y: wave.vertical, z: directionZ * push },
+          wave.launchSeconds,
+        );
+      }
+      this.damagePlayer(
+        other,
+        player,
+        skill.amount * (0.5 + 0.5 * closeness),
+        kind === 'stomp' ? 'hoof_stomp' : 'ground_pound',
+        false,
+      );
+    }
+  }
+
+  /** Cowbell Clang: rivals in range are dazed (slowed, wobbly camera). */
+  private ringCowbell(player: PlayerConnection): void {
+    const skill = SKILLS.cowbell_clang;
+    const until = this.physicsTick + secondsToTicks(skill.durationSeconds);
+    for (const other of this.players.values()) {
+      if (!other.alive || !this.isEnemy(player, other)) continue;
+      if (this.physicsTick < other.spawnProtectionUntil) continue;
+      if (distance3(player.character.position, other.character.position) > skill.radius) continue;
+      other.dazedUntilTick = Math.max(other.dazedUntilTick, until);
+      other.slowUntilTick = Math.max(other.slowUntilTick, until);
+      other.lastAttackerId = player.id;
+      this.mascotStats.dazes += 1;
+    }
+  }
+
+  /** Coconut Milk Splash: a puddle that makes the owner's rivals slide. */
+  private spillMilk(player: PlayerConnection, position: Vec3): void {
+    const skill = SKILLS.milk_splash;
+    this.puddles.push({
+      ownerId: player.id,
+      faction: player.profile.faction,
+      position: { ...position },
+      radius: skill.radius,
+      expiresAtTick: this.physicsTick + secondsToTicks(skill.durationSeconds),
+    });
+    while (this.puddles.length > MASCOT_STATUS.maxPuddles) this.puddles.shift();
+    this.broadcastEvent({
+      eventType: 'MASCOT_PUDDLE',
+      actorId: player.id,
+      targetId: 0,
+      paramX: toDecimetres(position.x),
+      paramZ: toDecimetres(position.z),
+      paramValue: Math.round(skill.durationSeconds * 10),
+    });
+  }
+
+  /** Expires puddles and sets per-tick slippery traction on the rivals inside. */
+  private updatePuddles(): void {
+    for (let index = this.puddles.length - 1; index >= 0; index -= 1) {
+      const puddle = this.puddles[index];
+      if (puddle && this.physicsTick >= puddle.expiresAtTick) this.puddles.splice(index, 1);
+    }
+    for (const player of this.players.values()) {
+      let slippery = false;
+      if (player.alive) {
+        const feet = player.character.position;
+        for (const puddle of this.puddles) {
+          if (puddle.faction === player.profile.faction) continue;
+          if (Math.abs(feet.y - puddle.position.y) > MASCOT_STATUS.puddleVerticalReach) continue;
+          if (Math.hypot(feet.x - puddle.position.x, feet.z - puddle.position.z) <= puddle.radius) {
+            slippery = true;
+            break;
+          }
+        }
+      }
+      player.character.setSlippery(slippery);
+    }
+  }
+
+  private lagSampleAt(tick: number): LagSample | null {
+    let best: LagSample | null = null;
+    for (const sample of this.lagHistory) {
+      if (sample.tick <= tick) best = sample;
+      else break;
+    }
+    return best;
+  }
+
+  /**
+   * Ram ("umrammen") resolution after the physics step. Uses the authoritative
+   * positions of this tick, plus — for human mascots — the victims' positions
+   * a few ticks back, which is roughly what the rammer saw on screen.
+   */
+  private resolveMascotRams(): void {
+    for (const rammer of this.players.values()) {
+      const form = rammer.character.form;
+      if (!form || !rammer.alive) continue;
+      const tuning = MASCOT_RAM[form];
+      const velocity = rammer.character.velocity;
+      const speed = Math.hypot(velocity.x, velocity.z);
+      if (speed < tuning.minSpeed) continue;
+      const feet = rammer.character.position;
+      const heading = rammer.character.heading;
+      const contact = {
+        x: feet.x + Math.sin(heading) * tuning.contactForward,
+        y: feet.y + tuning.contactHeight,
+        z: feet.z + Math.cos(heading) * tuning.contactForward,
+      };
+      const rewind = rammer.isBot ? null : this.lagSampleAt(this.physicsTick - MASCOT_RAM_REWIND_TICKS);
+
+      for (const victim of this.players.values()) {
+        if (victim.id === rammer.id || !victim.alive) continue;
+        if (this.physicsTick < (rammer.ramCooldowns.get(victim.id) ?? 0)) continue;
+        const stats = classStatsFor(victim.profile.cosmetics.classId, victim.profile.faction);
+        const current = victim.character.position;
+        const rewound = rewind?.players.get(victim.id);
+        let touched: Vec3 | null = null;
+        for (const candidate of rewound && rewound.alive ? [current, rewound.position] : [current]) {
+          const reach = tuning.contactRadius + stats.radius;
+          if (distanceToCapsule(contact, candidate, stats.radius, stats.height) <= reach) {
+            touched = candidate;
+            break;
+          }
+        }
+        if (!touched) continue;
+
+        let normalX = touched.x - feet.x;
+        let normalZ = touched.z - feet.z;
+        const length = Math.hypot(normalX, normalZ);
+        if (length < 0.05) {
+          normalX = velocity.x / speed;
+          normalZ = velocity.z / speed;
+        } else {
+          normalX /= length;
+          normalZ /= length;
+        }
+        const victimVelocity = victim.character.velocity;
+        const closing =
+          (velocity.x - victimVelocity.x) * normalX + (velocity.z - victimVelocity.z) * normalZ;
+        if (closing < tuning.minSpeed) continue;
+        rammer.ramCooldowns.set(victim.id, this.physicsTick + secondsToTicks(tuning.victimCooldown));
+
+        // Launch along the contact normal, carried a little in the travel direction.
+        let launchX = normalX + (velocity.x / speed) * 0.6;
+        let launchZ = normalZ + (velocity.z / speed) * 0.6;
+        const launchLength = Math.hypot(launchX, launchZ) || 1;
+        launchX /= launchLength;
+        launchZ /= launchLength;
+
+        if (victim.profile.faction === rammer.profile.faction) {
+          victim.character.launch(
+            {
+              x: launchX * MASCOT_FRIENDLY_BUMP.horizontal,
+              y: MASCOT_FRIENDLY_BUMP.vertical,
+              z: launchZ * MASCOT_FRIENDLY_BUMP.horizontal,
+            },
+            MASCOT_FRIENDLY_BUMP.launchSeconds,
+          );
+          rammer.character.applyRecoil(MASCOT_FRIENDLY_BUMP.keep, 0);
+          this.broadcastEvent({
+            eventType: 'MASCOT_RAM',
+            actorId: rammer.id,
+            targetId: victim.id,
+            paramX: toDecimetres(touched.x),
+            paramZ: toDecimetres(touched.z),
+            paramValue: 0,
+          });
+          continue;
+        }
+        if (this.physicsTick < victim.spawnProtectionUntil) continue;
+
+        const strength = clamp01((closing - tuning.minSpeed) / (tuning.fullSpeed - tuning.minSpeed));
+        const boost = rammer.character.mascotBoosting ? tuning.boostMultiplier : 1;
+        const damage = (tuning.minDamage + (tuning.maxDamage - tuning.minDamage) * strength) * boost;
+        const horizontal = Math.min(
+          tuning.launchHorizontalCap,
+          tuning.launchHorizontal + tuning.launchHorizontalPerSpeed * closing,
+        );
+        const launch = {
+          x: launchX * horizontal,
+          y: tuning.launchVertical + tuning.launchVerticalPerSpeed * closing,
+          z: launchZ * horizontal,
+        };
+        victim.character.launch(launch, tuning.launchSeconds);
+        rammer.character.applyRecoil(tuning.recoilKeep, tuning.recoilHop);
+        this.mascotStats.rams += 1;
+        this.mascotStats.lastRam = {
+          attackerId: rammer.id,
+          victimId: victim.id,
+          form,
+          damage: Math.round(damage),
+          closingSpeed: Math.round(closing * 100) / 100,
+          launch: {
+            x: Math.round(launch.x * 100) / 100,
+            y: Math.round(launch.y * 100) / 100,
+            z: Math.round(launch.z * 100) / 100,
+          },
+          tick: this.physicsTick,
+        };
+        this.broadcastEvent({
+          eventType: 'MASCOT_RAM',
+          actorId: rammer.id,
+          targetId: victim.id,
+          paramX: toDecimetres(touched.x),
+          paramZ: toDecimetres(touched.z),
+          paramValue: Math.max(1, Math.round(damage)),
+        });
+        this.damagePlayer(victim, rammer, damage, MASCOT_RAM_WEAPON[form], false);
+      }
+    }
+  }
+
+  /** Mascot-capable bots re-roll between the mascot and their human class. */
+  private rollBotClass(player: PlayerConnection, position: Vec3): void {
+    const bot = player.bot;
+    if (!bot || bot.mascotChance <= 0) return;
+    const classId: ClassId = Math.random() < bot.mascotChance ? 'mascot' : bot.humanClass;
+    if (classId === player.profile.cosmetics.classId) return;
+    const base = createDefaultProfile(player.profile.displayName, classId);
+    player.profile = {
+      ...base,
+      displayName: player.profile.displayName,
+      faction: player.profile.faction,
+      loadout: { ...CLASS_DEFAULT_LOADOUTS[classId] },
+    };
+    this.physics.removeCharacter(player.character);
+    player.character = this.physics.createCharacter({
+      position,
+      classId,
+      faction: player.profile.faction,
+    });
+    bot.mascot.stuckTicks = 0;
+    bot.mascot.reverseUntilTick = 0;
+    this.broadcastProfile(player);
+  }
+
   private spawnBots(): void {
     for (const entry of BOT_NAMES.slice(0, BOT_COUNT)) {
       const id = this.allocatePlayerId();
-      const base = createDefaultProfile(entry.name, entry.classId);
+      const classId: ClassId = entry.mascotChance > 0 ? 'mascot' : entry.classId;
+      const base = createDefaultProfile(entry.name, classId);
       const profile: PlayerProfile = {
         ...base,
         faction: entry.faction,
-        loadout: { ...CLASS_DEFAULT_LOADOUTS[entry.classId] },
+        loadout: { ...CLASS_DEFAULT_LOADOUTS[classId] },
       };
-      const spawn = randomSpawnForFaction(entry.faction);
+      const spawn = this.spawnFor(entry.faction);
       const character = this.physics.createCharacter({
         position: spawn.position,
-        classId: entry.classId,
+        classId,
+        faction: entry.faction,
       });
       const player: PlayerConnection = {
         id,
@@ -822,7 +1253,7 @@ export class MatchRoom {
         lastInput: idleInput(0, Math.random() * Math.PI * 2, -0.05, 1),
         lastProcessedInput: 0,
         previousButtons: 0,
-        hp: CLASS_STATS[entry.classId].maxHp,
+        hp: classStatsFor(classId, entry.faction).maxHp,
         shield: 0,
         alive: true,
         ammo: createAmmo(profile.loadout),
@@ -840,8 +1271,13 @@ export class MatchRoom {
         shieldUntilTick: 0,
         cloakUntilTick: 0,
         slowUntilTick: 0,
+        dazedUntilTick: 0,
+        ramCooldowns: new Map(),
         lastProfileUpdateAt: 0,
         bot: {
+          mascotChance: entry.mascotChance,
+          humanClass: entry.classId,
+          mascot: { stuckTicks: 0, reverseUntilTick: 0, steerBias: Math.random() < 0.5 ? -1 : 1 },
           targetId: 0,
           nextThinkTick: 0,
           nextFireTick: 0,
@@ -875,6 +1311,28 @@ export class MatchRoom {
 
     const target = bot.targetId > 0 ? this.players.get(bot.targetId) : null;
     const classId = player.profile.cosmetics.classId;
+    if (player.character.form) {
+      if (!target && this.physicsTick >= bot.nextStrafeTick) {
+        bot.nextStrafeTick = this.physicsTick + 180;
+        bot.patrolYaw += (Math.random() - 0.5) * 1.4;
+      }
+      const live = target && target.alive ? target : null;
+      const command = mascotBotButtons(
+        player.character,
+        bot.mascot,
+        live ? live.character.position : null,
+        live ? live.character.velocity : null,
+        bot.patrolYaw,
+        this.physicsTick,
+      );
+      return {
+        sequence: player.lastProcessedInput + 1,
+        buttons: command.buttons,
+        yaw: command.yaw,
+        pitch: 0,
+        weaponSlot: 1,
+      };
+    }
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const weapon = WEAPON_STATS[weaponId];
     let buttons = 0;
@@ -933,7 +1391,7 @@ export class MatchRoom {
         buttons |= InputButton.Reload;
       }
       if (
-        player.hp < CLASS_STATS[classId].maxHp * 0.42 &&
+        player.hp < classStatsFor(classId, player.profile.faction).maxHp * 0.42 &&
         this.physicsTick >= bot.nextSkillTick
       ) {
         buttons |= InputButton.Skill1;
@@ -1006,7 +1464,7 @@ export class MatchRoom {
 
     const id = this.allocatePlayerId();
     const requested = normalizeProfile(hello.profile);
-    const faction = this.pickFaction();
+    const faction = this.pickFaction(requested.faction);
     const classId: ClassId = requested.cosmetics.classId;
     const displayName = sanitizeDisplayName(requested.displayName, `Vacationer ${id}`);
     const profile: PlayerProfile = {
@@ -1015,8 +1473,8 @@ export class MatchRoom {
       cosmetics: { ...requested.cosmetics, classId },
       loadout: requested.loadout,
     };
-    const spawn = randomSpawnForFaction(faction);
-    const character = this.physics.createCharacter({ position: spawn.position, classId });
+    const spawn = this.spawnFor(faction);
+    const character = this.physics.createCharacter({ position: spawn.position, classId, faction });
     const player: PlayerConnection = {
       id,
       socket,
@@ -1028,7 +1486,7 @@ export class MatchRoom {
       lastInput: idleInput(0, 0, 0, 1),
       lastProcessedInput: 0,
       previousButtons: 0,
-      hp: CLASS_STATS[classId].maxHp,
+      hp: classStatsFor(classId, faction).maxHp,
       shield: 0,
       alive: true,
       ammo: createAmmo(profile.loadout),
@@ -1046,6 +1504,8 @@ export class MatchRoom {
       shieldUntilTick: 0,
       cloakUntilTick: 0,
       slowUntilTick: 0,
+      dazedUntilTick: 0,
+      ramCooldowns: new Map(),
       lastProfileUpdateAt: 0,
       bot: null,
     };
@@ -1104,6 +1564,7 @@ export class MatchRoom {
     if (playerId === undefined) return;
     const player = this.players.get(playerId);
     if (!player || player.isBot || !player.alive) return;
+    if (player.character.form) return;
     const weaponId = WEAPON_TABLE.byCode[fire.weaponId];
     if (!weaponId) return;
     if (weaponId !== weaponForSlot(player.profile.loadout, player.activeSlot)) return;
@@ -1141,11 +1602,15 @@ export class MatchRoom {
     if (classChanged) {
       const position = player.character.position;
       this.physics.removeCharacter(player.character);
-      player.character = this.physics.createCharacter({ position, classId });
+      player.character = this.physics.createCharacter({
+        position,
+        classId,
+        faction: player.profile.faction,
+      });
     }
 
     player.profile = profile;
-    player.hp = CLASS_STATS[classId].maxHp;
+    player.hp = classStatsFor(classId, profile.faction).maxHp;
     player.shield = 0;
     player.alive = true;
     player.respawnAtTick = 0;
@@ -1159,6 +1624,8 @@ export class MatchRoom {
     player.shieldUntilTick = 0;
     player.cloakUntilTick = 0;
     player.slowUntilTick = 0;
+    player.dazedUntilTick = 0;
+    player.ramCooldowns.clear();
     player.spawnProtectionUntil = this.physicsTick + SPAWN_PROTECTION_TICKS;
     player.inputQueue.length = 0;
     player.fireQueue.length = 0;
@@ -1201,7 +1668,7 @@ export class MatchRoom {
         velocity: state.velocity,
         yaw: state.yaw,
         hp: player.hp,
-        maxHp: CLASS_STATS[classId].maxHp,
+        maxHp: classStatsFor(classId, player.profile.faction).maxHp,
         grounded: state.grounded,
         alive: player.alive,
         crouched: state.crouched,
@@ -1210,8 +1677,9 @@ export class MatchRoom {
         rolling: state.rolling,
         parachuteState: state.parachuteState,
         weaponSlot: player.activeSlot,
-        ammo: player.ammo[player.activeSlot - 1]?.magazine ?? 0,
-        reserve: player.ammo[player.activeSlot - 1]?.reserve ?? 0,
+        // Mascot slots are moves: no magazine to report.
+        ammo: state.form ? 0 : (player.ammo[player.activeSlot - 1]?.magazine ?? 0),
+        reserve: state.form ? 0 : (player.ammo[player.activeSlot - 1]?.reserve ?? 0),
         reloading: player.reloadEndsTick > this.physicsTick,
         shield: Math.round(player.shield),
         kills: player.kills,
@@ -1221,6 +1689,13 @@ export class MatchRoom {
         skillCooldown3: player.skillCooldowns[2] ?? 0,
         cloaked: this.physicsTick < player.cloakUntilTick,
         lastProcessedInput: player.lastProcessedInput,
+        heading: state.heading,
+        launchSeconds: state.launchSeconds,
+        dazed: this.physicsTick < player.dazedUntilTick,
+        slowed: this.physicsTick < player.slowUntilTick,
+        boosted: this.physicsTick < player.speedUntilTick,
+        slippery: state.isSlippery,
+        mascot: state.mascotState,
       });
     }
     const wind = this.currentWind();
@@ -1237,7 +1712,8 @@ export class MatchRoom {
     };
   }
 
-  private pickFaction(): Faction {
+  /** Balances the teams; on a tie the player's wardrobe preference wins. */
+  private pickFaction(preferred: Faction): Faction {
     let alpine = 0;
     let lagoon = 0;
     for (const player of this.players.values()) {
@@ -1246,7 +1722,7 @@ export class MatchRoom {
     }
     if (alpine < lagoon) return 'alpine';
     if (lagoon < alpine) return 'lagoon';
-    return Math.random() < 0.5 ? 'alpine' : 'lagoon';
+    return preferred;
   }
 
   private allocatePlayerId(): number {
@@ -1274,6 +1750,14 @@ export class MatchRoom {
       mapId: MAP_ID,
       tickets: { alpine: this.ticketsAlpine, lagoon: this.ticketsLagoon },
       weatherBalance: this.weatherBalance,
+      mascots: {
+        active: [...this.players.values()].filter((player) => player.character.form !== null).length,
+        rams: this.mascotStats.rams,
+        shockwaves: this.mascotStats.shockwaves,
+        dazes: this.mascotStats.dazes,
+        puddles: this.puddles.length,
+        lastRam: this.mascotStats.lastRam,
+      },
     };
   }
 }

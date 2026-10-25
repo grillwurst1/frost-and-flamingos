@@ -71,6 +71,9 @@
     weaponRoleKey,
   } from '../state/labels';
   import SlotCarousel from './SlotCarousel.svelte';
+  import MascotClassBadge from './MascotClassBadge.svelte';
+  import MascotWardrobePanel from './MascotWardrobePanel.svelte';
+  import { mascotFormForFaction } from '@frost-and-flamingos/shared';
 
   export let onClose: () => void;
 
@@ -86,6 +89,7 @@
   $: hairIndex = cosmetics.hairStyleIndex;
   $: bodyPercent = Math.round(cosmetics.bodyType * 100);
   $: voicePercent = Math.round(((cosmetics.voicePitch - 0.8) / 0.45) * 100);
+  $: isMascot = cosmetics.classId === 'mascot';
 
   function chooseClass(classId: (typeof CLASS_IDS)[number]): void {
     if (classId === cosmetics.classId) return;
@@ -105,7 +109,8 @@
   }
 
   function previewVoice(): void {
-    audio.previewVoice(cosmetics.voicePitch, $profile.faction);
+    if (isMascot) audio.playMascotVoice(mascotFormForFaction($profile.faction), cosmetics.voicePitch);
+    else audio.previewVoice(cosmetics.voicePitch, $profile.faction);
   }
 
   function setEffect(effect: WardrobeEffect): void {
@@ -194,19 +199,23 @@
         {#each CLASS_IDS as classId (classId)}
           <button
             class="class-card"
+            class:is-mascot={classId === 'mascot'}
             type="button"
             aria-pressed={cosmetics.classId === classId}
             on:click={() => chooseClass(classId)}
           >
             <strong>{$t(factionClassNameKey($profile.faction, classId))}</strong>
             <span>{$t(classRoleKey(classId))}</span>
+            {#if classId === 'mascot'}<MascotClassBadge />{:else}
             <small class="mono">{$t('hud.health')} {CLASS_STATS[classId].maxHp} · {$t('hud.meters', { value: CLASS_STATS[classId].moveSpeed.toFixed(1) })}</small>
+            {/if}
           </button>
         {/each}
       </div>
 
       <div class="hairline"></div>
 
+      {#if isMascot}<MascotWardrobePanel faction={$profile.faction} />{:else}
       <div class="section-heading">
         <span>{$t('wardrobe.appearance')}</span>
         <small>{$t('wardrobe.bodyTypeHint')}</small>
@@ -269,6 +278,7 @@
         <span class="slot-count mono">{$t('wardrobe.itemCount', { index: hairIndex + 1, count: HAIR_STYLE_IDS.length })}</span>
       </div>
 
+      {/if}
       <label class="range-field" for="wardrobe-voice">
         <span>{$t('wardrobe.voice')}</span>
         <strong class="mono">{voicePercent}%</strong>
@@ -290,6 +300,7 @@
       </div>
       <p class="field-hint">{$t('wardrobe.voiceHint')}</p>
 
+      {#if !isMascot}
       <div class="hairline"></div>
 
       <div class="section-heading">
@@ -396,6 +407,7 @@
           <option value={weapon}>{$t(weaponNameKey('gimmick', weapon))} · {$t(weaponRoleKey('gimmick', weapon))}</option>
         {/each}
       </select>
+      {/if}
 
       <div class="hairline"></div>
 
