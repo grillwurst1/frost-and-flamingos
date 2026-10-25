@@ -14,5 +14,6 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-tex-snow/rock/planks/logwall/shingles/cobble.webp` | Seamless detail textures |
 | `gemini-menu-keyart.webp` | Main-menu backdrop |
 | `gemini-icons.webp`, `gemini-skill-icons.webp` | Weapon and skill HUD icons |
+| `gemini-comic-words.webp` | Comic onomatopoeia popup stickers |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
