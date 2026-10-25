@@ -42,6 +42,7 @@ import {
   type WelcomeMessage,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
+import { createBotRoute, steerAlongRoute, type BotRoute } from './bot-nav.js';
 import {
   normalizeDirection,
   raycastTargets,
@@ -76,6 +77,7 @@ interface BotState {
   strafeDirection: number;
   aimError: number;
   patrolYaw: number;
+  route: BotRoute;
 }
 
 interface PlayerConnection {
@@ -290,6 +292,10 @@ export class MatchRoom {
     }
 
     this.physics.step();
+    // Out-of-world guard: anything that slips below the world respawns safely.
+    for (const player of this.players.values()) {
+      if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
+    }
     this.updateProjectiles();
     this.recordLagHistory();
 
@@ -358,7 +364,9 @@ export class MatchRoom {
   }
 
   private respawn(player: PlayerConnection): void {
-    const spawn = randomSpawnForFaction(player.profile.faction);
+    const spawn = randomSpawnForFaction(player.profile.faction, Math.random, (position) =>
+      this.isSpawnOccupied(position, player.id),
+    );
     const classId = player.profile.cosmetics.classId;
     player.character.setColliderEnabled(true);
     player.character.teleport(spawn.position);
@@ -386,6 +394,7 @@ export class MatchRoom {
     if (player.bot) {
       player.bot.targetId = 0;
       player.bot.nextThinkTick = this.physicsTick;
+      player.bot.route = createBotRoute();
     }
     this.broadcastEvent({
       eventType: 'PLAYER_RESPAWNED',
@@ -395,6 +404,35 @@ export class MatchRoom {
       paramZ: 0,
       paramValue: 0,
     });
+  }
+
+  /** True when another living player stands on (or right next to) a spawn pad. */
+  private isSpawnOccupied(position: Vec3, selfId: number): boolean {
+    for (const other of this.players.values()) {
+      if (other.id === selfId || !other.alive) continue;
+      const feet = other.character.position;
+      if (Math.hypot(feet.x - position.x, feet.z - position.z) < 1.6 && Math.abs(feet.y - position.y) < 2.5) return true;
+    }
+    return false;
+  }
+
+  /**
+   * DEV-only probe (enabled with FF_DEV_TOOLS=1): moves a player onto the
+   * highest walkable surface at (x, z), or to an explicit height.
+   */
+  devTeleport(playerId: number, x: number, z: number, y?: number): { ok: boolean; position?: Vec3 } {
+    const player = this.players.get(playerId);
+    if (!player || !player.alive) return { ok: false };
+    let height = y;
+    if (height === undefined) {
+      const hit = this.physics.raycast({ x, y: 160, z }, { x: 0, y: -1, z: 0 }, 200);
+      height = (hit?.point.y ?? 0) + 0.05;
+    }
+    const position = { x, y: height, z };
+    player.character.teleport(position);
+    player.character.restore(position, ZERO_VELOCITY, false, 0);
+    player.inputQueue.length = 0;
+    return { ok: true, position };
   }
 
   private eyePosition(player: PlayerConnection): Vec3 {
@@ -851,6 +889,7 @@ export class MatchRoom {
           strafeDirection: Math.random() < 0.5 ? -1 : 1,
           aimError: 0,
           patrolYaw: Math.random() * Math.PI * 2,
+          route: createBotRoute(),
         },
       };
       this.players.set(id, player);
@@ -940,12 +979,14 @@ export class MatchRoom {
         bot.nextSkillTick = this.physicsTick + 180;
       }
     } else {
-      if (this.physicsTick >= bot.nextStrafeTick) {
-        bot.nextStrafeTick = this.physicsTick + 180;
-        bot.patrolYaw += (Math.random() - 0.5) * 1.4;
-      }
-      yaw = bot.patrolYaw;
+      // Patrol the waypoint graph towards a tower or a random landmark.
+      const steer = steerAlongRoute(bot.route, player.character.position, this.physicsTick, Math.random);
+      yaw = steer.yaw;
+      bot.patrolYaw = yaw;
+      pitch = -0.05;
       buttons |= InputButton.Forward;
+      if (steer.sprint) buttons |= InputButton.Sprint;
+      if (steer.jump) buttons |= InputButton.Jump;
       const ammo = player.ammo[0];
       if (ammo && ammo.magazine <= 0 && ammo.reserve > 0) {
         buttons |= InputButton.Reload;

@@ -1,6 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { CLASS_STATS, type ClassStats } from '../config/classes.js';
-import { sampleMapHeight, surfaceTagAt, type SurfaceTag } from '../config/map-fjord.js';
+import { sampleMapHeight, surfaceTagAt } from '../config/map-fjord.js';
 import {
   FIXED_DT,
   GRAVITY,
@@ -19,6 +19,7 @@ import {
   PLAYER_STEP_HEIGHT,
   WATER_LEVEL,
 } from '../constants.js';
+import type { SurfaceTag } from '../types/map.js';
 import type {
   ClassId,
   InputButtonMask,
@@ -319,7 +320,8 @@ export class CharacterBody {
   private updateColliderShape(): void {
     const halfHeight = Math.max(0.01, (this.currentHeight - this.stats.radius * 2) / 2);
     this.collider.setHalfHeight(halfHeight);
-    this.collider.setTranslation({ x: 0, y: (this.currentHeight - this.baseHeight) / 2, z: 0 });
+    // Relative to the body: `setTranslation` would move the collider to world space.
+    this.collider.setTranslationWrtParent({ x: 0, y: (this.currentHeight - this.baseHeight) / 2, z: 0 });
   }
 
   private startRoll(forwardX: number, forwardZ: number): void {
@@ -503,7 +505,7 @@ export class CharacterBody {
     const forwardAxis = normalizedZ;
     const hasMovement = magnitude > 0.001;
 
-    this.surface = surfaceTagAt(this.feet.x, this.feet.z);
+    this.surface = surfaceTagAt(this.feet.x, this.feet.z, this.feet.y);
     const groundHeight = sampleMapHeight(this.feet.x, this.feet.z);
     const deepWater = groundHeight < WATER_LEVEL - 1.1;
     const wasSwimming = this.isSwimming;

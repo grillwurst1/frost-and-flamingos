@@ -1,8 +1,9 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FIXED_DT, GRAVITY, MAP_HALF_SIZE, MAP_SEGMENTS, MAP_SIZE } from '../constants.js';
 import { FJORD_MAP } from '../config/map-fjord.js';
-import type { MapProp } from '../config/map-fjord.js';
+import { quaternionFromYawPitchRoll } from '../config/map/math.js';
 import type { Vec3 } from '../types/index.js';
+import type { MapProp, PropCollider } from '../types/map.js';
 import { CharacterBody, type CharacterBodyOptions } from './character.js';
 
 /** Membership bit 1 = static world, filter accepts world and player bodies. */
@@ -47,6 +48,7 @@ export class PhysicsWorld {
   readonly world: RAPIER.World;
   private readonly characters = new Map<number, CharacterBody>();
   private readonly playerColliderHandles = new Set<number>();
+  private readonly pieceColliders = new Map<string, number[]>();
   private nextCharacterHandle = 1;
 
   private constructor(world: RAPIER.World) {
@@ -93,51 +95,92 @@ export class PhysicsWorld {
   }
 
   private createPropCollider(prop: MapProp): void {
-    const rotation = prop.rotationY;
-    const quaternion = { x: 0, y: Math.sin(rotation / 2), z: 0, w: Math.cos(rotation / 2) };
     for (const collider of prop.colliders) {
-      const worldOffset = rotateOffset(collider.offset, rotation);
+      const description = this.colliderDescription(collider);
+      if (!description) continue;
+      const worldOffset = rotateOffset(collider.offset, prop.rotationY);
       const translation = add(prop.position, worldOffset);
-      let description: RAPIER.ColliderDesc;
-      if (collider.type === 'box') {
-        description = RAPIER.ColliderDesc.cuboid(
-          collider.halfExtents.x,
-          collider.halfExtents.y,
-          collider.halfExtents.z,
-        );
-      } else if (collider.type === 'cylinder') {
-        description = RAPIER.ColliderDesc.cylinder(collider.halfHeight, collider.radius);
-      } else {
-        description = RAPIER.ColliderDesc.ball(collider.radius);
-      }
+      const local = collider.type === 'box' ? collider.rotation : undefined;
+      const quaternion = quaternionFromYawPitchRoll(
+        prop.rotationY + (local?.y ?? 0),
+        local?.x ?? 0,
+        local?.z ?? 0,
+      );
       description
         .setTranslation(translation.x, translation.y, translation.z)
         .setRotation(quaternion)
         .setFriction(0.85)
         .setRestitution(0.05)
         .setCollisionGroups(WORLD_COLLISION_GROUP);
-      this.world.createCollider(description);
+      const created = this.world.createCollider(description);
+      if (collider.pieceId) {
+        const handles = this.pieceColliders.get(collider.pieceId) ?? [];
+        handles.push(created.handle);
+        this.pieceColliders.set(collider.pieceId, handles);
+      }
     }
+  }
+
+  private colliderDescription(collider: PropCollider): RAPIER.ColliderDesc | null {
+    switch (collider.type) {
+      case 'box':
+        return RAPIER.ColliderDesc.cuboid(collider.halfExtents.x, collider.halfExtents.y, collider.halfExtents.z);
+      case 'cylinder':
+        return RAPIER.ColliderDesc.cylinder(collider.halfHeight, collider.radius);
+      case 'sphere':
+        return RAPIER.ColliderDesc.ball(collider.radius);
+      case 'prism': {
+        // Regular polygon prism with flat sides facing (sin a, cos a) for a = k · 2π / sides.
+        const points = new Float32Array(collider.sides * 2 * 3);
+        for (let index = 0; index < collider.sides; index += 1) {
+          const angle = ((index + 0.5) / collider.sides) * Math.PI * 2;
+          const x = Math.sin(angle) * collider.radius;
+          const z = Math.cos(angle) * collider.radius;
+          points.set([x, -collider.halfHeight, z, x, collider.halfHeight, z], index * 6);
+        }
+        return RAPIER.ColliderDesc.convexHull(points);
+      }
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Enables or disables every static collider tagged with a destructible
+   * piece id (bridge/pier segments, buildings, trees, silos, billboards).
+   */
+  setStaticPieceEnabled(pieceId: string, enabled: boolean): boolean {
+    const handles = this.pieceColliders.get(pieceId);
+    if (!handles) return false;
+    for (const handle of handles) {
+      this.world.getCollider(handle)?.setEnabled(enabled);
+    }
+    return true;
+  }
+
+  get staticPieceIds(): string[] {
+    return [...this.pieceColliders.keys()];
   }
 
   private createBoundaryColliders(): void {
     const wallDistance = MAP_HALF_SIZE + 3;
-    const wallHeight = 70;
+    // Tall enough to fence in the edge summits (+96 m) as well as the sea.
+    const wallHeight = 170;
     const walls: Array<{ position: Vec3; halfExtents: Vec3 }> = [
       {
-        position: { x: wallDistance, y: wallHeight / 2, z: 0 },
+        position: { x: wallDistance, y: wallHeight / 2 - 30, z: 0 },
         halfExtents: { x: 2, y: wallHeight / 2, z: MAP_HALF_SIZE + 8 },
       },
       {
-        position: { x: -wallDistance, y: wallHeight / 2, z: 0 },
+        position: { x: -wallDistance, y: wallHeight / 2 - 30, z: 0 },
         halfExtents: { x: 2, y: wallHeight / 2, z: MAP_HALF_SIZE + 8 },
       },
       {
-        position: { x: 0, y: wallHeight / 2, z: wallDistance },
+        position: { x: 0, y: wallHeight / 2 - 30, z: wallDistance },
         halfExtents: { x: MAP_HALF_SIZE + 8, y: wallHeight / 2, z: 2 },
       },
       {
-        position: { x: 0, y: wallHeight / 2, z: -wallDistance },
+        position: { x: 0, y: wallHeight / 2 - 30, z: -wallDistance },
         halfExtents: { x: MAP_HALF_SIZE + 8, y: wallHeight / 2, z: 2 },
       },
     ];

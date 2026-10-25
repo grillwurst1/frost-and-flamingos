@@ -18,8 +18,11 @@ export const RESPAWN_DELAY_SECONDS = 10;
 export const MAP_ID = 'fjord_fiesta';
 export const MAP_SIZE = 800;
 export const MAP_HALF_SIZE = MAP_SIZE / 2;
-export const MAP_SEGMENTS = 160;
+/** 256 segments = 257 × 257 heightfield vertices, 3.125 m cells. */
+export const MAP_SEGMENTS = 256;
 export const WATER_LEVEL = 0;
+/** Natural snowline of the balanced climate; weather shifts it between +2 and +48. */
+export const SNOWLINE_Y = 22;
 export const WORLD_MIN_Y = -20;
 export const WORLD_MAX_Y = 140;
 
