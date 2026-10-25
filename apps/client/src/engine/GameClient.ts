@@ -11,6 +11,7 @@ import {
   STATUS_BOOST_SCALE,
   STATUS_SLOW_SCALE,
   MAX_PREDICTION_REPLAY,
+  PHYSICS_TICK_RATE,
   ParachuteState,
   PhysicsWorld,
   RESPAWN_DELAY_SECONDS,
@@ -28,6 +29,7 @@ import {
   type ClassId,
   type Faction,
   type GameEvent,
+  type MascotWireState,
   type PlayerInput,
   type PlayerProfile,
   type PlayerState,
@@ -101,9 +103,11 @@ const DEPLOYMENT_DURATION_MS = 2600;
 interface PendingInput {
   input: PlayerInput;
   previousButtons: number;
+  /** Predicted state right after this input (rewritten by every replay). */
   position: Vec3;
   velocity: Vec3;
   grounded: boolean;
+  mascot: MascotWireState | null;
   wind: WindState;
   /** Authoritative status the input was predicted with (slow/boost, puddle). */
   speedScale: number;
@@ -144,6 +148,40 @@ function directionFromAngles(yaw: number, pitch: number): Vec3 {
 function sequenceAfter(a: number, b: number): boolean {
   const difference = (a - b) & 0xffff;
   return difference !== 0 && difference < 0x8000;
+}
+
+/** Wire tolerances of the mascot block (angle u16, stamina u8, yaw rate 1/1000). */
+const MASCOT_HEADING_TOLERANCE = 0.002;
+const MASCOT_STAMINA_TOLERANCE = 1.5 / 255;
+const MASCOT_YAW_RATE_TOLERANCE = 0.0015;
+
+function timerTicks(seconds: number): number {
+  return Math.round(seconds * PHYSICS_TICK_RATE);
+}
+
+/**
+ * True when the predicted mascot motor state differs from the authoritative
+ * one beyond wire quantisation. Cooldowns, timers and flags must match
+ * exactly: the motor counts them in whole ticks.
+ */
+function mascotDiverged(predicted: MascotWireState | null, authoritative: MascotWireState | null): boolean {
+  if (!predicted || !authoritative) return predicted !== authoritative;
+  for (let index = 0; index < 3; index += 1) {
+    if (predicted.cooldownTicks[index] !== authoritative.cooldownTicks[index]) return true;
+  }
+  return (
+    predicted.exhausted !== authoritative.exhausted ||
+    predicted.pounding !== authoritative.pounding ||
+    predicted.galloping !== authoritative.galloping ||
+    predicted.jumpsUsed !== authoritative.jumpsUsed ||
+    timerTicks(predicted.boostSeconds) !== timerTicks(authoritative.boostSeconds) ||
+    timerTicks(predicted.actionSeconds) !== timerTicks(authoritative.actionSeconds) ||
+    timerTicks(predicted.hopSeconds) !== timerTicks(authoritative.hopSeconds) ||
+    timerTicks(predicted.coyoteSeconds) !== timerTicks(authoritative.coyoteSeconds) ||
+    Math.abs(shortestAngle(predicted.heading, authoritative.heading)) > MASCOT_HEADING_TOLERANCE ||
+    Math.abs(predicted.stamina - authoritative.stamina) > MASCOT_STAMINA_TOLERANCE ||
+    Math.abs(predicted.yawRate - authoritative.yawRate) > MASCOT_YAW_RATE_TOLERANCE
+  );
 }
 
 function shortestAngle(from: number, to: number): number {
@@ -231,6 +269,8 @@ export class GameClient {
   private latestLocalState: PlayerState | null = null;
   private latestWind: WindState = { angle: 0, strength: 0 };
   private pendingInputs: PendingInput[] = [];
+  /** The most recently acknowledged input and its prediction. */
+  private lastAcknowledged: PendingInput | null = null;
   private sequence = 1;
   private predictionError = 0;
 
@@ -542,6 +582,7 @@ export class GameClient {
     this.localId = welcome.playerId;
     this.localSpawn = welcome.spawn;
     this.pendingInputs.length = 0;
+    this.lastAcknowledged = null;
     this.sequence = 1;
     this.latestLocalState = null;
     this.profiles.clear();
@@ -657,6 +698,7 @@ export class GameClient {
     });
     this.cameraRig?.setProfile(cameraProfileFor(form));
     this.pendingInputs.length = 0;
+    this.lastAcknowledged = null;
     this.latestLocalState = null;
   }
 
@@ -932,22 +974,35 @@ export class GameClient {
       this.pendingInputs.length > 0 &&
       !sequenceAfter(this.pendingInputs[0]?.input.sequence ?? 0, acknowledged)
     ) {
-      this.pendingInputs.shift();
+      this.lastAcknowledged = this.pendingInputs.shift() ?? null;
     }
 
     if (character.parachuteState !== authoritative.parachuteState) {
       character.setParachuteState(authoritative.parachuteState);
     }
 
-    const predicted = character.position;
+    // Compare the authoritative state with what was predicted for the very
+    // same input. Without that record (all inputs acknowledged, or a replay
+    // window overflow) fall back to the live prediction.
+    const reference =
+      this.lastAcknowledged && this.lastAcknowledged.input.sequence === acknowledged
+        ? this.lastAcknowledged
+        : null;
+    const predicted = reference?.position ?? character.position;
     const error = Math.hypot(
       predicted.x - authoritative.position.x,
       predicted.y - authoritative.position.y,
       predicted.z - authoritative.position.z,
     );
     this.predictionError = error;
+    // Mascot moves that do not move the body (Cowbell Clang, Milk Splash),
+    // or server ticks the client never simulated (pause, starved input),
+    // only show up in the motor state, so it is compared on its own.
+    const diverged =
+      character.form !== null &&
+      mascotDiverged(reference?.mascot ?? character.mascotState, authoritative.mascot);
 
-    if (error <= RECONCILE_THRESHOLD) return;
+    if (error <= RECONCILE_THRESHOLD && !diverged) return;
 
     const hardSnap = error > HARD_SNAP_THRESHOLD;
     if (hardSnap) this.pendingInputs.length = 0;
@@ -959,17 +1014,31 @@ export class GameClient {
       authoritative.grounded,
       previousButtons,
       authoritative.parachuteState,
+      authoritative.swimming,
     );
     character.restoreExtended(authoritative.launchSeconds, authoritative.mascot);
     // Events from before the replay were already shown; replays re-emit them.
     character.drainMascotEvents();
 
     if (this.physics) {
+      // Replay with the authoritative status: the one recorded with an input
+      // was the snapshot status of its time, which this snapshot supersedes.
+      const speedScale = authoritative.slowed
+        ? STATUS_SLOW_SCALE
+        : authoritative.boosted
+          ? STATUS_BOOST_SCALE
+          : 1;
       for (const pending of this.pendingInputs) {
+        pending.speedScale = speedScale;
+        pending.slippery = authoritative.slippery;
         character.setWind(pending.wind);
         character.setSlippery(pending.slippery);
         character.simulate(pending.input, true, pending.speedScale);
         this.physics.step();
+        pending.position = character.position;
+        pending.velocity = character.velocity;
+        pending.grounded = character.grounded;
+        pending.mascot = character.mascotState;
       }
     }
     character.drainMascotEvents();
@@ -1057,6 +1126,7 @@ export class GameClient {
       position: character.position,
       velocity: character.velocity,
       grounded: character.grounded,
+      mascot: character.mascotState,
       wind: this.latestWind,
       speedScale,
       slippery,

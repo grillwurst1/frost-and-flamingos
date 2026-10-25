@@ -1,6 +1,6 @@
 /** Networking, simulation and world constants shared by client and server. */
 
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;

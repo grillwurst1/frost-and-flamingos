@@ -4,7 +4,7 @@ import { InputButton, PHYSICS_TICK_RATE, type CharacterBody, type Vec3 } from '@
 export interface MascotBotMemory {
   /** Ticks spent pushing the throttle without moving (stuck on a prop). */
   stuckTicks: number;
-  /** While set, back up and turn away from the obstacle. */
+  /** While set, the cow backs up and turns away; the coconut rolls a sideways detour. */
   reverseUntilTick: number;
   /** Turn direction used when backing out or patrolling. */
   steerBias: number;
@@ -78,6 +78,13 @@ export function mascotBotButtons(
     if (target && distance < 7 && chance(0.5)) buttons |= InputButton.Skill3OrTaunt;
     if (chance(0.08)) buttons |= InputButton.Jump;
   } else {
+    if (tick < memory.reverseUntilTick) {
+      // Detour: roll at a right angle to the way in, hopping over the edge.
+      yaw += (memory.steerBias * Math.PI) / 2;
+      buttons |= InputButton.Forward;
+      if (body.grounded && chance(2)) buttons |= InputButton.Jump;
+      return { buttons, yaw };
+    }
     // Coconut: push along (desired velocity − current velocity) so the ball
     // homes in instead of orbiting the target on its own momentum.
     buttons |= InputButton.Forward;
@@ -97,8 +104,9 @@ export function mascotBotButtons(
     if (memory.stuckTicks > PHYSICS_TICK_RATE && body.grounded) buttons |= InputButton.Jump;
   }
 
-  // Stuck detection: pushing for 1.5 s without moving backs the cow out.
-  if (speed < 0.6 && body.grounded) memory.stuckTicks += 1;
+  // Stuck detection: pushing for 1.5 s without moving (on the ground or
+  // paddling against a quay) backs the cow out or sends the coconut around.
+  if (speed < 0.6 && (body.grounded || body.swimming)) memory.stuckTicks += 1;
   else memory.stuckTicks = Math.max(0, memory.stuckTicks - 2);
   if (memory.stuckTicks > PHYSICS_TICK_RATE * 1.5) {
     memory.stuckTicks = 0;

@@ -561,7 +561,6 @@ export const en = {
     unavailable: 'n/a',
   },
   mascot: {
-    className: 'Mascot',
     formsLine: 'Cow (Alps) / Coconut (Beach)',
     classBadge: 'Mascot — Cow (Alps) / Coconut (Beach)',
     forms: {
@@ -582,10 +581,28 @@ export const en = {
     yourForm: 'Your form',
     controlsCow: 'W/S throttle and brake · A/D steer · Shift gallop · Space hop · the camera orbits freely',
     controlsCoconut: 'WASD roll with the camera · Space jump and double jump · slopes speed you up',
+    controls: {
+      throttle: 'Throttle / brake & reverse',
+      throttleKey: 'W / S',
+      steer: 'Steer the cow',
+      steerKey: 'A / D',
+      gallop: 'Gallop (drains the meter)',
+      gallopKey: 'Shift + W',
+      hop: 'Hop',
+      hopKey: 'Space',
+      roll: 'Roll (with the camera)',
+      rollKey: 'W A S D',
+      jump: 'Jump / double jump',
+      jumpKey: 'Space, Space',
+      moves: 'Mascot moves',
+      movesKey: 'Q E T / 1 2 3 + click',
+      camera: 'Orbit the camera',
+      poundHint: 'Ground Pound only works in the air',
+    },
     moves: {
       hornCharge: {
         name: 'Horn Charge',
-        description: 'Lower the horns and burst to full gallop for 2 s. Rams deal 30% more damage.',
+        description: 'Lower the horns and burst to full gallop for 2 s. Rams deal 25% more damage.',
       },
       hoofStomp: {
         name: 'Hoof Stomp',
@@ -620,7 +637,6 @@ export const en = {
       pounding: 'Incoming!',
       dazed: 'Dazed',
       slippery: 'Slippery!',
-      ready: 'Ready',
       moveKeys: 'Q E T · or 1 2 3 + click',
       speed: '{value} m/s',
       cooldown: '{seconds}s',

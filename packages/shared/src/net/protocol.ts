@@ -1,4 +1,4 @@
-import { MAX_PLAYERS } from '../constants.js';
+import { MAX_PLAYERS, PHYSICS_TICK_RATE } from '../constants.js';
 import { CLASS_DEFAULT_LOADOUTS, CLASS_TABLE, classStatsFor } from '../config/classes.js';
 import {
   BACK_TABLE,
@@ -125,9 +125,16 @@ function wireToCooldown(value: number): number {
   return value / 10;
 }
 
-/** Short timers travel in centiseconds (0–2.55 s). */
+/**
+ * Short motor timers travel as whole physics ticks (0–255 = 0–4.25 s). The
+ * motor counts them in ticks too, so a restored timer is exact.
+ */
 function shortTimerToWire(seconds: number): number {
-  return Math.max(0, Math.min(255, Math.round(seconds * 100)));
+  return Math.max(0, Math.min(255, Math.round(seconds * PHYSICS_TICK_RATE)));
+}
+
+function wireToShortTimer(value: number): number {
+  return value / PHYSICS_TICK_RATE;
 }
 
 function writeMascotState(writer: BinaryWriter, mascot: MascotWireState): void {
@@ -155,10 +162,10 @@ function readMascotState(reader: BinaryReader): MascotWireState {
   const heading = reader.readAngle();
   const yawRate = reader.readInt16() / 1000;
   const stamina = reader.readUint8() / 255;
-  const boostSeconds = reader.readUint8() / 100;
-  const actionSeconds = reader.readUint8() / 100;
-  const hopSeconds = reader.readUint8() / 100;
-  const coyoteSeconds = reader.readUint8() / 100;
+  const boostSeconds = wireToShortTimer(reader.readUint8());
+  const actionSeconds = wireToShortTimer(reader.readUint8());
+  const hopSeconds = wireToShortTimer(reader.readUint8());
+  const coyoteSeconds = wireToShortTimer(reader.readUint8());
   const flags = reader.readUint8();
   const cooldownTicks: [number, number, number] = [
     reader.readUint16(),
@@ -476,7 +483,7 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       const skillCooldown3 = wireToCooldown(reader.readUint16());
       const lastProcessedInput = reader.readUint16();
       const status = reader.readUint8();
-      const launchSeconds = reader.readUint8() / 100;
+      const launchSeconds = wireToShortTimer(reader.readUint8());
       const mascot = classId === 'mascot' ? readMascotState(reader) : null;
       players.push({
         id,

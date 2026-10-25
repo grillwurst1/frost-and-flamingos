@@ -563,7 +563,6 @@ export const de: TranslationDictionary = {
     unavailable: 'k. A.',
   },
   mascot: {
-    className: 'Maskottchen',
     formsLine: 'Kuh (Alpen) / Kokosnuss (Strand)',
     classBadge: 'Maskottchen — Kuh (Alpen) / Kokosnuss (Strand)',
     forms: {
@@ -578,16 +577,34 @@ export const de: TranslationDictionary = {
     wardrobeTitle: 'Maskottchen-Kostüm',
     wardrobeBody:
       'Maskottchen tragen ein festes Kostüm und keine Schusswaffen. Deine Fraktion bestimmt die Form: Die Gipfel-Garde spielt die Kuh, die Lagunen-Liga rollt mit der Kokosnuss an.',
-    wardrobeRam: 'Ramm Gegner mit Schwung um. Teamkollegen bekommen nur einen freundlichen Schubser.',
+    wardrobeRam: 'Ramme Gegner mit Schwung und kegle sie um. Teamkollegen bekommen nur einen freundlichen Schubser.',
     wardrobeMoves: 'Maskottchen-Moves',
     wardrobeVoice: 'Der Stimmregler stimmt das Muhen und das hohle Kokos-Klopfen.',
     yourForm: 'Deine Form',
     controlsCow: 'W/S Gas und Bremse · A/D lenken · Shift galoppieren · Leertaste hüpfen · die Kamera kreist frei',
     controlsCoconut: 'WASD rollt mit der Kamera · Leertaste Sprung und Doppelsprung · Gefälle macht dich schneller',
+    controls: {
+      throttle: 'Gas / Bremse & Rückwärts',
+      throttleKey: 'W / S',
+      steer: 'Kuh lenken',
+      steerKey: 'A / D',
+      gallop: 'Galoppieren (leert die Leiste)',
+      gallopKey: 'Shift + W',
+      hop: 'Hüpfen',
+      hopKey: 'Leertaste',
+      roll: 'Rollen (mit der Kamera)',
+      rollKey: 'W A S D',
+      jump: 'Sprung / Doppelsprung',
+      jumpKey: 'Leertaste, Leertaste',
+      moves: 'Maskottchen-Moves',
+      movesKey: 'Q E T / 1 2 3 + Klick',
+      camera: 'Kamera kreisen lassen',
+      poundHint: 'Der Kokos-Plumps klappt nur in der Luft',
+    },
     moves: {
       hornCharge: {
         name: 'Hörner-Ansturm',
-        description: 'Hörner runter und 2 s lang im vollen Galopp los. Rammstöße richten 30 % mehr Schaden an.',
+        description: 'Hörner runter und 2 s lang im vollen Galopp los. Rammstöße richten 25 % mehr Schaden an.',
       },
       hoofStomp: {
         name: 'Hufstampfer',
@@ -622,7 +639,6 @@ export const de: TranslationDictionary = {
       pounding: 'Achtung, Plumps!',
       dazed: 'Benommen',
       slippery: 'Rutschig!',
-      ready: 'Bereit',
       moveKeys: 'Q E T · oder 1 2 3 + Klick',
       speed: '{value} m/s',
       cooldown: '{seconds} s',

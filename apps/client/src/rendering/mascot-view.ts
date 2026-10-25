@@ -524,7 +524,8 @@ export class MascotView {
     else if (this.squashTimer > 0) expression = 'squashed';
     else if (pounding || boosting) expression = 'shout';
     const relative = Math.atan2(velocity.x, velocity.z) - this.faceYaw;
-    // The decal's canvas-left sits on the coconut's own right side, hence the sign.
+    // Canvas right is the coconut's own left (-X), so a roll toward +X
+    // (sin > 0, its right) moves the pupils toward canvas left: hence the sign.
     const lookX = speed > 0.5 ? -Math.sin(relative) * Math.min(1, speed / 6) : Math.sin(this.time * 0.5) * 0.3;
     const lookY = Math.max(-1, Math.min(1, velocity.y / 10));
     rig.painter.draw(this.blink > 0 && expression === 'angry' ? 'squashed' : expression, lookX, lookY);

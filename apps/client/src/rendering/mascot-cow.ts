@@ -35,7 +35,6 @@ const PINK_DARK = ink('#c86a76');
 const PINK_INNER = ink('#f2a7b0');
 const NOSTRIL = ink('#5a2830');
 const HORN = ink('#f3e6c4');
-const HORN_TIP = ink('#5a4636');
 const HOOF = ink('#2b2826');
 const LEATHER = ink('#7a4a26');
 const LEATHER_DARK = ink('#5a3418');
@@ -103,6 +102,13 @@ export interface CowRig {
   meshes: Mesh[];
 }
 
+/** Rotates an offset about +Y (Babylon convention: +Z turns toward +X). */
+function rotateY(offset: Vector3, angle: number): Vector3 {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return new Vector3(offset.x * cos + offset.z * sin, offset.y, -offset.x * sin + offset.z * cos);
+}
+
 function node(scene: Scene, name: string, parent: TransformNode, x = 0, y = 0, z = 0): TransformNode {
   const transform = new TransformNode(name, scene);
   transform.parent = parent;
@@ -140,15 +146,15 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
   bodyBin.blob(new Vector3(0.38, 0.3, 0.32), patchPaint(BODY_PATCHES, WHITE, BLACK, 0.55, 3), {
     at: new Vector3(0, 0.16, 0.46),
   }, 36);
-  // Udder with four teats between the hind legs.
-  bodyBin.blob(new Vector3(0.15, 0.1, 0.14), PINK_INNER, { at: new Vector3(0, -0.47, -0.3) });
+  // Udder with four teats between the hind legs, hanging clear of the belly.
+  bodyBin.blob(new Vector3(0.15, 0.13, 0.16), PINK_INNER, { at: new Vector3(0, -0.54, -0.27) });
   for (const [x, z] of [
-    [-0.06, -0.24],
-    [0.06, -0.24],
-    [-0.06, -0.36],
-    [0.06, -0.36],
+    [-0.06, -0.21],
+    [0.06, -0.21],
+    [-0.06, -0.33],
+    [0.06, -0.33],
   ] as const) {
-    bodyBin.capsule(new Vector3(x, -0.52, z), new Vector3(x * 1.15, -0.6, z), 0.022, PINK_DARK, 0.018, 8);
+    bodyBin.capsule(new Vector3(x, -0.64, z), new Vector3(x * 1.15, -0.72, z), 0.022, PINK_DARK, 0.018, 8);
   }
   // Bedroll across the shoulders with spiral ends and two buckled straps.
   const roll = CreateCylinder('cow-bedroll', { height: 1.02, diameter: 0.33, tessellation: 24 }, scene);
@@ -258,7 +264,10 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
   // --- head ------------------------------------------------------------------------
   const head = node(scene, 'cow-head', neck, 0, 0.16, 0.26);
   const headBin = new PartBin(scene, 'cow-head-mesh');
-  const facePatch: readonly Patch[] = [{ center: new Vector3(-0.22, 0.12, 0.28), radius: 0.17 }];
+  const facePatch: readonly Patch[] = [
+    { center: new Vector3(-0.22, 0.12, 0.28), radius: 0.17 },
+    { center: new Vector3(0.21, 0.14, 0.24), radius: 0.14 },
+  ];
   headBin.blob(new Vector3(0.3, 0.3, 0.34), patchPaint(facePatch, WHITE, BLACK, 0.4, 9), { at: new Vector3(0, 0.02, 0.17) }, 36, (point, unit) => {
     // Boxy-rounded: a soft superellipsoid.
     point.x = Math.sign(unit.x) * Math.abs(unit.x) ** 0.8 * 0.3;
@@ -280,16 +289,15 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
     smile.push(new Vector3(x, -0.185 + (x / 0.11) ** 2 * 0.035, 0.585 - (x / 0.11) ** 2 * 0.05));
   }
   headBin.tube(smile, () => 0.009, PINK_DARK, 6);
-  // Horns: up and out, then slightly in; ivory with dark tips.
+  // Horns: short, stout, up and out then slightly in; ivory with warmer tips.
   for (const side of [-1, 1]) {
     const horn = [
-      new Vector3(side * 0.17, 0.22, 0.12),
-      new Vector3(side * 0.27, 0.29, 0.13),
-      new Vector3(side * 0.33, 0.39, 0.13),
-      new Vector3(side * 0.33, 0.48, 0.11),
-      new Vector3(side * 0.29, 0.54, 0.09),
+      new Vector3(side * 0.16, 0.22, 0.12),
+      new Vector3(side * 0.23, 0.28, 0.13),
+      new Vector3(side * 0.26, 0.35, 0.12),
+      new Vector3(side * 0.24, 0.4, 0.1),
     ];
-    headBin.tube(horn, (t) => 0.052 * (1 - t) + 0.01, (point) => (point.y > 0.47 ? HORN_TIP : HORN), 10);
+    headBin.tube(horn, (t) => 0.06 * (1 - t) + 0.028, (point) => (point.y > 0.37 ? shade(HORN, 0.9) : HORN), 10);
   }
   // Curly white tuft between the horns.
   for (const [x, y, z, r] of [
@@ -303,33 +311,50 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
   }
   keep(headBin.merge(material, head));
 
-  // Eyes: big, slightly bulging ovals with large pupils and highlights.
+  // Eyes: big, slightly bulging ovals with large pupils and highlights, set
+  // into the face and turned with its curvature (mascot-view animates the
+  // node's own rotation, so the turn is baked into the parts).
   const eyes: TransformNode[] = [];
   for (const side of [-1, 1]) {
-    const eye = node(scene, side < 0 ? 'cow-eye-left' : 'cow-eye-right', head, side * 0.15, 0.11, 0.44);
+    const eye = node(scene, side < 0 ? 'cow-eye-left' : 'cow-eye-right', head, side * 0.15, 0.11, 0.42);
     const eyeBin = new PartBin(scene, 'cow-eye-mesh');
-    eyeBin.blob(new Vector3(0.085, 0.1, 0.06), EYE_WHITE, {}, 14);
-    eyeBin.blob(new Vector3(0.056, 0.066, 0.03), PUPIL, { at: new Vector3(side * -0.008, -0.004, 0.04) }, 12);
-    eyeBin.blob(new Vector3(0.019, 0.019, 0.012), EYE_WHITE, { at: new Vector3(side * -0.024 + 0.016, 0.03, 0.066) }, 8);
+    const turn = side * 0.4;
+    const rotation = new Vector3(0, turn, 0);
+    eyeBin.blob(new Vector3(0.085, 0.1, 0.06), EYE_WHITE, { rotation }, 14);
+    eyeBin.blob(new Vector3(0.056, 0.066, 0.03), PUPIL, {
+      at: rotateY(new Vector3(side * -0.008, -0.004, 0.04), turn),
+      rotation,
+    }, 12);
+    eyeBin.blob(new Vector3(0.019, 0.019, 0.012), EYE_WHITE, {
+      at: rotateY(new Vector3(side * -0.024 + 0.016, 0.03, 0.066), turn),
+      rotation,
+    }, 8);
     keep(eyeBin.merge(material, eye));
     eyes.push(eye);
   }
+  // Brows hug the forehead: the inner end sits forward, the outer end follows
+  // the head back around its curve.
   const brows: TransformNode[] = [];
   for (const side of [-1, 1]) {
-    const brow = node(scene, side < 0 ? 'cow-brow-left' : 'cow-brow-right', head, side * 0.15, 0.245, 0.45);
+    const brow = node(scene, side < 0 ? 'cow-brow-left' : 'cow-brow-right', head, side * 0.15, 0.245, 0.365);
     const browBin = new PartBin(scene, 'cow-brow-mesh');
-    browBin.capsule(new Vector3(-0.06, 0, 0), new Vector3(0.06, 0, 0), 0.024, BLACK, 0.02, 8);
+    browBin.capsule(new Vector3(-0.06, 0, side * 0.055), new Vector3(0.06, 0, -side * 0.055), 0.024, BLACK, 0.02, 8);
     keep(browBin.merge(material, brow));
     brows.push(brow);
   }
-  // Floppy ears: black outside, pink inside.
+  // Floppy ears: black leaf-shaped flaps with a pink inner inset, turned a
+  // little forward (mascot-view animates the node's droop and flick).
   const ears: TransformNode[] = [];
   for (const side of [-1, 1]) {
     const ear = node(scene, side < 0 ? 'cow-ear-left' : 'cow-ear-right', head, side * 0.28, 0.14, 0.08);
     const earBin = new PartBin(scene, 'cow-ear-mesh');
-    earBin.blob(new Vector3(0.14, 0.04, 0.078), (_point, normal) => (normal.z > 0.3 ? PINK_INNER : BLACK), {
-      at: new Vector3(side * 0.12, 0, 0),
-    }, 14);
+    earBin.blob(
+      new Vector3(0.15, 0.085, 0.035),
+      (point, normal) =>
+        normal.z > 0.5 && Math.abs(point.y) < 0.05 && Math.abs(point.x - side * 0.12) < 0.09 ? PINK_INNER : BLACK,
+      { at: new Vector3(side * 0.12, 0, 0), rotation: new Vector3(0, side * 0.35, 0) },
+      14,
+    );
     keep(earBin.merge(material, ear));
     ear.rotation.z = side * -0.45;
     ears.push(ear);
@@ -375,12 +400,14 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
     keep(upperBin.merge(material, hip));
     const knee = node(scene, 'cow-knee', hip, 0, -UPPER_LEG, hind ? -0.02 : 0.01);
     const lowerBin = new PartBin(scene, 'cow-lower-leg-mesh');
-    lowerBin.capsule(new Vector3(0, 0, 0), new Vector3(0, -LOWER_LEG, 0.01), 0.1, WHITE, 0.088, 12);
+    // The cannon ends inside the hoof, so no white cap shows under the sole.
+    lowerBin.capsule(new Vector3(0, 0, 0), new Vector3(0, -LOWER_LEG + 0.02, 0.01), 0.1, WHITE, 0.088, 12);
     lowerBin.blob(new Vector3(0.105, 0.06, 0.12), (point, normal) => {
       // Cloven hoof: a dark notch down the front.
       return normal.z > 0.35 && Math.abs(point.x) < 0.012 ? BLACK : HOOF;
-    }, { at: new Vector3(0, -LOWER_LEG - 0.045, 0.02) }, 14, (point) => {
-      if (point.y < -0.02) point.y = -0.02 - (point.y + 0.02) * 0.3;
+    }, { at: new Vector3(0, -LOWER_LEG - 0.065, 0.02) }, 14, (point) => {
+      // Flatten the underside into a sole (squash toward the centre line).
+      if (point.y < -0.02) point.y = -0.02 + (point.y + 0.02) * 0.3;
     });
     keep(lowerBin.merge(material, knee));
     hips.push(hip);

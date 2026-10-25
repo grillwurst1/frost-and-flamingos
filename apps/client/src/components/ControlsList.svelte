@@ -1,13 +1,23 @@
 <script lang="ts">
-  import type { TranslationKey } from '@frost-and-flamingos/shared';
+  import { mascotFormOf, type MascotForm, type TranslationKey } from '@frost-and-flamingos/shared';
+  import { localPlayer, phase } from '../state/game';
   import { t } from '../state/locale';
+  import { profile } from '../state/profile';
 
   interface ControlRow {
     label: TranslationKey;
     value: TranslationKey;
   }
 
-  const rows: ControlRow[] = [
+  const SHARED_ROWS: ControlRow[] = [
+    { label: 'controls.taunt', value: 'controls.tauntKey' },
+    { label: 'controls.shoulder', value: 'controls.shoulderKey' },
+    { label: 'controls.zoom', value: 'controls.zoomKey' },
+    { label: 'controls.pause', value: 'controls.pauseKey' },
+    { label: 'controls.debug', value: 'controls.debugKey' },
+  ];
+
+  const HUMAN_ROWS: ControlRow[] = [
     { label: 'controls.movement', value: 'controls.moveKeys' },
     { label: 'controls.look', value: 'controls.mouse' },
     { label: 'controls.jump', value: 'controls.jumpKey' },
@@ -20,12 +30,35 @@
     { label: 'controls.reload', value: 'controls.reloadKey' },
     { label: 'controls.skills', value: 'controls.skillKey' },
     { label: 'controls.interact', value: 'controls.interactKey' },
-    { label: 'controls.taunt', value: 'controls.tauntKey' },
-    { label: 'controls.shoulder', value: 'controls.shoulderKey' },
-    { label: 'controls.zoom', value: 'controls.zoomKey' },
-    { label: 'controls.pause', value: 'controls.pauseKey' },
-    { label: 'controls.debug', value: 'controls.debugKey' },
+    ...SHARED_ROWS,
   ];
+
+  const COW_ROWS: ControlRow[] = [
+    { label: 'mascot.controls.throttle', value: 'mascot.controls.throttleKey' },
+    { label: 'mascot.controls.steer', value: 'mascot.controls.steerKey' },
+    { label: 'mascot.controls.gallop', value: 'mascot.controls.gallopKey' },
+    { label: 'mascot.controls.hop', value: 'mascot.controls.hopKey' },
+    { label: 'mascot.controls.camera', value: 'controls.mouse' },
+    { label: 'mascot.controls.moves', value: 'mascot.controls.movesKey' },
+    ...SHARED_ROWS,
+  ];
+
+  const COCONUT_ROWS: ControlRow[] = [
+    { label: 'mascot.controls.roll', value: 'mascot.controls.rollKey' },
+    { label: 'mascot.controls.camera', value: 'controls.mouse' },
+    { label: 'mascot.controls.jump', value: 'mascot.controls.jumpKey' },
+    { label: 'mascot.controls.moves', value: 'mascot.controls.movesKey' },
+    ...SHARED_ROWS,
+  ];
+
+  // In a round the server-assigned class and faction decide; in the menus the
+  // local profile does.
+  $: inRound = ($phase === 'playing' || $phase === 'paused') && $localPlayer !== null;
+  let form: MascotForm | null = null;
+  $: form = inRound && $localPlayer
+    ? mascotFormOf($localPlayer.classId, $localPlayer.faction)
+    : mascotFormOf($profile.cosmetics.classId, $profile.faction);
+  $: rows = form === 'cow' ? COW_ROWS : form === 'coconut' ? COCONUT_ROWS : HUMAN_ROWS;
 </script>
 
 <div class="controls-grid">
@@ -35,4 +68,16 @@
       <kbd>{$t(row.value)}</kbd>
     </div>
   {/each}
+  {#if form === 'coconut'}
+    <p class="controls-note">{$t('mascot.controls.poundHint')}</p>
+  {/if}
 </div>
+
+<style>
+  .controls-note {
+    grid-column: 1 / -1;
+    margin: 0.25rem 0 0;
+    font-size: 0.7rem;
+    opacity: 0.7;
+  }
+</style>

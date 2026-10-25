@@ -1,4 +1,5 @@
 import {
+  COCONUT_TUNING,
   MASCOT_SKILLS,
   SKILLS,
   classStatsFor,
@@ -52,6 +53,8 @@ export function cameraProfileFor(form: MascotForm | null): CameraProfile {
  */
 export class MascotClient {
   private readonly strides = new Map<number, StrideState>();
+  /** Players currently dazed, so the DIZZY! popup plays once per daze. */
+  private readonly dazed = new Set<number>();
 
   constructor(private readonly fx: MascotFx) {}
 
@@ -218,11 +221,20 @@ export class MascotClient {
 
   forget(id: number): void {
     this.strides.delete(id);
+    this.dazed.delete(id);
   }
 
-  /** Stars over dazed players and knocked-out mascots. */
+  /** Stars over dazed players and knocked-out mascots, and a popup when a daze starts. */
   dizzy(id: number, position: Vec3, form: MascotForm | null, dazed: boolean, alive: boolean): void {
     const show = (dazed && alive) || (!alive && form !== null);
+    if (dazed && alive) {
+      if (!this.dazed.has(id)) {
+        this.dazed.add(id);
+        this.popup('mascot.popups.dazed', position, 'gold', 1.1, HEAD_HEIGHT[form ?? 'human'] + 0.5);
+      }
+    } else {
+      this.dazed.delete(id);
+    }
     if (!show) {
       this.fx.setDizzy(id, null);
       return;
@@ -261,7 +273,7 @@ export class MascotClient {
       skidding: mascot?.skidding ?? false,
       pounding: character.mascotPounding,
       speed,
-      momentum: Math.min(1, speed / 17.5),
+      momentum: Math.min(1, speed / COCONUT_TUNING.turboMaxSpeed),
       moves: [moves[0], moves[1], moves[2]],
       cooldowns,
       cooldownMax: [

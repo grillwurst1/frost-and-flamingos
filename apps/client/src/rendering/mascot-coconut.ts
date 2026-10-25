@@ -26,6 +26,7 @@ const HUSK = ink('#7a4a26');
 const HUSK_LIGHT = ink('#a9753f');
 const HUSK_DARK = ink('#4c2c14');
 const HOLE = ink('#24130a');
+const HOLE_RIM = ink('#5e3a1c');
 const LEAF = ink('#3fae49');
 const LEAF_DARK = ink('#2a7d36');
 
@@ -39,12 +40,20 @@ const FLOWERS: ReadonlyArray<{ petal: Color4; centre: Color4; kind: 'hibiscus' |
   { petal: ink('#ff3d6e'), centre: ink('#ffe066'), kind: 'hibiscus' },
 ];
 
-/** The three "eye" holes: a small triangle on the front of the crown (shell space). */
+/**
+ * The three "eye" holes: two side by side and one below them, on the front
+ * of the crown just above the brows (shell space, ~55/55/44° latitude and
+ * ~20° apart so they read as three separate holes from the chase camera).
+ */
 const HOLE_DIRECTIONS = [
-  new Vector3(-0.1, 0.96, 0.2).normalize(),
-  new Vector3(0.1, 0.96, 0.2).normalize(),
-  new Vector3(0, 0.9, 0.36).normalize(),
+  new Vector3(-0.17, 0.82, 0.55).normalize(),
+  new Vector3(0.17, 0.82, 0.55).normalize(),
+  new Vector3(0, 0.7, 0.71).normalize(),
 ];
+/** cos of a hole's angular radius (≈ 4.5°). */
+const HOLE_CONE = 0.9969;
+/** Fibres keep clear of the holes by this much (cos 8°). */
+const HOLE_CLEARANCE = Math.cos((8 * Math.PI) / 180);
 
 export interface CoconutRig {
   visual: TransformNode;
@@ -77,11 +86,19 @@ function facing(direction: Vector3, roll = 0): Vector3 {
   return new Vector3(pitch, yaw, roll);
 }
 
+/** Lumps and fibre ridges of the shell surface, as a radius scale for a unit direction. */
+function shellRelief(unit: Vector3): number {
+  const lumps = (fbm3(unit.x * 4.5, unit.y * 4.5, unit.z * 4.5) - 0.5) * 0.07;
+  const longitude = Math.atan2(unit.x, unit.z);
+  const ridges = Math.sin(longitude * 30 + fbm3(unit.x * 3, unit.y * 3, unit.z * 3) * 7) * 0.008;
+  return 1 + lumps + ridges;
+}
+
 function huskPaint(point: Vector3): Color4 {
   const length = point.length() || 1;
   const unit = point.scale(1 / length);
   for (const hole of HOLE_DIRECTIONS) {
-    if (Vector3.Dot(unit, hole) > 0.9945) return HOLE;
+    if (Vector3.Dot(unit, hole) > HOLE_CONE) return HOLE;
   }
   const longitude = Math.atan2(unit.x, unit.z);
   const latitude = Math.asin(Math.max(-1, Math.min(1, unit.y)));
@@ -92,8 +109,8 @@ function huskPaint(point: Vector3): Color4 {
   let color = striation > 0.55 ? HUSK_LIGHT : striation < -0.6 ? HUSK_DARK : HUSK;
   if (speckle > 0.7) color = shade(color, 1.18);
   else if (speckle < 0.3) color = shade(color, 0.82);
-  // The cap around the holes is darker and smoother, like the real nut.
-  if (unit.y > 0.86) color = mixColor(color, HUSK_DARK, (unit.y - 0.86) * 4);
+  // The very top of the cap is darker and smoother, like the real nut.
+  if (unit.y > 0.93) color = mixColor(color, HUSK_DARK, (unit.y - 0.93) * 6);
   return color;
 }
 
@@ -109,16 +126,21 @@ export function buildCoconutRig(scene: Scene, material: ShaderMaterial, root: Tr
   shell.rotationQuaternion = Quaternion.Identity();
   const shellBin = new PartBin(scene, 'coconut-shell-mesh');
   shellBin.blob(SHELL_RADII, huskPaint, {}, 34, (point, unit) => {
-    const lumps = (fbm3(unit.x * 4.5, unit.y * 4.5, unit.z * 4.5) - 0.5) * 0.07;
-    const longitude = Math.atan2(unit.x, unit.z);
-    const ridges = Math.sin(longitude * 30 + fbm3(unit.x * 3, unit.y * 3, unit.z * 3) * 7) * 0.008;
-    let scale = 1 + lumps + ridges;
+    let scale = shellRelief(unit);
     for (const hole of HOLE_DIRECTIONS) {
       const alignment = Vector3.Dot(unit, hole);
-      if (alignment > 0.9945) scale -= (alignment - 0.9945) * 7;
+      if (alignment > HOLE_CONE) scale -= (alignment - HOLE_CONE) * 7;
     }
     point.scaleInPlace(scale);
   });
+  // Each hole is its own dark inset with a lighter worn rim, so it reads
+  // regardless of how densely the shell is tessellated.
+  for (const hole of HOLE_DIRECTIONS) {
+    const surface = onShell(hole, 0).scale(shellRelief(hole));
+    const inset = (depth: number): Vector3 => surface.subtract(hole.scale(depth));
+    shellBin.blob(new Vector3(0.07, 0.06, 0.016), HOLE_RIM, { at: inset(0.012), rotation: facing(hole) }, 10);
+    shellBin.blob(new Vector3(0.055, 0.045, 0.02), HOLE, { at: inset(0.012), rotation: facing(hole) }, 10);
+  }
   // Fibre tufts so the silhouette is hairy, not a perfect ball.
   const random = seededRandom(1337);
   for (let index = 0; index < 190; index += 1) {
@@ -127,6 +149,7 @@ export function buildCoconutRig(scene: Scene, material: ShaderMaterial, root: Tr
     const ring = Math.sqrt(1 - u * u);
     const direction = new Vector3(Math.cos(theta) * ring, u, Math.sin(theta) * ring);
     if (direction.y > 0.85) continue;
+    if (HOLE_DIRECTIONS.some((hole) => Vector3.Dot(direction, hole) > HOLE_CLEARANCE)) continue;
     const base = onShell(direction, -0.01);
     // Short enough to stay under the face decal while the shell tumbles.
     const length = 0.025 + random() * 0.03;

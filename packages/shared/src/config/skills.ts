@@ -1,5 +1,6 @@
 import type { ClassId, Faction, MascotForm } from '../types/index.js';
 import { mascotFormForFaction } from './classes.js';
+import { COCONUT_TUNING, MASCOT_RAM } from './mascot.js';
 import type { TranslationKey } from '../i18n/schema.js';
 
 export type SkillId =
@@ -146,7 +147,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     kind: 'mascot',
     cooldownSeconds: 9,
     durationSeconds: 2,
-    amount: 1.3,
+    amount: MASCOT_RAM.cow.boostMultiplier,
     radius: 0,
     nameKey: 'mascot.moves.hornCharge.name',
     descriptionKey: 'mascot.moves.hornCharge.description',
@@ -180,7 +181,7 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
     kind: 'mascot',
     cooldownSeconds: 8,
     durationSeconds: 2,
-    amount: 17.5,
+    amount: COCONUT_TUNING.turboMaxSpeed,
     radius: 0,
     nameKey: 'mascot.moves.turboRoll.name',
     descriptionKey: 'mascot.moves.turboRoll.description',

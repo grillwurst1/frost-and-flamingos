@@ -8,6 +8,8 @@ import type {
   WeaponSlot,
 } from '../types/index.js';
 import { createIdTable } from './ids.js';
+import { MASCOT_RAM } from './mascot.js';
+import { SKILLS } from './skills.js';
 
 /** Slot 1: the primary workhorse. */
 export const PRIMARY_WEAPON_IDS = ['smg', 'lmg', 'sniper'] as const satisfies readonly MainWeaponId[];
@@ -436,16 +438,30 @@ function mascotMoveStats(id: MascotWeaponId, damage: number, range: number, spla
   };
 }
 
-/** HUD/kill-feed numbers only; mascot combat is resolved from MASCOT_RAM and SKILLS. */
+/** Nominal body-contact reach shown for the ram moves (m). */
+const COW_RAM_REACH = 1.6;
+const COCONUT_RAM_REACH = 1.5;
+
+/** HUD/kill-feed numbers only, derived from the MASCOT_RAM and SKILLS tables that resolve combat. */
 const MASCOT_WEAPON_STATS: Record<MascotWeaponId, WeaponStats> = {
-  cow_ram: mascotMoveStats('cow_ram', 85, 1.6, 0),
-  coconut_ram: mascotMoveStats('coconut_ram', 95, 1.5, 0),
-  horn_charge: mascotMoveStats('horn_charge', 110, 1.6, 0),
-  hoof_stomp: mascotMoveStats('hoof_stomp', 35, 4, 4),
-  cowbell_clang: mascotMoveStats('cowbell_clang', 0, 8, 8),
-  turbo_roll: mascotMoveStats('turbo_roll', 95, 1.5, 0),
-  ground_pound: mascotMoveStats('ground_pound', 45, 4.5, 4.5),
-  milk_splash: mascotMoveStats('milk_splash', 0, 4.5, 4.5),
+  cow_ram: mascotMoveStats('cow_ram', MASCOT_RAM.cow.maxDamage, COW_RAM_REACH, 0),
+  coconut_ram: mascotMoveStats('coconut_ram', MASCOT_RAM.coconut.maxDamage, COCONUT_RAM_REACH, 0),
+  horn_charge: mascotMoveStats(
+    'horn_charge',
+    Math.round(MASCOT_RAM.cow.maxDamage * MASCOT_RAM.cow.boostMultiplier),
+    COW_RAM_REACH,
+    0,
+  ),
+  hoof_stomp: mascotMoveStats('hoof_stomp', SKILLS.hoof_stomp.amount, SKILLS.hoof_stomp.radius, SKILLS.hoof_stomp.radius),
+  cowbell_clang: mascotMoveStats('cowbell_clang', 0, SKILLS.cowbell_clang.radius, SKILLS.cowbell_clang.radius),
+  turbo_roll: mascotMoveStats(
+    'turbo_roll',
+    Math.round(MASCOT_RAM.coconut.maxDamage * MASCOT_RAM.coconut.boostMultiplier),
+    COCONUT_RAM_REACH,
+    0,
+  ),
+  ground_pound: mascotMoveStats('ground_pound', SKILLS.ground_pound.amount, SKILLS.ground_pound.radius, SKILLS.ground_pound.radius),
+  milk_splash: mascotMoveStats('milk_splash', 0, SKILLS.milk_splash.radius, SKILLS.milk_splash.radius),
 };
 
 export const WEAPON_STATS: Record<WeaponId, WeaponStats> = {

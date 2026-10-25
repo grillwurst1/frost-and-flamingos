@@ -35,6 +35,8 @@
   $: player = $localPlayer;
   $: faction = player?.faction ?? 'alpine';
   $: classId = player?.classId ?? 'allrounder';
+  // Mascots carry no firearms: MascotHud shows their vitality and moves.
+  $: isMascot = classId === 'mascot';
   $: theme = FACTION_THEME[faction];
   $: healthPercent = player
     ? Math.max(0, Math.min(100, (player.hp / Math.max(1, player.maxHp)) * 100))
@@ -182,18 +184,20 @@
 
   <!-- Centre: adaptive crosshair, hit marker and comic pop. -->
   {#if !dead}
-    <div
-      class="hud-crosshair"
-      class:is-reloading={player?.reloading}
-      style={`--gap:${crosshairGap}px`}
-      aria-hidden="true"
-    >
-      <span class="hud-crosshair-dot"></span>
-      <span class="hud-crosshair-line is-top"></span>
-      <span class="hud-crosshair-line is-right"></span>
-      <span class="hud-crosshair-line is-bottom"></span>
-      <span class="hud-crosshair-line is-left"></span>
-    </div>
+    {#if !isMascot}
+      <div
+        class="hud-crosshair"
+        class:is-reloading={player?.reloading}
+        style={`--gap:${crosshairGap}px`}
+        aria-hidden="true"
+      >
+        <span class="hud-crosshair-dot"></span>
+        <span class="hud-crosshair-line is-top"></span>
+        <span class="hud-crosshair-line is-right"></span>
+        <span class="hud-crosshair-line is-bottom"></span>
+        <span class="hud-crosshair-line is-left"></span>
+      </div>
+    {/if}
     {#if $hitMarker}
       {#key $hitMarker.id}
         <div class="hud-hit-marker" class:is-headshot={$hitMarker.headshot} class:is-kill={$hitMarker.kill} aria-hidden="true">
@@ -216,16 +220,18 @@
     </div>
   {/if}
 
-  <!-- Bottom left: vitality, shield and match stats. -->
+  <!-- Bottom left: vitality, shield and match stats (mascots: stats only). -->
   <section class="hud-vitality glass">
-    <div class="hud-vitality-top">
-      <span class="hud-label">{$t('hud.health')}</span>
-      <strong class="mono">{Math.round(player?.hp ?? 0)}<span> / {Math.round(player?.maxHp ?? 0)}</span></strong>
-    </div>
-    <div class="hud-health-track">
-      <div class="hud-health-fill" class:is-low={lowHealth} style={`width:${healthPercent}%`}></div>
-    </div>
-    {#if (player?.shield ?? 0) > 0}
+    {#if !isMascot}
+      <div class="hud-vitality-top">
+        <span class="hud-label">{$t('hud.health')}</span>
+        <strong class="mono">{Math.round(player?.hp ?? 0)}<span> / {Math.round(player?.maxHp ?? 0)}</span></strong>
+      </div>
+      <div class="hud-health-track">
+        <div class="hud-health-fill" class:is-low={lowHealth} style={`width:${healthPercent}%`}></div>
+      </div>
+    {/if}
+    {#if !isMascot && (player?.shield ?? 0) > 0}
       <div class="hud-shield-row">
         <span class="hud-label">{$t('combat.shield')}</span>
         <strong class="mono">{Math.round(player?.shield ?? 0)}</strong>
@@ -245,7 +251,8 @@
     </div>
   </section>
 
-  <!-- Bottom centre: class skills. -->
+  <!-- Bottom centre: class skills (mascot moves live on the MascotHud card). -->
+  {#if !isMascot}
   <section class="hud-skills" aria-label={$t('combat.skills')}>
     {#each skills as skill, index (skill.id)}
       <div
@@ -264,9 +271,11 @@
       </div>
     {/each}
   </section>
+  {/if}
 
-  <!-- Bottom right: weapon carousel and ammo. -->
+  <!-- Bottom right: weapon carousel and ammo (humans), renderer and players. -->
   <section class="hud-weapons glass" aria-label={$t('combat.weapon')}>
+    {#if !isMascot}
     <div class="hud-weapons-head">
       <span class="hud-label">{$t('combat.weaponSlotHint')}</span>
       <span class="hud-weapons-ammo mono">
@@ -293,6 +302,7 @@
         </div>
       {/each}
     </div>
+    {/if}
     <div class="hud-weapons-foot">
       <span class="hud-chip mono">{$t('hud.engine')}: {$hud.engine === 'webgpu' ? $t('hud.webgpu') : $t('hud.webgl2')}</span>
       <span class="hud-chip mono">{$t('hud.playerCount', { count: $connection.playersOnline, max: $connection.maxPlayers })}</span>
@@ -300,13 +310,17 @@
   </section>
 
   <div class="hud-controls-hint">
-    <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> {$t('combat.weaponSlotHint')}
-    <span class="hud-controls-sep">·</span>
-    <kbd>Q</kbd><kbd>E</kbd><kbd>T</kbd> {$t('combat.skills')}
-    <span class="hud-controls-sep">·</span>
-    <kbd>R</kbd> {$t('combat.reloadShort')}
-    <span class="hud-controls-sep">·</span>
-    <kbd>F</kbd> {$t('combat.interactShort')}
+    {#if isMascot}
+      <kbd>{$t('mascot.controls.movesKey')}</kbd> {$t('mascot.controls.moves')}
+    {:else}
+      <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> {$t('combat.weaponSlotHint')}
+      <span class="hud-controls-sep">·</span>
+      <kbd>Q</kbd><kbd>E</kbd><kbd>T</kbd> {$t('combat.skills')}
+      <span class="hud-controls-sep">·</span>
+      <kbd>R</kbd> {$t('combat.reloadShort')}
+      <span class="hud-controls-sep">·</span>
+      <kbd>F</kbd> {$t('combat.interactShort')}
+    {/if}
   </div>
 
   {#if death}

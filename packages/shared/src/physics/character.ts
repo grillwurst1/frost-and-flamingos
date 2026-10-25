@@ -170,7 +170,12 @@ export class CharacterBody {
   private groundClearance = 0;
   private wind: WindState = { angle: 0, strength: 0 };
   private disposed = false;
-  private launchTimer = 0;
+  /**
+   * Knockback and mascot timers count whole ticks, like the move cooldowns,
+   * so a timer restored from the wire ends on exactly the same tick as the
+   * server's (float seconds drift under repeated subtraction).
+   */
+  private launchTicks = 0;
   private slippery = false;
   // Mascot motor state (unused by the human classes).
   private mascotHeading = 0;
@@ -179,11 +184,11 @@ export class CharacterBody {
   private exhausted = false;
   private galloping = false;
   private skidding = false;
-  private boostTimer = 0;
-  private actionTimer = 0;
-  private hopTimer = 0;
-  private coyoteTimer = 0;
-  private waterJumpTimer = 0;
+  private boostTicks = 0;
+  private actionTicks = 0;
+  private hopTicks = 0;
+  private coyoteTicks = 0;
+  private waterJumpTicks = 0;
   private jumpsUsed = 0;
   private pounding = false;
   private readonly moveCooldownTicks: [number, number, number] = [0, 0, 0];
@@ -320,12 +325,12 @@ export class CharacterBody {
   }
 
   get launchSeconds(): number {
-    return this.launchTimer;
+    return this.launchTicks / PHYSICS_TICK_RATE;
   }
 
   /** True while Horn Charge or Turbo Roll is running. */
   get mascotBoosting(): boolean {
-    return this.boostTimer > 0;
+    return this.boostTicks > 0;
   }
 
   get mascotPounding(): boolean {
@@ -339,10 +344,10 @@ export class CharacterBody {
       heading: this.mascotHeading,
       yawRate: this.yawRate,
       stamina: this.stamina,
-      boostSeconds: this.boostTimer,
-      actionSeconds: this.actionTimer,
-      hopSeconds: this.form === 'cow' ? this.hopTimer : this.waterJumpTimer,
-      coyoteSeconds: this.coyoteTimer,
+      boostSeconds: this.boostTicks / PHYSICS_TICK_RATE,
+      actionSeconds: this.actionTicks / PHYSICS_TICK_RATE,
+      hopSeconds: (this.form === 'cow' ? this.hopTicks : this.waterJumpTicks) / PHYSICS_TICK_RATE,
+      coyoteSeconds: this.coyoteTicks / PHYSICS_TICK_RATE,
       cooldownTicks: [
         this.moveCooldownTicks[0],
         this.moveCooldownTicks[1],
@@ -367,15 +372,15 @@ export class CharacterBody {
 
   /** Restores authoritative extended state before replaying inputs. */
   restoreExtended(launchSeconds: number, mascot: MascotWireState | null): void {
-    this.launchTimer = Math.max(0, launchSeconds);
+    this.launchTicks = secondsToTicks(launchSeconds);
     if (!this.form || !mascot) return;
     this.mascotHeading = mascot.heading;
     this.stamina = Math.min(1, Math.max(0, mascot.stamina));
-    this.boostTimer = Math.max(0, mascot.boostSeconds);
-    this.actionTimer = Math.max(0, mascot.actionSeconds);
-    if (this.form === 'cow') this.hopTimer = Math.max(0, mascot.hopSeconds);
-    else this.waterJumpTimer = Math.max(0, mascot.hopSeconds);
-    this.coyoteTimer = Math.max(0, mascot.coyoteSeconds);
+    this.boostTicks = secondsToTicks(mascot.boostSeconds);
+    this.actionTicks = secondsToTicks(mascot.actionSeconds);
+    if (this.form === 'cow') this.hopTicks = secondsToTicks(mascot.hopSeconds);
+    else this.waterJumpTicks = secondsToTicks(mascot.hopSeconds);
+    this.coyoteTicks = secondsToTicks(mascot.coyoteSeconds);
     this.moveCooldownTicks[0] = mascot.cooldownTicks[0];
     this.moveCooldownTicks[1] = mascot.cooldownTicks[1];
     this.moveCooldownTicks[2] = mascot.cooldownTicks[2];
@@ -387,14 +392,18 @@ export class CharacterBody {
     this.yawRate = mascot.yawRate;
   }
 
-  /** Server-applied ram/shockwave flight: sets the velocity and blunts air control. */
+  /**
+   * Server-applied ram/shockwave flight: sets the velocity and blunts air
+   * control. A launch also knocks the cow out of a Hoof Stomp wind-up.
+   */
   launch(velocity: Vec3, seconds: number): void {
     this.linearVelocity = { ...velocity };
-    this.launchTimer = Math.max(this.launchTimer, seconds);
+    this.launchTicks = Math.max(this.launchTicks, secondsToTicks(seconds));
     this.isGrounded = false;
     this.rollTimer = 0;
     this.mantleTimer = 0;
     this.pounding = false;
+    this.actionTicks = 0;
     if (this.parachuteOpen) this.cutawayParachute();
   }
 
@@ -467,7 +476,7 @@ export class CharacterBody {
     this.parachuteSwayVelocity = 0;
     this.parachuteRepairTimer = 0;
     this.canopyBlend = 0;
-    this.launchTimer = 0;
+    this.launchTicks = 0;
     this.slippery = false;
     this.resetMascotState();
     this.updateColliderShape();
@@ -477,16 +486,23 @@ export class CharacterBody {
     this.syncColliderPose();
   }
 
+  /**
+   * Restores authoritative movement state before replaying inputs. Pass the
+   * authoritative swimming flag: the motor's water-entry damping keys off the
+   * previous tick's flag, so a stale one would re-apply it during the replay.
+   */
   restore(
     position: Vec3,
     velocity: Vec3,
     grounded: boolean,
     previousButtons?: InputButtonMask,
     parachuteState?: ParachuteState,
+    swimming?: boolean,
   ): void {
     this.feet = { ...position };
     this.linearVelocity = { ...velocity };
     this.isGrounded = grounded;
+    if (swimming !== undefined) this.isSwimming = swimming;
     if (previousButtons !== undefined) this.previousButtons = previousButtons;
     if (parachuteState !== undefined) {
       this.parachute = parachuteState;
@@ -513,11 +529,11 @@ export class CharacterBody {
     this.exhausted = false;
     this.galloping = false;
     this.skidding = false;
-    this.boostTimer = 0;
-    this.actionTimer = 0;
-    this.hopTimer = 0;
-    this.coyoteTimer = 0;
-    this.waterJumpTimer = 0;
+    this.boostTicks = 0;
+    this.actionTicks = 0;
+    this.hopTicks = 0;
+    this.coyoteTicks = 0;
+    this.waterJumpTicks = 0;
     this.jumpsUsed = 0;
     this.pounding = false;
     this.moveCooldownTicks[0] = 0;
@@ -703,7 +719,7 @@ export class CharacterBody {
     this.currentPitch = input.pitch;
     this.currentWeaponSlot = input.weaponSlot;
     const buttons = input.buttons;
-    this.launchTimer = Math.max(0, this.launchTimer - FIXED_DT);
+    this.launchTicks = Math.max(0, this.launchTicks - 1);
 
     if (this.form) {
       this.simulateMascot(input, trackButtons, speedScale);
@@ -885,7 +901,7 @@ export class CharacterBody {
             this.linearVelocity.z = moveTowards(this.linearVelocity.z, 0, friction);
           }
         } else if (hasMovement) {
-          const control = this.launchTimer > 0 ? LAUNCH_AIR_CONTROL : 1;
+          const control = this.launchTicks > 0 ? LAUNCH_AIR_CONTROL : 1;
           const acceleration = this.stats.airAcceleration * control * FIXED_DT;
           this.linearVelocity.x = moveTowards(this.linearVelocity.x, desiredX, acceleration);
           this.linearVelocity.z = moveTowards(this.linearVelocity.z, desiredZ, acceleration);
@@ -1061,9 +1077,9 @@ export class CharacterBody {
       const ticks = this.moveCooldownTicks[index] ?? 0;
       if (ticks > 0) this.moveCooldownTicks[index] = ticks - 1;
     }
-    this.boostTimer = Math.max(0, this.boostTimer - FIXED_DT);
-    this.hopTimer = Math.max(0, this.hopTimer - FIXED_DT);
-    this.waterJumpTimer = Math.max(0, this.waterJumpTimer - FIXED_DT);
+    this.boostTicks = Math.max(0, this.boostTicks - 1);
+    this.hopTicks = Math.max(0, this.hopTicks - 1);
+    this.waterJumpTicks = Math.max(0, this.waterJumpTicks - 1);
     this.crouchAmount = 0;
     this.rollTimer = 0;
     this.rollRecovery = 0;
@@ -1113,23 +1129,25 @@ export class CharacterBody {
 
     // Moves.
     if (pressed[0] && !swimming && this.startMove(0)) {
-      this.boostTimer = SKILLS.horn_charge.durationSeconds;
-      this.actionTimer = 0;
+      this.boostTicks = secondsToTicks(SKILLS.horn_charge.durationSeconds);
+      this.actionTicks = 0;
     }
-    if (pressed[1] && grounded && !swimming && this.actionTimer <= 0 && this.startMove(1)) {
-      this.actionTimer = SKILLS.hoof_stomp.durationSeconds;
-      this.boostTimer = 0;
+    if (pressed[1] && grounded && !swimming && this.actionTicks <= 0 && this.startMove(1)) {
+      this.actionTicks = secondsToTicks(SKILLS.hoof_stomp.durationSeconds);
+      this.boostTicks = 0;
     }
     if (pressed[2]) this.startMove(2);
 
-    if (this.actionTimer > 0) {
-      this.actionTimer = Math.max(0, this.actionTimer - FIXED_DT);
-      if (this.actionTimer <= 0) {
+    if (this.actionTicks > 0) {
+      this.actionTicks -= 1;
+      // The hooves only land a shockwave on solid ground; a wind-up that
+      // drove off a ledge fizzles (launches cancel it outright).
+      if (this.actionTicks <= 0 && grounded && !swimming) {
         this.emitMascot({ type: 'impact', kind: 'stomp', position: { ...this.feet } });
       }
     }
-    const boosting = this.boostTimer > 0;
-    const stomping = this.actionTimer > 0;
+    const boosting = this.boostTicks > 0;
+    const stomping = this.actionTicks > 0;
 
     // Gallop meter.
     if (this.exhausted && this.stamina >= tuning.staminaRestart) this.exhausted = false;
@@ -1148,7 +1166,7 @@ export class CharacterBody {
     }
 
     // Steering: heading first, so existing momentum shows up as lateral slip.
-    const control = (grounded || swimming) && this.launchTimer <= 0;
+    const control = (grounded || swimming) && this.launchTicks <= 0;
     let forwardSpeed =
       this.linearVelocity.x * Math.sin(this.mascotHeading) +
       this.linearVelocity.z * Math.cos(this.mascotHeading);
@@ -1233,9 +1251,9 @@ export class CharacterBody {
       this.linearVelocity.y += (targetY - this.feet.y) * MASCOT_BUOYANCY * FIXED_DT;
       this.linearVelocity.y *= 0.9;
     } else {
-      if (grounded && jumpEdge && this.hopTimer <= 0 && !stomping && this.launchTimer <= 0) {
+      if (grounded && jumpEdge && this.hopTicks <= 0 && !stomping && this.launchTicks <= 0) {
         this.linearVelocity.y = tuning.hopSpeed;
-        this.hopTimer = tuning.hopCooldown;
+        this.hopTicks = secondsToTicks(tuning.hopCooldown);
         this.isGrounded = false;
       }
       if (!this.isGrounded) {
@@ -1289,14 +1307,14 @@ export class CharacterBody {
     const wasGrounded = this.isGrounded;
     if (wasGrounded) {
       this.jumpsUsed = 0;
-      this.coyoteTimer = tuning.coyoteSeconds;
+      this.coyoteTicks = secondsToTicks(tuning.coyoteSeconds);
     } else {
-      this.coyoteTimer = Math.max(0, this.coyoteTimer - FIXED_DT);
+      this.coyoteTicks = Math.max(0, this.coyoteTicks - 1);
     }
 
     // Moves.
     if (pressed[0] && this.startMove(0)) {
-      this.boostTimer = SKILLS.turbo_roll.durationSeconds;
+      this.boostTicks = secondsToTicks(SKILLS.turbo_roll.durationSeconds);
       let kickX = directionX;
       let kickZ = directionZ;
       if (!hasMovement) {
@@ -1314,21 +1332,21 @@ export class CharacterBody {
       this.linearVelocity.y = -tuning.poundSpeed;
     }
     if (pressed[2]) this.startMove(2);
-    const boosting = this.boostTimer > 0;
+    const boosting = this.boostTicks > 0;
     this.isSprinting = boosting;
 
     // Jumps: ground jump (with coyote time), air jumps, water hop.
-    if (jumpEdge && !this.pounding && this.launchTimer <= 0) {
+    if (jumpEdge && !this.pounding && this.launchTicks <= 0) {
       if (floating) {
-        if (this.waterJumpTimer <= 0) {
+        if (this.waterJumpTicks <= 0) {
           this.linearVelocity.y = tuning.waterJumpSpeed;
-          this.waterJumpTimer = 0.6;
+          this.waterJumpTicks = secondsToTicks(tuning.waterJumpCooldown);
           this.jumpsUsed = 1;
         }
-      } else if ((wasGrounded || this.coyoteTimer > 0) && this.jumpsUsed === 0) {
+      } else if ((wasGrounded || this.coyoteTicks > 0) && this.jumpsUsed === 0) {
         this.linearVelocity.y = tuning.jumpSpeed;
         this.jumpsUsed = 1;
-        this.coyoteTimer = 0;
+        this.coyoteTicks = 0;
         this.isGrounded = false;
       } else if (this.jumpsUsed < tuning.maxJumps) {
         this.linearVelocity.y = Math.max(this.linearVelocity.y, tuning.doubleJumpSpeed);
@@ -1367,7 +1385,7 @@ export class CharacterBody {
         driveZ = currentSpeed > 0.5 ? this.linearVelocity.z / currentSpeed : forwardZ;
       }
       const driving = hasMovement || boosting;
-      if (driving && this.launchTimer <= 0) {
+      if (driving && this.launchTicks <= 0) {
         const topSpeed = (boosting ? tuning.turboMaxSpeed : tuning.maxRollSpeed) * speedScale;
         const acceleration =
           (boosting ? tuning.turboAcceleration : tuning.rollAcceleration) * accelerationScale;
@@ -1405,7 +1423,7 @@ export class CharacterBody {
         this.linearVelocity.z += pull * normal.z * FIXED_DT;
       }
     } else if (hasMovement && !this.pounding) {
-      const control = this.launchTimer > 0 ? LAUNCH_AIR_CONTROL : 1;
+      const control = this.launchTicks > 0 ? LAUNCH_AIR_CONTROL : 1;
       this.linearVelocity.x += directionX * tuning.airAcceleration * control * FIXED_DT;
       this.linearVelocity.z += directionZ * tuning.airAcceleration * control * FIXED_DT;
     }
@@ -1446,7 +1464,7 @@ export class CharacterBody {
         this.isGrounded = false;
         // A bounce counts as touching down: the player may jump out of it.
         this.jumpsUsed = 0;
-        this.coyoteTimer = tuning.coyoteSeconds;
+        this.coyoteTicks = secondsToTicks(tuning.coyoteSeconds);
         this.emitMascot({ type: 'bounce', position: { ...this.feet }, speed: fallSpeed });
       }
     }

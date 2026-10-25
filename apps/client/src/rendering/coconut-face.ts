@@ -24,7 +24,11 @@ const YAW_SPAN = 1.2;
 const LAT_MIN = -0.42;
 const LAT_MAX = 0.95;
 
-/** Spherical patch with UVs mapped by angle, floating just above the shell. */
+/**
+ * Spherical patch with UVs mapped by angle, floating just above the shell.
+ * U runs from the coconut's +X side to its -X side, so the canvas reads the
+ * right way round for someone looking at the face (canvas left = viewer left).
+ */
 export function createFaceDecal(scene: Scene, radii: { x: number; y: number; z: number }, lift: number): Mesh {
   const columns = 24;
   const rows = 18;
@@ -42,7 +46,7 @@ export function createFaceDecal(scene: Scene, radii: { x: number; y: number; z: 
       const dz = Math.cos(yaw) * Math.cos(latitude);
       const radius = 1 / Math.sqrt((dx / radii.x) ** 2 + (dy / radii.y) ** 2 + (dz / radii.z) ** 2);
       positions.push(dx * (radius + lift), dy * (radius + lift), dz * (radius + lift));
-      uvs.push(u, v);
+      uvs.push(1 - u, v);
     }
   }
   for (let row = 0; row < rows; row += 1) {
@@ -67,7 +71,10 @@ export function createFaceDecal(scene: Scene, radii: { x: number; y: number; z: 
   return mesh;
 }
 
-/** Canvas x/y for a point on the shell given as yaw/latitude in radians. */
+/**
+ * Canvas x/y for a face position given as yaw/latitude in radians. Negative
+ * yaw is the viewer's left (the coconut's own right).
+ */
 function at(yaw: number, latitude: number): [number, number] {
   const u = (yaw + YAW_SPAN) / (2 * YAW_SPAN);
   const v = (latitude - LAT_MIN) / (LAT_MAX - LAT_MIN);
@@ -180,12 +187,13 @@ export class CoconutFacePainter {
     }
   }
 
+  /** Heavy V brows: the inner ends are driven down toward the nose. */
   private brows(context: CanvasRenderingContext2D, slant: number): void {
     for (const side of [-1, 1]) {
-      const [x, y] = at(side * 0.27, 0.52);
+      const [x, y] = at(side * 0.25, 0.5);
       context.save();
       context.translate(x, y);
-      context.rotate(side * slant);
+      context.rotate(-side * slant);
       context.beginPath();
       context.moveTo(-58, -6);
       context.quadraticCurveTo(0, -26, 58, -4);

@@ -3,8 +3,10 @@ import {
   FALL_RESPAWN_Y,
   FIXED_DT,
   InputButton,
+  MAP_HALF_SIZE,
   MAP_ID,
   MASCOT_FRIENDLY_BUMP,
+  MASCOT_HEADSHOT_MULTIPLIER_CAP,
   MASCOT_RAM,
   MASCOT_RAM_REWIND_TICKS,
   MASCOT_RAM_WEAPON,
@@ -94,7 +96,20 @@ interface BotState {
   /** The human class this bot returns to when it is not a mascot. */
   humanClass: ClassId;
   mascot: MascotBotMemory;
+  /** Human bots: ticks spent pushing forward without moving (blocked by a prop). */
+  stuckTicks: number;
+  /** While set, a human bot walks a sideways detour around the obstacle. */
+  detourUntilTick: number;
+  /** Detour side (+1 right, -1 left); flips when a detour is blocked too. */
+  detourSide: number;
 }
+
+/** Beyond this distance from the centre a patrolling bot turns back inward. */
+const BOT_EDGE_DISTANCE = MAP_HALF_SIZE - 40;
+/** Human bots: blocked this long (below BOT_STUCK_SPEED) starts a detour. */
+const BOT_STUCK_TICKS = PHYSICS_TICK_RATE;
+const BOT_STUCK_SPEED = 0.6;
+const BOT_DETOUR_TICKS = Math.round(PHYSICS_TICK_RATE * 1.2);
 
 interface PlayerConnection {
   id: number;
@@ -162,6 +177,34 @@ export interface MascotRamRecord {
   closingSpeed: number;
   launch: Vec3;
   tick: number;
+}
+
+/** One mascot body contact found before any ram of the tick is resolved. */
+interface RamContact {
+  rammer: PlayerConnection;
+  victim: PlayerConnection;
+  form: MascotForm;
+  /** Victim position that was touched (current or rewound). */
+  touched: Vec3;
+  /** Unit contact normal from the rammer toward the victim. */
+  normalX: number;
+  normalZ: number;
+  /** Relative speed along the normal. */
+  closing: number;
+  /** The rammer's own speed along the normal. */
+  approach: number;
+  velocity: Vec3;
+  speed: number;
+  boosting: boolean;
+}
+
+/** A resolved enemy ram, applied after every contact of the tick is known. */
+interface RamHit {
+  contact: RamContact;
+  damage: number;
+  /** Speed the damage and launch were scaled by. */
+  impactSpeed: number;
+  launch: Vec3;
 }
 
 interface Projectile {
@@ -364,6 +407,11 @@ export class MatchRoom {
         if (player.respawnAtTick > 0 && this.physicsTick >= player.respawnAtTick) {
           this.respawn(player);
         }
+        continue;
+      }
+      // Whoever leaves the world through a crack or off an edge is put back.
+      if (player.character.position.y < FALL_RESPAWN_Y) {
+        this.respawn(player);
         continue;
       }
 
@@ -708,8 +756,11 @@ export class MatchRoom {
     if (attacker && attacker.profile.faction === target.profile.faction) return;
     if (this.physicsTick < target.spawnProtectionUntil) return;
 
-    const multiplier =
-      headshot && weaponId ? WEAPON_STATS[weaponId].headshotMultiplier : 1;
+    const weaponMultiplier = headshot && weaponId ? WEAPON_STATS[weaponId].headshotMultiplier : 1;
+    // A mascot's head is a small part of a big body: headshots on it count less.
+    const multiplier = target.character.form
+      ? Math.min(weaponMultiplier, MASCOT_HEADSHOT_MULTIPLIER_CAP)
+      : weaponMultiplier;
     let damage = baseDamage * multiplier;
     const absorbed = Math.min(target.shield, damage);
     target.shield = Math.max(0, target.shield - absorbed);
@@ -1025,13 +1076,22 @@ export class MatchRoom {
     }
   }
 
-  /** Coconut Milk Splash: a puddle that makes the owner's rivals slide. */
+  /**
+   * Coconut Milk Splash: a puddle that makes the owner's rivals slide. A
+   * splash cast in the air lands on the ground below, where it is drawn.
+   */
   private spillMilk(player: PlayerConnection, position: Vec3): void {
     const skill = SKILLS.milk_splash;
+    const ground = this.physics.raycast(
+      { x: position.x, y: position.y + 0.3, z: position.z },
+      { x: 0, y: -1, z: 0 },
+      MASCOT_STATUS.puddleDropReach,
+    );
+    const groundY = ground ? ground.point.y : sampleMapHeight(position.x, position.z);
     this.puddles.push({
       ownerId: player.id,
       faction: player.profile.faction,
-      position: { ...position },
+      position: { x: position.x, y: Math.min(position.y, groundY), z: position.z },
       radius: skill.radius,
       expiresAtTick: this.physicsTick + secondsToTicks(skill.durationSeconds),
     });
@@ -1058,8 +1118,13 @@ export class MatchRoom {
         const feet = player.character.position;
         for (const puddle of this.puddles) {
           if (puddle.faction === player.profile.faction) continue;
-          if (Math.abs(feet.y - puddle.position.y) > MASCOT_STATUS.puddleVerticalReach) continue;
-          if (Math.hypot(feet.x - puddle.position.x, feet.z - puddle.position.z) <= puddle.radius) {
+          const horizontal = Math.hypot(feet.x - puddle.position.x, feet.z - puddle.position.z);
+          if (horizontal > puddle.radius) continue;
+          // The puddle follows the ground, so its reach grows with the slope
+          // allowance toward the rim (it still ignores roofs and bridges above).
+          const reach =
+            MASCOT_STATUS.puddleVerticalReach + horizontal * MASCOT_STATUS.puddleSlopeAllowance;
+          if (Math.abs(feet.y - puddle.position.y) <= reach) {
             slippery = true;
             break;
           }
@@ -1078,12 +1143,54 @@ export class MatchRoom {
     return best;
   }
 
+  /** Centre of a mascot's ram contact sphere (ahead of the cow, the coconut's middle). */
+  private ramContactPoint(player: PlayerConnection, form: MascotForm): Vec3 {
+    const tuning = MASCOT_RAM[form];
+    const feet = player.character.position;
+    const heading = player.character.heading;
+    return {
+      x: feet.x + Math.sin(heading) * tuning.contactForward,
+      y: feet.y + tuning.contactHeight,
+      z: feet.z + Math.cos(heading) * tuning.contactForward,
+    };
+  }
+
   /**
-   * Ram ("umrammen") resolution after the physics step. Uses the authoritative
-   * positions of this tick, plus — for human mascots — the victims' positions
-   * a few ticks back, which is roughly what the rammer saw on screen.
+   * Victim position the rammer's contact sphere touches, or null. Two mascots
+   * touch symmetrically: either one's sphere reaching the other's body counts,
+   * so the longer cow reach cannot decide a head-on clash on its own.
    */
-  private resolveMascotRams(): void {
+  private ramTouch(
+    rammer: PlayerConnection,
+    form: MascotForm,
+    victim: PlayerConnection,
+    rewind: LagSample | null,
+  ): Vec3 | null {
+    const tuning = MASCOT_RAM[form];
+    const contact = this.ramContactPoint(rammer, form);
+    const stats = classStatsFor(victim.profile.cosmetics.classId, victim.profile.faction);
+    const current = victim.character.position;
+    const rewound = rewind?.players.get(victim.id);
+    for (const candidate of rewound && rewound.alive ? [current, rewound.position] : [current]) {
+      if (distanceToCapsule(contact, candidate, stats.radius, stats.height) <= tuning.contactRadius + stats.radius) {
+        return candidate;
+      }
+    }
+    const victimForm = victim.character.form;
+    if (victimForm) {
+      const rammerStats = classStatsFor(rammer.profile.cosmetics.classId, rammer.profile.faction);
+      const reach = MASCOT_RAM[victimForm].contactRadius + rammerStats.radius;
+      const victimContact = this.ramContactPoint(victim, victimForm);
+      if (distanceToCapsule(victimContact, rammer.character.position, rammerStats.radius, rammerStats.height) <= reach) {
+        return current;
+      }
+    }
+    return null;
+  }
+
+  /** Every ram contact of this tick, from the pre-resolution poses and velocities. */
+  private collectRamContacts(): RamContact[] {
+    const contacts: RamContact[] = [];
     for (const rammer of this.players.values()) {
       const form = rammer.character.form;
       if (!form || !rammer.alive) continue;
@@ -1092,30 +1199,12 @@ export class MatchRoom {
       const speed = Math.hypot(velocity.x, velocity.z);
       if (speed < tuning.minSpeed) continue;
       const feet = rammer.character.position;
-      const heading = rammer.character.heading;
-      const contact = {
-        x: feet.x + Math.sin(heading) * tuning.contactForward,
-        y: feet.y + tuning.contactHeight,
-        z: feet.z + Math.cos(heading) * tuning.contactForward,
-      };
       const rewind = rammer.isBot ? null : this.lagSampleAt(this.physicsTick - MASCOT_RAM_REWIND_TICKS);
-
       for (const victim of this.players.values()) {
         if (victim.id === rammer.id || !victim.alive) continue;
         if (this.physicsTick < (rammer.ramCooldowns.get(victim.id) ?? 0)) continue;
-        const stats = classStatsFor(victim.profile.cosmetics.classId, victim.profile.faction);
-        const current = victim.character.position;
-        const rewound = rewind?.players.get(victim.id);
-        let touched: Vec3 | null = null;
-        for (const candidate of rewound && rewound.alive ? [current, rewound.position] : [current]) {
-          const reach = tuning.contactRadius + stats.radius;
-          if (distanceToCapsule(contact, candidate, stats.radius, stats.height) <= reach) {
-            touched = candidate;
-            break;
-          }
-        }
+        const touched = this.ramTouch(rammer, form, victim, rewind);
         if (!touched) continue;
-
         let normalX = touched.x - feet.x;
         let normalZ = touched.z - feet.z;
         const length = Math.hypot(normalX, normalZ);
@@ -1130,75 +1219,167 @@ export class MatchRoom {
         const closing =
           (velocity.x - victimVelocity.x) * normalX + (velocity.z - victimVelocity.z) * normalZ;
         if (closing < tuning.minSpeed) continue;
-        rammer.ramCooldowns.set(victim.id, this.physicsTick + secondsToTicks(tuning.victimCooldown));
+        contacts.push({
+          rammer,
+          victim,
+          form,
+          touched,
+          normalX,
+          normalZ,
+          closing,
+          approach: velocity.x * normalX + velocity.z * normalZ,
+          velocity,
+          speed,
+          boosting: rammer.character.mascotBoosting,
+        });
+      }
+    }
+    return contacts;
+  }
 
-        // Launch along the contact normal, carried a little in the travel direction.
-        let launchX = normalX + (velocity.x / speed) * 0.6;
-        let launchZ = normalZ + (velocity.z / speed) * 0.6;
-        const launchLength = Math.hypot(launchX, launchZ) || 1;
-        launchX /= launchLength;
-        launchZ /= launchLength;
+  /** Damage and launch of one enemy ram at the given impact speed. */
+  private ramHit(contact: RamContact, impactSpeed: number): RamHit {
+    const tuning = MASCOT_RAM[contact.form];
+    const strength = clamp01((impactSpeed - tuning.minSpeed) / (tuning.fullSpeed - tuning.minSpeed));
+    const boost = contact.boosting ? tuning.boostMultiplier : 1;
+    const damage = (tuning.minDamage + (tuning.maxDamage - tuning.minDamage) * strength) * boost;
+    // Launch along the contact normal, carried a little in the travel direction.
+    let launchX = contact.normalX + (contact.velocity.x / contact.speed) * 0.6;
+    let launchZ = contact.normalZ + (contact.velocity.z / contact.speed) * 0.6;
+    const launchLength = Math.hypot(launchX, launchZ) || 1;
+    launchX /= launchLength;
+    launchZ /= launchLength;
+    const horizontal = Math.min(
+      tuning.launchHorizontalCap,
+      tuning.launchHorizontal + tuning.launchHorizontalPerSpeed * impactSpeed,
+    );
+    return {
+      contact,
+      damage,
+      impactSpeed,
+      launch: {
+        x: launchX * horizontal,
+        y: tuning.launchVertical + tuning.launchVerticalPerSpeed * impactSpeed,
+        z: launchZ * horizontal,
+      },
+    };
+  }
 
-        if (victim.profile.faction === rammer.profile.faction) {
-          victim.character.launch(
-            {
-              x: launchX * MASCOT_FRIENDLY_BUMP.horizontal,
-              y: MASCOT_FRIENDLY_BUMP.vertical,
-              z: launchZ * MASCOT_FRIENDLY_BUMP.horizontal,
-            },
-            MASCOT_FRIENDLY_BUMP.launchSeconds,
-          );
-          rammer.character.applyRecoil(MASCOT_FRIENDLY_BUMP.keep, 0);
-          this.broadcastEvent({
-            eventType: 'MASCOT_RAM',
-            actorId: rammer.id,
-            targetId: victim.id,
-            paramX: toDecimetres(touched.x),
-            paramZ: toDecimetres(touched.z),
-            paramValue: 0,
-          });
+  /**
+   * Ram ("umrammen") resolution after the physics step, in two phases: every
+   * contact is collected from the same pre-resolution state, then all of them
+   * are applied. Human mascots also test the victims' positions a few ticks
+   * back, which is roughly what the rammer saw on screen. Two enemy mascots
+   * that both charge into each other clash: each takes the other's ram,
+   * scaled by the other's own speed, and both are launched.
+   */
+  private resolveMascotRams(): void {
+    const contacts = this.collectRamContacts();
+    if (contacts.length === 0) return;
+    const handled = new Set<string>();
+    const recoils = new Map<PlayerConnection, { keep: number; hop: number }>();
+    const bumps: RamContact[] = [];
+    const hits: RamHit[] = [];
+    const addRecoil = (player: PlayerConnection, keep: number, hop: number): void => {
+      const previous = recoils.get(player);
+      recoils.set(player, {
+        keep: Math.min(keep, previous?.keep ?? 1),
+        hop: Math.max(hop, previous?.hop ?? 0),
+      });
+    };
+
+    for (const contact of contacts) {
+      const { rammer, victim } = contact;
+      if (handled.has(`${rammer.id}>${victim.id}`)) continue;
+      handled.add(`${rammer.id}>${victim.id}`);
+      const tuning = MASCOT_RAM[contact.form];
+      rammer.ramCooldowns.set(victim.id, this.physicsTick + secondsToTicks(tuning.victimCooldown));
+
+      if (victim.profile.faction === rammer.profile.faction) {
+        bumps.push(contact);
+        addRecoil(rammer, MASCOT_FRIENDLY_BUMP.keep, 0);
+        continue;
+      }
+
+      // An enemy mascot pair is resolved once, from both sides' own speeds.
+      const counter = victim.character.form
+        ? contacts.find((other) => other.rammer === victim && other.victim === rammer)
+        : undefined;
+      if (counter) {
+        handled.add(`${victim.id}>${rammer.id}`);
+        const counterTuning = MASCOT_RAM[counter.form];
+        victim.ramCooldowns.set(rammer.id, this.physicsTick + secondsToTicks(counterTuning.victimCooldown));
+        if (contact.approach >= tuning.minSpeed && counter.approach >= counterTuning.minSpeed) {
+          hits.push(this.ramHit(contact, contact.approach), this.ramHit(counter, counter.approach));
           continue;
         }
-        if (this.physicsTick < victim.spawnProtectionUntil) continue;
-
-        const strength = clamp01((closing - tuning.minSpeed) / (tuning.fullSpeed - tuning.minSpeed));
-        const boost = rammer.character.mascotBoosting ? tuning.boostMultiplier : 1;
-        const damage = (tuning.minDamage + (tuning.maxDamage - tuning.minDamage) * strength) * boost;
-        const horizontal = Math.min(
-          tuning.launchHorizontalCap,
-          tuning.launchHorizontal + tuning.launchHorizontalPerSpeed * closing,
-        );
-        const launch = {
-          x: launchX * horizontal,
-          y: tuning.launchVertical + tuning.launchVerticalPerSpeed * closing,
-          z: launchZ * horizontal,
-        };
-        victim.character.launch(launch, tuning.launchSeconds);
-        rammer.character.applyRecoil(tuning.recoilKeep, tuning.recoilHop);
-        this.mascotStats.rams += 1;
-        this.mascotStats.lastRam = {
-          attackerId: rammer.id,
-          victimId: victim.id,
-          form,
-          damage: Math.round(damage),
-          closingSpeed: Math.round(closing * 100) / 100,
-          launch: {
-            x: Math.round(launch.x * 100) / 100,
-            y: Math.round(launch.y * 100) / 100,
-            z: Math.round(launch.z * 100) / 100,
-          },
-          tick: this.physicsTick,
-        };
-        this.broadcastEvent({
-          eventType: 'MASCOT_RAM',
-          actorId: rammer.id,
-          targetId: victim.id,
-          paramX: toDecimetres(touched.x),
-          paramZ: toDecimetres(touched.z),
-          paramValue: Math.max(1, Math.round(damage)),
-        });
-        this.damagePlayer(victim, rammer, damage, MASCOT_RAM_WEAPON[form], false);
+        if (counter.approach > contact.approach) {
+          // The "victim" is the one charging: it is the rammer of this pair.
+          if (this.physicsTick >= rammer.spawnProtectionUntil) {
+            hits.push(this.ramHit(counter, counter.closing));
+            addRecoil(victim, counterTuning.recoilKeep, counterTuning.recoilHop);
+          }
+          continue;
+        }
       }
+      if (this.physicsTick < victim.spawnProtectionUntil) continue;
+      hits.push(this.ramHit(contact, contact.closing));
+      addRecoil(rammer, tuning.recoilKeep, tuning.recoilHop);
+    }
+
+    // Recoil first so a rammer that is also launched this tick keeps its flight.
+    for (const [player, recoil] of recoils) player.character.applyRecoil(recoil.keep, recoil.hop);
+    for (const bump of bumps) {
+      let launchX = bump.normalX + (bump.velocity.x / bump.speed) * 0.6;
+      let launchZ = bump.normalZ + (bump.velocity.z / bump.speed) * 0.6;
+      const launchLength = Math.hypot(launchX, launchZ) || 1;
+      launchX /= launchLength;
+      launchZ /= launchLength;
+      bump.victim.character.launch(
+        {
+          x: launchX * MASCOT_FRIENDLY_BUMP.horizontal,
+          y: MASCOT_FRIENDLY_BUMP.vertical,
+          z: launchZ * MASCOT_FRIENDLY_BUMP.horizontal,
+        },
+        MASCOT_FRIENDLY_BUMP.launchSeconds,
+      );
+      this.broadcastEvent({
+        eventType: 'MASCOT_RAM',
+        actorId: bump.rammer.id,
+        targetId: bump.victim.id,
+        paramX: toDecimetres(bump.touched.x),
+        paramZ: toDecimetres(bump.touched.z),
+        paramValue: 0,
+      });
+    }
+    for (const hit of hits) {
+      const { rammer, victim, form, touched } = hit.contact;
+      // A spawn-protected side of a clash is neither launched nor hurt.
+      if (!victim.alive || this.physicsTick < victim.spawnProtectionUntil) continue;
+      victim.character.launch(hit.launch, MASCOT_RAM[form].launchSeconds);
+      this.mascotStats.rams += 1;
+      this.mascotStats.lastRam = {
+        attackerId: rammer.id,
+        victimId: victim.id,
+        form,
+        damage: Math.round(hit.damage),
+        closingSpeed: Math.round(hit.impactSpeed * 100) / 100,
+        launch: {
+          x: Math.round(hit.launch.x * 100) / 100,
+          y: Math.round(hit.launch.y * 100) / 100,
+          z: Math.round(hit.launch.z * 100) / 100,
+        },
+        tick: this.physicsTick,
+      };
+      this.broadcastEvent({
+        eventType: 'MASCOT_RAM',
+        actorId: rammer.id,
+        targetId: victim.id,
+        paramX: toDecimetres(touched.x),
+        paramZ: toDecimetres(touched.z),
+        paramValue: Math.max(1, Math.round(hit.damage)),
+      });
+      this.damagePlayer(victim, rammer, hit.damage, MASCOT_RAM_WEAPON[form], false);
     }
   }
 
@@ -1223,6 +1404,8 @@ export class MatchRoom {
     });
     bot.mascot.stuckTicks = 0;
     bot.mascot.reverseUntilTick = 0;
+    bot.stuckTicks = 0;
+    bot.detourUntilTick = 0;
     this.broadcastProfile(player);
   }
 
@@ -1278,6 +1461,9 @@ export class MatchRoom {
           mascotChance: entry.mascotChance,
           humanClass: entry.classId,
           mascot: { stuckTicks: 0, reverseUntilTick: 0, steerBias: Math.random() < 0.5 ? -1 : 1 },
+          stuckTicks: 0,
+          detourUntilTick: 0,
+          detourSide: Math.random() < 0.5 ? -1 : 1,
           targetId: 0,
           nextThinkTick: 0,
           nextFireTick: 0,
@@ -1311,6 +1497,11 @@ export class MatchRoom {
 
     const target = bot.targetId > 0 ? this.players.get(bot.targetId) : null;
     const classId = player.profile.cosmetics.classId;
+    // Patrols near the map edge turn back toward the centre.
+    const feet = player.character.position;
+    if (Math.abs(feet.x) > BOT_EDGE_DISTANCE || Math.abs(feet.z) > BOT_EDGE_DISTANCE) {
+      bot.patrolYaw = Math.atan2(-feet.x, -feet.z);
+    }
     if (player.character.form) {
       if (!target && this.physicsTick >= bot.nextStrafeTick) {
         bot.nextStrafeTick = this.physicsTick + 180;
@@ -1338,8 +1529,22 @@ export class MatchRoom {
     let buttons = 0;
     let yaw = player.lastInput.yaw;
     let pitch = player.lastInput.pitch;
+    const detouring = this.physicsTick < bot.detourUntilTick;
 
-    if (target && target.alive) {
+    if (detouring) {
+      // Walk sideways around whatever blocked the way, hopping onto ledges.
+      const heading = target && target.alive
+        ? Math.atan2(target.character.position.x - feet.x, target.character.position.z - feet.z)
+        : bot.patrolYaw;
+      yaw = heading + (bot.detourSide * Math.PI) / 2;
+      pitch = -0.05;
+      buttons |= InputButton.Forward | InputButton.Sprint;
+      buttons |= bot.detourSide > 0 ? InputButton.Left : InputButton.Right;
+      if (this.physicsTick >= bot.nextJumpTick) {
+        buttons |= InputButton.Jump;
+        bot.nextJumpTick = this.physicsTick + 24;
+      }
+    } else if (target && target.alive) {
       const origin = this.eyePosition(player);
       const targetPoint = {
         x: target.character.position.x,
@@ -1353,15 +1558,18 @@ export class MatchRoom {
       yaw = Math.atan2(dx, dz);
       pitch = Math.atan2(dy, Math.max(0.001, horizontal)) + bot.aimError;
       const distance = Math.hypot(horizontal, dy);
+      const targetDirection = normalizeDirection({ x: dx, y: dy, z: dz });
+      const visible = this.hasLineOfSight(origin, targetPoint, distance, targetDirection);
 
-      if (distance > Math.max(9, weapon.range * 0.45)) buttons |= InputButton.Forward;
+      // Close in while out of range, or while a prop hides the target.
+      if (!visible || distance > Math.max(9, weapon.range * 0.45)) buttons |= InputButton.Forward;
       if (distance > 24) buttons |= InputButton.Sprint;
-      if (distance < 5) buttons |= InputButton.Backward;
+      if (visible && distance < 5) buttons |= InputButton.Backward;
       if (this.physicsTick >= bot.nextStrafeTick) {
         bot.strafeDirection *= -1;
         bot.nextStrafeTick = this.physicsTick + 40 + Math.floor(Math.random() * 45);
       }
-      if (distance < 32) {
+      if (visible && distance < 32) {
         buttons |= bot.strafeDirection > 0 ? InputButton.Right : InputButton.Left;
       }
       if (this.physicsTick >= bot.nextJumpTick && distance < 17) {
@@ -1370,8 +1578,7 @@ export class MatchRoom {
       }
 
       if (this.physicsTick >= bot.nextFireTick && distance <= weapon.range) {
-        const targetDirection = normalizeDirection({ x: dx, y: dy, z: dz });
-        if (this.hasLineOfSight(origin, targetPoint, distance, targetDirection)) {
+        if (visible) {
           buttons |= InputButton.FirePrimary;
           const interval = Math.max(
             1,
@@ -1408,6 +1615,24 @@ export class MatchRoom {
       if (ammo && ammo.magazine <= 0 && ammo.reserve > 0) {
         buttons |= InputButton.Reload;
       }
+    }
+
+    // Stuck detection: pushing forward without moving for a second (props
+    // really block bodies) starts a detour that hugs the obstacle sideways.
+    // A detour that is blocked itself turns around to the other side.
+    const velocity = player.character.velocity;
+    const blocked =
+      (buttons & InputButton.Forward) !== 0 &&
+      player.character.grounded &&
+      Math.hypot(velocity.x, velocity.z) < BOT_STUCK_SPEED;
+    if (blocked) bot.stuckTicks += 1;
+    else bot.stuckTicks = Math.max(0, bot.stuckTicks - 2);
+    const limit = detouring ? BOT_STUCK_TICKS / 2 : BOT_STUCK_TICKS;
+    if (bot.stuckTicks > limit) {
+      bot.stuckTicks = 0;
+      if (detouring) bot.detourSide = -bot.detourSide;
+      bot.detourUntilTick = this.physicsTick + BOT_DETOUR_TICKS;
+      if (!target) bot.patrolYaw += (bot.detourSide * Math.PI) / 2;
     }
 
     return {

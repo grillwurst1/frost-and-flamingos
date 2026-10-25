@@ -117,6 +117,8 @@ export interface CoconutTuning {
   readonly paddleSpeed: number;
   readonly paddleAcceleration: number;
   readonly waterJumpSpeed: number;
+  /** Minimum time between two water hops. */
+  readonly waterJumpCooldown: number;
   /** Absolute horizontal speed cap (steep slopes, launches). */
   readonly hardSpeedCap: number;
 }
@@ -146,6 +148,7 @@ export const COCONUT_TUNING: CoconutTuning = {
   paddleSpeed: 3.4,
   paddleAcceleration: 8,
   waterJumpSpeed: 7.2,
+  waterJumpCooldown: 0.6,
   hardSpeedCap: 26,
 };
 
@@ -198,7 +201,8 @@ export const MASCOT_RAM: Record<MascotForm, MascotRamTuning> = {
     fullSpeed: 12,
     minDamage: 25,
     maxDamage: 85,
-    boostMultiplier: 1.3,
+    // Charged rams top out at 106: a full-health Infiltrator (110) survives one.
+    boostMultiplier: 1.25,
     launchHorizontal: 6,
     launchHorizontalPerSpeed: 0.6,
     launchVertical: 7.5,
@@ -247,15 +251,23 @@ export const MASCOT_SHOCKWAVE = {
   pound: { horizontal: 8, vertical: 7, launchSeconds: 0.75, verticalReach: 3 },
 } as const;
 
-/** Cowbell daze and coconut-milk puddle behaviour. */
+/** Coconut-milk puddle behaviour (the cowbell daze uses STATUS_SLOW_SCALE). */
 export const MASCOT_STATUS = {
-  /** Movement scale while dazed (same as the smoke-bomb slow). */
-  dazeSpeedScale: 0.62,
-  /** Puddle traction counts only within this height of the puddle surface. */
+  /** Puddle traction counts only within this height of the puddle centre… */
   puddleVerticalReach: 1.6,
+  /** …plus this much per metre toward the rim, so slopes stay covered (≈ 37°). */
+  puddleSlopeAllowance: 0.75,
+  /** A splash cast in the air drops this far at most to find the ground. */
+  puddleDropReach: 40,
   /** Puddle visuals and the server table hold at most this many puddles. */
   maxPuddles: 8,
 } as const;
+
+/**
+ * Headshots on a mascot use at most this multiplier: the cow's skull is a
+ * small target on a big, slow body and the coconut has no weak spot at all.
+ */
+export const MASCOT_HEADSHOT_MULTIPLIER_CAP = 1.5;
 
 /** Authoritative status speed scales shared by server and client prediction. */
 export const STATUS_SLOW_SCALE = 0.62;

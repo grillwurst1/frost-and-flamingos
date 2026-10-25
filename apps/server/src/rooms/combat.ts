@@ -167,9 +167,18 @@ export function raySegmentCapsule(
 }
 
 /**
- * Mascot hitboxes. The cow is a horizontal barrel along its heading with a
- * head sphere in front (the head counts as a headshot); the coconut is one
- * sphere with no weak spot.
+ * Cow hit shapes in body space (forward along the heading, up from the
+ * feet), matched to the procedural model: the pink muzzle sits in front of
+ * the skull and counts as a body hit, only the skull (eyes, brow, poll)
+ * counts as a headshot.
+ */
+const COW_MUZZLE = { forward: 1.3, up: 1.14, radius: 0.21 } as const;
+const COW_SKULL = { forward: 1.02, up: 1.38, radius: 0.26 } as const;
+
+/**
+ * Mascot hitboxes. The cow is a horizontal barrel along its heading with
+ * legs, a muzzle and a skull (only the skull is a headshot); the coconut is
+ * one sphere with no weak spot.
  */
 function rayMascot(
   origin: Vec3,
@@ -198,17 +207,24 @@ function rayMascot(
     { x: feet.x, y: feet.y + 0.6, z: feet.z },
     0.42,
   );
-  const head = raySphere(
+  const muzzle = raySphere(
     origin,
     direction,
-    { x: feet.x + fx * 1.08, y: feet.y + 1.18, z: feet.z + fz * 1.08 },
-    0.36,
+    { x: feet.x + fx * COW_MUZZLE.forward, y: feet.y + COW_MUZZLE.up, z: feet.z + fz * COW_MUZZLE.forward },
+    COW_MUZZLE.radius,
+  );
+  const skull = raySphere(
+    origin,
+    direction,
+    { x: feet.x + fx * COW_SKULL.forward, y: feet.y + COW_SKULL.up, z: feet.z + fz * COW_SKULL.forward },
+    COW_SKULL.radius,
   );
   let best: { distance: number; headshot: boolean } | null = null;
   for (const [distance, headshot] of [
     [body, false],
     [legs, false],
-    [head, true],
+    [muzzle, false],
+    [skull, true],
   ] as const) {
     if (distance === null) continue;
     if (!best || distance < best.distance - (headshot ? 0.05 : 0)) best = { distance, headshot };
