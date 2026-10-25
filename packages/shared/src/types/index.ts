@@ -378,3 +378,4 @@ export interface PongPacket {
   clientTimeMs: number;
   serverTick: number;
 }
+export * from './map.js';

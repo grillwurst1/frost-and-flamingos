@@ -3,7 +3,6 @@ import {
   FALL_RESPAWN_Y,
   FIXED_DT,
   InputButton,
-  MAP_HALF_SIZE,
   MAP_ID,
   MASCOT_FRIENDLY_BUMP,
   MASCOT_HEADSHOT_MULTIPLIER_CAP,
@@ -15,6 +14,7 @@ import {
   MAX_INPUT_BACKLOG,
   MAX_PLAYERS,
   PHYSICS_TICK_RATE,
+  WATER_LEVEL,
   PROTOCOL_VERSION,
   RESPAWN_DELAY_SECONDS,
   SKILLS,
@@ -56,6 +56,15 @@ import {
   type WelcomeMessage,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
+import {
+  createBotRoute,
+  engagementBlocked,
+  routeTowards,
+  steerAlongRoute,
+  swimExitYaw,
+  swimWatchdog,
+  type BotRoute,
+} from './bot-nav.js';
 import {
   normalizeDirection,
   raycastTargets,
@@ -102,14 +111,16 @@ interface BotState {
   detourUntilTick: number;
   /** Detour side (+1 right, -1 left); flips when a detour is blocked too. */
   detourSide: number;
+  /** Waypoint navigation (patrol, out-of-sight chase, blocked-charge escalation). */
+  route: BotRoute;
 }
 
-/** Beyond this distance from the centre a patrolling bot turns back inward. */
-const BOT_EDGE_DISTANCE = MAP_HALF_SIZE - 40;
-/** Human bots: blocked this long (below BOT_STUCK_SPEED) starts a detour. */
+/** Human bots charging a visible target: blocked this long (below BOT_STUCK_SPEED) starts a detour. */
 const BOT_STUCK_TICKS = PHYSICS_TICK_RATE;
 const BOT_STUCK_SPEED = 0.6;
 const BOT_DETOUR_TICKS = Math.round(PHYSICS_TICK_RATE * 1.2);
+/** Heading error (rad) above which a cow lining up with a swim exit pivots instead of swimming on. */
+const MASCOT_EXIT_PIVOT = 0.9;
 
 interface PlayerConnection {
   id: number;
@@ -442,6 +453,10 @@ export class MatchRoom {
 
     this.physics.step();
     this.resolveMascotRams();
+    // Out-of-world guard: anything that slips below the world respawns safely.
+    for (const player of this.players.values()) {
+      if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
+    }
     this.updateProjectiles();
     this.recordLagHistory();
 
@@ -523,9 +538,16 @@ export class MatchRoom {
     };
   }
 
-  /** Spawn point for a faction (the playtest arena when configured). */
-  private spawnFor(faction: Faction): { position: Vec3 } {
-    if (!this.arena) return randomSpawnForFaction(faction);
+  /**
+   * Spawn point for a faction (the playtest arena when configured). Map spawns
+   * skip pads another living player is standing on.
+   */
+  private spawnFor(faction: Faction, selfId = 0): { position: Vec3 } {
+    if (!this.arena) {
+      return randomSpawnForFaction(faction, Math.random, (position) =>
+        this.isSpawnOccupied(position, selfId),
+      );
+    }
     const side = faction === 'alpine' ? -1 : 1;
     const x = this.arena.x + side * 9 + (Math.random() - 0.5) * 6;
     const z = this.arena.z + (Math.random() - 0.5) * 6;
@@ -533,7 +555,7 @@ export class MatchRoom {
   }
 
   private respawn(player: PlayerConnection): void {
-    const spawn = this.spawnFor(player.profile.faction);
+    const spawn = this.spawnFor(player.profile.faction, player.id);
     if (player.bot) this.rollBotClass(player, spawn.position);
     const classId = player.profile.cosmetics.classId;
     player.character.setColliderEnabled(true);
@@ -564,6 +586,11 @@ export class MatchRoom {
     if (player.bot) {
       player.bot.targetId = 0;
       player.bot.nextThinkTick = this.physicsTick;
+      player.bot.route = createBotRoute();
+      player.bot.stuckTicks = 0;
+      player.bot.detourUntilTick = 0;
+      player.bot.mascot.stuckTicks = 0;
+      player.bot.mascot.reverseUntilTick = 0;
     }
     this.broadcastEvent({
       eventType: 'PLAYER_RESPAWNED',
@@ -573,6 +600,35 @@ export class MatchRoom {
       paramZ: 0,
       paramValue: 0,
     });
+  }
+
+  /** True when another living player stands on (or right next to) a spawn pad. */
+  private isSpawnOccupied(position: Vec3, selfId: number): boolean {
+    for (const other of this.players.values()) {
+      if (other.id === selfId || !other.alive) continue;
+      const feet = other.character.position;
+      if (Math.hypot(feet.x - position.x, feet.z - position.z) < 1.6 && Math.abs(feet.y - position.y) < 2.5) return true;
+    }
+    return false;
+  }
+
+  /**
+   * DEV-only probe (enabled with FF_DEV_TOOLS=1): moves a player onto the
+   * highest walkable surface at (x, z), or to an explicit height.
+   */
+  devTeleport(playerId: number, x: number, z: number, y?: number): { ok: boolean; position?: Vec3 } {
+    const player = this.players.get(playerId);
+    if (!player || !player.alive) return { ok: false };
+    let height = y;
+    if (height === undefined) {
+      const hit = this.physics.raycast({ x, y: 160, z }, { x: 0, y: -1, z: 0 }, 200);
+      height = (hit?.point.y ?? 0) + 0.05;
+    }
+    const position = { x, y: height, z };
+    player.character.teleport(position);
+    player.character.restore(position, ZERO_VELOCITY, false, 0);
+    player.inputQueue.length = 0;
+    return { ok: true, position };
   }
 
   private eyePosition(player: PlayerConnection): Vec3 {
@@ -1473,6 +1529,7 @@ export class MatchRoom {
           strafeDirection: Math.random() < 0.5 ? -1 : 1,
           aimError: 0,
           patrolYaw: Math.random() * Math.PI * 2,
+          route: createBotRoute(),
         },
       };
       this.players.set(id, player);
@@ -1496,60 +1553,24 @@ export class MatchRoom {
     }
 
     const target = bot.targetId > 0 ? this.players.get(bot.targetId) : null;
+    const live = target && target.alive ? target : null;
+    if (player.character.form) return this.mascotBotInput(player, bot, live);
+
     const classId = player.profile.cosmetics.classId;
-    // Patrols near the map edge turn back toward the centre.
     const feet = player.character.position;
-    if (Math.abs(feet.x) > BOT_EDGE_DISTANCE || Math.abs(feet.z) > BOT_EDGE_DISTANCE) {
-      bot.patrolYaw = Math.atan2(-feet.x, -feet.z);
-    }
-    if (player.character.form) {
-      if (!target && this.physicsTick >= bot.nextStrafeTick) {
-        bot.nextStrafeTick = this.physicsTick + 180;
-        bot.patrolYaw += (Math.random() - 0.5) * 1.4;
-      }
-      const live = target && target.alive ? target : null;
-      const command = mascotBotButtons(
-        player.character,
-        bot.mascot,
-        live ? live.character.position : null,
-        live ? live.character.velocity : null,
-        bot.patrolYaw,
-        this.physicsTick,
-      );
-      return {
-        sequence: player.lastProcessedInput + 1,
-        buttons: command.buttons,
-        yaw: command.yaw,
-        pitch: 0,
-        weaponSlot: 1,
-      };
-    }
+    const route = bot.route;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const weapon = WEAPON_STATS[weaponId];
     let buttons = 0;
     let yaw = player.lastInput.yaw;
     let pitch = player.lastInput.pitch;
-    const detouring = this.physicsTick < bot.detourUntilTick;
 
-    if (detouring) {
-      // Walk sideways around whatever blocked the way, hopping onto ledges.
-      const heading = target && target.alive
-        ? Math.atan2(target.character.position.x - feet.x, target.character.position.z - feet.z)
-        : bot.patrolYaw;
-      yaw = heading + (bot.detourSide * Math.PI) / 2;
-      pitch = -0.05;
-      buttons |= InputButton.Forward | InputButton.Sprint;
-      buttons |= bot.detourSide > 0 ? InputButton.Left : InputButton.Right;
-      if (this.physicsTick >= bot.nextJumpTick) {
-        buttons |= InputButton.Jump;
-        bot.nextJumpTick = this.physicsTick + 24;
-      }
-    } else if (target && target.alive) {
+    if (live) {
       const origin = this.eyePosition(player);
       const targetPoint = {
-        x: target.character.position.x,
-        y: target.character.position.y + target.character.eyeHeight * 0.85,
-        z: target.character.position.z,
+        x: live.character.position.x,
+        y: live.character.position.y + live.character.eyeHeight * 0.85,
+        z: live.character.position.z,
       };
       const dx = targetPoint.x - origin.x;
       const dy = targetPoint.y - origin.y;
@@ -1559,26 +1580,62 @@ export class MatchRoom {
       pitch = Math.atan2(dy, Math.max(0.001, horizontal)) + bot.aimError;
       const distance = Math.hypot(horizontal, dy);
       const targetDirection = normalizeDirection({ x: dx, y: dy, z: dz });
-      const visible = this.hasLineOfSight(origin, targetPoint, distance, targetDirection);
 
-      // Close in while out of range, or while a prop hides the target.
-      if (!visible || distance > Math.max(9, weapon.range * 0.45)) buttons |= InputButton.Forward;
-      if (distance > 24) buttons |= InputButton.Sprint;
-      if (visible && distance < 5) buttons |= InputButton.Backward;
-      if (this.physicsTick >= bot.nextStrafeTick) {
-        bot.strafeDirection *= -1;
-        bot.nextStrafeTick = this.physicsTick + 40 + Math.floor(Math.random() * 45);
+      // Out of sight (across the gorge, behind a chalet) or blocked while
+      // charging: follow the waypoint graph towards the target instead.
+      if (this.physicsTick >= route.nextSightTick) {
+        route.nextSightTick = this.physicsTick + 12;
+        route.seesTarget = this.hasLineOfSight(origin, targetPoint, distance, targetDirection);
       }
-      if (visible && distance < 32) {
-        buttons |= bot.strafeDirection > 0 ? InputButton.Right : InputButton.Left;
-      }
-      if (this.physicsTick >= bot.nextJumpTick && distance < 17) {
-        buttons |= InputButton.Jump;
-        bot.nextJumpTick = this.physicsTick + 140 + Math.floor(Math.random() * 120);
+      if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
+        // Routed movement has its own stuck escalation (hop, sidestep, re-plan).
+        bot.stuckTicks = 0;
+        bot.detourUntilTick = 0;
+        routeTowards(route, feet, live.character.position, this.physicsTick);
+        const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
+        let chaseButtons = InputButton.Forward;
+        if (steer.sprint) chaseButtons |= InputButton.Sprint;
+        if (steer.jump) chaseButtons |= InputButton.Jump;
+        const chaseAmmo = player.ammo[0];
+        if (chaseAmmo && chaseAmmo.magazine <= 0 && chaseAmmo.reserve > 0) chaseButtons |= InputButton.Reload;
+        return { sequence: player.lastProcessedInput + 1, buttons: chaseButtons, yaw: steer.yaw, pitch: -0.05, weaponSlot: 1 };
       }
 
-      if (this.physicsTick >= bot.nextFireTick && distance <= weapon.range) {
-        if (visible) {
+      // Line of sight, refreshed every 12 ticks (firing re-checks it below).
+      const visible = route.seesTarget;
+      const detouring = this.physicsTick < bot.detourUntilTick;
+      const charging = distance > Math.max(9, weapon.range * 0.45);
+      if (detouring) {
+        // Walk sideways around the prop that blocked the charge, hopping onto ledges.
+        yaw += (bot.detourSide * Math.PI) / 2;
+        pitch = -0.05;
+        buttons |= InputButton.Forward | InputButton.Sprint;
+        buttons |= bot.detourSide > 0 ? InputButton.Left : InputButton.Right;
+        if (this.physicsTick >= bot.nextJumpTick) {
+          buttons |= InputButton.Jump;
+          bot.nextJumpTick = this.physicsTick + 24;
+        }
+      } else {
+        if (charging) buttons |= InputButton.Forward;
+        if (distance > 24) buttons |= InputButton.Sprint;
+        if (visible && distance < 5) buttons |= InputButton.Backward;
+        if (this.physicsTick >= bot.nextStrafeTick) {
+          bot.strafeDirection *= -1;
+          bot.nextStrafeTick = this.physicsTick + 40 + Math.floor(Math.random() * 45);
+        }
+        if (visible && distance < 32) {
+          buttons |= bot.strafeDirection > 0 ? InputButton.Right : InputButton.Left;
+        }
+        if (this.physicsTick >= bot.nextJumpTick && distance < 17) {
+          buttons |= InputButton.Jump;
+          bot.nextJumpTick = this.physicsTick + 140 + Math.floor(Math.random() * 120);
+        }
+
+        if (
+          this.physicsTick >= bot.nextFireTick &&
+          distance <= weapon.range &&
+          this.hasLineOfSight(origin, targetPoint, distance, targetDirection)
+        ) {
           buttons |= InputButton.FirePrimary;
           const interval = Math.max(
             1,
@@ -1591,48 +1648,59 @@ export class MatchRoom {
             Math.floor(Math.random() * 9);
           bot.aimError = (Math.random() - 0.5) * 0.045;
         }
+
+        if (
+          player.hp < classStatsFor(classId, player.profile.faction).maxHp * 0.42 &&
+          this.physicsTick >= bot.nextSkillTick
+        ) {
+          buttons |= InputButton.Skill1;
+          bot.nextSkillTick = this.physicsTick + 180;
+        }
       }
 
-      const ammo = player.ammo[0];
-      if (ammo && ammo.magazine <= 0 && ammo.reserve > 0) {
-        buttons |= InputButton.Reload;
+      // Two-stage unstick for the straight (unrouted) charge: a prop that
+      // blocks the body for a second starts a sideways detour (a blocked
+      // detour flips side); no net progress for two seconds escalates to the
+      // waypoint graph, which then owns the stuck handling.
+      if (charging || detouring) {
+        if (engagementBlocked(route, feet, this.physicsTick)) {
+          route.chaseUntilTick = this.physicsTick + 300;
+          bot.detourUntilTick = 0;
+          bot.stuckTicks = 0;
+        }
+      } else {
+        route.engageCheckTick = this.physicsTick;
+        route.engageCheckPosition = { ...feet };
       }
-      if (
-        player.hp < classStatsFor(classId, player.profile.faction).maxHp * 0.42 &&
-        this.physicsTick >= bot.nextSkillTick
-      ) {
-        buttons |= InputButton.Skill1;
-        bot.nextSkillTick = this.physicsTick + 180;
+      const velocity = player.character.velocity;
+      const blocked =
+        (buttons & InputButton.Forward) !== 0 &&
+        player.character.grounded &&
+        Math.hypot(velocity.x, velocity.z) < BOT_STUCK_SPEED;
+      if (blocked) bot.stuckTicks += 1;
+      else bot.stuckTicks = Math.max(0, bot.stuckTicks - 2);
+      const limit = detouring ? BOT_STUCK_TICKS / 2 : BOT_STUCK_TICKS;
+      if (bot.stuckTicks > limit) {
+        bot.stuckTicks = 0;
+        if (detouring) bot.detourSide = -bot.detourSide;
+        bot.detourUntilTick = this.physicsTick + BOT_DETOUR_TICKS;
       }
     } else {
-      if (this.physicsTick >= bot.nextStrafeTick) {
-        bot.nextStrafeTick = this.physicsTick + 180;
-        bot.patrolYaw += (Math.random() - 0.5) * 1.4;
-      }
-      yaw = bot.patrolYaw;
+      // Patrol the waypoint graph towards a tower or a random landmark.
+      bot.stuckTicks = 0;
+      bot.detourUntilTick = 0;
+      const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
+      yaw = steer.yaw;
+      bot.patrolYaw = yaw;
+      pitch = -0.05;
       buttons |= InputButton.Forward;
-      const ammo = player.ammo[0];
-      if (ammo && ammo.magazine <= 0 && ammo.reserve > 0) {
-        buttons |= InputButton.Reload;
-      }
+      if (steer.sprint) buttons |= InputButton.Sprint;
+      if (steer.jump) buttons |= InputButton.Jump;
     }
 
-    // Stuck detection: pushing forward without moving for a second (props
-    // really block bodies) starts a detour that hugs the obstacle sideways.
-    // A detour that is blocked itself turns around to the other side.
-    const velocity = player.character.velocity;
-    const blocked =
-      (buttons & InputButton.Forward) !== 0 &&
-      player.character.grounded &&
-      Math.hypot(velocity.x, velocity.z) < BOT_STUCK_SPEED;
-    if (blocked) bot.stuckTicks += 1;
-    else bot.stuckTicks = Math.max(0, bot.stuckTicks - 2);
-    const limit = detouring ? BOT_STUCK_TICKS / 2 : BOT_STUCK_TICKS;
-    if (bot.stuckTicks > limit) {
-      bot.stuckTicks = 0;
-      if (detouring) bot.detourSide = -bot.detourSide;
-      bot.detourUntilTick = this.physicsTick + BOT_DETOUR_TICKS;
-      if (!target) bot.patrolYaw += (bot.detourSide * Math.PI) / 2;
+    const ammo = player.ammo[0];
+    if (ammo && ammo.magazine <= 0 && ammo.reserve > 0) {
+      buttons |= InputButton.Reload;
     }
 
     return {
@@ -1640,6 +1708,101 @@ export class MatchRoom {
       buttons,
       yaw,
       pitch,
+      weaponSlot: 1,
+    };
+  }
+
+  /**
+   * Mascot bots: a visible rival is charged directly (cow heading steering,
+   * coconut velocity homing in mascotBotButtons). Patrols and rivals out of
+   * sight, or a charge that made no progress, follow the waypoint graph; the
+   * route's yaw becomes the mascot's patrol heading. The motor-level backing
+   * out / rolling detour in mascotBotButtons stays as the body's own recovery
+   * (a cow cannot sidestep), the route handles re-planning.
+   */
+  private mascotBotInput(
+    player: PlayerConnection,
+    bot: BotState,
+    target: PlayerConnection | null,
+  ): PlayerInput {
+    const route = bot.route;
+    const feet = player.character.position;
+    let pursue = target;
+    if (target) {
+      const origin = this.eyePosition(player);
+      const targetPoint = {
+        x: target.character.position.x,
+        y: target.character.position.y + target.character.eyeHeight * 0.6,
+        z: target.character.position.z,
+      };
+      const dx = targetPoint.x - origin.x;
+      const dy = targetPoint.y - origin.y;
+      const dz = targetPoint.z - origin.z;
+      const distance = Math.hypot(dx, dy, dz);
+      if (this.physicsTick >= route.nextSightTick) {
+        route.nextSightTick = this.physicsTick + 12;
+        route.seesTarget = this.hasLineOfSight(
+          origin,
+          targetPoint,
+          distance,
+          normalizeDirection({ x: dx, y: dy, z: dz }),
+        );
+      }
+      if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
+        routeTowards(route, feet, target.character.position, this.physicsTick);
+        pursue = null;
+      } else if (Math.hypot(dx, dz) > 6) {
+        if (engagementBlocked(route, feet, this.physicsTick)) {
+          route.chaseUntilTick = this.physicsTick + 300;
+        }
+      } else {
+        route.engageCheckTick = this.physicsTick;
+        route.engageCheckPosition = { ...feet };
+      }
+    }
+    let routeButtons = 0;
+    let pivot = false;
+    const swimming = player.character.swimming;
+    if (!pursue) {
+      const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
+      bot.patrolYaw = steer.yaw;
+      if (steer.jump) routeButtons |= InputButton.Jump;
+      // Long legs of an out-of-sight chase at a gallop (the coconut ignores it).
+      if (steer.sprint && target) routeButtons |= InputButton.Sprint;
+      if (swimWatchdog(route, feet, swimming, this.physicsTick, Math.random)) {
+        // Gave up on that exit: back out and head for the next one.
+        if (player.character.form === 'cow') {
+          bot.mascot.steerBias = Math.random() < 0.5 ? -1 : 1;
+          bot.mascot.reverseUntilTick = this.physicsTick + PHYSICS_TICK_RATE;
+        }
+      } else if ((swimming || feet.y < WATER_LEVEL) && player.character.form === 'cow') {
+        // Swimming or wading, the cow turns too slowly to pivot onto a stair at its toe: line it up.
+        const exitYaw = swimExitYaw(route, feet, swimming);
+        if (exitYaw !== null) {
+          bot.patrolYaw = exitYaw;
+          // Far off the stair heading: pivot on the spot instead of looping wide.
+          const error = exitYaw - player.character.heading;
+          pivot = Math.abs(Math.atan2(Math.sin(error), Math.cos(error))) > MASCOT_EXIT_PIVOT;
+        }
+      }
+    } else {
+      swimWatchdog(route, feet, false, this.physicsTick, Math.random);
+    }
+    const command = mascotBotButtons(
+      player.character,
+      bot.mascot,
+      pursue ? pursue.character.position : null,
+      pursue ? pursue.character.velocity : null,
+      bot.patrolYaw,
+      this.physicsTick,
+    );
+    let buttons = command.buttons | routeButtons;
+    if (pivot) buttons &= ~(InputButton.Forward | InputButton.Sprint);
+    return {
+      sequence: player.lastProcessedInput + 1,
+      buttons,
+      yaw: command.yaw,
+      pitch: 0,
       weaponSlot: 1,
     };
   }

@@ -488,7 +488,7 @@ export class MascotView {
     if (!pose.grounded) this.fallSpeed = Math.max(this.fallSpeed, -this.velocity.y);
     const landed = pose.grounded && !this.wasGrounded;
     if (landed && this.fallSpeed > 6 && this.fx) {
-      this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z)), pose.position, 8, 2.6, 0.38);
+      this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y)), pose.position, 8, 2.6, 0.38);
     }
 
     if (this.form === 'cow') this.animateCow(dt, pose, mascot);
@@ -582,11 +582,11 @@ export class MascotView {
     if (fx && animator.thud > 0) {
       audio.playCowbell(pose.position, 0.85);
       audio.playLand(pose.position);
-      fx.burst(puffKindForSurface(surfaceTagAt(x, z)), pose.position, 12, 3.2, 0.45);
+      fx.burst(puffKindForSurface(surfaceTagAt(x, z, pose.position.y)), pose.position, 12, 3.2, 0.45);
     }
     const speed = Math.abs(drive.forward);
     if (fx && animator.footfalls && pose.grounded && !drive.swimming && speed > 3.2) {
-      const kind = puffKindForSurface(surfaceTagAt(x, z));
+      const kind = puffKindForSurface(surfaceTagAt(x, z, pose.position.y));
       const big = animator.gallopWeight > 0.5 || drive.charging;
       for (let leg = 0; leg < 4; leg += 1) {
         if (!(animator.footfalls & (1 << leg))) continue;
@@ -615,10 +615,10 @@ export class MascotView {
       scratchVelocity.x = -velocity.x * 0.1;
       scratchVelocity.y = 0.9;
       scratchVelocity.z = -velocity.z * 0.1;
-      fx.puff(puffKindForSurface(surfaceTagAt(x, z)), scratchPoint, scratchVelocity, 0.38, 0.55);
+      fx.puff(puffKindForSurface(surfaceTagAt(x, z, pose.position.y)), scratchPoint, scratchVelocity, 0.38, 0.55);
     }
     if (fx && drive.stomp < 0 && this.wasStomping) {
-      fx.burst(puffKindForSurface(surfaceTagAt(x, z)), pose.position, 14, 4.5, 0.5);
+      fx.burst(puffKindForSurface(surfaceTagAt(x, z, pose.position.y)), pose.position, 14, 4.5, 0.5);
     }
     this.wasStomping = drive.stomp >= 0;
   }
@@ -799,7 +799,7 @@ export class MascotView {
         fx.puff('splash', scratchPoint, scratchVelocity, 0.3, 0.5);
       } else if (pose.grounded && speed > 2.5) {
         this.puffTimer = clamp(0.16 - speed * 0.009, 0.03, 0.12) * (boosting ? 0.6 : 1);
-        const kind = puffKindForSurface(surfaceTagAt(x, z));
+        const kind = puffKindForSurface(surfaceTagAt(x, z, pose.position.y));
         const count = speed > 8 ? 2 : 1;
         for (let index = 0; index < count; index += 1) {
           const side = (index === 0 ? -1 : 1) * 0.22;

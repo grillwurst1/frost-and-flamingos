@@ -108,7 +108,7 @@ export class MascotClient {
         if (form === 'coconut') {
           this.fx.popup('mascot.popups.tock', { x: point.x + 0.8, y: point.y + 1.1, z: point.z }, 'wood', 1.05);
         }
-        this.fx.burst(puffKindForSurface(surfaceTagAt(point.x, point.z)), point, 10, 3.6, 0.42);
+        this.fx.burst(puffKindForSurface(surfaceTagAt(point.x, point.z, point.y)), point, 10, 3.6, 0.42);
         const attackerView = context.viewFor(event.actorId);
         if (isMascotView(attackerView)) attackerView.react('score');
         const victimView = context.viewFor(event.targetId);
@@ -149,7 +149,7 @@ export class MascotClient {
     const radius = kind === 'stomp' ? SKILLS.hoof_stomp.radius : SKILLS.ground_pound.radius;
     audio.playMascotImpact(form, point);
     this.fx.shockwave(point, radius);
-    this.fx.burst(puffKindForSurface(surfaceTagAt(point.x, point.z)), point, 16, 5, 0.5);
+    this.fx.burst(puffKindForSurface(surfaceTagAt(point.x, point.z, point.y)), point, 16, 5, 0.5);
     this.popup(kind === 'stomp' ? 'mascot.popups.stomp' : 'mascot.popups.pound', point, 'gold', 1.5, 1.6);
   }
 
@@ -220,7 +220,7 @@ export class MascotClient {
     }
     const travelled = speed * delta;
     const where = at ?? position;
-    const surface = where ? surfaceTagAt(where.x, where.z) : 'grass_mud';
+    const surface = where ? surfaceTagAt(where.x, where.z, where.y) : 'grass_mud';
     if (form === 'cow') {
       state.hoof += travelled;
       state.bell += travelled;
