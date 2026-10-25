@@ -1,4 +1,4 @@
-import type { Vec3 } from '@frost-and-flamingos/shared';
+import type { MascotForm, Vec3 } from '@frost-and-flamingos/shared';
 
 /**
  * Server-side combat geometry. The client never decides a hit; it only sends
@@ -13,6 +13,10 @@ export interface CombatTarget {
   radius: number;
   height: number;
   alive: boolean;
+  /** Mascots use shaped hitboxes instead of the vertical class capsule. */
+  form?: MascotForm | null;
+  /** Body heading (needed for the cow's horizontal hitbox). */
+  heading?: number;
 }
 
 export interface PlayerHit {
@@ -140,6 +144,94 @@ export function headSphere(target: CombatTarget): { center: Vec3; radius: number
   };
 }
 
+/** Ray against a capsule around the segment a–b. Returns the hit distance or null. */
+export function raySegmentCapsule(
+  origin: Vec3,
+  direction: Vec3,
+  a: Vec3,
+  b: Vec3,
+  radius: number,
+): number | null {
+  // Sample the segment axis as overlapping spheres: exact enough for gameplay
+  // and robust for any orientation.
+  const length = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const steps = Math.max(1, Math.ceil(length / (radius * 0.5)));
+  let best: number | null = null;
+  for (let index = 0; index <= steps; index += 1) {
+    const t = index / steps;
+    const center = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
+    const hit = raySphere(origin, direction, center, radius);
+    if (hit !== null && (best === null || hit < best)) best = hit;
+  }
+  return best;
+}
+
+/**
+ * Cow hit shapes in body space (forward along the heading, up from the
+ * feet), matched to the procedural model: the pink muzzle sits in front of
+ * the skull and counts as a body hit, only the skull (eyes, brow, poll)
+ * counts as a headshot.
+ */
+const COW_MUZZLE = { forward: 1.3, up: 1.14, radius: 0.21 } as const;
+const COW_SKULL = { forward: 1.02, up: 1.38, radius: 0.26 } as const;
+
+/**
+ * Mascot hitboxes. The cow is a horizontal barrel along its heading with
+ * legs, a muzzle and a skull (only the skull is a headshot); the coconut is
+ * one sphere with no weak spot.
+ */
+function rayMascot(
+  origin: Vec3,
+  direction: Vec3,
+  target: CombatTarget,
+): { distance: number; headshot: boolean } | null {
+  const feet = target.position;
+  if (target.form === 'coconut') {
+    const hit = raySphere(origin, direction, { x: feet.x, y: feet.y + target.radius, z: feet.z }, target.radius);
+    return hit === null ? null : { distance: hit, headshot: false };
+  }
+  const heading = target.heading ?? 0;
+  const fx = Math.sin(heading);
+  const fz = Math.cos(heading);
+  const body = raySegmentCapsule(
+    origin,
+    direction,
+    { x: feet.x - fx * 0.6, y: feet.y + 0.92, z: feet.z - fz * 0.6 },
+    { x: feet.x + fx * 0.5, y: feet.y + 0.95, z: feet.z + fz * 0.5 },
+    0.5,
+  );
+  const legs = raySegmentCapsule(
+    origin,
+    direction,
+    { x: feet.x, y: feet.y + 0.2, z: feet.z },
+    { x: feet.x, y: feet.y + 0.6, z: feet.z },
+    0.42,
+  );
+  const muzzle = raySphere(
+    origin,
+    direction,
+    { x: feet.x + fx * COW_MUZZLE.forward, y: feet.y + COW_MUZZLE.up, z: feet.z + fz * COW_MUZZLE.forward },
+    COW_MUZZLE.radius,
+  );
+  const skull = raySphere(
+    origin,
+    direction,
+    { x: feet.x + fx * COW_SKULL.forward, y: feet.y + COW_SKULL.up, z: feet.z + fz * COW_SKULL.forward },
+    COW_SKULL.radius,
+  );
+  let best: { distance: number; headshot: boolean } | null = null;
+  for (const [distance, headshot] of [
+    [body, false],
+    [legs, false],
+    [muzzle, false],
+    [skull, true],
+  ] as const) {
+    if (distance === null) continue;
+    if (!best || distance < best.distance - (headshot ? 0.05 : 0)) best = { distance, headshot };
+  }
+  return best;
+}
+
 export function raycastTargets(
   origin: Vec3,
   direction: Vec3,
@@ -150,6 +242,13 @@ export function raycastTargets(
   let best: PlayerHit | null = null;
   for (const target of targets) {
     if (!target.alive) continue;
+    if (target.form) {
+      const hit = rayMascot(origin, ray, target);
+      if (hit && hit.distance <= maxDistance && (!best || hit.distance < best.distance)) {
+        best = { id: target.id, distance: hit.distance, headshot: hit.headshot };
+      }
+      continue;
+    }
     const height = target.crouched ? target.height * 0.65 : target.height;
     const bodyDistance = rayCapsule(origin, ray, target.position, target.radius, height);
     if (bodyDistance === null || bodyDistance > maxDistance) continue;

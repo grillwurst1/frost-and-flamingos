@@ -13,6 +13,23 @@ const EYE_HEIGHT = 1.58;
 
 export type PreviewCameraMode = 'menu' | 'wardrobe';
 
+/**
+ * Per-body framing. Humans use the over-the-shoulder default; the cow sits
+ * further back and lower, the coconut slightly higher, both centred.
+ */
+export interface CameraProfile {
+  pivotHeight: number;
+  distance: number;
+  shoulder: number;
+}
+
+export const HUMAN_CAMERA: CameraProfile = { pivotHeight: EYE_HEIGHT + 0.14, distance: 4.8, shoulder: SHOULDER_OFFSET };
+export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
+export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
+
+/** Mouse idle time before the camera starts easing behind a steered body. */
+const FOLLOW_IDLE_SECONDS = 1.1;
+
 interface SpringState {
   value: Vector3;
   velocity: Vector3;
@@ -56,6 +73,10 @@ export class CameraRig {
   private initialized = false;
   private killerAngle = 0;
   private killerInitialized = false;
+  private profile: CameraProfile = HUMAN_CAMERA;
+  private lastMouseAt = 0;
+  private wobble = 0;
+  private wobbleTime = 0;
   constructor(scene: Scene) {
     this.camera = new FreeCamera('player-camera', new Vector3(0, 40, -80), scene);
     this.camera.minZ = 0.12;
@@ -81,7 +102,13 @@ export class CameraRig {
     return this.pitch;
   }
 
+  /** Orbit angle of the menu/wardrobe preview camera around the podium. */
+  get previewAngle(): number {
+    return this.menuAngle;
+  }
+
   handleMouse(deltaX: number, deltaY: number): void {
+    if (deltaX !== 0 || deltaY !== 0) this.lastMouseAt = performance.now();
     this.targetYaw += deltaX * MOUSE_SENSITIVITY;
     this.targetPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, this.targetPitch - deltaY * MOUSE_SENSITIVITY));
   }
@@ -94,14 +121,37 @@ export class CameraRig {
     this.targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, this.targetDistance + delta * 0.0022));
   }
 
+  /** Switches the framing (human / cow / coconut); the distance eases over. */
+  setProfile(profile: CameraProfile): void {
+    if (this.profile === profile) return;
+    this.profile = profile;
+    this.targetDistance = profile.distance;
+  }
+
+  /**
+   * Vehicle-style follow: while the mouse rests, ease the look yaw behind a
+   * body that steers its own heading (the cow). Mouse look always wins.
+   */
+  followHeading(dt: number, heading: number, speed: number): void {
+    if (speed < 2.5) return;
+    if ((performance.now() - this.lastMouseAt) / 1000 < FOLLOW_IDLE_SECONDS) return;
+    const strength = Math.min(1, (speed - 2.5) / 6) * 1.6;
+    this.targetYaw += shortestAngle(this.targetYaw, heading) * (1 - Math.exp(-dt * strength));
+  }
+
+  /** Dazed wobble amount 0–1 (cowbell clang). */
+  setWobble(amount: number): void {
+    this.wobble = Math.max(0, Math.min(1, amount));
+  }
+
   resetAngles(yaw: number, pitch = -0.08): void {
     this.yaw = yaw;
     this.targetYaw = yaw;
     this.pitch = pitch;
     this.targetPitch = pitch;
-    this.targetDistance = 4.8;
-    this.distance = 4.8;
-    this.collisionDistance = 4.8;
+    this.targetDistance = this.profile.distance;
+    this.distance = this.profile.distance;
+    this.collisionDistance = this.profile.distance;
     this.initialized = false;
   }
 
@@ -120,10 +170,11 @@ export class CameraRig {
       Math.cos(this.yaw) * cosPitch,
     );
     const right = new Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    const shoulder = this.profile.shoulder * this.shoulderSide;
     const pivot = new Vector3(
-      feet.x + right.x * SHOULDER_OFFSET * this.shoulderSide,
-      feet.y + EYE_HEIGHT + 0.14,
-      feet.z + right.z * SHOULDER_OFFSET * this.shoulderSide,
+      feet.x + right.x * shoulder,
+      feet.y + this.profile.pivotHeight,
+      feet.z + right.z * shoulder,
     );
     const desiredCamera = pivot.subtract(forward.scale(this.distance));
 
@@ -153,7 +204,13 @@ export class CameraRig {
 
     this.camera.position.copyFrom(this.positionSpring.value);
     const lookAt = this.pivotSpring.value.add(forward.scale(24));
+    if (this.wobble > 0) {
+      this.wobbleTime += clampedDt;
+      lookAt.addInPlace(right.scale(Math.sin(this.wobbleTime * 5.3) * 1.6 * this.wobble));
+      lookAt.y += Math.sin(this.wobbleTime * 3.7) * 0.9 * this.wobble;
+    }
     this.camera.setTarget(lookAt);
+    if (this.wobble > 0) this.camera.rotation.z = Math.sin(this.wobbleTime * 4.1) * 0.09 * this.wobble;
   }
 
   /**
@@ -246,7 +303,7 @@ export class CameraRig {
 
   snapToPlayer(feet: Vector3): void {
     this.initialized = false;
-    this.pivotSpring.value.set(feet.x, feet.y + EYE_HEIGHT + 0.14, feet.z);
+    this.pivotSpring.value.set(feet.x, feet.y + this.profile.pivotHeight, feet.z);
     const cosPitch = Math.cos(this.pitch);
     const forward = new Vector3(
       Math.sin(this.yaw) * cosPitch,

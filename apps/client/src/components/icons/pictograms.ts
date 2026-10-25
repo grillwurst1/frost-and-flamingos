@@ -69,6 +69,58 @@ function tilt(inner: string, degrees = -26): string {
   return `<g transform="rotate(${degrees} 32 32)">${inner}</g>`;
 }
 
+
+// Mascot moves (cow / coconut). Painted tiles normally cover these; the SVGs are the fallback.
+const COW_WHITE = '#FFF8EC';
+const COCONUT = '#8A5A34';
+const COCONUT_DARK = '#5A3A22';
+const MILK = '#F6FBFF';
+
+const MASCOT_HORNS =
+  p('M14 26 Q4 20 8 8 Q14 18 22 20 Z', '#F4E3C0') +
+  p('M50 26 Q60 20 56 8 Q50 18 42 20 Z', '#F4E3C0') +
+  c(32, 34, 18, 16, COW_WHITE) +
+  c(24, 28, 5, 4, INK, { 'stroke-width': 0 }) +
+  c(42, 40, 4, 3, INK, { 'stroke-width': 0 }) +
+  c(32, 44, 11, 7, '#FFB3C7') +
+  c(28, 44, 1.6, 2, INK, { 'stroke-width': 0 }) +
+  c(36, 44, 1.6, 2, INK, { 'stroke-width': 0 });
+
+const MASCOT_SPEED = line('M2 22 H12', WHITE, 2.2) + line('M0 34 H10', WHITE, 2.2) + line('M3 46 H13', WHITE, 2.2);
+
+const MASCOT_COCONUT =
+  c(36, 32, 20, 20, COCONUT) +
+  `<path d="M22 20 Q30 26 26 36 M44 16 Q40 28 50 34" fill="none" stroke="${COCONUT_DARK}" stroke-width="2.4" stroke-linecap="round"/>` +
+  c(30, 30, 2.6, 3.4, INK, { 'stroke-width': 0 }) +
+  c(42, 30, 2.6, 3.4, INK, { 'stroke-width': 0 }) +
+  `<path d="M30 40 Q36 44 42 40" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`;
+
+const MASCOT_BURST =
+  p('M32 44 L40 36 L40 46 L56 44 L44 52 L58 60 L6 60 L20 52 L8 44 L24 46 L24 36 Z', '#FFB02E');
+
+const MASCOT_ICONS = {
+  horn_charge: MASCOT_SPEED + MASCOT_HORNS,
+  hoof_stomp:
+    MASCOT_BURST +
+    p('M18 10 L46 10 L48 34 Q48 40 42 40 L36 40 L32 32 L28 40 L22 40 Q16 40 16 34 Z', '#4A3022') +
+    r(16, 30, 32, 6, 2, '#2A1A10'),
+  cowbell_clang:
+    p('M22 14 L42 14 L50 46 L14 46 Z', BRASS) +
+    r(28, 8, 8, 7, 2, METAL_DARK) +
+    c(32, 50, 5, 4, METAL_DARK) +
+    line('M6 22 Q2 30 6 38', WHITE, 2) +
+    line('M58 22 Q62 30 58 38', WHITE, 2) +
+    spark(52, 12, 4),
+  turbo_roll: MASCOT_SPEED + MASCOT_COCONUT,
+  ground_pound: MASCOT_BURST + `<g transform="translate(-4 -10) scale(0.8)">${MASCOT_COCONUT}</g>` + line('M32 2 V8', WHITE, 2),
+  milk_splash:
+    p('M32 6 Q46 26 46 36 Q46 50 32 50 Q18 50 18 36 Q18 26 32 6 Z', MILK) +
+    c(14, 54, 6, 3.4, MILK, { 'stroke-width': 2.2 }) +
+    c(50, 54, 6, 3.4, MILK, { 'stroke-width': 2.2 }) +
+    c(32, 58, 9, 3.4, MILK, { 'stroke-width': 2.2 }) +
+    `<path d="M26 26 Q24 32 26 38" fill="none" stroke="${ICE}" stroke-width="2.6" stroke-linecap="round"/>`,
+} as const;
+
 const WEAPON_ICONS: Record<WeaponId, string> = {
   smg: tilt(
     p('M15 27 L5 30 L5 37 L15 35 Z', WOOD) +
@@ -194,6 +246,9 @@ const WEAPON_ICONS: Record<WeaponId, string> = {
       `<path d="M56 4 Q63 8 63 15" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>`,
     -18,
   ),
+  cow_ram: MASCOT_SPEED + MASCOT_HORNS,
+  coconut_ram: MASCOT_SPEED + MASCOT_COCONUT,
+  ...MASCOT_ICONS,
 };
 
 const SKILL_ICONS: Record<SkillId, string> = {
@@ -272,6 +327,7 @@ const SKILL_ICONS: Record<SkillId, string> = {
     c(14, 46, 4.4, 4.4, BRASS) +
     line('M22 56 H34', WHITE, 2.2) +
     line('M30 60 H44', WHITE, 2.2),
+  ...MASCOT_ICONS,
 };
 
 const FALLBACK = p('M32 6 L39 24 L58 25 L43 37 L48 56 L32 45 L16 56 L21 37 L6 25 L25 24 Z', CHEESE);

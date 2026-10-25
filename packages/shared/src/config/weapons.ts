@@ -1,5 +1,15 @@
-import type { GimmickWeaponId, Loadout, MainWeaponId, WeaponId, WeaponSlot } from '../types/index.js';
+import type {
+  GimmickWeaponId,
+  Loadout,
+  MainWeaponId,
+  MascotForm,
+  MascotWeaponId,
+  WeaponId,
+  WeaponSlot,
+} from '../types/index.js';
 import { createIdTable } from './ids.js';
+import { MASCOT_RAM } from './mascot.js';
+import { SKILLS } from './skills.js';
 
 /** Slot 1: the primary workhorse. */
 export const PRIMARY_WEAPON_IDS = ['smg', 'lmg', 'sniper'] as const satisfies readonly MainWeaponId[];
@@ -200,7 +210,41 @@ export const ALL_WEAPON_IDS = [
   'halberd',
   'umbrella',
   'horn',
+  'cow_ram',
+  'coconut_ram',
+  'horn_charge',
+  'hoof_stomp',
+  'cowbell_clang',
+  'turbo_roll',
+  'ground_pound',
+  'milk_splash',
 ] as const satisfies readonly WeaponId[];
+
+/** Mascot move ids per slot. Ram ids credit kills made by body contact. */
+export const MASCOT_WEAPON_IDS = [
+  'cow_ram',
+  'coconut_ram',
+  'horn_charge',
+  'hoof_stomp',
+  'cowbell_clang',
+  'turbo_roll',
+  'ground_pound',
+  'milk_splash',
+] as const satisfies readonly MascotWeaponId[];
+
+export const MASCOT_SLOT_WEAPONS: Record<MascotForm, readonly [MascotWeaponId, MascotWeaponId, MascotWeaponId]> = {
+  cow: ['horn_charge', 'hoof_stomp', 'cowbell_clang'],
+  coconut: ['turbo_roll', 'ground_pound', 'milk_splash'],
+};
+
+export const MASCOT_RAM_WEAPON: Record<MascotForm, MascotWeaponId> = {
+  cow: 'cow_ram',
+  coconut: 'coconut_ram',
+};
+
+export function isMascotWeapon(id: WeaponId): id is MascotWeaponId {
+  return (MASCOT_WEAPON_IDS as readonly string[]).includes(id);
+}
 
 export const WEAPON_TABLE = createIdTable<WeaponId>(ALL_WEAPON_IDS);
 
@@ -374,9 +418,56 @@ const GIMMICK_WEAPON_STATS: Record<GimmickWeaponId, WeaponStats> = {
   },
 };
 
+function mascotMoveStats(id: MascotWeaponId, damage: number, range: number, splashRadius: number): WeaponStats {
+  return {
+    id,
+    slot: 3,
+    damage,
+    rpm: 60,
+    magazine: 0,
+    reserve: 0,
+    pellets: 1,
+    spread: 0,
+    range,
+    automatic: false,
+    projectileSpeed: 0,
+    splashRadius,
+    headshotMultiplier: 1,
+    reloadSeconds: 0,
+    fireMode: 'melee',
+  };
+}
+
+/** Nominal body-contact reach shown for the ram moves (m). */
+const COW_RAM_REACH = 1.6;
+const COCONUT_RAM_REACH = 1.5;
+
+/** HUD/kill-feed numbers only, derived from the MASCOT_RAM and SKILLS tables that resolve combat. */
+const MASCOT_WEAPON_STATS: Record<MascotWeaponId, WeaponStats> = {
+  cow_ram: mascotMoveStats('cow_ram', MASCOT_RAM.cow.maxDamage, COW_RAM_REACH, 0),
+  coconut_ram: mascotMoveStats('coconut_ram', MASCOT_RAM.coconut.maxDamage, COCONUT_RAM_REACH, 0),
+  horn_charge: mascotMoveStats(
+    'horn_charge',
+    Math.round(MASCOT_RAM.cow.maxDamage * MASCOT_RAM.cow.boostMultiplier),
+    COW_RAM_REACH,
+    0,
+  ),
+  hoof_stomp: mascotMoveStats('hoof_stomp', SKILLS.hoof_stomp.amount, SKILLS.hoof_stomp.radius, SKILLS.hoof_stomp.radius),
+  cowbell_clang: mascotMoveStats('cowbell_clang', 0, SKILLS.cowbell_clang.radius, SKILLS.cowbell_clang.radius),
+  turbo_roll: mascotMoveStats(
+    'turbo_roll',
+    Math.round(MASCOT_RAM.coconut.maxDamage * MASCOT_RAM.coconut.boostMultiplier),
+    COCONUT_RAM_REACH,
+    0,
+  ),
+  ground_pound: mascotMoveStats('ground_pound', SKILLS.ground_pound.amount, SKILLS.ground_pound.radius, SKILLS.ground_pound.radius),
+  milk_splash: mascotMoveStats('milk_splash', 0, SKILLS.milk_splash.radius, SKILLS.milk_splash.radius),
+};
+
 export const WEAPON_STATS: Record<WeaponId, WeaponStats> = {
   ...MAIN_WEAPON_STATS,
   ...GIMMICK_WEAPON_STATS,
+  ...MASCOT_WEAPON_STATS,
 };
 
 export function weaponStats(id: WeaponId): WeaponStats {

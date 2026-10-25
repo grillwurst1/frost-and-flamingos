@@ -1,7 +1,8 @@
-import type { ClassId, Faction, Loadout } from '../types/index.js';
+import type { ClassId, Faction, Loadout, MascotForm } from '../types/index.js';
 import { createIdTable } from './ids.js';
 
-export const CLASS_IDS = ['allrounder', 'heavy', 'infiltrator'] as const satisfies readonly ClassId[];
+/** Wire codes are array indices: append new classes at the end, never reorder. */
+export const CLASS_IDS = ['allrounder', 'heavy', 'infiltrator', 'mascot'] as const satisfies readonly ClassId[];
 
 export const CLASS_TABLE = createIdTable<ClassId>(CLASS_IDS);
 
@@ -17,6 +18,38 @@ export interface ClassStats {
   airAcceleration: number;
   groundFriction: number;
 }
+
+/**
+ * Physical bodies of the two mascot forms. The cow is a 2.2 m long, 1.5 m tall
+ * quadruped on a vertical capsule (its combat hitbox is a horizontal capsule
+ * along the heading); the coconut is a 1.4 m ball.
+ */
+export const MASCOT_FORM_STATS: Record<MascotForm, ClassStats> = {
+  cow: {
+    id: 'mascot',
+    maxHp: 260,
+    moveSpeed: 6.4,
+    sprintMultiplier: 1.8,
+    radius: 0.62,
+    height: 1.5,
+    jumpSpeed: 4.4,
+    groundAcceleration: 8.5,
+    airAcceleration: 0,
+    groundFriction: 4.2,
+  },
+  coconut: {
+    id: 'mascot',
+    maxHp: 200,
+    moveSpeed: 10.5,
+    sprintMultiplier: 1,
+    radius: 0.7,
+    height: 1.4,
+    jumpSpeed: 10.2,
+    groundAcceleration: 13,
+    airAcceleration: 5,
+    groundFriction: 1.3,
+  },
+};
 
 export const CLASS_STATS: Record<ClassId, ClassStats> = {
   allrounder: {
@@ -55,7 +88,25 @@ export const CLASS_STATS: Record<ClassId, ClassStats> = {
     airAcceleration: 26.4,
     groundFriction: 12,
   },
+  // Nominal entry only (the cow): a mascot's real body depends on its form.
+  // Always use classStatsFor(classId, faction) for gameplay numbers.
+  mascot: MASCOT_FORM_STATS.cow,
 };
+
+/** Peak Guard brings the cow, the Lagoon League rolls in the coconut. */
+export function mascotFormForFaction(faction: Faction): MascotForm {
+  return faction === 'lagoon' ? 'coconut' : 'cow';
+}
+
+export function mascotFormOf(classId: ClassId, faction: Faction): MascotForm | null {
+  return classId === 'mascot' ? mascotFormForFaction(faction) : null;
+}
+
+/** Gameplay stats for a class, resolving the mascot form from the faction. */
+export function classStatsFor(classId: ClassId, faction: Faction): ClassStats {
+  if (classId === 'mascot') return MASCOT_FORM_STATS[mascotFormForFaction(faction)];
+  return CLASS_STATS[classId];
+}
 
 export const FACTION_THEME: Record<
   Faction,
@@ -110,5 +161,12 @@ export const CLASS_DEFAULT_LOADOUTS: Record<ClassId, Loadout> = {
     primary: 'sniper',
     secondary: 'silenced_pistol',
     gimmick: 'crossbow',
+  },
+  // Mascots carry no firearms. The loadout stays valid so the profile can
+  // round-trip, but the server never equips it for a mascot.
+  mascot: {
+    primary: 'smg',
+    secondary: 'shotgun',
+    gimmick: 'horn',
   },
 };

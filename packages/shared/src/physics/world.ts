@@ -120,25 +120,36 @@ export class PhysicsWorld {
     }
   }
 
+  /**
+   * Invisible walls around the map. Their inner faces overlap the last half
+   * metre of the heightfield so no capsule can slip through a crack at the
+   * terrain edge, and they reach well below the sea floor and far above the
+   * highest rim.
+   */
   private createBoundaryColliders(): void {
-    const wallDistance = MAP_HALF_SIZE + 3;
-    const wallHeight = 70;
+    const halfThickness = 2;
+    const wallDistance = MAP_HALF_SIZE - 0.5 + halfThickness;
+    const bottom = -40;
+    const top = 200;
+    const centerY = (bottom + top) / 2;
+    const halfHeight = (top - bottom) / 2;
+    const halfLength = MAP_HALF_SIZE + 8;
     const walls: Array<{ position: Vec3; halfExtents: Vec3 }> = [
       {
-        position: { x: wallDistance, y: wallHeight / 2, z: 0 },
-        halfExtents: { x: 2, y: wallHeight / 2, z: MAP_HALF_SIZE + 8 },
+        position: { x: wallDistance, y: centerY, z: 0 },
+        halfExtents: { x: halfThickness, y: halfHeight, z: halfLength },
       },
       {
-        position: { x: -wallDistance, y: wallHeight / 2, z: 0 },
-        halfExtents: { x: 2, y: wallHeight / 2, z: MAP_HALF_SIZE + 8 },
+        position: { x: -wallDistance, y: centerY, z: 0 },
+        halfExtents: { x: halfThickness, y: halfHeight, z: halfLength },
       },
       {
-        position: { x: 0, y: wallHeight / 2, z: wallDistance },
-        halfExtents: { x: MAP_HALF_SIZE + 8, y: wallHeight / 2, z: 2 },
+        position: { x: 0, y: centerY, z: wallDistance },
+        halfExtents: { x: halfLength, y: halfHeight, z: halfThickness },
       },
       {
-        position: { x: 0, y: wallHeight / 2, z: -wallDistance },
-        halfExtents: { x: MAP_HALF_SIZE + 8, y: wallHeight / 2, z: 2 },
+        position: { x: 0, y: centerY, z: -wallDistance },
+        halfExtents: { x: halfLength, y: halfHeight, z: halfThickness },
       },
     ];
     for (const wall of walls) {

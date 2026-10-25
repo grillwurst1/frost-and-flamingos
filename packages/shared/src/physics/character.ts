@@ -1,6 +1,12 @@
 import RAPIER from '@dimforge/rapier3d-compat';
-import { CLASS_STATS, type ClassStats } from '../config/classes.js';
+import { classStatsFor, mascotFormOf, type ClassStats } from '../config/classes.js';
 import { sampleMapHeight, surfaceTagAt, type SurfaceTag } from '../config/map-fjord.js';
+import {
+  COCONUT_TUNING,
+  COW_TUNING,
+  ROLL_RESISTANCE_SCALE,
+} from '../config/mascot.js';
+import { MASCOT_SKILLS, SKILLS } from '../config/skills.js';
 import {
   FIXED_DT,
   GRAVITY,
@@ -14,6 +20,7 @@ import {
   PARACHUTE_SINK_SPEED,
   PARACHUTE_STRAFE_SPEED,
   PARACHUTE_SWAY_ANGLE,
+  PHYSICS_TICK_RATE,
   PLAYER_MAX_SLOPE,
   PLAYER_SNAP_TO_GROUND,
   PLAYER_STEP_HEIGHT,
@@ -21,7 +28,10 @@ import {
 } from '../constants.js';
 import type {
   ClassId,
+  Faction,
   InputButtonMask,
+  MascotForm,
+  MascotWireState,
   ParachuteState,
   PlayerInput,
   Vec3,
@@ -33,7 +43,18 @@ import { PLAYER_COLLISION_GROUP, type PhysicsWorld } from './world.js';
 export interface CharacterBodyOptions {
   position: Vec3;
   classId: ClassId;
+  /** Resolves the mascot form; ignored by the human classes. */
+  faction?: Faction;
 }
+
+/**
+ * Discrete things the mascot motor did during a tick. The server turns them
+ * into damage and broadcasts; the client uses them for instant local feedback.
+ */
+export type MascotMotorEvent =
+  | { type: 'move'; slot: 1 | 2 | 3; position: Vec3 }
+  | { type: 'impact'; kind: 'stomp' | 'pound'; position: Vec3 }
+  | { type: 'bounce'; position: Vec3; speed: number };
 
 interface SurfaceProperties {
   accelerationScale: number;
@@ -58,6 +79,24 @@ function moveTowards(current: number, target: number, maxDelta: number): number 
   if (Math.abs(target - current) <= maxDelta) return target;
   return current + Math.sign(target - current) * maxDelta;
 }
+
+function wrapAngle(angle: number): number {
+  const twoPi = Math.PI * 2;
+  let wrapped = angle % twoPi;
+  if (wrapped > Math.PI) wrapped -= twoPi;
+  if (wrapped < -Math.PI) wrapped += twoPi;
+  return wrapped;
+}
+
+function secondsToTicks(seconds: number): number {
+  return Math.max(0, Math.round(seconds * PHYSICS_TICK_RATE));
+}
+
+/** Knockback flights keep only this fraction of normal air control. */
+const LAUNCH_AIR_CONTROL = 0.12;
+/** Below this the coconut keeps its last facing instead of following velocity. */
+const COCONUT_FACING_SPEED = 0.8;
+const MASCOT_BUOYANCY = 12;
 
 function surfacePropertiesAt(tag: SurfaceTag): SurfaceProperties {
   switch (tag) {
@@ -85,10 +124,18 @@ function surfacePropertiesAt(tag: SurfaceTag): SurfaceProperties {
  * Locomotion follows the movement contract: forward 100 %, strafe 85 %,
  * backward 70 %, tactical sprint +35 %, crouch 55 % with a 35 % shorter
  * capsule, a 0.6 s dodge roll and a buoyant 4.2 / 5.8 m/s swim mode.
+ *
+ * The mascot class runs two extra modes of the same motor (see
+ * config/mascot.ts): the cow steers its own heading like a vehicle with
+ * momentum, skids and a gallop meter; the coconut is a camera-relative rolling
+ * ball with slope gravity, double jump, bounces and buoyancy. Their moves and
+ * cooldowns are motor state so prediction and the server agree tick for tick.
  */
 export class CharacterBody {
   readonly handle: number;
   readonly stats: ClassStats;
+  /** null for the human classes. */
+  readonly form: MascotForm | null;
   readonly body: RAPIER.RigidBody;
   readonly collider: RAPIER.Collider;
   private readonly physics: PhysicsWorld;
@@ -123,11 +170,36 @@ export class CharacterBody {
   private groundClearance = 0;
   private wind: WindState = { angle: 0, strength: 0 };
   private disposed = false;
+  /**
+   * Knockback and mascot timers count whole ticks, like the move cooldowns,
+   * so a timer restored from the wire ends on exactly the same tick as the
+   * server's (float seconds drift under repeated subtraction).
+   */
+  private launchTicks = 0;
+  private slippery = false;
+  // Mascot motor state (unused by the human classes).
+  private mascotHeading = 0;
+  private yawRate = 0;
+  private stamina = 1;
+  private exhausted = false;
+  private galloping = false;
+  private skidding = false;
+  private boostTicks = 0;
+  private actionTicks = 0;
+  private hopTicks = 0;
+  private coyoteTicks = 0;
+  private waterJumpTicks = 0;
+  private jumpsUsed = 0;
+  private pounding = false;
+  private readonly moveCooldownTicks: [number, number, number] = [0, 0, 0];
+  private mascotEvents: MascotMotorEvent[] = [];
 
   constructor(physics: PhysicsWorld, handle: number, options: CharacterBodyOptions) {
     this.physics = physics;
     this.handle = handle;
-    this.stats = CLASS_STATS[options.classId];
+    const faction = options.faction ?? 'alpine';
+    this.stats = classStatsFor(options.classId, faction);
+    this.form = mascotFormOf(options.classId, faction);
     this.baseHeight = this.stats.height;
     this.currentHeight = this.baseHeight;
     this.feet = { ...options.position };
@@ -138,19 +210,27 @@ export class CharacterBody {
       .setCcdEnabled(false);
     this.body = physics.world.createRigidBody(bodyDescription);
     const halfHeight = Math.max(0.01, (this.baseHeight - this.stats.radius * 2) / 2);
-    const colliderDescription = RAPIER.ColliderDesc.capsule(halfHeight, this.stats.radius)
+    const shape =
+      this.form === 'coconut'
+        ? RAPIER.ColliderDesc.ball(this.stats.radius)
+        : RAPIER.ColliderDesc.capsule(halfHeight, this.stats.radius);
+    const colliderDescription = shape
       .setFriction(0)
       .setRestitution(0)
       .setCollisionGroups(PLAYER_COLLISION_GROUP);
     this.collider = physics.world.createCollider(colliderDescription, this.body);
 
     this.controller = physics.world.createCharacterController(0.02);
-    this.controller.enableAutostep(PLAYER_STEP_HEIGHT, 0.22, false);
+    // The cow cannot mantle and only takes low steps; the ball rolls over
+    // kerbs. Both keep the human slope rules.
+    const stepHeight =
+      this.form === 'cow' ? 0.35 : this.form === 'coconut' ? 0.32 : PLAYER_STEP_HEIGHT;
+    this.controller.enableAutostep(stepHeight, 0.22, false);
     this.controller.enableSnapToGround(PLAYER_SNAP_TO_GROUND);
     this.controller.setMaxSlopeClimbAngle(PLAYER_MAX_SLOPE);
     this.controller.setMinSlopeSlideAngle((46 * Math.PI) / 180);
     this.controller.setApplyImpulsesToDynamicBodies(false);
-    this.controller.setCharacterMass(78);
+    this.controller.setCharacterMass(this.form === 'cow' ? 600 : this.form === 'coconut' ? 45 : 78);
   }
 
   get position(): Vec3 {
@@ -239,6 +319,121 @@ export class CharacterBody {
     return this.groundClearance;
   }
 
+  /** Body facing: look yaw for humans, steered heading for the cow, roll direction for the coconut. */
+  get heading(): number {
+    return this.form ? this.mascotHeading : this.currentYaw;
+  }
+
+  get launchSeconds(): number {
+    return this.launchTicks / PHYSICS_TICK_RATE;
+  }
+
+  /** True while Horn Charge or Turbo Roll is running. */
+  get mascotBoosting(): boolean {
+    return this.boostTicks > 0;
+  }
+
+  get mascotPounding(): boolean {
+    return this.pounding;
+  }
+
+  /** Snapshot of the mascot motor for the wire and for reconciliation. */
+  get mascotState(): MascotWireState | null {
+    if (!this.form) return null;
+    return {
+      heading: this.mascotHeading,
+      yawRate: this.yawRate,
+      stamina: this.stamina,
+      boostSeconds: this.boostTicks / PHYSICS_TICK_RATE,
+      actionSeconds: this.actionTicks / PHYSICS_TICK_RATE,
+      hopSeconds: (this.form === 'cow' ? this.hopTicks : this.waterJumpTicks) / PHYSICS_TICK_RATE,
+      coyoteSeconds: this.coyoteTicks / PHYSICS_TICK_RATE,
+      cooldownTicks: [
+        this.moveCooldownTicks[0],
+        this.moveCooldownTicks[1],
+        this.moveCooldownTicks[2],
+      ],
+      pounding: this.pounding,
+      skidding: this.skidding,
+      galloping: this.galloping,
+      exhausted: this.exhausted,
+      jumpsUsed: this.jumpsUsed,
+    };
+  }
+
+  /** Remaining move cooldowns in seconds (slot order). */
+  get mascotCooldownSeconds(): [number, number, number] {
+    return [
+      this.moveCooldownTicks[0] / PHYSICS_TICK_RATE,
+      this.moveCooldownTicks[1] / PHYSICS_TICK_RATE,
+      this.moveCooldownTicks[2] / PHYSICS_TICK_RATE,
+    ];
+  }
+
+  /** Restores authoritative extended state before replaying inputs. */
+  restoreExtended(launchSeconds: number, mascot: MascotWireState | null): void {
+    this.launchTicks = secondsToTicks(launchSeconds);
+    if (!this.form || !mascot) return;
+    this.mascotHeading = mascot.heading;
+    this.stamina = Math.min(1, Math.max(0, mascot.stamina));
+    this.boostTicks = secondsToTicks(mascot.boostSeconds);
+    this.actionTicks = secondsToTicks(mascot.actionSeconds);
+    if (this.form === 'cow') this.hopTicks = secondsToTicks(mascot.hopSeconds);
+    else this.waterJumpTicks = secondsToTicks(mascot.hopSeconds);
+    this.coyoteTicks = secondsToTicks(mascot.coyoteSeconds);
+    this.moveCooldownTicks[0] = mascot.cooldownTicks[0];
+    this.moveCooldownTicks[1] = mascot.cooldownTicks[1];
+    this.moveCooldownTicks[2] = mascot.cooldownTicks[2];
+    this.pounding = mascot.pounding;
+    this.skidding = mascot.skidding;
+    this.galloping = mascot.galloping;
+    this.exhausted = mascot.exhausted;
+    this.jumpsUsed = mascot.jumpsUsed;
+    this.yawRate = mascot.yawRate;
+  }
+
+  /**
+   * Server-applied ram/shockwave flight: sets the velocity and blunts air
+   * control. A launch also knocks the cow out of a Hoof Stomp wind-up.
+   */
+  launch(velocity: Vec3, seconds: number): void {
+    this.linearVelocity = { ...velocity };
+    this.launchTicks = Math.max(this.launchTicks, secondsToTicks(seconds));
+    this.isGrounded = false;
+    this.rollTimer = 0;
+    this.mantleTimer = 0;
+    this.pounding = false;
+    this.actionTicks = 0;
+    if (this.parachuteOpen) this.cutawayParachute();
+  }
+
+  /** Ram recoil: the mascot keeps a fraction of its horizontal speed and hops. */
+  applyRecoil(keep: number, hop: number): void {
+    this.linearVelocity.x *= keep;
+    this.linearVelocity.z *= keep;
+    if (hop > 0) {
+      this.linearVelocity.y = Math.max(this.linearVelocity.y, hop);
+      this.isGrounded = false;
+    }
+  }
+
+  /** Coconut-milk puddle: ice traction while set (authoritative, per tick). */
+  setSlippery(slippery: boolean): void {
+    this.slippery = slippery;
+  }
+
+  get isSlippery(): boolean {
+    return this.slippery;
+  }
+
+  /** Returns and clears the mascot events of the ticks simulated since the last call. */
+  drainMascotEvents(): MascotMotorEvent[] {
+    if (this.mascotEvents.length === 0) return [];
+    const events = this.mascotEvents;
+    this.mascotEvents = [];
+    return events;
+  }
+
   setWind(wind: WindState): void {
     this.wind = { angle: wind.angle, strength: Math.max(0, wind.strength) };
   }
@@ -281,22 +476,33 @@ export class CharacterBody {
     this.parachuteSwayVelocity = 0;
     this.parachuteRepairTimer = 0;
     this.canopyBlend = 0;
+    this.launchTicks = 0;
+    this.slippery = false;
+    this.resetMascotState();
     this.updateColliderShape();
     const centerY = position.y + this.baseHeight / 2;
     this.body.setTranslation({ x: position.x, y: centerY, z: position.z }, true);
     this.body.setNextKinematicTranslation({ x: position.x, y: centerY, z: position.z });
+    this.syncColliderPose();
   }
 
+  /**
+   * Restores authoritative movement state before replaying inputs. Pass the
+   * authoritative swimming flag: the motor's water-entry damping keys off the
+   * previous tick's flag, so a stale one would re-apply it during the replay.
+   */
   restore(
     position: Vec3,
     velocity: Vec3,
     grounded: boolean,
     previousButtons?: InputButtonMask,
     parachuteState?: ParachuteState,
+    swimming?: boolean,
   ): void {
     this.feet = { ...position };
     this.linearVelocity = { ...velocity };
     this.isGrounded = grounded;
+    if (swimming !== undefined) this.isSwimming = swimming;
     if (previousButtons !== undefined) this.previousButtons = previousButtons;
     if (parachuteState !== undefined) {
       this.parachute = parachuteState;
@@ -314,12 +520,52 @@ export class CharacterBody {
     const centerY = position.y + this.baseHeight / 2;
     this.body.setTranslation({ x: position.x, y: centerY, z: position.z }, true);
     this.body.setNextKinematicTranslation({ x: position.x, y: centerY, z: position.z });
+    this.syncColliderPose();
+  }
+
+  private resetMascotState(): void {
+    this.yawRate = 0;
+    this.stamina = 1;
+    this.exhausted = false;
+    this.galloping = false;
+    this.skidding = false;
+    this.boostTicks = 0;
+    this.actionTicks = 0;
+    this.hopTicks = 0;
+    this.coyoteTicks = 0;
+    this.waterJumpTicks = 0;
+    this.jumpsUsed = 0;
+    this.pounding = false;
+    this.moveCooldownTicks[0] = 0;
+    this.moveCooldownTicks[1] = 0;
+    this.moveCooldownTicks[2] = 0;
+    this.mascotEvents = [];
+  }
+
+  /** Crouch offset of the collider relative to the body (0 for mascots). */
+  private colliderOffsetY(): number {
+    return this.form ? 0 : (this.currentHeight - this.baseHeight) / 2;
+  }
+
+  /**
+   * Rapier only moves attached colliders to their body on world.step(), and
+   * Collider.setTranslation is world-space. Every time the motor moves the
+   * body directly (teleport, reconciliation restore, mantle, crouch) the
+   * collider's world pose is synced at once, so the character controller
+   * never sweeps from a stale pose.
+   */
+  private syncColliderPose(): void {
+    const center = this.body.translation();
+    this.collider.setTranslation({ x: center.x, y: center.y + this.colliderOffsetY(), z: center.z });
   }
 
   private updateColliderShape(): void {
+    // The coconut is a ball and the cow never crouches.
+    if (this.form) return;
     const halfHeight = Math.max(0.01, (this.currentHeight - this.stats.radius * 2) / 2);
     this.collider.setHalfHeight(halfHeight);
-    this.collider.setTranslation({ x: 0, y: (this.currentHeight - this.baseHeight) / 2, z: 0 });
+    this.collider.setTranslationWrtParent({ x: 0, y: this.colliderOffsetY(), z: 0 });
+    this.syncColliderPose();
   }
 
   private startRoll(forwardX: number, forwardZ: number): void {
@@ -473,6 +719,12 @@ export class CharacterBody {
     this.currentPitch = input.pitch;
     this.currentWeaponSlot = input.weaponSlot;
     const buttons = input.buttons;
+    this.launchTicks = Math.max(0, this.launchTicks - 1);
+
+    if (this.form) {
+      this.simulateMascot(input, trackButtons, speedScale);
+      return;
+    }
 
     if (this.mantleTimer > 0) {
       this.mantleTimer = Math.max(0, this.mantleTimer - FIXED_DT);
@@ -488,6 +740,7 @@ export class CharacterBody {
       const centerY = this.feet.y + this.baseHeight / 2;
       this.body.setTranslation({ x: this.feet.x, y: centerY, z: this.feet.z }, true);
       this.body.setNextKinematicTranslation({ x: this.feet.x, y: centerY, z: this.feet.z });
+      this.syncColliderPose();
       if (this.mantleTimer <= 0) this.isGrounded = true;
       if (trackButtons) this.previousButtons = buttons;
       return;
@@ -638,17 +891,18 @@ export class CharacterBody {
         if (this.isGrounded) {
           if (hasMovement) {
             const acceleration =
-              this.stats.groundAcceleration * surfacePropertiesAt(this.surface).accelerationScale * FIXED_DT;
+              this.stats.groundAcceleration * surfacePropertiesAt(this.tractionSurface()).accelerationScale * FIXED_DT;
             this.linearVelocity.x = moveTowards(this.linearVelocity.x, desiredX, acceleration);
             this.linearVelocity.z = moveTowards(this.linearVelocity.z, desiredZ, acceleration);
           } else {
             const friction =
-              this.stats.groundFriction * surfacePropertiesAt(this.surface).frictionScale * FIXED_DT;
+              this.stats.groundFriction * surfacePropertiesAt(this.tractionSurface()).frictionScale * FIXED_DT;
             this.linearVelocity.x = moveTowards(this.linearVelocity.x, 0, friction);
             this.linearVelocity.z = moveTowards(this.linearVelocity.z, 0, friction);
           }
         } else if (hasMovement) {
-          const acceleration = this.stats.airAcceleration * FIXED_DT;
+          const control = this.launchTicks > 0 ? LAUNCH_AIR_CONTROL : 1;
+          const acceleration = this.stats.airAcceleration * control * FIXED_DT;
           this.linearVelocity.x = moveTowards(this.linearVelocity.x, desiredX, acceleration);
           this.linearVelocity.z = moveTowards(this.linearVelocity.z, desiredZ, acceleration);
         }
@@ -666,6 +920,30 @@ export class CharacterBody {
       }
     }
 
+    this.moveAndCollide();
+
+    if (this.parachuteOpen && (this.isGrounded || this.isSwimming)) {
+      this.cutawayParachute();
+    }
+    const canopyTarget = this.parachuteOpen ? 1 : 0;
+    this.canopyBlend = moveTowards(this.canopyBlend, canopyTarget, FIXED_DT * 3.8);
+    this.parachuteRepairTimer = Math.max(0, this.parachuteRepairTimer - FIXED_DT);
+    if (trackButtons) this.previousButtons = buttons;
+  }
+
+  /** Surface used for traction: an enemy milk puddle behaves like ice. */
+  private tractionSurface(): SurfaceTag {
+    return this.slippery ? 'ice_patch' : this.surface;
+  }
+
+  /**
+   * Moves the collider by the current velocity through the character
+   * controller, snaps to ground, clips velocity against what blocked it and
+   * commits the new feet position. Shared by every movement mode.
+   * A positive wallRestitution reflects part of a hard horizontal block.
+   * Returns the horizontal speed that was blocked (m/s).
+   */
+  private moveAndCollide(wallRestitution = 0, wallMinSpeed = Number.POSITIVE_INFINITY): number {
     const desiredMovement = {
       x: this.linearVelocity.x * FIXED_DT,
       y: this.linearVelocity.y * FIXED_DT,
@@ -710,11 +988,18 @@ export class CharacterBody {
       this.linearVelocity.y = 0;
     }
 
+    const blockedX = desiredMovement.x - corrected.x;
+    const blockedZ = desiredMovement.z - corrected.z;
     if (Math.abs(corrected.x - desiredMovement.x) > 0.0001) {
       this.linearVelocity.x = corrected.x / FIXED_DT;
     }
     if (Math.abs(corrected.z - desiredMovement.z) > 0.0001) {
       this.linearVelocity.z = corrected.z / FIXED_DT;
+    }
+    const blockedSpeed = Math.hypot(blockedX, blockedZ) / FIXED_DT;
+    if (wallRestitution > 0 && blockedSpeed > wallMinSpeed) {
+      this.linearVelocity.x -= (blockedX / FIXED_DT) * wallRestitution;
+      this.linearVelocity.z -= (blockedZ / FIXED_DT) * wallRestitution;
     }
     if (desiredMovement.y > 0 && corrected.y < desiredMovement.y - 0.0001) {
       this.linearVelocity.y = 0;
@@ -725,20 +1010,469 @@ export class CharacterBody {
     }
 
     this.isGrounded = grounded && !this.isSwimming;
-
-    if (this.parachuteOpen && (this.isGrounded || this.isSwimming)) {
-      this.cutawayParachute();
-    }
-    const canopyTarget = this.parachuteOpen ? 1 : 0;
-    this.canopyBlend = moveTowards(this.canopyBlend, canopyTarget, FIXED_DT * 3.8);
-    this.parachuteRepairTimer = Math.max(0, this.parachuteRepairTimer - FIXED_DT);
-    if (trackButtons) this.previousButtons = buttons;
     this.feet = {
       x: nextCenter.x,
       y: nextCenter.y - this.baseHeight / 2,
       z: nextCenter.z,
     };
     this.body.setNextKinematicTranslation(nextCenter);
+    return blockedSpeed;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mascot modes
+  // ---------------------------------------------------------------------------
+
+  private emitMascot(event: MascotMotorEvent): void {
+    // Bounded so a client that never drains (e.g. paused) cannot grow it.
+    if (this.mascotEvents.length < 32) this.mascotEvents.push(event);
+  }
+
+  /** Starts a move if its motor cooldown is free. Returns true when it fired. */
+  private startMove(index: 0 | 1 | 2): boolean {
+    if (!this.form || (this.moveCooldownTicks[index] ?? 0) > 0) return false;
+    const skill = SKILLS[MASCOT_SKILLS[this.form][index]];
+    this.moveCooldownTicks[index] = secondsToTicks(skill.cooldownSeconds);
+    this.emitMascot({
+      type: 'move',
+      slot: (index + 1) as 1 | 2 | 3,
+      position: { ...this.feet },
+    });
+    return true;
+  }
+
+  /** Ground normal under the body (props included), or null in the air. */
+  private groundNormal(): Vec3 | null {
+    const origin = { x: this.feet.x, y: this.feet.y + this.stats.radius, z: this.feet.z };
+    const ray = new RAPIER.Ray(origin, { x: 0, y: -1, z: 0 });
+    const hit = this.physics.world.castRayAndGetNormal(
+      ray,
+      this.stats.radius + 0.6,
+      true,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      (collider) => !this.physics.isPlayerCollider(collider.handle),
+    );
+    if (!hit) return null;
+    const n = hit.normal;
+    if (n.y <= 0.05) return null;
+    return { x: n.x, y: n.y, z: n.z };
+  }
+
+  private simulateMascot(input: PlayerInput, trackButtons: boolean, speedScale: number): void {
+    const buttons = input.buttons;
+    const previous = this.previousButtons;
+    const edge = (bit: number): boolean => (buttons & bit) !== 0 && (previous & bit) === 0;
+    // Slots 1–3 are the mascot moves: Q/E/T, or the left mouse button on the
+    // selected slot.
+    const fireEdge = edge(InputButton.FirePrimary);
+    const pressed: [boolean, boolean, boolean] = [
+      edge(InputButton.Skill1) || (fireEdge && input.weaponSlot === 1),
+      edge(InputButton.Skill2) || (fireEdge && input.weaponSlot === 2),
+      edge(InputButton.Skill3OrTaunt) || (fireEdge && input.weaponSlot === 3),
+    ];
+    for (let index = 0; index < 3; index += 1) {
+      const ticks = this.moveCooldownTicks[index] ?? 0;
+      if (ticks > 0) this.moveCooldownTicks[index] = ticks - 1;
+    }
+    this.boostTicks = Math.max(0, this.boostTicks - 1);
+    this.hopTicks = Math.max(0, this.hopTicks - 1);
+    this.waterJumpTicks = Math.max(0, this.waterJumpTicks - 1);
+    this.crouchAmount = 0;
+    this.rollTimer = 0;
+    this.rollRecovery = 0;
+    if (this.parachute !== Parachute.Closed) this.cutawayParachute();
+    this.canopyBlend = 0;
+    this.groundClearance = 0;
+
+    this.surface = surfaceTagAt(this.feet.x, this.feet.z);
+    const groundHeight = sampleMapHeight(this.feet.x, this.feet.z);
+    const deepWater = groundHeight < WATER_LEVEL - 1.1;
+
+    if (this.form === 'cow') {
+      this.simulateCow(buttons, previous, pressed, speedScale, deepWater);
+    } else {
+      this.simulateCoconut(input, buttons, previous, pressed, speedScale, deepWater);
+    }
+    if (trackButtons) this.previousButtons = buttons;
+  }
+
+  /**
+   * Cow: W/S throttle and brake/reverse, A/D steer a heading that is
+   * independent of the camera. Turn rate falls with speed, hard turns at speed
+   * lose lateral grip (skid), Shift gallops on a draining meter.
+   */
+  private simulateCow(
+    buttons: InputButtonMask,
+    previous: InputButtonMask,
+    pressed: [boolean, boolean, boolean],
+    speedScale: number,
+    deepWater: boolean,
+  ): void {
+    const tuning = COW_TUNING;
+    const throttle =
+      (buttons & InputButton.Forward ? 1 : 0) - (buttons & InputButton.Backward ? 1 : 0);
+    const steer = (buttons & InputButton.Right ? 1 : 0) - (buttons & InputButton.Left ? 1 : 0);
+    const sprintHeld = (buttons & InputButton.Sprint) !== 0;
+    const jumpEdge = (buttons & InputButton.Jump) !== 0 && (previous & InputButton.Jump) === 0;
+
+    const wasSwimming = this.isSwimming;
+    this.isSwimming = deepWater && this.feet.y < WATER_LEVEL - tuning.swimFeetDepth * 0.5;
+    if (this.isSwimming && !wasSwimming) {
+      this.linearVelocity.y = Math.min(this.linearVelocity.y, 1);
+    }
+    const swimming = this.isSwimming;
+    const grounded = this.isGrounded;
+    const traction = surfacePropertiesAt(this.tractionSurface());
+
+    // Moves.
+    if (pressed[0] && !swimming && this.startMove(0)) {
+      this.boostTicks = secondsToTicks(SKILLS.horn_charge.durationSeconds);
+      this.actionTicks = 0;
+    }
+    if (pressed[1] && grounded && !swimming && this.actionTicks <= 0 && this.startMove(1)) {
+      this.actionTicks = secondsToTicks(SKILLS.hoof_stomp.durationSeconds);
+      this.boostTicks = 0;
+    }
+    if (pressed[2]) this.startMove(2);
+
+    if (this.actionTicks > 0) {
+      this.actionTicks -= 1;
+      // The hooves only land a shockwave on solid ground; a wind-up that
+      // drove off a ledge fizzles (launches cancel it outright).
+      if (this.actionTicks <= 0 && grounded && !swimming) {
+        this.emitMascot({ type: 'impact', kind: 'stomp', position: { ...this.feet } });
+      }
+    }
+    const boosting = this.boostTicks > 0;
+    const stomping = this.actionTicks > 0;
+
+    // Gallop meter.
+    if (this.exhausted && this.stamina >= tuning.staminaRestart) this.exhausted = false;
+    const wantsGallop = sprintHeld && throttle > 0 && !swimming && !boosting && !stomping;
+    this.galloping = wantsGallop && !this.exhausted && this.stamina > 0 && grounded;
+    if (this.galloping) {
+      this.stamina = Math.max(0, this.stamina - tuning.staminaDrain * FIXED_DT);
+      if (this.stamina <= 0) {
+        this.exhausted = true;
+        this.galloping = false;
+      }
+    } else if (!wantsGallop || this.exhausted) {
+      const idle = throttle === 0 && Math.hypot(this.linearVelocity.x, this.linearVelocity.z) < 1;
+      const regen = idle ? tuning.staminaRegenIdle : tuning.staminaRegen;
+      this.stamina = Math.min(1, this.stamina + regen * FIXED_DT);
+    }
+
+    // Steering: heading first, so existing momentum shows up as lateral slip.
+    const control = (grounded || swimming) && this.launchTicks <= 0;
+    let forwardSpeed =
+      this.linearVelocity.x * Math.sin(this.mascotHeading) +
+      this.linearVelocity.z * Math.cos(this.mascotHeading);
+    let targetYawRate = 0;
+    if (control && !stomping) {
+      const speedRatio = Math.min(1, Math.abs(forwardSpeed) / tuning.gallopSpeed);
+      const rate = swimming
+        ? tuning.swimTurnRate
+        : boosting
+          ? tuning.turnRateCharge
+          : tuning.turnRateStanding + (tuning.turnRateGallop - tuning.turnRateStanding) * speedRatio;
+      const direction = forwardSpeed < -0.3 ? -1 : 1;
+      targetYawRate = steer * rate * direction;
+    }
+    this.yawRate = moveTowards(this.yawRate, targetYawRate, tuning.turnResponse * FIXED_DT);
+    this.mascotHeading = wrapAngle(this.mascotHeading + this.yawRate * FIXED_DT);
+
+    const forwardX = Math.sin(this.mascotHeading);
+    const forwardZ = Math.cos(this.mascotHeading);
+    const rightX = Math.cos(this.mascotHeading);
+    const rightZ = -Math.sin(this.mascotHeading);
+    forwardSpeed = this.linearVelocity.x * forwardX + this.linearVelocity.z * forwardZ;
+    let lateralSpeed = this.linearVelocity.x * rightX + this.linearVelocity.z * rightZ;
+
+    if (control) {
+      let target = 0;
+      if (swimming) {
+        target = throttle > 0 ? tuning.swimSpeed : throttle < 0 ? -tuning.swimSpeed * 0.6 : 0;
+      } else if (boosting) {
+        target = tuning.chargeSpeed;
+      } else if (throttle > 0) {
+        target = this.galloping ? tuning.gallopSpeed : tuning.trotSpeed;
+      } else if (throttle < 0) {
+        target = -tuning.reverseSpeed;
+      }
+      target *= speedScale;
+      const accelerationScale = swimming ? 0.6 : traction.accelerationScale;
+      const frictionScale = swimming ? 1.4 : traction.frictionScale;
+
+      if (stomping) {
+        forwardSpeed = moveTowards(forwardSpeed, 0, tuning.stompBrake * FIXED_DT);
+      } else if (boosting) {
+        forwardSpeed =
+          forwardSpeed < target
+            ? Math.min(target, forwardSpeed + tuning.chargeAcceleration * accelerationScale * FIXED_DT)
+            : moveTowards(forwardSpeed, target, tuning.overspeedDeceleration * FIXED_DT);
+      } else if (throttle > 0) {
+        if (forwardSpeed < 0) {
+          forwardSpeed = Math.min(0, forwardSpeed + tuning.brakeDeceleration * accelerationScale * FIXED_DT);
+        } else if (forwardSpeed < target) {
+          const acceleration = this.galloping ? tuning.gallopAcceleration : tuning.trotAcceleration;
+          forwardSpeed = Math.min(target, forwardSpeed + acceleration * accelerationScale * FIXED_DT);
+        } else {
+          forwardSpeed = moveTowards(forwardSpeed, target, tuning.overspeedDeceleration * FIXED_DT);
+        }
+      } else if (throttle < 0) {
+        if (forwardSpeed > 0.25) {
+          forwardSpeed = Math.max(0, forwardSpeed - tuning.brakeDeceleration * accelerationScale * FIXED_DT);
+        } else {
+          forwardSpeed = moveTowards(
+            forwardSpeed,
+            target,
+            tuning.trotAcceleration * 0.7 * accelerationScale * FIXED_DT,
+          );
+        }
+      } else {
+        forwardSpeed = moveTowards(forwardSpeed, 0, tuning.coastDeceleration * frictionScale * FIXED_DT);
+      }
+
+      const hardTurn = Math.abs(steer) > 0 && Math.abs(forwardSpeed) > tuning.skidSpeed && !swimming;
+      const grip = (hardTurn ? tuning.skidGrip : tuning.grip) * frictionScale;
+      lateralSpeed = moveTowards(lateralSpeed, 0, grip * FIXED_DT);
+      this.linearVelocity.x = forwardX * forwardSpeed + rightX * lateralSpeed;
+      this.linearVelocity.z = forwardZ * forwardSpeed + rightZ * lateralSpeed;
+    }
+    this.skidding = grounded && !swimming && Math.abs(lateralSpeed) > tuning.skidSlip;
+    this.isSprinting = this.galloping || boosting;
+
+    // Vertical: small hop, buoyancy or gravity.
+    if (swimming) {
+      const targetY = WATER_LEVEL - tuning.swimFeetDepth;
+      this.linearVelocity.y += (targetY - this.feet.y) * MASCOT_BUOYANCY * FIXED_DT;
+      this.linearVelocity.y *= 0.9;
+    } else {
+      if (grounded && jumpEdge && this.hopTicks <= 0 && !stomping && this.launchTicks <= 0) {
+        this.linearVelocity.y = tuning.hopSpeed;
+        this.hopTicks = secondsToTicks(tuning.hopCooldown);
+        this.isGrounded = false;
+      }
+      if (!this.isGrounded) {
+        this.linearVelocity.y = Math.max(-52, this.linearVelocity.y + GRAVITY * FIXED_DT);
+      } else if (this.linearVelocity.y < 0) {
+        this.linearVelocity.y = -1.5;
+      }
+    }
+
+    this.moveAndCollide();
+  }
+
+  /**
+   * Coconut: a camera-relative rolling ball. Input accelerates it up to its
+   * own top speed, slopes pull it downhill along the ground normal, it rolls
+   * on with low resistance, double-jumps, bounces on hard landings and off
+   * walls, and floats in deep water.
+   */
+  private simulateCoconut(
+    input: PlayerInput,
+    buttons: InputButtonMask,
+    previous: InputButtonMask,
+    pressed: [boolean, boolean, boolean],
+    speedScale: number,
+    deepWater: boolean,
+  ): void {
+    const tuning = COCONUT_TUNING;
+    const moveX = (buttons & InputButton.Right ? 1 : 0) - (buttons & InputButton.Left ? 1 : 0);
+    const moveZ = (buttons & InputButton.Forward ? 1 : 0) - (buttons & InputButton.Backward ? 1 : 0);
+    const magnitude = Math.hypot(moveX, moveZ);
+    const hasMovement = magnitude > 0.001;
+    const forwardX = Math.sin(input.yaw);
+    const forwardZ = Math.cos(input.yaw);
+    const rightX = Math.cos(input.yaw);
+    const rightZ = -Math.sin(input.yaw);
+    let directionX = 0;
+    let directionZ = 0;
+    if (hasMovement) {
+      directionX = (forwardX * moveZ + rightX * moveX) / magnitude;
+      directionZ = (forwardZ * moveZ + rightZ * moveX) / magnitude;
+    }
+    const jumpEdge = (buttons & InputButton.Jump) !== 0 && (previous & InputButton.Jump) === 0;
+
+    const wasSwimming = this.isSwimming;
+    this.isSwimming = deepWater && this.feet.y < WATER_LEVEL - tuning.floatFeetDepth * 0.4;
+    if (this.isSwimming && !wasSwimming) {
+      this.linearVelocity.y = Math.max(this.linearVelocity.y * 0.35, -3);
+      this.pounding = false;
+    }
+    const floating = this.isSwimming;
+    const wasGrounded = this.isGrounded;
+    if (wasGrounded) {
+      this.jumpsUsed = 0;
+      this.coyoteTicks = secondsToTicks(tuning.coyoteSeconds);
+    } else {
+      this.coyoteTicks = Math.max(0, this.coyoteTicks - 1);
+    }
+
+    // Moves.
+    if (pressed[0] && this.startMove(0)) {
+      this.boostTicks = secondsToTicks(SKILLS.turbo_roll.durationSeconds);
+      let kickX = directionX;
+      let kickZ = directionZ;
+      if (!hasMovement) {
+        const speed = Math.hypot(this.linearVelocity.x, this.linearVelocity.z);
+        kickX = speed > 0.5 ? this.linearVelocity.x / speed : forwardX;
+        kickZ = speed > 0.5 ? this.linearVelocity.z / speed : forwardZ;
+      }
+      this.linearVelocity.x += kickX * tuning.turboKick;
+      this.linearVelocity.z += kickZ * tuning.turboKick;
+    }
+    if (pressed[1] && !wasGrounded && !floating && !this.pounding && this.startMove(1)) {
+      this.pounding = true;
+      this.linearVelocity.x *= 0.25;
+      this.linearVelocity.z *= 0.25;
+      this.linearVelocity.y = -tuning.poundSpeed;
+    }
+    if (pressed[2]) this.startMove(2);
+    const boosting = this.boostTicks > 0;
+    this.isSprinting = boosting;
+
+    // Jumps: ground jump (with coyote time), air jumps, water hop.
+    if (jumpEdge && !this.pounding && this.launchTicks <= 0) {
+      if (floating) {
+        if (this.waterJumpTicks <= 0) {
+          this.linearVelocity.y = tuning.waterJumpSpeed;
+          this.waterJumpTicks = secondsToTicks(tuning.waterJumpCooldown);
+          this.jumpsUsed = 1;
+        }
+      } else if ((wasGrounded || this.coyoteTicks > 0) && this.jumpsUsed === 0) {
+        this.linearVelocity.y = tuning.jumpSpeed;
+        this.jumpsUsed = 1;
+        this.coyoteTicks = 0;
+        this.isGrounded = false;
+      } else if (this.jumpsUsed < tuning.maxJumps) {
+        this.linearVelocity.y = Math.max(this.linearVelocity.y, tuning.doubleJumpSpeed);
+        this.jumpsUsed = Math.max(1, this.jumpsUsed) + 1;
+      }
+    }
+    const grounded = this.isGrounded;
+
+    if (floating) {
+      const speed = tuning.paddleSpeed * speedScale;
+      this.linearVelocity.x = moveTowards(
+        this.linearVelocity.x,
+        directionX * speed,
+        tuning.paddleAcceleration * FIXED_DT,
+      );
+      this.linearVelocity.z = moveTowards(
+        this.linearVelocity.z,
+        directionZ * speed,
+        tuning.paddleAcceleration * FIXED_DT,
+      );
+      const targetY = WATER_LEVEL - tuning.floatFeetDepth;
+      if (this.linearVelocity.y <= tuning.waterJumpSpeed * 0.5) {
+        this.linearVelocity.y += (targetY - this.feet.y) * MASCOT_BUOYANCY * FIXED_DT;
+        this.linearVelocity.y *= 0.9;
+      } else {
+        this.linearVelocity.y += GRAVITY * FIXED_DT;
+      }
+    } else if (grounded) {
+      const traction = this.tractionSurface();
+      const accelerationScale = surfacePropertiesAt(traction).accelerationScale;
+      const currentSpeed = Math.hypot(this.linearVelocity.x, this.linearVelocity.z);
+      let driveX = directionX;
+      let driveZ = directionZ;
+      if (boosting && !hasMovement) {
+        driveX = currentSpeed > 0.5 ? this.linearVelocity.x / currentSpeed : forwardX;
+        driveZ = currentSpeed > 0.5 ? this.linearVelocity.z / currentSpeed : forwardZ;
+      }
+      const driving = hasMovement || boosting;
+      if (driving && this.launchTicks <= 0) {
+        const topSpeed = (boosting ? tuning.turboMaxSpeed : tuning.maxRollSpeed) * speedScale;
+        const acceleration =
+          (boosting ? tuning.turboAcceleration : tuning.rollAcceleration) * accelerationScale;
+        const nextX = this.linearVelocity.x + driveX * acceleration * FIXED_DT;
+        const nextZ = this.linearVelocity.z + driveZ * acceleration * FIXED_DT;
+        const nextSpeed = Math.hypot(nextX, nextZ);
+        // Steering may redirect extra speed (from slopes or a finished turbo)
+        // but cannot hold it: above top speed it bleeds off.
+        const allowed =
+          currentSpeed > topSpeed
+            ? Math.max(topSpeed, currentSpeed - tuning.overspeedDrag * FIXED_DT)
+            : topSpeed;
+        const scale = nextSpeed > allowed && nextSpeed > 0 ? allowed / nextSpeed : 1;
+        this.linearVelocity.x = nextX * scale;
+        this.linearVelocity.z = nextZ * scale;
+      }
+
+      // Rolling resistance, weaker while the player keeps pushing.
+      const resistance =
+        tuning.rollingResistance *
+        (this.slippery ? ROLL_RESISTANCE_SCALE.ice_patch : ROLL_RESISTANCE_SCALE[this.surface]) *
+        (driving ? 0.4 : 1);
+      const rolledSpeed = Math.hypot(this.linearVelocity.x, this.linearVelocity.z);
+      if (rolledSpeed > 0) {
+        const reduced = Math.max(0, rolledSpeed - resistance * FIXED_DT);
+        this.linearVelocity.x *= reduced / rolledSpeed;
+        this.linearVelocity.z *= reduced / rolledSpeed;
+      }
+
+      // Slopes pull the ball downhill along the ground plane.
+      const normal = this.groundNormal();
+      if (normal) {
+        const pull = -GRAVITY * tuning.slopeGravityScale * normal.y;
+        this.linearVelocity.x += pull * normal.x * FIXED_DT;
+        this.linearVelocity.z += pull * normal.z * FIXED_DT;
+      }
+    } else if (hasMovement && !this.pounding) {
+      const control = this.launchTicks > 0 ? LAUNCH_AIR_CONTROL : 1;
+      this.linearVelocity.x += directionX * tuning.airAcceleration * control * FIXED_DT;
+      this.linearVelocity.z += directionZ * tuning.airAcceleration * control * FIXED_DT;
+    }
+
+    const horizontal = Math.hypot(this.linearVelocity.x, this.linearVelocity.z);
+    if (horizontal > tuning.hardSpeedCap) {
+      this.linearVelocity.x *= tuning.hardSpeedCap / horizontal;
+      this.linearVelocity.z *= tuning.hardSpeedCap / horizontal;
+    }
+
+    if (!floating) {
+      if (this.pounding) {
+        this.linearVelocity.y = -tuning.poundSpeed;
+      } else if (!this.isGrounded) {
+        this.linearVelocity.y = Math.max(-52, this.linearVelocity.y + GRAVITY * FIXED_DT);
+      } else if (this.linearVelocity.y < 0) {
+        this.linearVelocity.y = -1.5;
+      }
+    }
+
+    const fallSpeed = -this.linearVelocity.y;
+    const airborneBefore = !this.isGrounded;
+    const blocked = this.moveAndCollide(tuning.wallRestitution, tuning.wallBounceMinSpeed);
+    if (blocked > tuning.wallBounceMinSpeed + 2) {
+      this.emitMascot({ type: 'bounce', position: { ...this.feet }, speed: blocked });
+    }
+
+    if (airborneBefore && this.isGrounded) {
+      if (this.pounding) {
+        this.pounding = false;
+        this.emitMascot({ type: 'impact', kind: 'pound', position: { ...this.feet } });
+        this.linearVelocity.y = tuning.poundBounce;
+        this.isGrounded = false;
+        this.jumpsUsed = 1;
+      } else if (fallSpeed > tuning.bounceMinFallSpeed) {
+        const bounce = Math.min(tuning.bounceMax, fallSpeed * tuning.bounceRestitution);
+        this.linearVelocity.y = bounce;
+        this.isGrounded = false;
+        // A bounce counts as touching down: the player may jump out of it.
+        this.jumpsUsed = 0;
+        this.coyoteTicks = secondsToTicks(tuning.coyoteSeconds);
+        this.emitMascot({ type: 'bounce', position: { ...this.feet }, speed: fallSpeed });
+      }
+    }
+
+    const facingSpeed = Math.hypot(this.linearVelocity.x, this.linearVelocity.z);
+    if (facingSpeed > COCONUT_FACING_SPEED) {
+      this.mascotHeading = Math.atan2(this.linearVelocity.x, this.linearVelocity.z);
+    }
   }
 
   dispose(): void {

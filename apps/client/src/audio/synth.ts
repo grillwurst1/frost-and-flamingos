@@ -580,6 +580,312 @@ export class AudioEngine {
     scheduleGibberish(ctx, bus, pitch, ctx.currentTime + 0.03, this.noiseBuffer ?? undefined);
   }
 
+  // ---------------------------------------------------------------------------
+  // Mascot voices and foley (cow + coconut). All procedural.
+  // ---------------------------------------------------------------------------
+
+  /** Oscillator through a sweeping band-pass "formant", with vibrato. */
+  private formantTone(config: {
+    frequency: number;
+    endFrequency: number;
+    duration: number;
+    gain: number;
+    formant: number;
+    formantEnd: number;
+    q?: number;
+    vibrato?: number;
+    type?: OscillatorType;
+    when?: number;
+    panner?: PannerNode;
+    bus?: BusName;
+  }): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const when = config.when ?? ctx.currentTime;
+    const destination = config.panner ?? this.bus(config.bus ?? 'voice');
+    if (!destination) return;
+    const oscillator = ctx.createOscillator();
+    oscillator.type = config.type ?? 'sawtooth';
+    oscillator.frequency.setValueAtTime(config.frequency, when);
+    oscillator.frequency.linearRampToValueAtTime(config.frequency * 1.08, when + config.duration * 0.3);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, config.endFrequency), when + config.duration);
+    if (config.vibrato) {
+      const lfo = ctx.createOscillator();
+      const depth = ctx.createGain();
+      lfo.frequency.value = 5.5;
+      depth.gain.value = config.vibrato;
+      lfo.connect(depth);
+      depth.connect(oscillator.frequency);
+      lfo.start(when);
+      lfo.stop(when + config.duration + 0.05);
+    }
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = config.q ?? 3.5;
+    filter.frequency.setValueAtTime(config.formant, when);
+    filter.frequency.linearRampToValueAtTime(config.formantEnd * 1.4, when + config.duration * 0.35);
+    filter.frequency.exponentialRampToValueAtTime(config.formantEnd, when + config.duration);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(config.gain, when + Math.min(0.12, config.duration * 0.25));
+    gain.gain.setValueAtTime(config.gain, when + config.duration * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + config.duration);
+    oscillator.connect(filter);
+    filter.connect(gain);
+    gain.connect(destination);
+    oscillator.start(when);
+    oscillator.stop(when + config.duration + 0.05);
+  }
+
+  /** A low, pitch-shifted "MOOO". `mood` 1 = angry snort-moo, -1 = sad. */
+  playMoo(position?: Vec3, pitch = 1, mood = 0): void {
+    const panner = this.panner(position, 5, 70, 'voice');
+    const now = this.ctx?.currentTime ?? 0;
+    const base = 118 * pitch * (mood > 0 ? 1.12 : mood < 0 ? 0.92 : 1);
+    const duration = mood < 0 ? 1.5 : mood > 0 ? 0.75 : 1.05;
+    this.formantTone({
+      frequency: base,
+      endFrequency: base * (mood < 0 ? 0.62 : 0.8),
+      duration,
+      gain: 0.3,
+      formant: 260,
+      formantEnd: mood < 0 ? 380 : 620,
+      q: 2.8,
+      vibrato: 3,
+      panner,
+      bus: 'voice',
+    });
+    this.formantTone({
+      frequency: base * 2,
+      endFrequency: base * 1.6,
+      duration: duration * 0.9,
+      gain: 0.08,
+      formant: 900,
+      formantEnd: 1300,
+      q: 4,
+      type: 'square',
+      when: now + 0.03,
+      panner,
+      bus: 'voice',
+    });
+    if (mood > 0) {
+      this.noise({ duration: 0.18, gain: 0.12, filter: 'bandpass', frequency: 700, endFrequency: 300, q: 0.8, panner });
+    }
+  }
+
+  /** Copper cowbell. `intensity` 0–1: a jingle while walking up to a full clank. */
+  playCowbell(position?: Vec3, intensity = 0.5): void {
+    const panner = this.panner(position, 4, 60);
+    const now = this.ctx?.currentTime ?? 0;
+    const gain = 0.03 + intensity * 0.12;
+    const decay = 0.25 + intensity * 0.55;
+    const base = 560 * (0.97 + Math.random() * 0.06);
+    // Inharmonic partials give the hollow metallic clonk.
+    for (const [ratio, level] of [
+      [1, 1],
+      [1.47, 0.6],
+      [2.09, 0.45],
+      [2.76, 0.25],
+    ] as const) {
+      this.tone({ frequency: base * ratio, duration: decay * (1.1 - ratio * 0.12), gain: gain * level, type: 'sine', panner, when: now });
+    }
+    this.noise({ duration: 0.05, gain: gain * 0.6, filter: 'bandpass', frequency: 2400, q: 1.2, panner });
+  }
+
+  /** Cowbell Clang: a huge, ringing bell. */
+  playCowbellClang(position?: Vec3): void {
+    const panner = this.panner(position, 8, 110);
+    const now = this.ctx?.currentTime ?? 0;
+    const base = 300;
+    for (const [ratio, level, decay] of [
+      [1, 0.28, 2.2],
+      [1.5, 0.18, 1.8],
+      [2.02, 0.14, 1.4],
+      [2.74, 0.1, 1.1],
+      [3.9, 0.06, 0.7],
+    ] as const) {
+      this.tone({ frequency: base * ratio, endFrequency: base * ratio * 0.985, duration: decay, gain: level, type: 'sine', panner, when: now });
+    }
+    this.noise({ duration: 0.12, gain: 0.2, filter: 'bandpass', frequency: 1800, q: 0.9, panner });
+    this.tone({ frequency: 90, endFrequency: 60, duration: 0.3, gain: 0.16, type: 'sine', panner });
+  }
+
+  /** One hoof clop. */
+  playHoof(position?: Vec3, surface: SurfaceTag = 'grass_mud', heavy = false): void {
+    const panner = this.panner(position, 3, 40);
+    const soft = surface === 'snow' || surface === 'sand' || surface === 'grass_mud';
+    this.noise({
+      duration: soft ? 0.09 : 0.06,
+      gain: heavy ? 0.12 : 0.08,
+      filter: 'bandpass',
+      frequency: soft ? 520 : 1400,
+      endFrequency: soft ? 260 : 800,
+      q: soft ? 0.7 : 2.2,
+      panner,
+    });
+    this.tone({ frequency: soft ? 120 : 220, endFrequency: soft ? 80 : 150, duration: 0.07, gain: heavy ? 0.1 : 0.06, type: 'sine', panner });
+  }
+
+  /** Hollow wooden coconut knock ("TOCK!"). */
+  playCoconutKnock(position?: Vec3, strength = 0.6, pitch = 1): void {
+    const panner = this.panner(position, 4, 60);
+    const base = (330 + Math.random() * 40) * pitch;
+    this.tone({ frequency: base * 1.6, endFrequency: base, duration: 0.14 + strength * 0.08, gain: 0.08 + strength * 0.16, type: 'sine', panner });
+    this.tone({ frequency: base * 2.7, endFrequency: base * 2.2, duration: 0.07, gain: 0.04 + strength * 0.06, type: 'triangle', panner });
+    this.noise({ duration: 0.03, gain: 0.05 + strength * 0.08, filter: 'bandpass', frequency: 2600, q: 2, panner });
+  }
+
+  /** Cartoon spring "BOING!". */
+  playBoing(position?: Vec3): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const panner = this.panner(position, 6, 80);
+    const destination = panner ?? this.bus('sfx');
+    if (!destination) return;
+    const when = ctx.currentTime;
+    const oscillator = ctx.createOscillator();
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(150, when);
+    oscillator.frequency.exponentialRampToValueAtTime(520, when + 0.12);
+    oscillator.frequency.exponentialRampToValueAtTime(260, when + 0.55);
+    const lfo = ctx.createOscillator();
+    const depth = ctx.createGain();
+    lfo.frequency.setValueAtTime(22, when);
+    lfo.frequency.linearRampToValueAtTime(9, when + 0.55);
+    depth.gain.setValueAtTime(90, when);
+    depth.gain.linearRampToValueAtTime(20, when + 0.55);
+    lfo.connect(depth);
+    depth.connect(oscillator.frequency);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(0.2, when + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.6);
+    oscillator.connect(gain);
+    gain.connect(destination);
+    oscillator.start(when);
+    lfo.start(when);
+    oscillator.stop(when + 0.65);
+    lfo.stop(when + 0.65);
+  }
+
+  /** A ram hit: thump + form-specific punchline. */
+  playMascotRam(form: 'cow' | 'coconut', position?: Vec3, friendly = false, pitch = 1): void {
+    const panner = this.panner(position, 6, 80);
+    if (friendly) {
+      this.tone({ frequency: 300, endFrequency: 520, duration: 0.12, gain: 0.06, type: 'sine', panner });
+      if (form === 'coconut') this.playCoconutKnock(position, 0.2, pitch);
+      return;
+    }
+    this.tone({ frequency: 95, endFrequency: 45, duration: 0.28, gain: 0.26, type: 'sine', panner });
+    this.noise({ duration: 0.16, gain: 0.14, filter: 'lowpass', frequency: 900, endFrequency: 200, panner });
+    this.playBoing(position);
+    if (form === 'cow') {
+      this.playCowbell(position, 1);
+      if (Math.random() < 0.5) this.playMoo(position, pitch, 1);
+    } else {
+      this.playCoconutKnock(position, 1, pitch);
+      // "TOCK! TOCK!"
+      setTimeout(() => this.playCoconutKnock(position, 0.8, pitch * 1.05), 110);
+    }
+  }
+
+  /** Hoof Stomp / Ground Pound shockwave. */
+  playMascotImpact(form: 'cow' | 'coconut', position?: Vec3): void {
+    const panner = this.panner(position, 7, 100);
+    this.tone({ frequency: 70, endFrequency: 32, duration: 0.5, gain: 0.32, type: 'sine', panner });
+    this.noise({ duration: 0.45, gain: 0.2, filter: 'lowpass', frequency: 700, endFrequency: 120, panner });
+    if (form === 'cow') this.playCowbell(position, 0.8);
+    else this.playCoconutKnock(position, 1, 0.8);
+  }
+
+  /** Move start cues (slot 1–3) for each form. */
+  playMascotMove(form: 'cow' | 'coconut', slot: number, position?: Vec3, pitch = 1): void {
+    const panner = this.panner(position, 5, 70);
+    if (form === 'cow') {
+      if (slot === 1) {
+        this.playMoo(position, pitch, 1);
+        this.noise({ duration: 0.35, gain: 0.1, filter: 'bandpass', frequency: 400, endFrequency: 1400, q: 0.8, panner });
+      } else if (slot === 2) {
+        this.tone({ frequency: 180, endFrequency: 260, duration: 0.2, gain: 0.06, type: 'triangle', panner });
+      } else {
+        this.playCowbellClang(position);
+      }
+      return;
+    }
+    if (slot === 1) {
+      this.noise({ duration: 0.45, gain: 0.16, filter: 'bandpass', frequency: 300, endFrequency: 2200, q: 0.9, panner });
+      this.playCoconutKnock(position, 0.7, pitch);
+    } else if (slot === 2) {
+      this.noise({ duration: 0.3, gain: 0.12, filter: 'bandpass', frequency: 2400, endFrequency: 400, q: 1, panner });
+    } else {
+      this.noise({ duration: 0.5, gain: 0.18, filter: 'lowpass', frequency: 1400, endFrequency: 300, panner });
+      const now = this.ctx?.currentTime ?? 0;
+      for (let glug = 0; glug < 3; glug += 1) {
+        this.tone({ frequency: 260 + glug * 70, endFrequency: 520 + glug * 90, duration: 0.09, gain: 0.07, type: 'sine', when: now + glug * 0.09, panner });
+      }
+    }
+  }
+
+  /** Mascot elimination: sad moo, or a cracking coconut. */
+  playMascotDeath(form: 'cow' | 'coconut', position?: Vec3, pitch = 1): void {
+    if (form === 'cow') {
+      this.playMoo(position, pitch, -1);
+      this.playCowbell(position, 0.6);
+      return;
+    }
+    const panner = this.panner(position, 5, 70);
+    this.noise({ duration: 0.22, gain: 0.2, filter: 'highpass', frequency: 1800, panner });
+    for (let knock = 0; knock < 3; knock += 1) {
+      setTimeout(() => this.playCoconutKnock(position, 0.7 - knock * 0.2, pitch * (1 - knock * 0.12)), knock * 150);
+    }
+  }
+
+  /** Taunt / wardrobe preview voice for a mascot form. */
+  playMascotVoice(form: 'cow' | 'coconut', pitch = 1, position?: Vec3): void {
+    this.unlock();
+    if (form === 'cow') {
+      this.playMoo(position, pitch, 0);
+      return;
+    }
+    for (let knock = 0; knock < 3; knock += 1) {
+      setTimeout(() => this.playCoconutKnock(position, 0.6, pitch * (1 + knock * 0.08)), knock * 120);
+    }
+  }
+
+  private rollSource: AudioBufferSourceNode | null = null;
+  private rollFilter: BiquadFilterNode | null = null;
+  private rollGain: GainNode | null = null;
+
+  /** Continuous rolling rumble of the local coconut (0 = silent). */
+  setRollRumble(speed: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.noiseBuffer) return;
+    const level = Math.min(0.12, Math.max(0, speed - 0.4) * 0.009);
+    if (!this.rollSource) {
+      if (level <= 0) return;
+      const destination = this.bus('sfx');
+      if (!destination) return;
+      const source = ctx.createBufferSource();
+      source.buffer = this.noiseBuffer;
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.Q.value = 2.5;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(destination);
+      source.start();
+      this.rollSource = source;
+      this.rollFilter = filter;
+      this.rollGain = gain;
+    }
+    const now = ctx.currentTime;
+    this.rollFilter?.frequency.setTargetAtTime(110 + speed * 26, now, 0.08);
+    this.rollGain?.gain.setTargetAtTime(level, now, 0.08);
+  }
+
   private createContext(): void {
     if (this.ctx) return;
     try {

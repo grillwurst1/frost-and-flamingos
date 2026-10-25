@@ -13,7 +13,7 @@
 
   $: player = $localPlayer;
   $: weaponIds = player?.weaponIds ?? DEFAULT_WEAPONS;
-  $: skills = skillsForClass(player?.classId ?? 'allrounder');
+  $: skills = skillsForClass(player?.classId ?? 'allrounder', player?.faction);
   $: activeSlot = player?.weaponSlot ?? 1;
   $: activeId = weaponIds[activeSlot - 1] ?? weaponIds[0];
   $: activeStats = WEAPON_STATS[activeId];

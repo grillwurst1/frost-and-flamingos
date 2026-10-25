@@ -9,10 +9,13 @@
   import IdentityChip from './hud/IdentityChip.svelte';
   import Pictogram from './icons/Pictogram.svelte';
   import KillFeed from './hud/KillFeed.svelte';
+  import MascotHud from './MascotHud.svelte';
   import StatusBar from './hud/StatusBar.svelte';
   import WeaponDock from './hud/WeaponDock.svelte';
 
   $: player = $localPlayer;
+  // Mascots carry no firearms: MascotHud shows their portrait, vitality and moves.
+  $: isMascot = player?.classId === 'mascot';
   $: dead = $deathState !== null;
   $: maxHp = Math.max(1, player?.maxHp ?? 100);
   $: lowHealth = !!player && player.alive && (player.hp / maxHp) * 100 <= 30;
@@ -44,7 +47,7 @@
     </div>
   {/if}
 
-  {#if !dead}
+  {#if !dead && !isMascot}
     <Crosshair />
   {/if}
   <ComicPops />
@@ -61,14 +64,22 @@
   {/if}
 
   <StatusBar />
-  <WeaponDock />
+  {#if isMascot}
+    <MascotHud />
+  {:else}
+    <WeaponDock />
+  {/if}
 
   <div class="hud-controls-hint" aria-hidden="true">
     <span class="hint-title">{$t('hud.controlsHintTitle')}</span>
-    <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> {$t('combat.weapon')}</span>
-    <span><kbd>Q</kbd><kbd>E</kbd><kbd>T</kbd> {$t('combat.skills')}</span>
-    <span><kbd>R</kbd> {$t('combat.reloadShort')}</span>
-    <span><kbd>F</kbd> {$t('combat.interactShort')}</span>
+    {#if isMascot}
+      <span><kbd>{$t('mascot.controls.movesKey')}</kbd> {$t('mascot.controls.moves')}</span>
+    {:else}
+      <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> {$t('combat.weapon')}</span>
+      <span><kbd>Q</kbd><kbd>E</kbd><kbd>T</kbd> {$t('combat.skills')}</span>
+      <span><kbd>R</kbd> {$t('combat.reloadShort')}</span>
+      <span><kbd>F</kbd> {$t('combat.interactShort')}</span>
+    {/if}
   </div>
 
   <DeathScreen />
