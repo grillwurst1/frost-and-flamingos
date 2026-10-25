@@ -25,6 +25,8 @@ interface Tracer {
   mesh: Mesh;
   age: number;
   active: boolean;
+  /** Not drawn yet: its first frame shows it at full strength, whatever the frame time. */
+  fresh: boolean;
 }
 
 export type WorldRay = (origin: Vec3, direction: Vec3, maxDistance: number) => number | null;
@@ -52,7 +54,7 @@ export class TracerFx {
       mesh.isPickable = false;
       mesh.rotationQuaternion = Quaternion.Identity();
       mesh.setEnabled(false);
-      this.tracers.push({ mesh, age: 0, active: false });
+      this.tracers.push({ mesh, age: 0, active: false, fresh: false });
     }
   }
 
@@ -103,12 +105,20 @@ export class TracerFx {
     mesh.setEnabled(true);
     tracer.age = 0;
     tracer.active = true;
+    tracer.fresh = true;
   }
 
   update(delta: number): void {
     if (this.disposed) return;
     for (const tracer of this.tracers) {
       if (!tracer.active) continue;
+      // At low frame rates a whole frame can outlast LIFE: every streak is
+      // drawn at least once before it starts to fade.
+      if (tracer.fresh) {
+        tracer.fresh = false;
+        tracer.mesh.visibility = 1;
+        continue;
+      }
       tracer.age += delta;
       if (tracer.age >= LIFE) {
         tracer.active = false;
