@@ -11,3 +11,4 @@ Free-plan Meshy output is licensed CC BY 4.0 — attribution is in `CREDITS.md`.
 | `meshy-alpine-heavy.glb` | Peak Guard heavy (pot helmet, Nordic fur sweater) | Running, Walking, Hop_with_Arms_Raised, Lean_Forward_Sprint, Swim_Forward, Walk_Backward_inplace |
 | `meshy-alpine-infiltrator.glb` | Peak Guard scout (red bobble hat, green Trachten jacket, binoculars) | Running, Walking, Crawl_Backward, Swim_Forward, Walk_Backward |
 | `meshy-lagoon-allrounder.glb` | Lagoon League allrounder (afro, snorkel, hibiscus shirt) | Running, Walking, Crawl_Backward, Fall_Dead_from_Abdominal_Injury, Hop_with_Arms_Raised, Skip_Forward, Swim_Forward, Walk_Backward |
+| `meshy-lagoon-heavy.glb` | Lagoon League heavy (bandana, camo tank top, flamingo ring) | Running, Walking, Lean_Forward_Sprint_inplace, Regular_Jump, Show_Both_Arm_Muscles, Stand_Talking_Angry, Stand_and_Drink, Swim_Forward |
