@@ -234,6 +234,8 @@ class HeroWeaponProp implements HeroWeapon {
   private readonly flash: Mesh | null;
   private readonly flashLife: number;
   private flashAge = Infinity;
+  /** A shot's flash shows for at least one rendered frame, even at low frame rates. */
+  private flashFresh = false;
   private flashSpin = 0;
   private readonly closed: Mesh | null;
   private readonly open: Mesh | null;
@@ -321,6 +323,7 @@ class HeroWeaponProp implements HeroWeapon {
   fire(): void {
     if (this.flash) {
       this.flashAge = 0;
+      this.flashFresh = true;
       this.flashSpin = Math.random() * Math.PI * 2;
     }
     if (this.open) this.popTimer = 1.6;
@@ -331,10 +334,11 @@ class HeroWeaponProp implements HeroWeapon {
     const dt = Math.min(0.1, Math.max(0, deltaSeconds));
     if (this.flash) {
       this.flashAge += dt;
-      const visible = this.flashAge < this.flashLife;
+      const visible = this.flashFresh || this.flashAge < this.flashLife;
+      this.flashFresh = false;
       this.flash.setEnabled(visible);
       if (visible) {
-        const t = this.flashAge / this.flashLife;
+        const t = Math.min(1, this.flashAge / this.flashLife);
         const kind = this.design.hold.muzzleKind;
         if (kind === 'sonic') {
           this.flash.scaling.setAll(0.6 + t * 1.6);
