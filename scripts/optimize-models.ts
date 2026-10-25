@@ -5,6 +5,8 @@
  *   bun run models art-src/meshy/meshy-lagoon-heavy.glb
  *   bun run models --normal-size=2048    # larger normal map (default 1024)
  *   bun run models --keep-normal=false   # also drop the normal map
+ *   bun run models art-src/meshy/meshy-hen.glb --base-size=1024
+ *                                        # shrink the base colour (small props/critters)
  *   bun run models --manifest-only       # just rewrite models/manifest.json
  *
  * Input:  untouched Meshy downloads (rigged Mixamo skeleton, PBR material with
@@ -134,16 +136,21 @@ interface Options {
   manifestOnly: boolean;
   keepNormal: boolean;
   normalSize: number;
+  /** Base colour edge in px; 0 keeps the painted texture at full size. */
+  baseSize: number;
   files: string[];
 }
 
 function parseArgs(argv: string[]): Options {
-  const options: Options = { manifestOnly: false, keepNormal: true, normalSize: 1024, files: [] };
+  const options: Options = { manifestOnly: false, keepNormal: true, normalSize: 1024, baseSize: 0, files: [] };
   for (const arg of argv) {
     if (arg === '--manifest-only') {
       options.manifestOnly = true;
     } else if (arg.startsWith('--normal-size=')) {
       options.normalSize = Math.max(256, Number(arg.slice('--normal-size='.length)) || 1024);
+    } else if (arg.startsWith('--base-size=')) {
+      const value = Number(arg.slice('--base-size='.length));
+      options.baseSize = Number.isFinite(value) && value >= 256 ? Math.round(value) : 0;
     } else if (arg.startsWith('--keep-normal=')) {
       options.keepNormal = arg.slice('--keep-normal='.length) !== 'false';
     } else if (arg.startsWith('--')) {
@@ -290,6 +297,11 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
   await run(['prune', `${stem}-0.glb`, `${stem}-1.glb`]);
   const size = `${options.normalSize}`;
   await run(['resize', `${stem}-1.glb`, `${stem}-2.glb`, '--pattern', 'ff-normal', '--width', size, '--height', size]);
+  if (options.baseSize > 0) {
+    const base = `${options.baseSize}`;
+    await run(['resize', `${stem}-2.glb`, `${stem}-2a.glb`, '--pattern', 'ff-basecolor', '--width', base, '--height', base]);
+    await Bun.write(`${stem}-2.glb`, Bun.file(`${stem}-2a.glb`));
+  }
   await run(['webp', `${stem}-2.glb`, `${stem}-2b.glb`, '--slots', 'baseColorTexture', '--quality', `${BASE_QUALITY}`, '--effort', '100']);
   await run(['webp', `${stem}-2b.glb`, `${stem}-3.glb`, '--slots', 'normalTexture', '--quality', `${NORMAL_QUALITY}`, '--effort', '100']);
   await run(['resample', `${stem}-3.glb`, `${stem}-4.glb`]);

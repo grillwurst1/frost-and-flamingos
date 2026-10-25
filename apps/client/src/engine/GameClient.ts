@@ -46,6 +46,7 @@ import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
 import { CritterFx } from '../rendering/critter-fx';
+import { createCritterViewFactory } from '../rendering/critters/hen-view';
 import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
 import { MascotFx } from '../rendering/mascot-fx';
 import {
@@ -561,7 +562,7 @@ export class GameClient {
       this.critters = new CritterClient({
         fx: new CritterFx(scene, groundProbe),
         mascotFx: this.mascotFx,
-        viewFactory: () => null,
+        viewFactory: createCritterViewFactory(scene),
       });
       if (import.meta.env.DEV) this.installCritterDevTools();
       this.look?.attachMap(this.visuals);

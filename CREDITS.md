@@ -74,6 +74,7 @@ other models, which were generated the same way.
 | `apps/client/public/models/lagoon-allrounder.glb` | Lagoon League allrounder | `art-src/meshy/meshy-lagoon-allrounder.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/lagoon-heavy.glb` | Lagoon League heavy | `art-src/meshy/meshy-lagoon-heavy.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/lagoon-infiltrator.glb` | Lagoon League infiltrator | `art-src/meshy/meshy-lagoon-infiltrator.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/hen.glb` (+ `hen-basecolor.webp`, 1024²) | Wandering hen (ambient critter) | `art-src/meshy/meshy-hen.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 
 ## Music
 
