@@ -58,7 +58,8 @@ export class ConquestClient {
     this.view = new TowerStateView(scene, visuals, toonMaterial, probe);
   }
 
-  onSnapshot(snapshot: WorldSnapshot, local: ConquestLocal): void {
+  /** `inMatch`: the player is in the match (not on the menu or in the wardrobe); only then do stings and toasts play. */
+  onSnapshot(snapshot: WorldSnapshot, local: ConquestLocal, inMatch: boolean): void {
     const state = snapshot.conquest;
     this.latest = state;
     this.view.setState(state.towers);
@@ -80,7 +81,7 @@ export class ConquestClient {
       conquest.set({ ...state, localZone: this.localZone, localCanCapture: this.localCanCapture, synced: true });
     }
 
-    if (this.lastPhase === 'live' && state.phase === 'ended') {
+    if (inMatch && this.lastPhase === 'live' && state.phase === 'ended') {
       audio.playRoundEnd(state.winner === null ? 'draw' : state.winner === local.faction ? 'victory' : 'defeat');
     }
     if (state.phase === 'ended') {
@@ -89,7 +90,7 @@ export class ConquestClient {
     } else if (this.lastPhase === 'ended') {
       audio.setRoundCue(null);
       objectiveFeed.set([]);
-      if (state.round !== this.lastRound) notify('conquest.round.started', { round: state.round });
+      if (inMatch && state.round !== this.lastRound) notify('conquest.round.started', { round: state.round });
     }
     this.lastPhase = state.phase;
     this.lastRound = state.round;
@@ -109,7 +110,7 @@ export class ConquestClient {
   }
 
   /** TURRET_CAPTURED: paramX tower index, paramZ 1 captured / 2 neutralised, paramValue faction code + 1. */
-  onTowerEvent(event: GameEvent, localFaction: Faction): void {
+  onTowerEvent(event: GameEvent, localFaction: Faction, inMatch: boolean): void {
     const index = event.paramX;
     const tower = CONQUEST_TOWERS[index];
     if (!tower) return;
@@ -117,6 +118,7 @@ export class ConquestClient {
     const neutralised = event.paramZ === 2;
     pushObjectiveFeed({ kind: neutralised ? 'neutralised' : 'captured', towerIndex: index, faction, at: performance.now() });
     const friendly = faction === localFaction;
+    if (!inMatch) return;
     audio.playTowerCapture(friendly, neutralised);
     if (this.localZone !== index) return;
     if (friendly && !neutralised) showComicPop('conquest.pop.captured');

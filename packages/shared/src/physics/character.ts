@@ -488,6 +488,16 @@ export class CharacterBody {
   }
 
   /**
+   * Facing after a spawn: the look yaw and the mascot body heading (which the
+   * cow's throttle drives along) both turn to `yaw`, with no turn in progress.
+   */
+  setHeading(yaw: number): void {
+    this.currentYaw = yaw;
+    this.mascotHeading = wrapAngle(yaw);
+    this.yawRate = 0;
+  }
+
+  /**
    * Restores authoritative movement state before replaying inputs. Pass the
    * authoritative swimming flag: the motor's water-entry damping keys off the
    * previous tick's flag, so a stale one would re-apply it during the replay.

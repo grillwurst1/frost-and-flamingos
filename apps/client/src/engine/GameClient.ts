@@ -43,6 +43,7 @@ import {
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
 import { audio, type AmbienceKind } from '../audio/synth';
+import type { RoundMusicCue } from '../audio/tracks';
 import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
@@ -573,7 +574,7 @@ export class GameClient {
     this.lastFrameAt = performance.now();
     this.cameraRig?.snapToPlayer(toVector3(this.localCharacter.position));
     if (this.currentPhase === 'paused') {
-      audio.setRoundCue(null);
+      audio.setRoundCue(this.roundCue(null));
       setPhase('playing');
       this.input?.requestPointerLock();
       return;
@@ -600,7 +601,7 @@ export class GameClient {
           this.scheduleDeployment(attempt + 1);
           return;
         }
-        audio.setRoundCue(null);
+        audio.setRoundCue(this.roundCue(null));
         this.accumulator = 0;
         this.lastFrameAt = performance.now();
         setPhase('playing');
@@ -727,6 +728,19 @@ export class GameClient {
     this.scene = null;
     this.engine = null;
     this.physics = null;
+  }
+
+  /**
+   * Music cue for the moment: the results bed owns the whole intermission, so
+   * a respawn, resume or death cue during it must not restart the bed.
+   */
+  /** In a match (deploying, playing or paused): conquest stings, pops and toasts may play. */
+  private get inMatch(): boolean {
+    return this.currentPhase === 'playing' || this.currentPhase === 'deploying' || this.currentPhase === 'paused';
+  }
+
+  private roundCue(cue: RoundMusicCue | null): RoundMusicCue | null {
+    return this.conquestClient?.roundPhase === 'ended' ? 'ended' : cue;
   }
 
   private handlePointerLockChange(locked: boolean): void {
@@ -1025,7 +1039,7 @@ export class GameClient {
             respawnSeconds: RESPAWN_DELAY_SECONDS,
             at: now,
           });
-          audio.setRoundCue('dead');
+          audio.setRoundCue(this.roundCue('dead'));
           if (!this.mascots?.playDeath(this.localProfile ?? undefined, victim)) {
             audio.playDeathScream(undefined, this.localProfile?.cosmetics.voicePitch ?? 1);
           }
@@ -1035,7 +1049,7 @@ export class GameClient {
         return;
       }
       case 'TURRET_CAPTURED': {
-        this.conquestClient?.onTowerEvent(event, this.localFaction);
+        this.conquestClient?.onTowerEvent(event, this.localFaction, this.inMatch);
         return;
       }
       case 'PLAYER_RESPAWNED': {
@@ -1049,7 +1063,7 @@ export class GameClient {
         this.pendingRespawnSnap = true;
         deathState.set(null);
         this.cameraRig?.endKillerCam();
-        audio.setRoundCue(null);
+        audio.setRoundCue(this.roundCue(null));
         return;
       }
       case 'SKILL_USED': {
@@ -1084,7 +1098,11 @@ export class GameClient {
       weatherBalance: snapshot.weatherBalance,
       towerStates: snapshot.turretStates,
     });
-    this.conquestClient?.onSnapshot(snapshot, { id: this.localId, faction: this.localFaction, classId: this.localClass });
+    this.conquestClient?.onSnapshot(
+      snapshot,
+      { id: this.localId, faction: this.localFaction, classId: this.localClass },
+      this.inMatch,
+    );
     if (Math.abs(snapshot.weatherBalance - this.appliedWeatherLook) > WEATHER_LOOK_EPSILON) {
       this.appliedWeatherLook = snapshot.weatherBalance;
       this.look?.setWeatherLook(snapshot.weatherBalance);
@@ -1111,7 +1129,7 @@ export class GameClient {
         respawnSeconds: RESPAWN_DELAY_SECONDS,
         at: this.deathAt,
       });
-      audio.setRoundCue('dead');
+      audio.setRoundCue(this.roundCue('dead'));
     } else if (authoritative.alive && this.deathAt > 0) {
       this.deathAt = 0;
       this.deathKillerId = 0;
@@ -1119,7 +1137,7 @@ export class GameClient {
       this.lastDamageAt = 0;
       deathState.set(null);
       this.cameraRig?.endKillerCam();
-      audio.setRoundCue(null);
+      audio.setRoundCue(this.roundCue(null));
       this.pendingRespawnSnap = true;
     } else if (this.deathAt > 0) {
       const killer = snapshot.players.find((player) => player.id === this.deathKillerId);

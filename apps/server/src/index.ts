@@ -86,6 +86,9 @@ const server = Bun.serve<SocketData>({
       const control = url.searchParams.get('control');
       const towerId = tower === 'tower_a' || tower === 'tower_b' || tower === 'tower_c' ? tower : undefined;
       const side = (value: string | null) => (value === 'alpine' || value === 'lagoon' ? value : undefined);
+      const finite = (value: string | null) => value === null || (value.trim() !== '' && Number.isFinite(Number(value)));
+      if (!finite(tickets) || !finite(control)) return json({ ok: false, reason: 'tickets and control must be numbers' }, 400);
+      if (owner !== null && owner !== 'neutral' && side(owner) === undefined) return json({ ok: false, reason: 'owner must be alpine, lagoon or neutral' }, 400);
       return json({
         ok: true,
         conquest: room.devConquest({

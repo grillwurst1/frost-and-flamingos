@@ -3,8 +3,8 @@
  * open ground, never into the wall or post next to its pad. Candidate yaws
  * fan out around the objective bearing; each is scored by how far the eye
  * line runs free (and how much room the over-the-shoulder camera has behind
- * the player), minus a penalty for turning away from the objective. The
- * world is static, so results are cached per pad and objective.
+ * the player), minus a penalty for turning away from the objective. Only the
+ * static world is scored, so results are cached per pad and objective.
  */
 import {
   CONQUEST_TOWERS,
@@ -126,7 +126,12 @@ export function spawnObjective(
   return tower ? { index: bestIndex, point: tower.position } : { index: -1, point: MAP_CENTRE };
 }
 
-/** Facing cache keyed by pad id and objective index (the world never changes). */
+/**
+ * Facing cache keyed by pad id and objective index. Give it a static-world
+ * ray (PhysicsWorld.raycastStatic): players, vehicles and other movers must
+ * not shape a yaw that is cached for the life of the room. Map destruction
+ * (M6) will need a cache epoch.
+ */
 export class SpawnFacingCache {
   private readonly cache = new Map<string, number>();
 

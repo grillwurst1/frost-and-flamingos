@@ -98,15 +98,38 @@ export const CLASS_STATS: Record<ClassId, ClassStats> = {
  * comparing class ids, so a later class can opt in or out explicitly.
  */
 export interface ClassCapabilities {
-  /** Counts toward a weather tower's capture balance (read by the conquest code). */
+  /** Carries and fires weapons (and reloads). */
+  readonly armed: boolean;
+  /** Has the Q/E/T class skills. */
+  readonly skills: boolean;
+  /** Can take damage, die and be credited as a kill. */
+  readonly damageable: boolean;
+  /** Is hit by shots, splash, rams, shockwaves and status effects; blocks nothing otherwise. */
+  readonly targetable: boolean;
+  /** Counts toward a weather tower's capture balance (read by the M5 conquest code). */
   readonly canCapture: boolean;
+  /** Counts when the server balances the two teams. */
+  readonly countsTowardBalance: boolean;
+  /** Bots may play the class. */
+  readonly botsMayPick: boolean;
 }
 
+const COMBAT_CLASS: ClassCapabilities = {
+  armed: true,
+  skills: true,
+  damageable: true,
+  targetable: true,
+  canCapture: true,
+  countsTowardBalance: true,
+  botsMayPick: true,
+};
+
 export const CLASS_CAPABILITIES: Readonly<Record<ClassId, ClassCapabilities>> = {
-  allrounder: { canCapture: true },
-  heavy: { canCapture: true },
-  infiltrator: { canCapture: true },
-  mascot: { canCapture: true },
+  allrounder: COMBAT_CLASS,
+  heavy: COMBAT_CLASS,
+  infiltrator: COMBAT_CLASS,
+  // Mascots fight with their bodies: no firearms, motor-driven moves.
+  mascot: { ...COMBAT_CLASS, armed: false, skills: false },
 };
 
 export function classCapabilities(classId: ClassId): ClassCapabilities {

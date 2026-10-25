@@ -25,6 +25,7 @@ import {
   WEAPON_STATS,
   WEAPON_TABLE,
   PhysicsWorld,
+  classCapabilities,
   classStatsFor,
   createDefaultProfile,
   encodeGameEvent,
@@ -155,6 +156,11 @@ interface PlayerConnection {
   spawnProtectionUntil: number;
   killerId: number;
   lastAttackerId: number;
+  /** A class/loadout change (or any change while dead) waiting for the next respawn. */
+  pendingProfile: PlayerProfile | null;
+  /** Feet at the last (re)spawn, and whether the player was hurt since: "fresh at the spawn". */
+  spawnPosition: Vec3;
+  hurtSinceSpawn: boolean;
   skillCooldowns: [number, number, number];
   speedUntilTick: number;
   shieldUntilTick: number;
@@ -392,7 +398,10 @@ export class MatchRoom {
 
   private constructor(physics: PhysicsWorld) {
     this.physics = physics;
-    this.spawnFacing = new SpawnFacingCache(physics);
+    // Static geometry only: a parked vehicle or a player must not bend a cached facing.
+    this.spawnFacing = new SpawnFacingCache({
+      raycast: (origin, direction, maxDistance) => physics.raycastStatic(origin, direction, maxDistance),
+    });
   }
 
   static async create(): Promise<MatchRoom> {
@@ -583,12 +592,16 @@ export class MatchRoom {
   }
 
   private respawn(player: PlayerConnection): void {
+    this.applyPendingProfile(player);
     const spawn = this.spawnFor(player.profile.faction, player.id);
+    player.spawnPosition = { ...spawn.position };
+    player.hurtSinceSpawn = false;
     if (player.bot) this.rollBotClass(player, spawn.position);
     const classId = player.profile.cosmetics.classId;
     player.character.setColliderEnabled(true);
     player.character.teleport(spawn.position);
     player.character.restore(spawn.position, ZERO_VELOCITY, false, 0);
+    player.character.setHeading(spawn.yaw);
     player.hp = classStatsFor(classId, player.profile.faction).maxHp;
     player.shield = 0;
     player.alive = true;
@@ -676,6 +689,14 @@ export class MatchRoom {
       player.deaths = 0;
       this.respawn(player);
     }
+  }
+
+  /**
+   * True during the 15 s results intermission: no damage, no captures, no
+   * tickets. Vehicles, critters and map toys should skip their damage while it holds.
+   */
+  isCeasefire(): boolean {
+    return !this.conquest.isLive;
   }
 
   /** Tower ownership query for map toys and vehicle spawns (`{ capture: TowerId }` triggers). */
@@ -922,7 +943,7 @@ export class MatchRoom {
   ): void {
     if (!target.alive || baseDamage <= 0) return;
     // The results intermission is a ceasefire.
-    if (!this.conquest.isLive) return;
+    if (this.isCeasefire()) return;
     if (attacker && attacker.profile.faction === target.profile.faction) return;
     if (this.physicsTick < target.spawnProtectionUntil) return;
 
@@ -936,6 +957,7 @@ export class MatchRoom {
     target.shield = Math.max(0, target.shield - absorbed);
     damage -= absorbed;
     target.hp = Math.max(0, target.hp - damage);
+    target.hurtSinceSpawn = true;
     target.lastAttackerId = attacker?.id ?? 0;
 
     this.broadcastEvent({
@@ -1095,7 +1117,7 @@ export class MatchRoom {
         continue;
       }
       const owner = this.players.get(projectile.ownerId);
-      if (!owner || !owner.alive) {
+      if (!owner || !owner.alive || !classCapabilities(owner.profile.cosmetics.classId).armed) {
         this.projectiles.splice(index, 1);
         continue;
       }
@@ -1596,6 +1618,7 @@ export class MatchRoom {
         classId,
         faction: entry.faction,
       });
+      character.setHeading(spawn.yaw);
       const player: PlayerConnection = {
         id,
         socket: null,
@@ -1628,6 +1651,9 @@ export class MatchRoom {
         dazedUntilTick: 0,
         ramCooldowns: new Map(),
         lastProfileUpdateAt: 0,
+        pendingProfile: null,
+        spawnPosition: { ...spawn.position },
+        hurtSinceSpawn: false,
         bot: {
           mascotChance: entry.mascotChance,
           humanClass: entry.classId,
@@ -1669,7 +1695,7 @@ export class MatchRoom {
     }
 
     const target = bot.targetId > 0 ? this.players.get(bot.targetId) : null;
-    const live = target && target.alive ? target : null;
+    const live = target && target.alive && classCapabilities(target.profile.cosmetics.classId).targetable ? target : null;
     if (player.character.form) return this.mascotBotInput(player, bot, live);
 
     const classId = player.profile.cosmetics.classId;
@@ -1950,6 +1976,7 @@ export class MatchRoom {
     for (const other of this.players.values()) {
       if (other.id === player.id || !other.alive) continue;
       if (other.profile.faction === player.profile.faction) continue;
+      if (!classCapabilities(other.profile.cosmetics.classId).targetable) continue;
       const distance = distance3(player.character.position, other.character.position);
       if (distance > 85) continue;
       if (
@@ -2000,6 +2027,7 @@ export class MatchRoom {
     };
     const spawn = this.spawnFor(faction);
     const character = this.physics.createCharacter({ position: spawn.position, classId, faction });
+    character.setHeading(spawn.yaw);
     const player: PlayerConnection = {
       id,
       socket,
@@ -2032,6 +2060,9 @@ export class MatchRoom {
       dazedUntilTick: 0,
       ramCooldowns: new Map(),
       lastProfileUpdateAt: 0,
+      pendingProfile: null,
+      spawnPosition: { ...spawn.position },
+      hurtSinceSpawn: false,
       bot: null,
     };
     this.players.set(id, player);
@@ -2101,9 +2132,14 @@ export class MatchRoom {
   }
 
   /**
-   * Applies a validated cosmetic/class/loadout change. Faction stays
-   * server-assigned; a class change rebuilds the capsule at the same feet
-   * position and restores full class health.
+   * A validated wardrobe change. Faction stays server-assigned. Cosmetics and
+   * name apply live and never touch health, life or spawn protection. A class
+   * or loadout change applies at once only while the player is fresh at the
+   * spawn (within 4 m of it, unhurt since spawning) or during the results
+   * intermission, keeping the health fraction and the running protection;
+   * otherwise it waits for the next respawn. While dead, the change is only
+   * stored. (Earlier this revived the dead and refilled health and immunity
+   * on every update, every 120 ms.)
    */
   handleProfileUpdate(socket: GameSocket, incoming: PlayerProfile): void {
     const playerId = this.sockets.get(socket);
@@ -2124,39 +2160,85 @@ export class MatchRoom {
       loadout: normalized.loadout,
     };
 
-    const classChanged = classId !== player.profile.cosmetics.classId;
-    if (classChanged) {
+    if (!player.alive) {
+      player.pendingProfile = profile;
+      return;
+    }
+    const live = player.profile;
+    const kitChanged =
+      classId !== live.cosmetics.classId ||
+      profile.loadout.primary !== live.loadout.primary ||
+      profile.loadout.secondary !== live.loadout.secondary ||
+      profile.loadout.gimmick !== live.loadout.gimmick;
+    if (!kitChanged) {
+      player.pendingProfile = null;
+      player.profile = profile;
+      this.broadcastProfile(player);
+      return;
+    }
+    if (!this.freshAtSpawn(player) && !this.isCeasefire()) {
+      // Takes effect at the next respawn; the owner's wardrobe keeps showing the choice.
+      player.pendingProfile = profile;
+      return;
+    }
+    player.pendingProfile = null;
+    this.applyKit(player, profile);
+    this.broadcastProfile(player);
+  }
+
+  /** At the spawn pad and not hurt since spawning: a kit change there is free. */
+  private freshAtSpawn(player: PlayerConnection): boolean {
+    if (player.hurtSinceSpawn) return false;
+    const feet = player.character.position;
+    const spawn = player.spawnPosition;
+    return Math.hypot(feet.x - spawn.x, feet.z - spawn.z) <= 4 && Math.abs(feet.y - spawn.y) <= 3;
+  }
+
+  /**
+   * Switches class/loadout in place: the capsule is rebuilt at the same feet
+   * and the health fraction is kept. Life, shield and protection stay as they are.
+   */
+  private applyKit(player: PlayerConnection, profile: PlayerProfile): void {
+    const previous = player.profile;
+    const oldMax = classStatsFor(previous.cosmetics.classId, previous.faction).maxHp;
+    const newMax = classStatsFor(profile.cosmetics.classId, profile.faction).maxHp;
+    if (profile.cosmetics.classId !== previous.cosmetics.classId || profile.faction !== previous.faction) {
       const position = player.character.position;
+      const heading = player.character.heading;
       this.physics.removeCharacter(player.character);
       player.character = this.physics.createCharacter({
         position,
-        classId,
-        faction: player.profile.faction,
+        classId: profile.cosmetics.classId,
+        faction: profile.faction,
       });
+      player.character.setHeading(heading);
     }
-
     player.profile = profile;
-    player.hp = classStatsFor(classId, profile.faction).maxHp;
-    player.shield = 0;
-    player.alive = true;
-    player.respawnAtTick = 0;
-    player.killerId = 0;
+    player.hp = Math.max(1, Math.min(newMax, Math.round((player.hp / Math.max(1, oldMax)) * newMax)));
     player.ammo = createAmmo(profile.loadout);
     player.activeSlot = 1;
     player.reloadEndsTick = 0;
     player.lastFireTick = -999;
     player.skillCooldowns = [0, 0, 0];
-    player.speedUntilTick = 0;
-    player.shieldUntilTick = 0;
-    player.cloakUntilTick = 0;
-    player.slowUntilTick = 0;
-    player.dazedUntilTick = 0;
-    player.ramCooldowns.clear();
-    player.spawnProtectionUntil = this.physicsTick + SPAWN_PROTECTION_TICKS;
     player.inputQueue.length = 0;
     player.fireQueue.length = 0;
-    player.previousButtons = 0;
-    player.character.setColliderEnabled(true);
+  }
+
+  /**
+   * Applies a stored wardrobe change at respawn (before the spawn is chosen).
+   * A move from a class that does not count toward team balance to one that
+   * does re-runs the balance without this player: if their side is ahead,
+   * they switch to the smaller side and spawn by its rules.
+   */
+  private applyPendingProfile(player: PlayerConnection): void {
+    const pending = player.pendingProfile;
+    if (!pending) return;
+    player.pendingProfile = null;
+    const wasCounted = classCapabilities(player.profile.cosmetics.classId).countsTowardBalance;
+    const counts = classCapabilities(pending.cosmetics.classId).countsTowardBalance;
+    const faction = !wasCounted && counts ? this.pickFaction(player.profile.faction, player.id) : player.profile.faction;
+    this.applyKit(player, { ...pending, faction });
+    this.conquestBots.forget(player.id);
     this.broadcastProfile(player);
   }
 
@@ -2241,10 +2323,12 @@ export class MatchRoom {
   }
 
   /** Balances the teams; on a tie the player's wardrobe preference wins. */
-  private pickFaction(preferred: Faction): Faction {
+  private pickFaction(preferred: Faction, excludeId = 0): Faction {
     let alpine = 0;
     let lagoon = 0;
     for (const player of this.players.values()) {
+      if (player.id === excludeId) continue;
+      if (!classCapabilities(player.profile.cosmetics.classId).countsTowardBalance) continue;
       if (player.profile.faction === 'alpine') alpine += 1;
       else lagoon += 1;
     }

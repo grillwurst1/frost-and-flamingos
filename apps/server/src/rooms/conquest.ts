@@ -272,8 +272,10 @@ export class ClimateConquest {
     return true;
   }
 
-  devSetTickets(faction: Faction, tickets: number): void {
+  devSetTickets(faction: Faction, tickets: number): boolean {
+    if (!Number.isFinite(tickets)) return false;
     this.tickets[faction] = Math.max(0, Math.min(65535, Math.round(tickets)));
+    return true;
   }
 
   // -------------------------------------------------------------------------
@@ -356,7 +358,13 @@ export class ClimateConquest {
     this.reasonValue = reason;
     this.intermissionTicks = INTERMISSION_TICKS;
     this.roundsCompleted += 1;
-    for (const tower of this.towers) tower.pushing = null;
+    // The intermission is a ceasefire: no zone shows a fight or a head count.
+    for (const tower of this.towers) {
+      tower.pushing = null;
+      tower.contested = false;
+      tower.alpine = 0;
+      tower.lagoon = 0;
+    }
     events.push({ type: 'round_ended', winner, reason, round: this.roundValue });
   }
 
