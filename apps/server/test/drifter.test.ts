@@ -23,6 +23,7 @@ import {
   decodeSnapshot,
   encodeProfileMessage,
   encodeSnapshot,
+  resolveClassForFaction,
   sampleMapHeight,
   type PlayerInput,
   type Vec3,
@@ -398,6 +399,38 @@ describe('team placement and bots', () => {
     expect(a1.player.profile.cosmetics.classId).toBe('drifter');
     expect(a1.player.character.drifter).toBe('mountain_girl');
     local.room.stop();
+  });
+
+  test('each side places its own drifter; a side whose form has not shipped falls back', async () => {
+    const availability = DRIFTER_FORM_AVAILABLE as Record<'mountain_girl' | 'beach_girl', boolean>;
+    const shipped = availability.beach_girl;
+    try {
+      availability.beach_girl = true;
+      const both = await createRoom();
+      const ghost = join(both, 'Ghost', 'drifter', 'alpine');
+      const beach = join(both, 'Beach', 'drifter', 'lagoon');
+      expect([ghost.player.profile.faction, ghost.player.character.drifter]).toEqual(['alpine', 'mountain_girl']);
+      expect([beach.player.profile.faction, beach.player.character.drifter]).toEqual(['lagoon', 'beach_girl']);
+      both.room.stop();
+
+      availability.beach_girl = false;
+      expect(resolveClassForFaction('drifter', 'lagoon')).toBe('allrounder');
+      expect(resolveClassForFaction('drifter', 'alpine')).toBe('drifter');
+      const local = await createRoom();
+      // Asking for the lagoon drifter: she is placed on the side whose form exists.
+      const asked = join(local, 'Asked', 'drifter', 'lagoon');
+      expect([asked.player.profile.faction, asked.player.profile.cosmetics.classId]).toEqual(['alpine', 'drifter']);
+      // A lagoon fighter switching to the drifter in-round (faction fixed) keeps a combat class.
+      const fighter = join(local, 'Fighter', 'infiltrator', 'lagoon');
+      expect(fighter.player.profile.faction).toBe('lagoon');
+      const switched = { ...fighter.player.profile, cosmetics: { ...fighter.player.profile.cosmetics, classId: 'drifter' as const } };
+      local.room.handleProfileUpdate(fighter.socket, switched);
+      expect(fighter.player.profile.cosmetics.classId).toBe('allrounder');
+      expect(fighter.player.character.drifter).toBeNull();
+      local.room.stop();
+    } finally {
+      availability.beach_girl = shipped;
+    }
   });
 
   test('bots never target her and never roll her class', async () => {

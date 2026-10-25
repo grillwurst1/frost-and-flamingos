@@ -16,13 +16,13 @@ export function drifterFormForFaction(faction: Faction): DrifterForm {
 }
 
 /**
- * A form is selectable only once its painted model ships (no stand-in
- * visuals). Flip `beach_girl` when `apps/client/public/models` carries the
- * rigged Hot Beach Girl; server placement and the wardrobe both read this.
+ * A form is selectable only once its painted model exists (no stand-in
+ * visuals); server placement and the wardrobe both read this. Both models
+ * ship: art-src/meshy/meshy-alpine-ghostgirl.glb and meshy-lagoon-beachgirl.glb.
  */
 export const DRIFTER_FORM_AVAILABLE: Readonly<Record<DrifterForm, boolean>> = {
   mountain_girl: true,
-  beach_girl: false,
+  beach_girl: true,
 };
 
 export interface DrifterTuning {
