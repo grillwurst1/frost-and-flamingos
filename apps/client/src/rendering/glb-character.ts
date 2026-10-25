@@ -143,6 +143,15 @@ function toArmature(x: number, y: number, z: number): Vector3 {
 }
 
 const liveViews = new Set<GlbCharacterView>();
+const pendingViews = new Set<{ debugInfo(): Record<string, unknown> }>();
+const debugEvents: string[] = [];
+let lastLibrary: ReturnType<typeof paintedModelLibrary> | null = null;
+
+function debugEvent(message: string): void {
+  if (!import.meta.env.DEV) return;
+  debugEvents.push(`${Math.round(performance.now())} ${message}`);
+  if (debugEvents.length > 60) debugEvents.shift();
+}
 
 function installGlbDebugHandle(): void {
   if (!import.meta.env.DEV || typeof window === 'undefined') return;
@@ -150,6 +159,15 @@ function installGlbDebugHandle(): void {
   if (holder.__ffGlb) return;
   holder.__ffGlb = {
     views: () => [...liveViews].map((view) => view.debugInfo()),
+    pending: () => [...pendingViews].map((view) => view.debugInfo()),
+    events: () => [...debugEvents],
+    library: () => {
+      const library = lastLibrary;
+      if (!library) return null;
+      const result: Record<string, unknown> = { ready: library.ready };
+      for (const key of Object.keys(PAINTED_MODELS)) result[key] = [library.status(key), library.timings.get(key) ?? null];
+      return result;
+    },
   };
 }
 
@@ -997,6 +1015,11 @@ class PendingPaintedView implements AvatarView {
   private disposed = false;
   private effects: Partial<CharacterMaterialState> = {};
   private lastYaw = 0;
+  private label = '';
+
+  debugInfo(): Record<string, unknown> {
+    return { view: this.label, painted: this.painted, disposed: this.disposed, enabled: this.root.isEnabled(false) };
+  }
 
   constructor(
     private readonly scene: Scene,
@@ -1005,13 +1028,22 @@ class PendingPaintedView implements AvatarView {
   ) {
     this.current = new CharacterView(scene, shadowMaterial, profile);
     const shadowName = shadowMaterial.name;
+    this.label = shadowName;
+    lastLibrary = paintedModelLibrary(scene);
+    pendingViews.add(this);
+    installGlbDebugHandle();
+    debugEvent(`pending ${shadowName}`);
     const library = paintedModelLibrary(scene);
     void library
-      .settled()
+      .whenSettled()
       .then(() => {
-        if (this.disposed) return;
+        if (this.disposed) {
+          debugEvent(`pending ${shadowName} disposed before models settled`);
+          return;
+        }
         const key = paintedModelSpec(profile)?.key;
         const asset = key ? library.get(key) : null;
+        debugEvent(`settled ${shadowName} ${key ?? '-'} ${asset ? 'asset' : 'no asset'}`);
         if (!asset) return;
         const previous = this.current;
         const enabled = previous.root.isEnabled(false);
@@ -1073,6 +1105,8 @@ class PendingPaintedView implements AvatarView {
 
   dispose(): void {
     this.disposed = true;
+    pendingViews.delete(this);
+    debugEvent(`dispose pending ${this.label}`);
     this.current.dispose();
   }
 }
@@ -1088,9 +1122,13 @@ export function createPaintedAvatarView(
   profile: PlayerProfile,
 ): AvatarView | null {
   const spec = paintedModelSpec(profile);
-  if (!spec || !outfitFitsPaintedModel(profile, spec)) return null;
+  if (!spec || !outfitFitsPaintedModel(profile, spec)) {
+    debugEvent(`procedural ${shadowMaterial.name} ${spec ? 'custom outfit' : 'no painted model'}`);
+    return null;
+  }
   const library = paintedModelLibrary(scene);
   const status = library.status(spec.key);
+  debugEvent(`create ${shadowMaterial.name} ${spec.key} ${status}`);
   if (status === 'missing' || status === 'failed') return null;
   const asset = library.get(spec.key);
   if (asset) {
@@ -1106,7 +1144,9 @@ export function createPaintedAvatarView(
 
 /** Starts downloading every painted model listed in the manifest. */
 export function preloadPaintedModels(scene: Scene): Promise<void> {
-  return paintedModelLibrary(scene).settled();
+  lastLibrary = paintedModelLibrary(scene);
+  installGlbDebugHandle();
+  return lastLibrary.settled();
 }
 
 /** Model keys that loaded successfully (after {@link preloadPaintedModels}). */

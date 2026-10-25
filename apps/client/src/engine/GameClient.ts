@@ -515,11 +515,6 @@ export class GameClient {
       });
       this.mascots = new MascotClient(this.mascotFx);
       this.look?.attachMap(this.visuals);
-      // Owner-painted GLB characters download in the background; views made
-      // before they arrive show the procedural rig and swap in place.
-      void preloadPaintedModels(scene).then(() => {
-        if (!this.disposed) setPaintedModels(paintedModelsAvailable(scene));
-      });
       this.rebuildPreviewView(getProfile());
       setLoadingProgress(0.7);
       setLoadingStep('world', 'done');
@@ -725,6 +720,15 @@ export class GameClient {
 
   private handleWelcome(welcome: WelcomeMessage): void {
     if (this.disposed || !this.scene || !this.physics || !this.toonMaterial) return;
+    if (!this.booted) {
+      // Owner-painted GLB characters download once the resort answered, so
+      // the handshake never waits on model decoding; views made before they
+      // arrive show the procedural rig and swap in place.
+      const scene = this.scene;
+      void preloadPaintedModels(scene).then(() => {
+        if (!this.disposed) setPaintedModels(paintedModelsAvailable(scene));
+      });
+    }
     this.booted = true;
     if (this.bootTimeout) {
       clearTimeout(this.bootTimeout);

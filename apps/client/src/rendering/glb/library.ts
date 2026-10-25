@@ -1,6 +1,8 @@
 import '@babylonjs/loaders/glTF/2.0/glTFLoader';
 import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_mesh_quantization';
 import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_texture_transform';
+import '@babylonjs/loaders/glTF/2.0/Extensions/EXT_texture_webp';
+import { Texture } from '@babylonjs/core/Materials/Textures/texture';
 import { GLTFLoaderAnimationStartMode } from '@babylonjs/loaders/glTF/glTFFileLoader';
 import type { Animation } from '@babylonjs/core/Animations/animation';
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
@@ -182,6 +184,16 @@ function extractTextures(container: AssetContainer, mesh: Mesh): PaintedTextures
   const albedo = source?.albedoTexture ?? null;
   if (!albedo) return null;
   const normal = source?.bumpTexture ?? null;
+  // Full-resolution painted textures: trilinear mipmaps plus anisotropy so
+  // the painting stays crisp on glancing angles and at distance.
+  for (const texture of [albedo, normal]) {
+    if (!texture) continue;
+    if (texture instanceof Texture && texture.noMipmap) {
+      console.warn('[frost-and-flamingos] painted texture loaded without mipmaps');
+    }
+    texture.updateSamplingMode(Texture.TRILINEAR_SAMPLINGMODE);
+    texture.anisotropicFilteringLevel = 8;
+  }
   for (const material of container.materials) material.dispose(false, false);
   container.materials.length = 0;
   mesh.material = null;
@@ -340,8 +352,13 @@ function retargetClip(source: PaintedModelAsset, clip: BakedClip, target: Painte
   return { ...baked, apexTime: apexOf(baked) };
 }
 
+/** Yields to the browser so baking never blocks a frame for long. */
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /** Fills roles a model lacks with clips retargeted from other loaded models. */
-function shareClips(assets: readonly PaintedModelAsset[]): void {
+async function shareClips(assets: readonly PaintedModelAsset[]): Promise<void> {
   for (const target of assets) {
     for (const role of RETARGET_ROLES) {
       if (target.clips.has(role)) continue;
@@ -362,6 +379,7 @@ function shareClips(assets: readonly PaintedModelAsset[]): void {
       }
       if (!donor || !clip) continue;
       target.clips.set(role, retargetClip(donor, clip, target));
+      await nextTask();
     }
   }
 }
@@ -430,6 +448,7 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
       tracks.push({ bone: jointName(target.name), property: targeted.animation.targetProperty, animation: targeted.animation });
     }
     asset.clips.set(role, bakeGroup(group.name, group.from, group.to, tracks, bindPose));
+    await nextTask();
   }
   // The baked tables replace the glTF animation groups.
   for (const group of [...container.animationGroups]) group.dispose();
@@ -445,9 +464,17 @@ export class PaintedModelLibrary {
   private readonly assets = new Map<string, PaintedModelAsset | null>();
   private settledPromise: Promise<void> | null = null;
   private isSettled = false;
+  /** Load time per model (ms), for the DEV probe. */
+  readonly timings = new Map<string, number>();
+
+  private resolveSettled: () => void = () => {};
+  private readonly settledSignal: Promise<void>;
 
   constructor(scene: Scene) {
     this.scene = scene;
+    this.settledSignal = new Promise((resolve) => {
+      this.resolveSettled = resolve;
+    });
     this.manifest = fetchManifest().then((entries) => {
       this.manifestEntries = entries;
       return entries;
@@ -483,8 +510,10 @@ export class PaintedModelLibrary {
         return null;
       }
       try {
+        const started = performance.now();
         const asset = await loadModel(this.scene, spec, entry.file);
         this.assets.set(key, asset);
+        this.timings.set(key, Math.round(performance.now() - started));
         return asset;
       } catch (error) {
         console.warn(`[frost-and-flamingos] painted model ${key} failed to load; using the procedural rig`, error);
@@ -504,11 +533,17 @@ export class PaintedModelLibrary {
     if (!this.settledPromise) {
       this.settledPromise = this.manifest.then(async (entries) => {
         const assets = await Promise.all([...entries.keys()].map((key) => this.load(key)));
-        shareClips(assets.filter((asset): asset is PaintedModelAsset => asset !== null));
+        await shareClips(assets.filter((asset): asset is PaintedModelAsset => asset !== null));
         this.isSettled = true;
+        this.resolveSettled();
       });
     }
     return this.settledPromise;
+  }
+
+  /** Resolves once {@link settled} has finished, without starting the downloads. */
+  whenSettled(): Promise<void> {
+    return this.settledSignal;
   }
 
   /** True once every listed model has loaded (or failed) and shared its clips. */

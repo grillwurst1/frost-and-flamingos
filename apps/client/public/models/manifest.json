@@ -3,27 +3,27 @@
   "models": {
     "alpine-allrounder": {
       "file": "alpine-allrounder.glb",
-      "bytes": 1959648
+      "bytes": 2833848
     },
     "alpine-heavy": {
       "file": "alpine-heavy.glb",
-      "bytes": 1608132
+      "bytes": 2527716
     },
     "alpine-infiltrator": {
       "file": "alpine-infiltrator.glb",
-      "bytes": 1914324
+      "bytes": 2732324
     },
     "lagoon-allrounder": {
       "file": "lagoon-allrounder.glb",
-      "bytes": 2412948
+      "bytes": 3155328
     },
     "lagoon-heavy": {
       "file": "lagoon-heavy.glb",
-      "bytes": 1996780
+      "bytes": 2832748
     },
     "lagoon-infiltrator": {
       "file": "lagoon-infiltrator.glb",
-      "bytes": 2662360
+      "bytes": 3531364
     }
   }
 }

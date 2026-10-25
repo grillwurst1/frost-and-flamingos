@@ -3,18 +3,21 @@
  *
  *   bun run models                       # every art-src/meshy/meshy-<faction>-<class>.glb
  *   bun run models art-src/meshy/meshy-lagoon-heavy.glb
+ *   bun run models --normal-size=1024    # smaller normal map (default 2048)
  *   bun run models --keep-normal=false   # also drop the normal map
  *
  * Input:  untouched Meshy downloads (rigged Mixamo skeleton, PBR material with
  *         2048² baseColor + metallicRoughness + normal JPEGs, a few clips).
- * Output: apps/client/public/models/<faction>-<class>.glb, typically ≈ 2 MB,
+ * Output: apps/client/public/models/<faction>-<class>.glb, typically 3-4 MB,
  *         plus models/manifest.json listing every optimised model. The client
  *         only requests listed files, so missing classes never cause a 404.
  *
  * Steps (all lossless for the skeleton and every animation clip):
  *   1. drop the metallicRoughness texture (the cel shader never reads it),
- *   2. resize the remaining textures to 1024² (base colour + normal map),
- *   3. re-encode them as JPEG q85,
+ *   2. keep the painted base colour at its full 2048² and re-encode it as
+ *      WebP q92 (EXT_texture_webp; PSNR ≈ 42 dB vs the Meshy JPEG at a
+ *      quarter of the bytes; JPEG q92 is 1.5× larger and noisier),
+ *   3. normal map: optional downsize (--normal-size), WebP q90,
  *   4. resample animations (removes redundant keyframes, lossless),
  *   5. dedup + prune unused accessors/images.
  * The heavy lifting runs through the pinned glTF Transform CLI via `bunx`,
@@ -28,19 +31,22 @@ const ROOT = resolve(import.meta.dir, '..');
 const SOURCE_DIR = join(ROOT, 'art-src', 'meshy');
 const OUTPUT_DIR = join(ROOT, 'apps', 'client', 'public', 'models');
 const CLI = '@gltf-transform/cli@4.5.1';
-const TEXTURE_SIZE = 1024;
-const JPEG_QUALITY = 85;
+const BASE_QUALITY = 92;
+const NORMAL_QUALITY = 90;
 const NAME_PATTERN = /^meshy-(alpine|lagoon)-([a-z]+)\.glb$/;
 
 interface Options {
   keepNormal: boolean;
+  normalSize: number;
   files: string[];
 }
 
 function parseArgs(argv: string[]): Options {
-  const options: Options = { keepNormal: true, files: [] };
+  const options: Options = { keepNormal: true, normalSize: 2048, files: [] };
   for (const arg of argv) {
-    if (arg.startsWith('--keep-normal=')) {
+    if (arg.startsWith('--normal-size=')) {
+      options.normalSize = Math.max(256, Number(arg.slice('--normal-size='.length)) || 2048);
+    } else if (arg.startsWith('--keep-normal=')) {
       options.keepNormal = arg.slice('--keep-normal='.length) !== 'false';
     } else if (arg.startsWith('--')) {
       throw new Error(`Unknown option ${arg}`);
@@ -109,11 +115,25 @@ function writeGlb(parts: GlbParts): Uint8Array {
   return out;
 }
 
-/** Removes texture slots the cel shader never samples; prune drops the images. */
+/**
+ * Removes texture slots the cel shader never samples (prune then drops the
+ * images) and names the remaining images by slot so later steps can target
+ * them ("ff-basecolor", "ff-normal").
+ */
 function stripUnusedTextures(parts: GlbParts, keepNormal: boolean): void {
   const materials = parts.json.materials;
   if (!Array.isArray(materials)) return;
+  const textures = (parts.json.textures ?? []) as Array<{ source?: number }>;
+  const images = (parts.json.images ?? []) as Array<{ name?: string }>;
+  const nameImage = (slot: unknown, name: string): void => {
+    const index = (slot as { index?: number } | undefined)?.index;
+    const source = index === undefined ? undefined : textures[index]?.source;
+    const image = source === undefined ? undefined : images[source];
+    if (image) image.name = name;
+  };
   for (const material of materials as Record<string, unknown>[]) {
+    nameImage((material.pbrMetallicRoughness as Record<string, unknown> | undefined)?.baseColorTexture, 'ff-basecolor');
+    nameImage(material.normalTexture, 'ff-normal');
     const pbr = material.pbrMetallicRoughness as Record<string, unknown> | undefined;
     if (pbr) {
       delete pbr.metallicRoughnessTexture;
@@ -149,8 +169,10 @@ async function optimize(file: string, options: Options, workDir: string): Promis
   await Bun.write(`${stem}-0.glb`, writeGlb(parts));
 
   await run(['prune', `${stem}-0.glb`, `${stem}-1.glb`]);
-  await run(['resize', `${stem}-1.glb`, `${stem}-2.glb`, '--width', `${TEXTURE_SIZE}`, '--height', `${TEXTURE_SIZE}`]);
-  await run(['jpeg', `${stem}-2.glb`, `${stem}-3.glb`, '--quality', `${JPEG_QUALITY}`]);
+  const size = `${options.normalSize}`;
+  await run(['resize', `${stem}-1.glb`, `${stem}-2.glb`, '--pattern', 'ff-normal', '--width', size, '--height', size]);
+  await run(['webp', `${stem}-2.glb`, `${stem}-2b.glb`, '--slots', 'baseColorTexture', '--quality', `${BASE_QUALITY}`, '--effort', '100']);
+  await run(['webp', `${stem}-2b.glb`, `${stem}-3.glb`, '--slots', 'normalTexture', '--quality', `${NORMAL_QUALITY}`, '--effort', '100']);
   await run(['resample', `${stem}-3.glb`, `${stem}-4.glb`]);
   await run(['dedup', `${stem}-4.glb`, `${stem}-5.glb`]);
   await run(['prune', `${stem}-5.glb`, outFile]);
