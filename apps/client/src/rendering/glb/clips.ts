@@ -42,49 +42,102 @@ export interface BakedClip {
   /** Time (s) with the highest hips: the apex of a jump. */
   apexTime: number;
   /**
-   * Normalised phase (0..1) of the left foot's lowest point (its contact),
-   * so locomotion cycles can share one phase in step. 0 when unknown.
+   * Normalised phase (0..1) of the left heel strike: the frame where the
+   * left foot leads the hips most along the travel direction (trails most
+   * for backward cycles). Locomotion cycles share one phase in step with it.
+   * 0 when unknown.
    */
   contactPhase?: number;
+  /**
+   * Ground speed (model units/s) at which the cycle plays at 1× without
+   * foot sliding: the mean stance-foot speed relative to the hips.
+   */
+  naturalSpeed?: number;
+}
+
+/** Positions of the feet relative to the hips (armature axes) per frame, by forward kinematics. */
+function feetRelativeToHips(clip: BakedClip, rig: RigInfo): { left: Vector3[]; right: Vector3[] } | null {
+  const index = new Map<string, number>();
+  clip.bones.forEach((bone, i) => index.set(bone, i));
+  const rotationAt = (joint: string, frame: number, out: Quaternion): Quaternion | null => {
+    const bone = index.get(joint);
+    if (bone === undefined) {
+      const bind = rig.bindPose.get(joint);
+      return bind ? out.copyFrom(bind.rotation) : null;
+    }
+    const o = (frame * clip.bones.length + bone) * 4;
+    return out.set(clip.rotations[o] ?? 0, clip.rotations[o + 1] ?? 0, clip.rotations[o + 2] ?? 0, clip.rotations[o + 3] ?? 1);
+  };
+  const local = new Quaternion();
+  const chainPosition = (side: 'Left' | 'Right', frame: number): Vector3 | null => {
+    let rotation = rotationAt('Hips', frame, new Quaternion());
+    if (!rotation) return null;
+    let position = Vector3.Zero();
+    for (const joint of [`${side}UpLeg`, `${side}Leg`, `${side}Foot`]) {
+      const bind = rig.bindPose.get(joint);
+      if (!bind || !rotationAt(joint, frame, local)) return null;
+      position = position.add(bind.position.rotateByQuaternionToRef(rotation, new Vector3()));
+      rotation = rotation.multiply(local);
+    }
+    return position;
+  };
+  const left: Vector3[] = [];
+  const right: Vector3[] = [];
+  for (let frame = 0; frame < clip.frames; frame += 1) {
+    const l = chainPosition('Left', frame);
+    const r = chainPosition('Right', frame);
+    if (!l || !r) return null;
+    left.push(l);
+    right.push(r);
+  }
+  return { left, right };
 }
 
 /**
- * Phase of the left foot's lowest point over a looping clip, by forward
- * kinematics of Hips → LeftUpLeg → LeftLeg → LeftFoot in armature space.
+ * Left heel strike of a looping cycle: the frame of maximum (minimum for
+ * backward cycles) LeftFoot.z - Hips.z. Unlike the lowest ankle (a flat
+ * plateau over half the cycle) this is a sharp event and is identical across
+ * rigs for the same animation.
  */
-export function leftFootContactPhase(clip: BakedClip, rig: RigInfo): number {
-  const chain = ['Hips', 'LeftUpLeg', 'LeftLeg', 'LeftFoot'];
-  const index = new Map<string, number>();
-  clip.bones.forEach((bone, i) => index.set(bone, i));
-  const local = new Quaternion();
-  let lowest = Infinity;
-  let lowestFrame = 0;
-  for (let frame = 0; frame < clip.frames; frame += 1) {
-    let rotation = Quaternion.Identity();
-    let position = Vector3.Zero();
-    for (const joint of chain) {
-      const bind = rig.bindPose.get(joint);
-      if (!bind) return 0;
-      let offset = bind.position;
-      if (joint === 'Hips' && clip.hips) {
-        offset = new Vector3(clip.hips[frame * 3] ?? 0, clip.hips[frame * 3 + 1] ?? 0, clip.hips[frame * 3 + 2] ?? 0);
-      }
-      position = position.add(offset.rotateByQuaternionToRef(rotation, new Vector3()));
-      const bone = index.get(joint);
-      if (bone === undefined) {
-        local.copyFrom(bind.rotation);
-      } else {
-        const o = (frame * clip.bones.length + bone) * 4;
-        local.set(clip.rotations[o] ?? 0, clip.rotations[o + 1] ?? 0, clip.rotations[o + 2] ?? 0, clip.rotations[o + 3] ?? 1);
-      }
-      rotation = rotation.multiply(local);
+export function gaitContactPhase(clip: BakedClip, rig: RigInfo, backward: boolean): number {
+  const feet = feetRelativeToHips(clip, rig);
+  if (!feet || clip.frames < 2) return 0;
+  let best = 0;
+  let bestValue = -Infinity;
+  feet.left.forEach((foot, frame) => {
+    const value = backward ? -foot.z : foot.z;
+    if (value > bestValue) {
+      bestValue = value;
+      best = frame;
     }
-    if (position.y < lowest) {
-      lowest = position.y;
-      lowestFrame = frame;
+  });
+  return best / (clip.frames - 1);
+}
+
+/**
+ * Speed (model units/s) at which a cycle covers ground without sliding: the
+ * mean horizontal speed of whichever foot is planted (within 3 cm of its
+ * lowest point) relative to the hips. Null for clips without leg motion.
+ */
+export function stanceSpeed(clip: BakedClip, rig: RigInfo): number | null {
+  const feet = feetRelativeToHips(clip, rig);
+  if (!feet || clip.frames < 3) return null;
+  let distance = 0;
+  let time = 0;
+  const hipsY = (frame: number): number => clip.hips?.[frame * 3 + 1] ?? rig.bindPose.get('Hips')?.position.y ?? 0;
+  for (const track of [feet.left, feet.right]) {
+    // Planted: the foot's ground height (hips height + foot offset) within 3 cm of its lowest.
+    const height = track.map((foot, frame) => hipsY(frame) + foot.y);
+    const lowest = Math.min(...height);
+    for (let frame = 1; frame < track.length; frame += 1) {
+      const a = track[frame - 1];
+      const b = track[frame];
+      if (!a || !b || (height[frame - 1] ?? Infinity) > lowest + 0.03 || (height[frame] ?? Infinity) > lowest + 0.03) continue;
+      distance += Math.hypot(b.x - a.x, b.z - a.z);
+      time += 1 / BAKE_FPS;
     }
   }
-  return clip.frames > 1 ? lowestFrame / (clip.frames - 1) : 0;
+  return time > 0.05 && distance > 0.01 ? distance / time : null;
 }
 
 /** Bind pose and hierarchy of a Mixamo skeleton, by normalised joint name. */

@@ -17,7 +17,7 @@ import {
   type ClipRole,
   type PaintedModelSpec,
 } from './catalog';
-import { bakeAnimationGroup, jointName, leftFootContactPhase, readRig, type BakedClip, type RigInfo } from './clips';
+import { bakeAnimationGroup, gaitContactPhase, jointName, readRig, stanceSpeed, type BakedClip, type RigInfo } from './clips';
 import { readBakedClips, readGlb, writeGlb } from './glb-binary';
 import type { PaintedTextures } from './material';
 
@@ -286,11 +286,18 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
       await nextTask();
     }
   }
-  // Locomotion cycles share one phase in the animator: record where each
-  // one's left-foot contact sits so they blend in step.
+  // Locomotion cycles share one phase in the animator: record each one's
+  // left heel strike so they blend in step, and the ground speed at which
+  // it plays without sliding.
   for (const role of ['walk', 'combatWalk', 'run', 'sprint', 'backpedal', 'crouchBack'] as const) {
     const clip = asset.clips.get(role);
-    if (clip) asset.clips.set(role, { ...clip, contactPhase: leftFootContactPhase(clip, rig) });
+    if (!clip) continue;
+    const backward = role === 'backpedal' || role === 'crouchBack';
+    asset.clips.set(role, {
+      ...clip,
+      contactPhase: gaitContactPhase(clip, rig, backward),
+      naturalSpeed: stanceSpeed(clip, rig) ?? undefined,
+    });
   }
   // The jump clip's hips rise (up to 0.4 m in the Meshy clips) would lift the
   // body off the physics capsule while it is held at the apex: cap the hips
