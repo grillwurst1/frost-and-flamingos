@@ -22,6 +22,10 @@ import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
  *                  picks one cell of the expression atlas (xy offset, zw size).
  *   FF_CUTOUT      alpha-tested painted cards (the lei flowers), double sided.
  *   FF_VCOLOR      the mesh carries vertex colours (always without a texture).
+ *   FF_LIDS        eyelids for eyes painted into the albedo (Meshy cow): two
+ *                  bind-pose eye discs; a lid line sweeps down over each disc
+ *                  (blink, KO) and tilts towards the nose (angry) or away
+ *                  (worried), painted in the fur colour with a lash stroke.
  *
  * The effect uniforms match the character shader: soot (battle damage),
  * charred and frozen. GLSL (WebGL2) and WGSL (WebGPU) must stay equivalent.
@@ -47,6 +51,9 @@ varying vec3 vWorldPosition;
 varying vec3 vWorldNormal;
 varying vec2 vUV;
 varying vec4 vColor;
+#ifdef FF_LIDS
+varying vec3 vBind;
+#endif
 
 void main(void) {
   mat4 finalWorld = world;
@@ -63,6 +70,9 @@ void main(void) {
   vColor = color;
 #else
   vColor = vec4(1.0);
+#endif
+#ifdef FF_LIDS
+  vBind = position;
 #endif
   gl_Position = viewProjection * worldPosition;
 }
@@ -92,6 +102,28 @@ uniform sampler2D albedoSampler;
 uniform sampler2D normalSampler;
 #endif
 ${LOOK_FRAGMENT_GLSL}
+#ifdef FF_LIDS
+varying vec3 vBind;
+/** Painted-eye lids: xyz bind-pose disc centre, w radius. */
+uniform vec4 uEyeA;
+uniform vec4 uEyeB;
+/** xyz disc facing, w = side (bind x) of the nose-side corner. */
+uniform vec4 uEyeAxisA;
+uniform vec4 uEyeAxisB;
+/** x close A, y close B, z tilt (+ angry, - worried). */
+uniform vec4 uLids;
+uniform vec3 uLidColor;
+
+vec2 ffLid(vec3 p, vec4 eye, vec4 axis, float close, float tilt) {
+  vec3 d = p - eye.xyz;
+  float r = eye.w;
+  if (dot(d, d) > r * r * 1.17 || dot(d, axis.xyz) < -r * 0.6) return vec2(0.0);
+  float edge = r * (1.15 - 2.3 * close) - tilt * d.x * axis.w;
+  float line = d.y - edge;
+  float lash = (1.0 - smoothstep(r * 0.05, r * 0.11, abs(line))) * step(0.02, close + abs(tilt));
+  return vec2(step(0.0, line), lash);
+}
+#endif
 
 float hash13(vec3 p) {
   p = fract(p * 0.1031);
@@ -143,6 +175,12 @@ void main(void) {
   mapNormal.xy *= uPaintParams.x;
   normal = ffPerturbNormal(normal, vWorldPosition, vUV, normalize(mapNormal));
 #endif
+#ifdef FF_LIDS
+  vec2 lidA = ffLid(vBind, uEyeA, uEyeAxisA, uLids.x, uLids.z);
+  vec2 lidB = ffLid(vBind, uEyeB, uEyeAxisB, uLids.y, uLids.z);
+  base = mix(base, uLidColor, max(lidA.x, lidB.x));
+  base = mix(base, vec3(0.03), max(lidA.y, lidB.y));
+#endif
 
   float grain = hash13(floor(vWorldPosition * 24.0));
   float sootMask = smoothstep(0.58, 0.86, grain) * clamp(uBattleDamage, 0.0, 1.0);
@@ -184,6 +222,9 @@ varying vWorldPosition : vec3f;
 varying vWorldNormal : vec3f;
 varying vUV : vec2f;
 varying vColor : vec4f;
+#ifdef FF_LIDS
+varying vBind : vec3f;
+#endif
 
 @vertex
 fn main(input : VertexInputs) -> FragmentInputs {
@@ -203,6 +244,9 @@ fn main(input : VertexInputs) -> FragmentInputs {
 #else
   vertexOutputs.vColor = vec4f(1.0);
 #endif
+#ifdef FF_LIDS
+  vertexOutputs.vBind = input.position;
+#endif
   vertexOutputs.position = uniforms.viewProjection * worldPosition;
 }
 `;
@@ -216,6 +260,14 @@ uniform uCharredState : f32;
 uniform uFrozenState : f32;
 uniform uTime : f32;
 uniform uPaintParams : vec4f;
+#ifdef FF_LIDS
+uniform uEyeA : vec4f;
+uniform uEyeB : vec4f;
+uniform uEyeAxisA : vec4f;
+uniform uEyeAxisB : vec4f;
+uniform uLids : vec4f;
+uniform uLidColor : vec3f;
+#endif
 #ifdef FF_TEXTURED
 var albedoSamplerSampler : sampler;
 var albedoSampler : texture_2d<f32>;
@@ -230,6 +282,19 @@ varying vWorldPosition : vec3f;
 varying vWorldNormal : vec3f;
 varying vUV : vec2f;
 varying vColor : vec4f;
+#ifdef FF_LIDS
+varying vBind : vec3f;
+
+fn ffLid(p : vec3f, eye : vec4f, axis : vec4f, close : f32, tilt : f32) -> vec2f {
+  let d = p - eye.xyz;
+  let r = eye.w;
+  if (dot(d, d) > r * r * 1.17 || dot(d, axis.xyz) < -r * 0.6) { return vec2f(0.0); }
+  let edge = r * (1.15 - 2.3 * close) - tilt * d.x * axis.w;
+  let line = d.y - edge;
+  let lash = (1.0 - smoothstep(r * 0.05, r * 0.11, abs(line))) * step(0.02, close + abs(tilt));
+  return vec2f(step(0.0, line), lash);
+}
+#endif
 
 fn hash13(pIn : vec3f) -> f32 {
   var p = fract(pIn * 0.1031);
@@ -281,6 +346,12 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   var mapNormal = textureSample(normalSampler, normalSamplerSampler, input.vUV).xyz * 2.0 - 1.0;
   mapNormal = vec3f(mapNormal.xy * uniforms.uPaintParams.x, mapNormal.z);
   normal = ffPerturbNormal(normal, input.vWorldPosition, input.vUV, normalize(mapNormal));
+#endif
+#ifdef FF_LIDS
+  let lidA = ffLid(input.vBind, uniforms.uEyeA, uniforms.uEyeAxisA, uniforms.uLids.x, uniforms.uLids.z);
+  let lidB = ffLid(input.vBind, uniforms.uEyeB, uniforms.uEyeAxisB, uniforms.uLids.y, uniforms.uLids.z);
+  base = mix(base, uniforms.uLidColor, max(lidA.x, lidB.x));
+  base = mix(base, vec3f(0.03), max(lidA.y, lidB.y));
 #endif
 
   let grain = hash13(floor(input.vWorldPosition * 24.0));

@@ -2,7 +2,7 @@ import '@babylonjs/core/Shaders/ShadersInclude/bonesDeclaration';
 import '@babylonjs/core/Shaders/ShadersInclude/bonesVertex';
 import '@babylonjs/core/ShadersWGSL/ShadersInclude/bonesDeclaration';
 import '@babylonjs/core/ShadersWGSL/ShadersInclude/bonesVertex';
-import { Vector3, Vector4 } from '@babylonjs/core/Maths/math';
+import { Color3, Vector3, Vector4 } from '@babylonjs/core/Maths/math';
 import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
 import { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { BaseTexture } from '@babylonjs/core/Materials/Textures/baseTexture';
@@ -10,6 +10,7 @@ import type { Scene } from '@babylonjs/core/scene';
 import { LOOK_SAMPLERS, LOOK_UNIFORMS } from '../shaders/look-common';
 import { mascotFragmentGLSL, mascotFragmentWGSL, mascotVertexGLSL, mascotVertexWGSL } from '../shaders/mascot';
 import { registerLookMaterial } from './look-state';
+import type { MascotEye } from './mascot-models';
 import { markCharacterLookMaterial, SUN_DIRECTION, type CharacterMaterialState } from './materials';
 
 /**
@@ -30,7 +31,12 @@ export interface MascotMaterialOptions {
   cutout?: boolean;
   /** x normal strength, y saturation, z contrast, w shade lift. */
   paint?: Vector4;
+  /** Shader eyelids over two eyes painted into the albedo (Meshy cow). */
+  lids?: { eyes: readonly MascotEye[]; color: readonly [number, number, number] } | null;
 }
+
+/** Lid state per material (x close A, y close B, z tilt), mutated in place. */
+const lidStates = new WeakMap<ShaderMaterial, Vector4>();
 
 const DEFAULT_PAINT = new Vector4(0.6, 1.12, 1.06, 0.26);
 const FULL_RECT = new Vector4(0, 0, 1, 1);
@@ -49,6 +55,8 @@ export function createMascotMaterial(scene: Scene, name: string, options: Mascot
   if (normalMapped) defines.push('#define FF_NORMALMAP');
   if (textured && options.decal) defines.push('#define FF_DECAL');
   if (textured && options.cutout) defines.push('#define FF_CUTOUT');
+  const lids = textured && options.lids && options.lids.eyes.length === 2 ? options.lids : null;
+  if (lids) defines.push('#define FF_LIDS');
   const samplers: string[] = [...LOOK_SAMPLERS];
   if (textured) samplers.push('albedoSampler');
   if (normalMapped) samplers.push('normalSampler');
@@ -73,6 +81,7 @@ export function createMascotMaterial(scene: Scene, name: string, options: Mascot
         'uTime',
         'uPaintParams',
         'uAtlasRect',
+        ...(lids ? ['uEyeA', 'uEyeB', 'uEyeAxisA', 'uEyeAxisB', 'uLids', 'uLidColor'] : []),
         ...LOOK_UNIFORMS,
       ],
       samplers,
@@ -91,6 +100,17 @@ export function createMascotMaterial(scene: Scene, name: string, options: Mascot
   material.setVector4('uPaintParams', options.paint ?? DEFAULT_PAINT);
   material.setVector4('uAtlasRect', FULL_RECT);
   if (options.albedo) material.setTexture('albedoSampler', options.albedo);
+  if (lids) {
+    const [a, b] = lids.eyes as [MascotEye, MascotEye];
+    material.setVector4('uEyeA', new Vector4(a.centre[0], a.centre[1], a.centre[2], a.radius));
+    material.setVector4('uEyeB', new Vector4(b.centre[0], b.centre[1], b.centre[2], b.radius));
+    material.setVector4('uEyeAxisA', new Vector4(a.axis[0], a.axis[1], a.axis[2], Math.sign(a.inner) || 1));
+    material.setVector4('uEyeAxisB', new Vector4(b.axis[0], b.axis[1], b.axis[2], Math.sign(b.inner) || 1));
+    material.setColor3('uLidColor', new Color3(lids.color[0], lids.color[1], lids.color[2]));
+    const state = new Vector4(0, 0, 0, 0);
+    lidStates.set(material, state);
+    material.setVector4('uLids', state);
+  }
   if (normalMapped && options.normal) material.setTexture('normalSampler', options.normal);
   material.backFaceCulling = !options.cutout;
   if (options.decal) {
@@ -101,6 +121,12 @@ export function createMascotMaterial(scene: Scene, name: string, options: Mascot
   }
   registerLookMaterial(scene, material, 'character', SUN_DIRECTION);
   return material;
+}
+
+/** Eyelids of a FF_LIDS material: closure per eye (0 open, 1 shut) and tilt (+ angry, - worried). */
+export function setMascotLids(material: ShaderMaterial, closeA: number, closeB: number, tilt: number): void {
+  const state = lidStates.get(material);
+  if (state) state.set(closeA, closeB, tilt, 0);
 }
 
 export function updateMascotMaterial(

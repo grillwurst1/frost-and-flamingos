@@ -37,9 +37,21 @@ export interface BakedClip {
   rootTranslations: Float32Array | null;
 }
 
+export interface MascotEye {
+  /** Bind-pose centre of the painted eyeball disc (glTF mesh space). */
+  centre: readonly [number, number, number];
+  radius: number;
+  axis: readonly [number, number, number];
+  /** +1 when the nose-side corner lies towards +X. */
+  inner: number;
+}
+
 export interface CowModelInfo {
   /** Rest head yaw measured by the optimiser (glTF space, + = towards the cow's left). */
   headYaw: number;
+  /** Painted eyes for the shader eyelids (empty = no lids). */
+  eyes: readonly MascotEye[];
+  lidColor: readonly [number, number, number];
 }
 
 export interface MascotModelAsset {
@@ -53,10 +65,16 @@ export interface MascotModelAsset {
 
 interface ManifestEntry {
   file: string;
-  rig?: { headYaw?: number };
+  rig?: { headYaw?: number; eyes?: MascotEye[]; lidColor?: [number, number, number] };
 }
 
 const BASE = `${import.meta.env.BASE_URL}models/mascots/`;
+
+function validEyes(eyes: MascotEye[] | undefined): MascotEye[] {
+  if (!Array.isArray(eyes) || eyes.length !== 2) return [];
+  const finite = (values: readonly number[]): boolean => values.length === 3 && values.every(Number.isFinite);
+  return eyes.every((eye) => finite(eye.centre) && finite(eye.axis) && eye.radius > 0) ? eyes : [];
+}
 export const BAKE_FPS = 30;
 
 interface Entry {
@@ -179,7 +197,14 @@ class MascotModelLibrary {
         albedo,
         normal,
         walk,
-        cow: key === 'cow' ? { headYaw: spec.rig?.headYaw ?? 0 } : null,
+        cow:
+          key === 'cow'
+            ? {
+                headYaw: spec.rig?.headYaw ?? 0,
+                eyes: validEyes(spec.rig?.eyes),
+                lidColor: spec.rig?.lidColor ?? [0.16, 0.16, 0.165],
+              }
+            : null,
       };
       this.settle(entry, 'ready', asset);
     } catch (error) {

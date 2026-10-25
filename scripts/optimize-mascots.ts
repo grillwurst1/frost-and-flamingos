@@ -296,12 +296,39 @@ interface Primitive {
   indices?: number;
 }
 
+export interface CowEye {
+  /** Bind-pose centre of the painted eyeball disc (glTF mesh space). */
+  centre: [number, number, number];
+  radius: number;
+  /** Direction the disc faces. */
+  axis: [number, number, number];
+  /** +1 when the inner (nose-side) corner lies towards +X, else -1. */
+  inner: number;
+}
+
 export interface CowRigInfo {
   /** Rest yaw of the head (glTF space, rad, + = towards glTF +X = the cow's left). */
   headYaw: number;
   bellVertices: number;
   earVertices: [number, number];
+  /** Painted eyes, for the shader eyelids (blink, angry/worried lids). */
+  eyes: CowEye[];
+  /** Fur colour around the eyes (0..1), used for the lids. */
+  lidColor: [number, number, number];
 }
+
+/**
+ * The Meshy cow's eyes are painted into its albedo. They were measured once by
+ * sampling the textured head densely in bind pose (white eyeball clusters,
+ * disc centre from their in-plane extents, facing from PCA, ring colour from
+ * the fur around them). The surgery does not move vertices, so the values
+ * stay valid for this source model.
+ */
+const MESHY_COW_EYES: CowEye[] = [
+  { centre: [-0.00028, 0.009548, 0.006155], radius: 0.00034, axis: [-0.364, 0.074, 0.928], inner: 1 },
+  { centre: [0.001418, 0.009596, 0.00551], radius: 0.000366, axis: [0.869, 0.114, 0.482], inner: -1 },
+];
+const MESHY_COW_LID: [number, number, number] = [0.16, 0.16, 0.165];
 
 function cowSurgery(parts: GlbParts): CowRigInfo {
   const json = parts.json;
@@ -545,7 +572,7 @@ function cowSurgery(parts: GlbParts): CowRigInfo {
     for (let slot = 0; slot < 4; slot += 1) sum += weightsOut[v * 4 + slot] ?? 0;
     for (let slot = 0; slot < 4; slot += 1) weightsOut[v * 4 + slot] = (weightsOut[v * 4 + slot] ?? 0) / (sum || 1);
   }
-  return { headYaw, bellVertices: bellVertices.length, earVertices: earCounts };
+  return { headYaw, bellVertices: bellVertices.length, earVertices: earCounts, eyes: MESHY_COW_EYES, lidColor: MESHY_COW_LID };
 }
 
 /** Removes texture slots the cel shader never samples; prune drops the images. */

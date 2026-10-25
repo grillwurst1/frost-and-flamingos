@@ -76,6 +76,8 @@ export interface CowSkeleton {
   /** Rest-pose corrections of the neck (the Meshy head is turned at rest). */
   readonly neckYawBias: number;
   readonly neckPitchBias: number;
+  /** Eyelids drawn by the material when the eyes are painted (no lid joints). */
+  setLids?: (closeA: number, closeB: number, tilt: number) => void;
   /** The bell hangs from the `neck` joint (procedural) or the `head` joint (Meshy). */
   readonly bellParent: 'neck' | 'head';
 }
@@ -775,6 +777,9 @@ export function applyCowPose(skeleton: CowSkeleton, pose: CowPose): void {
     const eyeScale = 1 + worried * 0.12;
     joints.eyeL?.setScale(eyeScale, eyeScale, 1);
     joints.eyeR?.setScale(eyeScale, eyeScale, 1);
+  } else if (skeleton.setLids) {
+    const close = Math.max(lid, angry * 0.3, pose.ko);
+    skeleton.setLids(close, close, angry * 0.55 - worried * 0.3);
   } else {
     const open = 1 - lid * 0.88 - angry * 0.2 + worried * 0.12;
     joints.eyeL?.setScale(1, open, 1);

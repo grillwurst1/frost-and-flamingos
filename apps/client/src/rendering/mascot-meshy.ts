@@ -9,7 +9,7 @@ import type { Scene } from '@babylonjs/core/scene';
 import type { CowJointName, CowSkeleton } from './cow-animator';
 import type { BakedClip, MascotModelAsset } from './mascot-models';
 import { JointDriver, LegSolver, relativePosition } from './mascot-rig';
-import { createMascotMaterial } from './mascot-material';
+import { createMascotMaterial, setMascotLids } from './mascot-material';
 
 /**
  * Adapters that turn the owner's Meshy models into mascot rigs.
@@ -332,7 +332,11 @@ export function buildMeshyCow(scene: Scene, asset: MascotModelAsset, viewRoot: T
   visual.position.set(0, pivotY, 0);
   forceWorld(rig);
 
-  const material = createMascotMaterial(scene, `mascot-cow-meshy-${name}`, { albedo: asset.albedo });
+  const eyes = asset.cow?.eyes ?? [];
+  const material = createMascotMaterial(scene, `mascot-cow-meshy-${name}`, {
+    albedo: asset.albedo,
+    lids: eyes.length === 2 && asset.cow ? { eyes, color: asset.cow.lidColor } : null,
+  });
   instance.mesh.material = material;
   if (bounds.local) {
     const box = bounds.local.boundingBox;
@@ -417,6 +421,7 @@ export function buildMeshyCow(scene: Scene, asset: MascotModelAsset, viewRoot: T
     neckYawBias: asset.cow?.headYaw ?? 0,
     neckPitchBias: 0,
     bellParent: 'head',
+    setLids: eyes.length === 2 ? (closeA, closeB, tilt) => setMascotLids(material, closeA, closeB, tilt) : undefined,
   };
   const driven = new Set<TransformNode>();
   for (const driver of Object.values(joints)) if (driver) driven.add(driver.node);
