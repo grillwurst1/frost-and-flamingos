@@ -6,8 +6,8 @@ export interface InputHandlers {
   onSwapShoulder: () => void;
   onToggleDebug: () => void;
   onTaunt: () => void;
-  /** Tab held / released: the live scoreboard. */
-  onScoreboard: (held: boolean) => void;
+  /** Tab held / released: the live scoreboard. Returns whether it is open (in-game only). */
+  onScoreboard: (held: boolean) => boolean;
   onPointerLockChange: (locked: boolean) => void;
   onPointerLockError: () => void;
   onEscape: () => void;
@@ -28,6 +28,8 @@ export class InputController {
   private locked = false;
   private crouchToggle = false;
   private crouchPulseUntil = 0;
+  /** Tab opened the scoreboard: its repeats are swallowed until release. */
+  private scoreboardHeld = false;
   private weaponSlot: WeaponSlot = 1;
   private disposed = false;
 
@@ -136,8 +138,10 @@ export class InputController {
       return;
     }
     if (event.code === 'Tab') {
-      event.preventDefault();
-      if (!event.repeat) this.handlers.onScoreboard(true);
+      // Only in-game: in the menu, wardrobe, pause and settings Tab keeps
+      // moving the keyboard focus.
+      if (!event.repeat) this.scoreboardHeld = this.handlers.onScoreboard(true);
+      if (this.scoreboardHeld) event.preventDefault();
       return;
     }
     if (event.code === 'KeyC' && !event.repeat) {
@@ -174,7 +178,10 @@ export class InputController {
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
-    if (event.code === 'Tab') this.handlers.onScoreboard(false);
+    if (event.code === 'Tab') {
+      this.scoreboardHeld = false;
+      this.handlers.onScoreboard(false);
+    }
     this.pressed.delete(event.code);
   };
 
@@ -228,6 +235,7 @@ export class InputController {
   private readonly handleBlur = (): void => {
     this.pressed.clear();
     this.mouseButtons.clear();
+    this.scoreboardHeld = false;
     this.handlers.onScoreboard(false);
   };
 

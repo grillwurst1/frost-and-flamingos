@@ -5,7 +5,7 @@ import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import type { Scene } from '@babylonjs/core/scene';
-import { DRIFTER_AURA, WATER_LEVEL, type DrifterForm, type Vec3 } from '@frost-and-flamingos/shared';
+import { DRIFTER_AURA, TEAM_SIZE, WATER_LEVEL, type DrifterForm, type Vec3 } from '@frost-and-flamingos/shared';
 import type { GroundProbe } from './mascot-fx';
 
 /**
@@ -31,7 +31,8 @@ const RING_LIFT = 0.07;
 /** Ring vertex heights are re-probed after the drifter moved this far (or this often). */
 const RING_REPROBE_DISTANCE = 0.35;
 const RING_REPROBE_SECONDS = 0.25;
-const MAX_GLYPHS: Record<GlyphKind, number> = { note: 14, notes: 10, sparkle: 18, cocktail: 6 };
+/** One cocktail badge per teammate at most (badges never age, so their pool is never stolen from). */
+const MAX_GLYPHS: Record<GlyphKind, number> = { note: 14, notes: 10, sparkle: 18, cocktail: TEAM_SIZE };
 
 const RING_COLOURS: Record<DrifterForm, string> = {
   mountain_girl: '#9fd8ff',
@@ -181,6 +182,11 @@ class GlyphPool {
         phase: 0,
       });
     }
+  }
+
+  /** An idle glyph, or null when every glyph is in use. */
+  takeFree(): Glyph | null {
+    return this.glyphs.find((glyph) => !glyph.active) ?? null;
   }
 
   take(): Glyph | null {
@@ -362,7 +368,8 @@ export class DrifterFx {
     if (this.disposed) return;
     let badge = this.cocktails.get(id);
     if (!badge) {
-      const glyph = this.pool('cocktail').take();
+      // Never steal a live badge: with every glyph in use this mate goes without one.
+      const glyph = this.pool('cocktail').takeFree();
       if (!glyph) return;
       glyph.active = true;
       glyph.age = 0;

@@ -27,9 +27,11 @@ export const DRIFTER_FORM_AVAILABLE: Readonly<Record<DrifterForm, boolean>> = {
 
 export interface DrifterTuning {
   /**
-   * W walking speed. The painted walk cycle plants its feet at ~1.47 m/s;
-   * the view lengthens the stride and plays it a little faster, so this is
-   * the fastest pace that still reads as a calm, unhurried walk.
+   * W walking speed. The view does not lengthen her stride: it plays the
+   * painted walk cycle at speed / sync speed so the feet stay planted. With
+   * sync speeds of ~1.47 m/s (mountain girl) and ~1.55 m/s (beach girl),
+   * 2.4 m/s runs the cycle at about 1.6x: calm, deliberate and a little
+   * uncanny, never a hurry.
    */
   readonly walkSpeed: number;
   /** A/D relative to walkSpeed (same contract as the soldiers). */
@@ -52,7 +54,7 @@ export interface DrifterTuning {
 }
 
 export const DRIFTER_TUNING: DrifterTuning = {
-  walkSpeed: 3,
+  walkSpeed: 2.4,
   strafeScale: 0.85,
   backwardScale: 0.65,
   groundAcceleration: 18,

@@ -34,6 +34,7 @@ import {
   eventsFor,
   findDeepWater,
   findFlat,
+  findGentleShores,
   join,
   place,
   run,
@@ -299,7 +300,8 @@ describe('pass-through', () => {
     // …and the drifter walks east straight through the standing heavy.
     place(ghostJ.player, lane.x - 4, lane.z + 6);
     run(harness, 4);
-    run(harness, 240, [{ joined: ghostJ, buttons: B.Forward, yaw: Math.PI / 2 }]);
+    // 12 m at her walking pace covers the 10 m to the far side of the heavy.
+    run(harness, Math.ceil((12 / DRIFTER_TUNING.walkSpeed) * SECOND), [{ joined: ghostJ, buttons: B.Forward, yaw: Math.PI / 2 }]);
     expect(ghostJ.player.character.position.x).toBeGreaterThan(lane.x + 6);
     expect(Math.abs(postJ.player.character.position.x - (lane.x + 4))).toBeLessThan(0.05);
     dismiss(players);
@@ -362,6 +364,43 @@ describe('walk-only motor', () => {
     if (sampleMapHeight(after.x, after.z) < WATER_LEVEL) expect(after.y).toBeCloseTo(floor, 3);
     expect(ghostJ.player.character.swimming).toBe(false);
     expect(ghostJ.player.alive).toBe(true);
+    dismiss(players);
+  });
+
+  test('walking up and down gentle beaches her feet never dip below the water surface', () => {
+    const players = cast([['Ghost', 'drifter', 'alpine']]);
+    const ghostJ = players[0]!;
+    const ghost = ghostJ.player;
+    const reach = 8;
+    const shores = findGentleShores(12, reach);
+    expect(shores.length).toBeGreaterThanOrEqual(3);
+    // Long enough at walking pace to cross from `reach` m out to `reach` m up the beach.
+    const crossingTicks = Math.ceil(((reach * 2 + 1) / DRIFTER_TUNING.walkSpeed) * SECOND);
+    let crossings = 0;
+    let below = 0;
+    let lowest = Infinity;
+    let maxPop = 0;
+    for (const shore of shores) {
+      place(ghost, shore.x - shore.dirX * reach, shore.z - shore.dirZ * reach, WATER_LEVEL + 0.5);
+      run(harness, SECOND / 2);
+      const uphill = Math.atan2(shore.dirX, shore.dirZ);
+      for (const yaw of [uphill, uphill + Math.PI]) {
+        let lastY = ghost.character.position.y;
+        for (let tick = 0; tick < crossingTicks; tick += 1) {
+          run(harness, 1, [{ joined: ghostJ, buttons: B.Forward, yaw }]);
+          const y = ghost.character.position.y;
+          if (y < WATER_LEVEL - 0.005) below += 1;
+          lowest = Math.min(lowest, y);
+          maxPop = Math.max(maxPop, Math.abs(y - lastY));
+          lastY = y;
+        }
+        crossings += 1;
+      }
+    }
+    console.log('[3G shore]', JSON.stringify({ shores: shores.length, crossings, ticksBelowWater: below, lowest, maxPop }));
+    expect(below).toBe(0);
+    expect(maxPop).toBeLessThan(0.5);
+    expect(ghost.alive).toBe(true);
     dismiss(players);
   });
 });
@@ -682,7 +721,8 @@ describe('prediction determinism', () => {
     for (const result of [onLand, onWater]) {
       expect(result.maxError).toBeLessThan(0.12);
       expect(result.drift).toBeLessThan(0.05);
-      expect(result.travelled).toBeGreaterThan(10);
+      // She really walked (the script holds W for well over 3 s).
+      expect(result.travelled).toBeGreaterThan(DRIFTER_TUNING.walkSpeed * 3);
     }
     expect(onWater.minY).toBeGreaterThan(WATER_LEVEL);
   });

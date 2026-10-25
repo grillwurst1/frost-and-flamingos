@@ -182,6 +182,48 @@ export function findDeepWater(depth = 4): { x: number; z: number } {
   throw new Error('no deep water');
 }
 
+/** A waterline point on a gentle beach and its uphill direction (unit, xz). */
+export interface Shore {
+  x: number;
+  z: number;
+  dirX: number;
+  dirZ: number;
+}
+
+/**
+ * Gentle, prop-free beaches spread over the map: each runs from `reach` m out
+ * in the water (at least 0.4 m deep) to `reach` m up dry land (at least 0.4 m
+ * above the surface), rising steadily the whole way.
+ */
+export function findGentleShores(count: number, reach = 8, clearance = 10): Shore[] {
+  const shores: Shore[] = [];
+  for (let x = -366; x <= 366 && shores.length < count; x += 3) {
+    for (let z = -366; z <= 366 && shores.length < count; z += 3) {
+      if (Math.abs(sampleMapHeight(x, z) - WATER_LEVEL) > 0.15) continue;
+      const gx = (sampleMapHeight(x + 1, z) - sampleMapHeight(x - 1, z)) / 2;
+      const gz = (sampleMapHeight(x, z + 1) - sampleMapHeight(x, z - 1)) / 2;
+      const slope = Math.hypot(gx, gz);
+      // The map's beaches rise ~0.2-0.4 m per metre; skip flats and steep banks.
+      if (slope < 0.1 || slope > 0.36) continue;
+      if (shores.some((shore) => Math.hypot(shore.x - x, shore.z - z) < 24)) continue;
+      if (!clearOfProps(x, z, clearance + reach)) continue;
+      const dirX = gx / slope;
+      const dirZ = gz / slope;
+      if (sampleMapHeight(x - dirX * reach, z - dirZ * reach) > WATER_LEVEL - 0.4) continue;
+      if (sampleMapHeight(x + dirX * reach, z + dirZ * reach) < WATER_LEVEL + 0.4) continue;
+      let steady = true;
+      let previous = -Infinity;
+      for (let d = -reach; d <= reach && steady; d += 1) {
+        const height = sampleMapHeight(x + dirX * d, z + dirZ * d);
+        if (height < previous - 0.05) steady = false;
+        previous = height;
+      }
+      if (steady) shores.push({ x, z, dirX, dirZ });
+    }
+  }
+  return shores;
+}
+
 /** Aims a player's look at a point (yaw/pitch from the server eye). */
 export function aimAt(player: TestPlayer, target: Vec3): void {
   const feet = player.character.position;

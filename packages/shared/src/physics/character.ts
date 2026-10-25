@@ -64,7 +64,10 @@ interface SurfaceProperties {
   frictionScale: number;
 }
 
-const CROUCH_HEIGHT_SCALE = 0.65;
+/** Collider height of a fully crouched character, as a share of the standing height. */
+export const CROUCH_HEIGHT_SCALE = 0.65;
+/** Drifter: the water floor holds this far above her hover height (shoreline sample/collider mismatch). */
+const DRIFTER_SHORE_MARGIN = 0.35;
 const CROUCH_SPEED_SCALE = 0.55;
 const STRAFE_SPEED_SCALE = 0.85;
 const BACKWARD_SPEED_SCALE = 0.7;
@@ -83,7 +86,8 @@ function moveTowards(current: number, target: number, maxDelta: number): number 
   return current + Math.sign(target - current) * maxDelta;
 }
 
-function wrapAngle(angle: number): number {
+/** Wraps an angle to [-π, π] (unbounded camera yaws before int16 centi-radian encoding, headings). */
+export function wrapAngle(angle: number): number {
   const twoPi = Math.PI * 2;
   let wrapped = angle % twoPi;
   if (wrapped > Math.PI) wrapped -= twoPi;
@@ -1045,11 +1049,16 @@ export class CharacterBody {
 
   /**
    * Feet height of the water surface she hovers on, or null where the
-   * terrain under her is dry land.
+   * terrain under her is clearly dry land. The floor is only ever a minimum
+   * (the ground wins wherever it is higher), so it stays in force up to
+   * DRIFTER_SHORE_MARGIN above the surface: at shorelines the sampled height
+   * and the Rapier heightfield disagree by up to ~0.45 m, and a plain
+   * "sample below water" test let her wade under the surface there.
    */
   private drifterWaterFloor(): number | null {
-    if (sampleMapHeight(this.feet.x, this.feet.z) >= WATER_LEVEL) return null;
-    return WATER_LEVEL + DRIFTER_TUNING.waterHoverHeight;
+    const floor = WATER_LEVEL + DRIFTER_TUNING.waterHoverHeight;
+    if (sampleMapHeight(this.feet.x, this.feet.z) >= floor + DRIFTER_SHORE_MARGIN) return null;
+    return floor;
   }
 
   /**

@@ -40,6 +40,7 @@ import {
   sanitizeDisplayName,
   skillsForClass,
   weaponForSlot,
+  wrapAngle,
   type CharacterBody,
   type ClassCapabilities,
   type ClassId,
@@ -735,7 +736,8 @@ export class MatchRoom {
       eventType: 'WEAPON_FIRED',
       actorId: player.id,
       targetId: 0,
-      paramX: Math.round(player.lastInput.yaw * 100),
+      // The camera yaw is unbounded: wrapped first, or the int16 clamps it.
+      paramX: Math.round(wrapAngle(player.lastInput.yaw) * 100),
       paramZ: Math.round(player.lastInput.pitch * 100),
       paramValue: WEAPON_TABLE.code[weaponId],
     });

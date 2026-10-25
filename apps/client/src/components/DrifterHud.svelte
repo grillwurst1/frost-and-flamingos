@@ -15,11 +15,12 @@
   $: support = player?.support ?? 0;
   $: targets = player?.auraTargets ?? 0;
 
-  let shown = 0;
+  /** Last support value seen; null until the first reading, which never pops. */
+  let shown: number | null = null;
   let gained = 0;
   let popKey = 0;
-  $: if (support !== shown) {
-    if (support > shown && shown > 0) {
+  $: if (player && (shown === null || support !== shown)) {
+    if (shown !== null && support > shown) {
       gained = support - shown;
       popKey += 1;
     }

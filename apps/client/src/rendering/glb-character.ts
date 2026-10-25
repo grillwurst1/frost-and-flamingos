@@ -21,7 +21,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
-import { createShadowMaterial, excludeFromInk, type CharacterMaterialState } from './materials';
+import { createShadowMaterial, type CharacterMaterialState } from './materials';
 import {
   PAINTED_MODELS,
   outfitFitsPaintedModel,
@@ -313,10 +313,10 @@ export class GlbCharacterView implements AvatarView {
 
     this.gait = spec.gait ?? null;
     this.hover = spec.hover ?? null;
-    // The photoreal exception shades PBR instead of the cel bands and draws
-    // no world ink. It keeps the character look mask: the painterly post has
-    // no out-of-band exemption yet (see shaders/post.ts), and the character
-    // level is its lightest treatment.
+    // The photoreal exception shades PBR instead of the cel bands. It keeps
+    // the character look mask (no interior ink, only the bold silhouette)
+    // and stays in the g-buffer like every character: the painterly post
+    // has no out-of-band exemption yet (see shaders/post.ts).
     this.material = createGlbMaterial(
       scene,
       `glb-${spec.key}-${profile.displayName}`,
@@ -344,7 +344,6 @@ export class GlbCharacterView implements AvatarView {
     mesh.setBoundingInfo(
       new BoundingInfo(bindBox.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), bindBox.maximum.add(new Vector3(1.2, 0.5, 1.2))),
     );
-    if (spec.photoreal) excludeFromInk(mesh);
     for (const child of gltfRoot.getChildMeshes(false)) child.isPickable = false;
 
     // Joint nodes by normalised Mixamo name, in parent-first order.

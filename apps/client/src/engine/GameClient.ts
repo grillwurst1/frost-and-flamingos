@@ -6,6 +6,7 @@ import { Scene } from '@babylonjs/core/scene';
 import { get } from 'svelte/store';
 import {
   CLASS_STATS,
+  CROUCH_HEIGHT_SCALE,
   FIXED_DT,
   InputButton,
   MASCOT_SLOT_WEAPONS,
@@ -511,8 +512,10 @@ export class GameClient {
         onSwapShoulder: () => this.cameraRig?.swapShoulder(),
         onToggleDebug: () => debugVisible.update((visible) => !visible),
         onScoreboard: (held) => {
-          scoreboardOpen.set(held && (this.currentPhase === 'playing' || this.currentPhase === 'deploying'));
-          if (held) this.lastHudAt = 0;
+          const open = held && (this.currentPhase === 'playing' || this.currentPhase === 'deploying');
+          scoreboardOpen.set(open);
+          if (open) this.lastHudAt = 0;
+          return open;
         },
         onTaunt: () => {
           const profile = this.localProfile;
@@ -1055,8 +1058,11 @@ export class GameClient {
         const weaponId = WEAPON_TABLE.byCode[event.paramValue];
         if (weaponId) audio.playWeaponFire(weaponId, actor?.position);
         if (weaponId && actor) {
+          // From the rendered (interpolated) shooter, at a crouched eye when crouched.
           const stats = classStatsFor(actor.classId, actor.faction);
-          const eye = { x: actor.position.x, y: actor.position.y + stats.height - stats.radius * 0.65, z: actor.position.z };
+          const feet = this.renderedFeet.get(event.actorId) ?? actor.position;
+          const height = actor.crouched ? stats.height * CROUCH_HEIGHT_SCALE : stats.height;
+          const eye = { x: feet.x, y: feet.y + height - stats.radius * 0.65, z: feet.z };
           this.tracers?.shot(weaponId, eye, event.paramX / 100, event.paramZ / 100);
         }
         this.remoteViews.get(event.actorId)?.view.kick?.(event.paramZ / 100);
@@ -1360,7 +1366,8 @@ export class GameClient {
       this.lastWeaponSlot = slot;
       this.fireHeld = false;
       this.lastFireSentAt = 0;
-      audio.playUi('equip');
+      // Unarmed classes (the drifter) have no weapon to draw.
+      if (classCapabilities(this.localClass).armed) audio.playUi('equip');
     }
 
     const input: PlayerInput = {
