@@ -17,6 +17,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-comic-words.webp` | Comic onomatopoeia popup stickers |
 | `gemini-billboards.webp` | Six textless 1930s tourism posters for the village billboards |
 | `gemini-crests.webp` | Peak Guard and Lagoon League team crests |
+| `gemini-sheet-towers.webp` | Three weather towers, each in Lagoon-held and Peak-held state |
 | `gemini-vfx.webp` | Explosion, smoke, fire, snow, water, dust and muzzle-flash particle sprites |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
