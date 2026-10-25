@@ -49,8 +49,12 @@ uniform sampler2D panorama;
 
 const float TAU = 6.2831853;
 
+// Polynomial hash (no transcendentals: reproducible on every backend).
 float ffHash(float n) {
-  return fract(sin(n * 12.9898) * 43758.5453);
+  float p = fract(n * 0.1031);
+  p *= p + 33.33;
+  p *= p + p;
+  return fract(p);
 }
 
 float ffWrap(float a) {
@@ -209,8 +213,12 @@ varying vDirection : vec3f;
 
 const TAU : f32 = 6.2831853;
 
+// Polynomial hash (no transcendentals: reproducible on every backend).
 fn ffHash(n : f32) -> f32 {
-  return fract(sin(n * 12.9898) * 43758.5453);
+  var p = fract(n * 0.1031);
+  p *= p + 33.33;
+  p *= p + p;
+  return fract(p);
 }
 
 fn ffWrap(a : f32) -> f32 {

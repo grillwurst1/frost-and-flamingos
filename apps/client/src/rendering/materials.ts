@@ -1,4 +1,5 @@
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
+import { ShaderStore } from '@babylonjs/core/Engines/shaderStore';
 import { Color3, Color4, Vector3 } from '@babylonjs/core/Maths/math';
 import { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
@@ -15,6 +16,7 @@ import {
 import { cloudFragmentGLSL, cloudFragmentWGSL, cloudVertexGLSL, cloudVertexWGSL } from '../shaders/cloud';
 import { DETAIL_SAMPLERS, DETAIL_UNIFORMS } from '../shaders/detail';
 import { LOOK_SAMPLERS, LOOK_UNIFORMS } from '../shaders/look-common';
+import { comicFragmentGLSL, comicFragmentWGSL, paintFragmentGLSL, paintFragmentWGSL } from '../shaders/post';
 import { skyFragmentGLSL, skyFragmentWGSL, skyVertexGLSL, skyVertexWGSL } from '../shaders/sky';
 import {
   toonFragmentGLSL,
@@ -156,6 +158,17 @@ export function isInkExcluded(mesh: object): boolean {
 
 export function isShadowExcluded(mesh: object): boolean {
   return noShadow.has(mesh);
+}
+
+/**
+ * Registers the painterly post-process shaders (`ffPaint`, `ffComic`) in both
+ * shader stores. Idempotent; scene-look calls it before creating the passes.
+ */
+export function registerLookPostShaders(): void {
+  ShaderStore.ShadersStore.ffPaintPixelShader = paintFragmentGLSL;
+  ShaderStore.ShadersStoreWGSL.ffPaintPixelShader = paintFragmentWGSL;
+  ShaderStore.ShadersStore.ffComicPixelShader = comicFragmentGLSL;
+  ShaderStore.ShadersStoreWGSL.ffComicPixelShader = comicFragmentWGSL;
 }
 
 const toonMaterials = new WeakSet<ShaderMaterial>();

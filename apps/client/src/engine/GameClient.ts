@@ -54,6 +54,7 @@ import {
   updateToonMaterial,
   updateWaterMaterial,
 } from '../rendering/materials';
+import { classifyGpu } from '../rendering/gpu-tier';
 import { createSceneLook, type SceneLook, type VisualQuality } from '../rendering/scene-look';
 import {
   clearCombatUi,
@@ -83,6 +84,12 @@ import {
   type WardrobeEffect,
 } from '../state/game';
 import {
+  activeVisualQuality,
+  chooseVisualQuality,
+  visualQualitySetting,
+  type VisualQualitySetting,
+} from '../state/graphics';
+import {
   applyServerProfile,
   getProfile,
   profile as profileStore,
@@ -98,8 +105,19 @@ const RECONCILE_THRESHOLD = 0.12;
 const HARD_SNAP_THRESHOLD = 2.4;
 const HUD_INTERVAL_MS = 220;
 const REMOTE_TIMEOUT_MS = 1600;
-const BOOT_TIMEOUT_MS = 20000;
+// DEV builds allow a much longer handshake: software-GL playtest browsers on a
+// loaded machine can stall the main thread past 20 s while compiling shaders.
+const BOOT_TIMEOUT_MS = import.meta.env.DEV ? 90000 : 20000;
 const DEPLOYMENT_DURATION_MS = 2600;
+/** Window 'resize' fires every frame while dragging; resize the engine once it settles. */
+const RESIZE_SETTLE_MS = 150;
+/** Auto quality steps down one tier (once per session) if the menu stays slower than this. */
+const QUALITY_GOVERNOR_FRAME_MS = 22;
+const QUALITY_GOVERNOR_HOLD_MS = 3000;
+/** Ignore the first moments in the menu: shader compiles and texture uploads stall frames. */
+const QUALITY_GOVERNOR_WARMUP_MS = 2500;
+/** Weather grading is only re-applied for changes larger than this. */
+const WEATHER_LOOK_EPSILON = 0.01;
 
 interface PendingInput {
   input: PlayerInput;
@@ -196,9 +214,22 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+/** WebGPU fallback adapters are software rasterisers; older browsers expose the flag on the adapter. */
+function isFallbackAdapter(adapter: object): boolean {
+  const flags = adapter as unknown as { info?: { isFallbackAdapter?: boolean }; isFallbackAdapter?: boolean };
+  return Boolean(flags.info?.isFallbackAdapter ?? flags.isFallbackAdapter);
+}
+
+/*
+ * Both engines run with antialias:false: every tier renders the scene into the
+ * first post-process target (which carries the scene MSAA), so the swapchain
+ * only ever receives ffComic's full-screen quad and a multisampled canvas
+ * would be allocated and resolved every frame for nothing.
+ */
 async function createEngine(canvas: HTMLCanvasElement): Promise<{
   engine: AbstractEngine;
   renderer: RendererName;
+  fallbackAdapter: boolean;
 }> {
   const params = new URLSearchParams(window.location.search);
   const forceWebGL = params.get('renderer') === 'webgl2';
@@ -209,13 +240,16 @@ async function createEngine(canvas: HTMLCanvasElement): Promise<{
       const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
       if (!adapter) throw new Error('No WebGPU adapter available.');
       webgpu = new WebGPUEngine(canvas, {
-        antialias: true,
+        antialias: false,
         adaptToDeviceRatio: true,
         powerPreference: 'high-performance',
         stencil: true,
+        // Filterable R32F keeps the shadow map at full float precision
+        // (Babylon drops unsupported features from this list).
+        deviceDescriptor: { requiredFeatures: ['float32-filterable'] },
       });
       await webgpu.initAsync();
-      return { engine: webgpu, renderer: 'webgpu' };
+      return { engine: webgpu, renderer: 'webgpu', fallbackAdapter: isFallbackAdapter(adapter) };
     } catch (error) {
       console.warn('[frost-and-flamingos] WebGPU unavailable, using WebGL2.', error);
       // A WebGPUEngine that failed during initAsync may not have created its
@@ -231,16 +265,16 @@ async function createEngine(canvas: HTMLCanvasElement): Promise<{
 
   const engine = new Engine(
     canvas,
-    true,
+    false,
     {
-      antialias: true,
+      antialias: false,
       stencil: true,
       preserveDrawingBuffer: false,
       powerPreference: 'high-performance',
     },
     true,
   );
-  return { engine, renderer: 'webgl2' };
+  return { engine, renderer: 'webgl2', fallbackAdapter: false };
 }
 
 /**
@@ -259,6 +293,14 @@ export class GameClient {
   private visuals: MapVisuals | null = null;
   private toonMaterial: ReturnType<typeof createToonMaterial> | null = null;
   private look: SceneLook | null = null;
+  private qualitySetting: VisualQualitySetting = 'auto';
+  /** Tier used while the setting is 'auto' (GPU class, then the governor). */
+  private autoQuality: VisualQuality = 'high';
+  private qualityGovernorUsed = false;
+  private menuEnteredAt = 0;
+  private slowMenuSince = 0;
+  private appliedWeatherLook = 0;
+  private resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
   private localId: number | null = null;
   private localFaction: Faction = 'alpine';
@@ -332,7 +374,24 @@ export class GameClient {
   private readonly unsubscribeWardrobe: () => void;
   private readonly unsubscribeSpin: () => void;
   private readonly unsubscribeEffect: () => void;
+  private readonly unsubscribeQuality: () => void;
+  /*
+   * Every new canvas size makes each post-process allocate a fresh MSAA target
+   * set that Babylon keeps for ~100 frames, so a drag-resize that resized every
+   * frame could hold gigabytes. Resize once the size settles instead.
+   */
   private readonly handleResize = (): void => {
+    if (this.resizeTimer) clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(() => {
+      this.resizeTimer = null;
+      this.engine?.resize();
+    }, RESIZE_SETTLE_MS);
+  };
+  private readonly handleFullscreenChange = (): void => {
+    if (this.resizeTimer) {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = null;
+    }
     this.engine?.resize();
   };
 
@@ -340,7 +399,12 @@ export class GameClient {
     this.canvas = canvas;
     this.unsubscribePhase = phase.subscribe((next) => {
       const wasPlaying = this.currentPhase === 'playing';
+      if (next === 'menu' && this.currentPhase !== 'menu') {
+        this.menuEnteredAt = performance.now();
+        this.slowMenuSince = 0;
+      }
       this.currentPhase = next;
+      this.look?.setBooting(next === 'booting');
       audio.setScene(
         next === 'booting'
           ? 'loading'
@@ -370,13 +434,17 @@ export class GameClient {
       this.previewEffect = effect;
       this.applyPreviewEffects();
     });
+    this.unsubscribeQuality = visualQualitySetting.subscribe((setting) => {
+      this.qualitySetting = setting;
+      this.applyVisualQuality();
+    });
   }
 
   async init(): Promise<void> {
     try {
       setLoadingStep('engine', 'active');
       setLoadingProgress(0.08);
-      const { engine, renderer } = await createEngine(this.canvas);
+      const { engine, renderer, fallbackAdapter } = await createEngine(this.canvas);
       if (this.disposed) {
         engine.dispose();
         return;
@@ -391,8 +459,11 @@ export class GameClient {
       this.scene = scene;
 
       this.cameraRig = new CameraRig(scene);
+      this.autoQuality = classifyGpu(engine, { fallbackAdapter }).tier;
       // Lights, shadows, g-buffer, ink/paint post stack, sky/water look.
-      this.look = createSceneLook(scene, this.cameraRig.camera);
+      this.look = createSceneLook(scene, this.cameraRig.camera, this.resolveVisualQuality());
+      this.look.setBooting(this.currentPhase === 'booting');
+      activeVisualQuality.set(this.look.visualQuality);
       this.input = new InputController(this.canvas, {
         onMouseMove: (deltaX, deltaY) => this.cameraRig?.handleMouse(deltaX, deltaY),
         onWheel: (delta) => this.cameraRig?.zoom(delta),
@@ -412,6 +483,7 @@ export class GameClient {
         },
       });
       window.addEventListener('resize', this.handleResize);
+      document.addEventListener('fullscreenchange', this.handleFullscreenChange);
 
       this.engine.runRenderLoop(() => this.frame());
       setLoadingStep('engine', 'done');
@@ -514,18 +586,65 @@ export class GameClient {
     );
   }
 
-  /** Painterly post stack tier (persists per browser). */
-  setVisualQuality(tier: VisualQuality): void {
-    this.look?.setVisualQuality(tier);
+  /** Picture-quality intent: 'auto' or a fixed tier (saved per browser). */
+  setVisualQuality(setting: VisualQualitySetting): void {
+    chooseVisualQuality(setting);
   }
 
   get visualQuality(): VisualQuality {
-    return this.look?.visualQuality ?? 'high';
+    return this.look?.visualQuality ?? this.resolveVisualQuality();
   }
 
-  /** Weather grading: -1 icy, 0 azure, +1 golden (drive from the server's weatherBalance). */
+  /**
+   * Weather grading: -1 icy, 0 azure, +1 golden. Snapshots drive it from the
+   * server's weatherBalance; this intent is for tooling and previews.
+   */
   setWeatherLook(balance: number): void {
+    this.appliedWeatherLook = balance;
     this.look?.setWeatherLook(balance);
+  }
+
+  private resolveVisualQuality(): VisualQuality {
+    return this.qualitySetting === 'auto' ? this.autoQuality : this.qualitySetting;
+  }
+
+  private applyVisualQuality(): void {
+    const look = this.look;
+    if (!look) return;
+    const tier = this.resolveVisualQuality();
+    if (look.visualQuality !== tier) look.setVisualQuality(tier);
+    activeVisualQuality.set(tier);
+  }
+
+  /**
+   * One-shot frame-time governor for 'auto': if the menu (scene behind the UI,
+   * wardrobe preview) stays above ~22 ms for ~3 s, drop one tier for this
+   * session. Never persisted and never raised again.
+   */
+  private updateQualityGovernor(now: number): void {
+    if (
+      this.qualityGovernorUsed ||
+      this.qualitySetting !== 'auto' ||
+      this.currentPhase !== 'menu' ||
+      this.autoQuality === 'low' ||
+      document.visibilityState !== 'visible' ||
+      now - this.menuEnteredAt < QUALITY_GOVERNOR_WARMUP_MS
+    ) {
+      this.slowMenuSince = 0;
+      return;
+    }
+    if (this.smoothedFrameMs <= QUALITY_GOVERNOR_FRAME_MS) {
+      this.slowMenuSince = 0;
+      return;
+    }
+    if (this.slowMenuSince === 0) {
+      this.slowMenuSince = now;
+      return;
+    }
+    if (now - this.slowMenuSince < QUALITY_GOVERNOR_HOLD_MS) return;
+    this.qualityGovernorUsed = true;
+    this.autoQuality = this.autoQuality === 'high' ? 'medium' : 'low';
+    this.applyVisualQuality();
   }
 
   pause(): void {
@@ -562,7 +681,10 @@ export class GameClient {
     this.unsubscribeWardrobe();
     this.unsubscribeSpin();
     this.unsubscribeEffect();
+    this.unsubscribeQuality();
+    if (this.resizeTimer) clearTimeout(this.resizeTimer);
     window.removeEventListener('resize', this.handleResize);
+    document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
     this.input?.dispose();
     this.network?.disconnect();
     this.localView?.dispose();
@@ -930,6 +1052,10 @@ export class GameClient {
       weatherBalance: snapshot.weatherBalance,
       towerStates: snapshot.turretStates,
     });
+    if (Math.abs(snapshot.weatherBalance - this.appliedWeatherLook) > WEATHER_LOOK_EPSILON) {
+      this.appliedWeatherLook = snapshot.weatherBalance;
+      this.look?.setWeatherLook(snapshot.weatherBalance);
+    }
     this.latestWind = { angle: snapshot.windAngle, strength: snapshot.windStrength };
 
     if (this.localId === null || !this.localCharacter) return;
@@ -1074,6 +1200,7 @@ export class GameClient {
     const delta = Math.min(0.1, Math.max(0.0001, (now - this.lastFrameAt) / 1000));
     this.lastFrameAt = now;
     this.smoothedFrameMs = this.smoothedFrameMs * 0.92 + delta * 1000 * 0.08;
+    this.updateQualityGovernor(now);
 
     if (this.currentPhase === 'playing') {
       this.accumulator += delta;

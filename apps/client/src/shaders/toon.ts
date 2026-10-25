@@ -65,7 +65,9 @@ ${DETAIL_FRAGMENT_GLSL}
 void main(void) {
   float gloss;
   float hatch;
-  vec3 albedo = ffSurface(vColor, vLocalPosition, vLocalNormal, vWorldPosition, gloss, hatch);
+  vec3 dpx = dFdx(vLocalPosition);
+  vec3 dpy = dFdy(vLocalPosition);
+  vec3 albedo = ffSurface(vColor, vLocalPosition, vLocalNormal, vWorldPosition, dpx, dpy, gloss, hatch);
   vec3 normal = normalize(vWorldNormal);
   vec3 lit = ffToon(albedo, normal, vWorldPosition, gloss, rimStrength, hatch);
   gl_FragColor = vec4(ffHaze(lit, vWorldPosition), 1.0);

@@ -1,20 +1,25 @@
 /**
- * Optional painted art under `apps/client/public/art/` (see CREDITS.md once
- * assets land). Every file is optional: the look falls back to its procedural
- * version when a file is missing, without console errors. Files are probed
- * with a HEAD request first and only accepted when the server answers with an
- * image content type (the Vite dev server answers unknown paths with its SPA
- * HTML page, which is rejected here).
+ * Optional painted art under `apps/client/public/art/` (provenance in
+ * CREDITS.md, "Painted world art"). Every file is optional: the look falls back
+ * to its procedural version when a file is missing. Files are probed with a
+ * HEAD request first and only accepted when the server answers with an image
+ * content type (the Vite dev server answers unknown paths with its SPA HTML
+ * page, which is rejected here). On a static host without that fallback a
+ * missing file shows up as a 404 in the network log; the game still runs.
  *
- * Contract (paths relative to art/):
+ * Contract (paths relative to art/), all loaded by scene-look.ts and
+ * detail-textures.ts:
  *   sky/horizon-panorama.jpg   4096x1024 cylindrical horizon band, seamless
  *                              left/right; u = azimuth from +Z (north)
  *                              clockwise to +X (east); v = 0 top; horizon at
  *                              v = PANORAMA_HORIZON_V.
- *   clouds/cloud-01..08.png    painted cumulus with alpha (~1024 px wide).
+ *   clouds/cloud-01..08.png    painted cumulus with alpha (1024 px wide), one
+ *                              per billboard slot on the cloud ring.
  *   tex/<name>.jpg             512x512 seamless, mid-grey neutral detail tiles:
  *                              snow, sand, grass, rock, wood_planks, log_wall,
- *                              shingles, cobblestone; tex/water_foam.png.
+ *                              shingles, cobblestone.
+ *   tex/water_foam.png         512x512 seamless foam mask (RGB white, alpha =
+ *                              foam) for open-water crest streaks.
  */
 export const ART_BASE = `${import.meta.env.BASE_URL ?? '/'}art/`;
 

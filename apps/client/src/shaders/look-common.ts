@@ -14,6 +14,10 @@
  * Host shaders must declare `lightDirection` (towards the sun) and
  * `cameraPosition` themselves; this chunk only adds the `uFF*` uniforms and
  * the `shadowMap` texture.
+ *
+ * uFFShadowDepth mirrors Babylon's shadow-depth metric: x = depth min, y =
+ * min + max, z = 1 when the map is packed RGBA8, w = clip-z sign (-1 with a
+ * reverse depth buffer), so depth = (w * clip.z + x) / y.
  */
 
 /** Uniform names added by {@link LOOK_FRAGMENT_GLSL} / {@link LOOK_FRAGMENT_WGSL}. */
@@ -61,7 +65,7 @@ float ffShadow(vec3 worldPos, vec3 normal, float ndl) {
   vec4 lightClip = uFFLightMatrix * vec4(offsetPos, 1.0);
   vec3 clip = lightClip.xyz / lightClip.w;
   float edge = max(abs(clip.x), abs(clip.y));
-  float depth = (clip.z + uFFShadowDepth.x) / uFFShadowDepth.y;
+  float depth = (uFFShadowDepth.w * clip.z + uFFShadowDepth.x) / uFFShadowDepth.y;
   if (edge > 0.995 || depth > 0.999) return 1.0;
   vec2 st = (clip.xy * 0.5 + 0.5) / texel - 0.5;
   vec2 cell = floor(st);
@@ -129,7 +133,7 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
 
   float shadeAmount = 1.0 - lightLevel;
   float hatchMain = 1.0 - smoothstep(0.12, 0.24, hatch);
-  float hatchCross = (1.0 - smoothstep(0.42, 0.52, hatch)) * smoothstep(0.1, -0.35, ndl);
+  float hatchCross = (1.0 - smoothstep(0.42, 0.52, hatch)) * (1.0 - smoothstep(-0.35, 0.1, ndl));
   float shadeLuma = dot(shade, vec3(0.299, 0.587, 0.114));
   float hatchMask = max(hatchMain, hatchCross * 0.6) * smoothstep(0.7, 0.98, shadeAmount) * (1.0 - smoothstep(0.32, 0.62, shadeLuma));
   color *= 1.0 - hatchMask * uFFToonParams.w;
@@ -187,7 +191,7 @@ fn ffShadow(worldPos : vec3f, normal : vec3f, ndl : f32) -> f32 {
   let lightClip = uniforms.uFFLightMatrix * vec4f(offsetPos, 1.0);
   let clip = lightClip.xyz / lightClip.w;
   let edge = max(abs(clip.x), abs(clip.y));
-  let depth = (clip.z + uniforms.uFFShadowDepth.x) / uniforms.uFFShadowDepth.y;
+  let depth = (uniforms.uFFShadowDepth.w * clip.z + uniforms.uFFShadowDepth.x) / uniforms.uFFShadowDepth.y;
   if (edge > 0.995 || depth > 0.999) { return 1.0; }
   let st = (clip.xy * 0.5 + 0.5) / texel - 0.5;
   let cell = floor(st);
@@ -254,7 +258,7 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
 
   let shadeAmount = 1.0 - lightLevel;
   let hatchMain = 1.0 - smoothstep(0.12, 0.24, hatch);
-  let hatchCross = (1.0 - smoothstep(0.42, 0.52, hatch)) * smoothstep(0.1, -0.35, ndl);
+  let hatchCross = (1.0 - smoothstep(0.42, 0.52, hatch)) * (1.0 - smoothstep(-0.35, 0.1, ndl));
   let shadeLuma = dot(shade, vec3f(0.299, 0.587, 0.114));
   let hatchMask = max(hatchMain, hatchCross * 0.6) * smoothstep(0.7, 0.98, shadeAmount) * (1.0 - smoothstep(0.32, 0.62, shadeLuma));
   color *= 1.0 - hatchMask * uniforms.uFFToonParams.w;

@@ -2,8 +2,9 @@
  * Painterly post stack (see rendering/scene-look.ts for the pass order):
  *
  *   1. ffPaint  (high/medium) generalized Kuwahara with 8 overlapping
- *      sectors sampled on polar rings. Flattens surfaces into brush-like
- *      patches while keeping hard colour edges, so the frame reads as paint.
+ *      sectors sampled on polar rings (the centre plus 16 taps per ring; 3
+ *      rings on high, 2 on medium). Flattens surfaces into brush-like patches while keeping
+ *      hard colour edges, so the frame reads as paint.
  *   2. ffComic  (all tiers) screen-space ink outlines from the geometry
  *      buffer (depth + view normals), hand-drawn wobble and width variation,
  *      paper grain, colour grading towards the reference palette, vignette.
@@ -22,53 +23,71 @@ uniform sampler2D textureSampler;
 uniform vec2 uTexel;
 uniform vec4 uPaintParams;
 
-const float TAU = 6.2831853;
+// Rings of 16 taps at j * TAU / 16; ring 2 is staggered by half a step
+// (TAU / 32). Sector k (45 degrees) owns taps j = 2k and 2k + 1 of every ring,
+// so it is summed directly and the +-1 neighbour spread (0.4) is applied once
+// after sampling: no runtime-indexed arrays, no per-tap trigonometry.
+const vec2 FF_HALF_STEP = vec2(0.98078528, 0.19509032);
+
+vec2 ffStagger(vec2 d) {
+  return vec2(d.x * FF_HALF_STEP.x - d.y * FF_HALF_STEP.y, d.x * FF_HALF_STEP.y + d.y * FF_HALF_STEP.x);
+}
+
+// Colour sum (s) and squared-colour sum (q) of one sector over all rings.
+void ffSector(vec2 a, vec2 b, vec2 ringStep, float rings, out vec3 s, out vec3 q) {
+  vec3 c0 = texture2D(textureSampler, vUV + a * ringStep).rgb;
+  vec3 c1 = texture2D(textureSampler, vUV + b * ringStep).rgb;
+  s = c0 + c1;
+  q = c0 * c0 + c1 * c1;
+  if (rings > 1.5) {
+    vec3 c2 = texture2D(textureSampler, vUV + ffStagger(a) * ringStep * 2.0).rgb;
+    vec3 c3 = texture2D(textureSampler, vUV + ffStagger(b) * ringStep * 2.0).rgb;
+    s += c2 + c3;
+    q += c2 * c2 + c3 * c3;
+  }
+  if (rings > 2.5) {
+    vec3 c4 = texture2D(textureSampler, vUV + a * ringStep * 3.0).rgb;
+    vec3 c5 = texture2D(textureSampler, vUV + b * ringStep * 3.0).rgb;
+    s += c4 + c5;
+    q += c4 * c4 + c5 * c5;
+  }
+}
+
+// Weighted sector mean (rgb) and its Kuwahara weight (a).
+vec4 ffBlend(vec3 center, vec3 center2, vec3 s, vec3 q, vec3 sl, vec3 ql, vec3 sr, vec3 qr, float invWeight) {
+  vec3 m = (center + s + 0.4 * (sl + sr)) * invWeight;
+  vec3 v = abs((center2 + q + 0.4 * (ql + qr)) * invWeight - m * m);
+  float sigma = (v.r + v.g + v.b) * uPaintParams.z;
+  float w = 1.0 / (1.0 + sigma * sigma * sigma * sigma);
+  return vec4(m * w, w);
+}
 
 void main(void) {
   vec3 center = texture2D(textureSampler, vUV).rgb;
-  vec3 mean[8];
-  vec3 square[8];
-  float weight[8];
-  for (int k = 0; k < 8; k++) {
-    mean[k] = center;
-    square[k] = center * center;
-    weight[k] = 1.0;
-  }
-  float radius = uPaintParams.x;
-  int rings = int(uPaintParams.y);
-  for (int ring = 1; ring <= 3; ring++) {
-    if (ring > rings) break;
-    float ringRadius = radius * float(ring) / float(rings);
-    for (int stepIndex = 0; stepIndex < 16; stepIndex++) {
-      float angle = (float(stepIndex) + (ring == 2 ? 0.5 : 0.0)) * (TAU / 16.0);
-      vec2 offset = vec2(cos(angle), sin(angle)) * ringRadius;
-      vec3 c = texture2D(textureSampler, vUV + offset * uTexel).rgb;
-      vec3 c2 = c * c;
-      int sector = int(floor(angle / (TAU / 8.0)));
-      int left = sector == 0 ? 7 : sector - 1;
-      int right = sector == 7 ? 0 : sector + 1;
-      mean[sector] += c;
-      square[sector] += c2;
-      weight[sector] += 1.0;
-      mean[left] += c * 0.4;
-      square[left] += c2 * 0.4;
-      weight[left] += 0.4;
-      mean[right] += c * 0.4;
-      square[right] += c2 * 0.4;
-      weight[right] += 0.4;
-    }
-  }
-  vec3 total = vec3(0.0);
-  float totalWeight = 0.0;
-  for (int k = 0; k < 8; k++) {
-    vec3 m = mean[k] / weight[k];
-    vec3 v = abs(square[k] / weight[k] - m * m);
-    float sigma = (v.r + v.g + v.b) * uPaintParams.z;
-    float w = 1.0 / (1.0 + sigma * sigma * sigma * sigma);
-    total += m * w;
-    totalWeight += w;
-  }
-  vec3 painted = total / max(totalWeight, 0.0001);
+  float rings = clamp(floor(uPaintParams.y), 1.0, 3.0);
+  vec2 ringStep = uTexel * (uPaintParams.x / rings);
+  vec3 s0; vec3 q0; vec3 s1; vec3 q1; vec3 s2; vec3 q2; vec3 s3; vec3 q3;
+  vec3 s4; vec3 q4; vec3 s5; vec3 q5; vec3 s6; vec3 q6; vec3 s7; vec3 q7;
+  ffSector(vec2(1.0, 0.0), vec2(0.92387953, 0.38268343), ringStep, rings, s0, q0);
+  ffSector(vec2(0.70710678, 0.70710678), vec2(0.38268343, 0.92387953), ringStep, rings, s1, q1);
+  ffSector(vec2(0.0, 1.0), vec2(-0.38268343, 0.92387953), ringStep, rings, s2, q2);
+  ffSector(vec2(-0.70710678, 0.70710678), vec2(-0.92387953, 0.38268343), ringStep, rings, s3, q3);
+  ffSector(vec2(-1.0, 0.0), vec2(-0.92387953, -0.38268343), ringStep, rings, s4, q4);
+  ffSector(vec2(-0.70710678, -0.70710678), vec2(-0.38268343, -0.92387953), ringStep, rings, s5, q5);
+  ffSector(vec2(0.0, -1.0), vec2(0.38268343, -0.92387953), ringStep, rings, s6, q6);
+  ffSector(vec2(0.70710678, -0.70710678), vec2(0.92387953, -0.38268343), ringStep, rings, s7, q7);
+  // Every sector weighs the centre once plus 2 + 0.4 * 4 taps per ring.
+  float invWeight = 1.0 / (1.0 + 3.6 * rings);
+  vec3 c2 = center * center;
+  vec4 acc = ffBlend(center, c2, s0, q0, s7, q7, s1, q1, invWeight);
+  acc += ffBlend(center, c2, s1, q1, s0, q0, s2, q2, invWeight);
+  acc += ffBlend(center, c2, s2, q2, s1, q1, s3, q3, invWeight);
+  acc += ffBlend(center, c2, s3, q3, s2, q2, s4, q4, invWeight);
+  acc += ffBlend(center, c2, s4, q4, s3, q3, s5, q5, invWeight);
+  acc += ffBlend(center, c2, s5, q5, s4, q4, s6, q6, invWeight);
+  acc += ffBlend(center, c2, s6, q6, s5, q5, s7, q7, invWeight);
+  acc += ffBlend(center, c2, s7, q7, s6, q6, s0, q0, invWeight);
+  vec3 painted = acc.rgb / max(acc.a, 0.0001);
   gl_FragColor = vec4(mix(center, painted, uPaintParams.w), 1.0);
 }
 `;
@@ -80,58 +99,75 @@ var textureSampler : texture_2d<f32>;
 uniform uTexel : vec2f;
 uniform uPaintParams : vec4f;
 
-const TAU : f32 = 6.2831853;
+const FF_HALF_STEP : vec2f = vec2f(0.98078528, 0.19509032);
+
+struct FFSectorSum {
+  s : vec3f,
+  q : vec3f,
+};
+
+fn ffStagger(d : vec2f) -> vec2f {
+  return vec2f(d.x * FF_HALF_STEP.x - d.y * FF_HALF_STEP.y, d.x * FF_HALF_STEP.y + d.y * FF_HALF_STEP.x);
+}
+
+fn ffTap(uv : vec2f) -> vec3f {
+  return textureSampleLevel(textureSampler, textureSamplerSampler, uv, 0.0).rgb;
+}
+
+fn ffSector(uv : vec2f, a : vec2f, b : vec2f, ringStep : vec2f, rings : f32) -> FFSectorSum {
+  let c0 = ffTap(uv + a * ringStep);
+  let c1 = ffTap(uv + b * ringStep);
+  var sum : FFSectorSum;
+  sum.s = c0 + c1;
+  sum.q = c0 * c0 + c1 * c1;
+  if (rings > 1.5) {
+    let c2 = ffTap(uv + ffStagger(a) * ringStep * 2.0);
+    let c3 = ffTap(uv + ffStagger(b) * ringStep * 2.0);
+    sum.s += c2 + c3;
+    sum.q += c2 * c2 + c3 * c3;
+  }
+  if (rings > 2.5) {
+    let c4 = ffTap(uv + a * ringStep * 3.0);
+    let c5 = ffTap(uv + b * ringStep * 3.0);
+    sum.s += c4 + c5;
+    sum.q += c4 * c4 + c5 * c5;
+  }
+  return sum;
+}
+
+fn ffBlend(center : vec3f, center2 : vec3f, k : FFSectorSum, l : FFSectorSum, r : FFSectorSum, invWeight : f32) -> vec4f {
+  let m = (center + k.s + 0.4 * (l.s + r.s)) * invWeight;
+  let v = abs((center2 + k.q + 0.4 * (l.q + r.q)) * invWeight - m * m);
+  let sigma = (v.r + v.g + v.b) * uniforms.uPaintParams.z;
+  let w = 1.0 / (1.0 + sigma * sigma * sigma * sigma);
+  return vec4f(m * w, w);
+}
 
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
-  let center = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV, 0.0).rgb;
-  var mean : array<vec3f, 8>;
-  var square : array<vec3f, 8>;
-  var weight : array<f32, 8>;
-  for (var k = 0; k < 8; k++) {
-    mean[k] = center;
-    square[k] = center * center;
-    weight[k] = 1.0;
-  }
-  let radius = uniforms.uPaintParams.x;
-  let rings = i32(uniforms.uPaintParams.y);
-  for (var ring = 1; ring <= 3; ring++) {
-    if (ring > rings) { break; }
-    let ringRadius = radius * f32(ring) / f32(rings);
-    for (var stepIndex = 0; stepIndex < 16; stepIndex++) {
-      var shift = 0.0;
-      if (ring == 2) { shift = 0.5; }
-      let angle = (f32(stepIndex) + shift) * (TAU / 16.0);
-      let offset = vec2f(cos(angle), sin(angle)) * ringRadius;
-      let c = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + offset * uniforms.uTexel, 0.0).rgb;
-      let c2 = c * c;
-      let sector = i32(floor(angle / (TAU / 8.0)));
-      var left = sector - 1;
-      if (sector == 0) { left = 7; }
-      var right = sector + 1;
-      if (sector == 7) { right = 0; }
-      mean[sector] += c;
-      square[sector] += c2;
-      weight[sector] += 1.0;
-      mean[left] += c * 0.4;
-      square[left] += c2 * 0.4;
-      weight[left] += 0.4;
-      mean[right] += c * 0.4;
-      square[right] += c2 * 0.4;
-      weight[right] += 0.4;
-    }
-  }
-  var total = vec3f(0.0);
-  var totalWeight = 0.0;
-  for (var k = 0; k < 8; k++) {
-    let m = mean[k] / weight[k];
-    let v = abs(square[k] / weight[k] - m * m);
-    let sigma = (v.r + v.g + v.b) * uniforms.uPaintParams.z;
-    let w = 1.0 / (1.0 + sigma * sigma * sigma * sigma);
-    total += m * w;
-    totalWeight += w;
-  }
-  let painted = total / max(totalWeight, 0.0001);
+  let uv = input.vUV;
+  let center = ffTap(uv);
+  let rings = clamp(floor(uniforms.uPaintParams.y), 1.0, 3.0);
+  let ringStep = uniforms.uTexel * (uniforms.uPaintParams.x / rings);
+  let k0 = ffSector(uv, vec2f(1.0, 0.0), vec2f(0.92387953, 0.38268343), ringStep, rings);
+  let k1 = ffSector(uv, vec2f(0.70710678, 0.70710678), vec2f(0.38268343, 0.92387953), ringStep, rings);
+  let k2 = ffSector(uv, vec2f(0.0, 1.0), vec2f(-0.38268343, 0.92387953), ringStep, rings);
+  let k3 = ffSector(uv, vec2f(-0.70710678, 0.70710678), vec2f(-0.92387953, 0.38268343), ringStep, rings);
+  let k4 = ffSector(uv, vec2f(-1.0, 0.0), vec2f(-0.92387953, -0.38268343), ringStep, rings);
+  let k5 = ffSector(uv, vec2f(-0.70710678, -0.70710678), vec2f(-0.38268343, -0.92387953), ringStep, rings);
+  let k6 = ffSector(uv, vec2f(0.0, -1.0), vec2f(0.38268343, -0.92387953), ringStep, rings);
+  let k7 = ffSector(uv, vec2f(0.70710678, -0.70710678), vec2f(0.92387953, -0.38268343), ringStep, rings);
+  let invWeight = 1.0 / (1.0 + 3.6 * rings);
+  let c2 = center * center;
+  var acc = ffBlend(center, c2, k0, k7, k1, invWeight);
+  acc += ffBlend(center, c2, k1, k0, k2, invWeight);
+  acc += ffBlend(center, c2, k2, k1, k3, invWeight);
+  acc += ffBlend(center, c2, k3, k2, k4, invWeight);
+  acc += ffBlend(center, c2, k4, k3, k5, invWeight);
+  acc += ffBlend(center, c2, k5, k4, k6, invWeight);
+  acc += ffBlend(center, c2, k6, k5, k7, invWeight);
+  acc += ffBlend(center, c2, k7, k6, k0, invWeight);
+  let painted = acc.rgb / max(acc.a, 0.0001);
   fragmentOutputs.color = vec4f(mix(center, painted, uniforms.uPaintParams.w), 1.0);
 }
 `;

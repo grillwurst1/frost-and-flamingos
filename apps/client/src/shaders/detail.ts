@@ -16,9 +16,11 @@
  *   alpha >= 0.75      AUTO: classified from albedo + slope (terrain, untagged props)
  *   alpha < 0.75       explicit id = floor(alpha * 32)
  *
- * GLSL and WGSL blocks must stay equivalent. WGSL note: implicit-derivative
- * sampling needs uniform control flow, so the WGSL path samples with
- * `textureSampleGrad` using `dpdx/dpdy(localPos)` taken at the top of `main`.
+ * GLSL and WGSL blocks must stay equivalent. Both sample with explicit
+ * gradients (`textureGrad` / `textureSampleGrad`) from `dFdx/dFdy` (`dpdx/dpdy`)
+ * of localPos taken at the top of the host `main`: WGSL needs uniform control
+ * flow for implicit derivatives, and the per-pixel dominant-plane switch on
+ * medium would otherwise break mip selection along plane seams.
  * Natural surfaces (detailB) get a second rotated, 0.37x copy blended in by
  * low-frequency noise to hide tiling.
  */
@@ -38,55 +40,71 @@ float ffIsId(float id, float k) {
   return 1.0 - step(0.5, abs(id - k));
 }
 
-vec4 ffTriplanar(sampler2D tex, vec3 p, vec3 w, float scale) {
-  vec4 sx = texture2D(tex, vec2(p.z, -p.y) * scale);
-  vec4 sy = texture2D(tex, vec2(p.x, p.z) * scale);
-  vec4 sz = texture2D(tex, vec2(p.x, -p.y) * scale);
-  return sx * w.x + sy * w.y + sz * w.z;
+vec2 ffPlaneUv(vec3 p, int axis) {
+  if (axis == 0) return vec2(p.z, -p.y);
+  if (axis == 1) return vec2(p.x, p.z);
+  return vec2(p.x, -p.y);
 }
 
-vec4 ffDominant(sampler2D tex, vec3 p, vec3 w, float scale) {
-  vec2 uv = w.x > w.y && w.x > w.z ? vec2(p.z, -p.y) : (w.y > w.z ? vec2(p.x, p.z) : vec2(p.x, -p.y));
-  return texture2D(tex, uv * scale);
+// Explicit-gradient sampling (same as the WGSL path): the derivatives are taken
+// once in main, so the per-pixel dominant-plane switch never breaks mip selection.
+vec4 ffSampleGrad(sampler2D tex, vec3 p, vec3 dpx, vec3 dpy, int axis, float scale) {
+  return textureGrad(tex, ffPlaneUv(p, axis) * scale, ffPlaneUv(dpx, axis) * scale, ffPlaneUv(dpy, axis) * scale);
+}
+
+vec4 ffTriplanar(sampler2D tex, vec3 p, vec3 dpx, vec3 dpy, vec3 w, float scale) {
+  return ffSampleGrad(tex, p, dpx, dpy, 0, scale) * w.x
+    + ffSampleGrad(tex, p, dpx, dpy, 1, scale) * w.y
+    + ffSampleGrad(tex, p, dpx, dpy, 2, scale) * w.z;
+}
+
+int ffDominantAxis(vec3 w) {
+  if (w.x > w.y && w.x > w.z) return 0;
+  if (w.y > w.z) return 1;
+  return 2;
 }
 
 // Anti-tiling: a second, larger and rotated copy of the tile blended in by
 // low-frequency noise, so big snowfields and beaches do not repeat visibly.
 const mat2 FF_ROT = mat2(0.7986, 0.6018, -0.6018, 0.7986);
 
+// Polynomial hash (no transcendentals: reproducible on every backend).
+float ffDetailHash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
 float ffDetailNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
   vec2 u = f * f * (3.0 - 2.0 * f);
-  float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453);
-  float b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(127.1, 311.7))) * 43758.5453);
-  float c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(127.1, 311.7))) * 43758.5453);
-  float d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(127.1, 311.7))) * 43758.5453);
+  float a = ffDetailHash(i);
+  float b = ffDetailHash(i + vec2(1.0, 0.0));
+  float c = ffDetailHash(i + vec2(0.0, 1.0));
+  float d = ffDetailHash(i + vec2(1.0, 1.0));
   return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-vec4 ffAntiTile(sampler2D tex, vec2 uv, float blend) {
-  vec4 near = texture2D(tex, uv);
-  vec4 far = texture2D(tex, FF_ROT * (uv * 0.37) + vec2(0.31, 0.57));
+vec4 ffAntiTile(sampler2D tex, vec3 p, vec3 dpx, vec3 dpy, int axis, float scale, float blend) {
+  vec2 uv = ffPlaneUv(p, axis) * scale;
+  vec2 gx = ffPlaneUv(dpx, axis) * scale;
+  vec2 gy = ffPlaneUv(dpy, axis) * scale;
+  vec4 near = textureGrad(tex, uv, gx, gy);
+  vec4 far = textureGrad(tex, FF_ROT * (uv * 0.37) + vec2(0.31, 0.57), FF_ROT * (gx * 0.37), FF_ROT * (gy * 0.37));
   vec4 mixed = mix(near, far, blend);
   float spread = 1.0 + 0.35 * (1.0 - abs(blend * 2.0 - 1.0));
   return (mixed - 0.5) * spread + 0.5;
 }
 
-vec4 ffTriplanarAT(sampler2D tex, vec3 p, vec3 w, float scale, float blend) {
-  vec4 sx = ffAntiTile(tex, vec2(p.z, -p.y) * scale, blend);
-  vec4 sy = ffAntiTile(tex, vec2(p.x, p.z) * scale, blend);
-  vec4 sz = ffAntiTile(tex, vec2(p.x, -p.y) * scale, blend);
-  return sx * w.x + sy * w.y + sz * w.z;
-}
-
-vec4 ffDominantAT(sampler2D tex, vec3 p, vec3 w, float scale, float blend) {
-  vec2 uv = w.x > w.y && w.x > w.z ? vec2(p.z, -p.y) : (w.y > w.z ? vec2(p.x, p.z) : vec2(p.x, -p.y));
-  return ffAntiTile(tex, uv * scale, blend);
+vec4 ffTriplanarAT(sampler2D tex, vec3 p, vec3 dpx, vec3 dpy, vec3 w, float scale, float blend) {
+  return ffAntiTile(tex, p, dpx, dpy, 0, scale, blend) * w.x
+    + ffAntiTile(tex, p, dpx, dpy, 1, scale, blend) * w.y
+    + ffAntiTile(tex, p, dpx, dpy, 2, scale, blend) * w.z;
 }
 
 // Returns albedo in rgb and a packed extra in the out params.
-vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos, out float gloss, out float hatch) {
+vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos, vec3 dpx, vec3 dpy, out float gloss, out float hatch) {
   vec3 base = vertexColor.rgb;
   gloss = 0.0;
   hatch = 1.0;
@@ -102,13 +120,14 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
   vec4 b;
   vec4 c;
   if (mode > 1.5) {
-    a = ffTriplanar(detailA, localPos, w, uFFDetailScale.x);
-    b = ffTriplanarAT(detailB, localPos, w, uFFDetailScale.y, tileBlend);
-    c = ffTriplanar(detailC, localPos, w, uFFDetailScale.z);
+    a = ffTriplanar(detailA, localPos, dpx, dpy, w, uFFDetailScale.x);
+    b = ffTriplanarAT(detailB, localPos, dpx, dpy, w, uFFDetailScale.y, tileBlend);
+    c = ffTriplanar(detailC, localPos, dpx, dpy, w, uFFDetailScale.z);
   } else {
-    a = ffDominant(detailA, localPos, w, uFFDetailScale.x);
-    b = ffDominantAT(detailB, localPos, w, uFFDetailScale.y, tileBlend);
-    c = ffDominant(detailC, localPos, w, uFFDetailScale.z);
+    int axis = ffDominantAxis(w);
+    a = ffSampleGrad(detailA, localPos, dpx, dpy, axis, uFFDetailScale.x);
+    b = ffAntiTile(detailB, localPos, dpx, dpy, axis, uFFDetailScale.y, tileBlend);
+    c = ffSampleGrad(detailC, localPos, dpx, dpy, axis, uFFDetailScale.z);
   }
 
   float maxC = max(base.r, max(base.g, base.b));
@@ -215,14 +234,21 @@ fn ffDominantAxis(w : vec3f) -> i32 {
 
 const FF_ROT : mat2x2f = mat2x2f(0.7986, 0.6018, -0.6018, 0.7986);
 
+// Polynomial hash (no transcendentals: reproducible on every backend).
+fn ffDetailHash(p : vec2f) -> f32 {
+  var p3 = fract(vec3f(p.x, p.y, p.x) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
 fn ffDetailNoise(p : vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
   let u = f * f * (3.0 - 2.0 * f);
-  let a = fract(sin(dot(i, vec2f(127.1, 311.7))) * 43758.5453);
-  let b = fract(sin(dot(i + vec2f(1.0, 0.0), vec2f(127.1, 311.7))) * 43758.5453);
-  let c = fract(sin(dot(i + vec2f(0.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
-  let d = fract(sin(dot(i + vec2f(1.0, 1.0), vec2f(127.1, 311.7))) * 43758.5453);
+  let a = ffDetailHash(i);
+  let b = ffDetailHash(i + vec2f(1.0, 0.0));
+  let c = ffDetailHash(i + vec2f(0.0, 1.0));
+  let d = ffDetailHash(i + vec2f(1.0, 1.0));
   return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 

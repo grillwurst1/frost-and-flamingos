@@ -257,7 +257,9 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let normal = normalize(vec3f(-dx + ripple.x * 0.09, 1.0, -dz + ripple.y * 0.09));
 
   let sceneZ = textureSampleLevel(sceneDepth, sceneDepthSampler, fragmentInputs.position.xy * uniforms.uFFScreen.xy, 0.0).r;
-  let painted = textureSampleLevel(foamTex, foamTexSampler, worldPos.xz * 0.045 + vec2f(time * 0.006, time * 0.002), 0.0).a;
+  // Implicit-LOD sample at the top of main (uniform control flow) so open-water
+  // crest streaks use the mip chain like the GLSL texture2D path.
+  let painted = textureSample(foamTex, foamTexSampler, worldPos.xz * 0.045 + vec2f(time * 0.006, time * 0.002)).a;
   var depth = input.vColor.g * 16.0;
   if (uniforms.uWaterParams.x > 0.5) {
     let ray = -toCamera / max(distanceToCamera, 0.0001);

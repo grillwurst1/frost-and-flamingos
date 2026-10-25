@@ -255,7 +255,6 @@ export function registerLookMaterial(
 }
 
 export function applyLookToAll(context: LookContext): void {
-  for (const [material, role] of context.materials) {
-    applyLook(material, role, context);
-  }
+  // forEach instead of for..of: no per-frame iterator allocation.
+  context.materials.forEach((role, material) => applyLook(material, role, context));
 }

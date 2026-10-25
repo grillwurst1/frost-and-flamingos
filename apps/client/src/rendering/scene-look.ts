@@ -4,7 +4,6 @@ import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import '@babylonjs/core/Rendering/geometryBufferRendererSceneComponent';
 import type { Camera } from '@babylonjs/core/Cameras/camera';
 import { Constants } from '@babylonjs/core/Engines/constants';
-import { ShaderStore } from '@babylonjs/core/Engines/shaderStore';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
@@ -22,16 +21,7 @@ import { GeometryBufferRenderer } from '@babylonjs/core/Rendering/geometryBuffer
 import type { Scene } from '@babylonjs/core/scene';
 import type { Nullable } from '@babylonjs/core/types';
 import { WATER_LEVEL } from '@frost-and-flamingos/shared';
-import { phase } from '../state/game';
-import {
-  COMIC_SAMPLERS,
-  COMIC_UNIFORMS,
-  PAINT_UNIFORMS,
-  comicFragmentGLSL,
-  comicFragmentWGSL,
-  paintFragmentGLSL,
-  paintFragmentWGSL,
-} from '../shaders/post';
+import { COMIC_SAMPLERS, COMIC_UNIFORMS, PAINT_UNIFORMS } from '../shaders/post';
 import { PANORAMA_HORIZON_V, PANORAMA_RADIANS_PER_V, artUrl, loadArtImage, probeArt } from './art-assets';
 import { createDetailTextures, type DetailTextureSet } from './detail-textures';
 import { applyLookToAll, getLookContext, type LookContext, type LookValues } from './look-state';
@@ -41,10 +31,12 @@ import {
   createCloudMaterial,
   excludeFromInk,
   excludeFromShadows,
+  hexToColor3,
   isInkExcluded,
   isLookSolidMaterial,
   isShadowExcluded,
   isWaterMaterial,
+  registerLookPostShaders,
 } from './materials';
 
 /**
@@ -58,17 +50,24 @@ import {
  *   g-buffer    GeometryBufferRenderer (view depth + view normals) of every
  *               solid mesh. Feeds the ink outlines and the water depth foam.
  *   post        ffPaint (generalized Kuwahara, high/medium) -> ffComic (ink,
- *               paper grain, grading, vignette; every tier).
+ *               paper grain, grading, vignette; every tier). Scene MSAA lives
+ *               on the first pass's render target; the swapchain has none.
  *   sky/water   uniforms + optional painted panorama/cloud billboards.
  *
- * Quality tiers: high (default) / medium / low via {@link SceneLook.setVisualQuality}.
+ * Quality tiers: high / medium / low via {@link SceneLook.setVisualQuality}.
+ * GameClient picks the tier (player setting, GPU class, frame-time governor;
+ * see rendering/gpu-tier.ts and state/graphics.ts). Medium and low also cap
+ * the effective device pixel ratio.
  * Weather: {@link SceneLook.setWeatherLook} (-1 icy, 0 azure, +1 golden).
  */
 export type VisualQuality = 'high' | 'medium' | 'low';
 
-const QUALITY_STORAGE_KEY = 'frost-and-flamingos.visualQuality';
 const SHADOW_FRUSTUM = 130;
 const SHADOW_DEPTH_RANGE = 420;
+/** Painted cloud ring radius: behind every map silhouette, inside the 1600 m sky. */
+const CLOUD_RING_DISTANCE = 1550;
+/** The cloud layout widths below were authored for a 1350 m ring. */
+const CLOUD_WIDTH_SCALE = CLOUD_RING_DISTANCE / 1350;
 const CLOUD_FILES = ['01', '02', '03', '04', '05', '06', '07', '08'].map((id) => `clouds/cloud-${id}.png`);
 
 interface QualityProfile {
@@ -84,8 +83,11 @@ interface QualityProfile {
   shadowSize: number;
   /** 2 = 12-tap filtered PCF, 1 = 4-tap bilinear PCF. */
   shadowFilter: number;
+  /** Scene MSAA on the first post-process target (WebGPU only knows 1 or 4). */
   msaa: number;
   wobble: number;
+  /** Cap on the effective device pixel ratio (render scale on HiDPI panels). */
+  maxPixelRatio: number;
 }
 
 const QUALITY: Record<VisualQuality, QualityProfile> = {
@@ -102,6 +104,7 @@ const QUALITY: Record<VisualQuality, QualityProfile> = {
     shadowFilter: 2,
     msaa: 4,
     wobble: 1.6,
+    maxPixelRatio: Number.POSITIVE_INFINITY,
   },
   medium: {
     paint: true,
@@ -114,8 +117,11 @@ const QUALITY: Record<VisualQuality, QualityProfile> = {
     sharpen: 0.4,
     shadowSize: 2048,
     shadowFilter: 2,
-    msaa: 2,
+    // No MSAA: WebGPU would round 2x up to 4x, and the ink pass redraws most
+    // geometric edges from the single-sample g-buffer anyway.
+    msaa: 1,
     wobble: 1.2,
+    maxPixelRatio: 1.5,
   },
   low: {
     paint: false,
@@ -130,6 +136,7 @@ const QUALITY: Record<VisualQuality, QualityProfile> = {
     shadowFilter: 1,
     msaa: 1,
     wobble: 0,
+    maxPixelRatio: 1,
   },
 };
 
@@ -158,9 +165,7 @@ interface WeatherPreset {
   tint: Color3;
 }
 
-function hex(value: string): Color3 {
-  return Color3.FromHexString(value);
-}
+const hex = hexToColor3;
 
 const WEATHER_NEUTRAL: WeatherPreset = {
   zenith: hex('#3E8FE0'),
@@ -264,6 +269,9 @@ interface DevHandle {
 }
 
 export class SceneLook {
+  private static readonly FORWARD = new Vector3(0, 0, 1);
+  private static readonly RIGHT = new Vector3(1, 0, 0);
+  private static readonly UP = new Vector3(0, 1, 0);
   readonly scene: Scene;
   readonly camera: Camera;
   readonly sun: DirectionalLight;
@@ -294,7 +302,7 @@ export class SceneLook {
   private disposed = false;
   /** True while the opaque loading screen covers the canvas. */
   private booting = true;
-  private readonly unsubscribePhase: () => void;
+  private readonly tmpWater = new Color3();
   private readonly tmpForward = new Vector3();
   private readonly tmpRight = new Vector3();
   private readonly tmpUp = new Vector3();
@@ -304,7 +312,7 @@ export class SceneLook {
   private readonly shadowRight = new Vector3();
   private readonly shadowUp = new Vector3();
 
-  constructor(scene: Scene, camera: Camera) {
+  constructor(scene: Scene, camera: Camera, initialQuality: VisualQuality) {
     this.scene = scene;
     this.camera = camera;
     this.webgpu = scene.getEngine().isWebGPU;
@@ -349,15 +357,9 @@ export class SceneLook {
       values.waterParams.x = 1;
     }
 
-    this.setVisualQuality(this.readStoredQuality(), false);
+    this.setVisualQuality(initialQuality);
     this.setWeatherLook(0);
-    // While the loading screen hides the canvas, skip the shadow map, g-buffer
-    // and post passes: slow machines need every millisecond to finish booting.
-    this.unsubscribePhase = phase.subscribe((next) => {
-      this.booting = next === 'booting';
-      scene.renderTargetsEnabled = !this.booting;
-      scene.postProcessesEnabled = !this.booting;
-    });
+    this.setBooting(true);
     void this.loadPaintedSky();
     this.installDevHandle();
   }
@@ -380,7 +382,8 @@ export class SceneLook {
     return this.quality;
   }
 
-  setVisualQuality(tier: VisualQuality, persist = true): void {
+  /** Applies a tier. Persistence and the choice itself belong to GameClient / state/graphics. */
+  setVisualQuality(tier: VisualQuality): void {
     if (this.disposed) return;
     this.quality = tier;
     const profile = QUALITY[tier];
@@ -392,13 +395,18 @@ export class SceneLook {
     this.ensureShadows(profile.shadowSize);
     values.shadowParams.w = profile.shadowFilter;
     this.ensurePostProcesses(profile);
-    if (persist) {
-      try {
-        window.localStorage.setItem(QUALITY_STORAGE_KEY, tier);
-      } catch {
-        // Storage may be unavailable (private mode); the tier still applies.
-      }
-    }
+    this.applyPixelRatio(profile.maxPixelRatio);
+  }
+
+  /**
+   * While the opaque loading screen hides the canvas, skip the shadow map,
+   * g-buffer and post passes: slow machines need every millisecond to boot.
+   */
+  setBooting(booting: boolean): void {
+    if (this.disposed) return;
+    this.booting = booting;
+    this.scene.renderTargetsEnabled = !booting;
+    this.scene.postProcessesEnabled = !booting;
   }
 
   /**
@@ -433,7 +441,7 @@ export class SceneLook {
     );
     v.hazeParams.x = n.hazeStart + (target.hazeStart - n.hazeStart) * t;
     v.cloudParams.x = this.hasPainterlyClouds ? 0 : n.cloudScale + (target.cloudScale - n.cloudScale) * t;
-    const water = new Color3();
+    const water = this.tmpWater;
     lerpColor3(n.waterShallow, target.waterShallow, t, water);
     v.waterShallow.set(water.r, water.g, water.b, 1);
     lerpColor3(n.waterMid, target.waterMid, t, water);
@@ -471,7 +479,7 @@ export class SceneLook {
     const engine = this.scene.getEngine();
     v.time = time;
     v.cameraPosition.copyFrom(camera.globalPosition);
-    camera.getDirectionToRef(Vector3.Forward(), this.tmpForward);
+    camera.getDirectionToRef(SceneLook.FORWARD, this.tmpForward);
     v.cameraForward.copyFrom(this.tmpForward);
     v.screen.set(1 / Math.max(1, engine.getRenderWidth()), 1 / Math.max(1, engine.getRenderHeight()), 0, 0);
 
@@ -491,11 +499,9 @@ export class SceneLook {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.unsubscribePhase();
     this.scene.renderTargetsEnabled = true;
     this.scene.postProcessesEnabled = true;
-    this.paintPass?.dispose(this.camera);
-    this.comicPass?.dispose(this.camera);
+    this.disposePostProcesses();
     this.shadowGenerator?.dispose();
     this.scene.disableGeometryBufferRenderer();
     this.detail.dispose();
@@ -510,31 +516,12 @@ export class SceneLook {
 
   // -------------------------------------------------------------------------
 
-  private readStoredQuality(): VisualQuality {
-    const isTier = (value: unknown): value is VisualQuality =>
-      value === 'high' || value === 'medium' || value === 'low';
-    try {
-      const fromUrl = new URLSearchParams(window.location.search).get('quality');
-      if (isTier(fromUrl)) return fromUrl;
-      const stored = window.localStorage.getItem(QUALITY_STORAGE_KEY);
-      if (isTier(stored)) return stored;
-    } catch {
-      // Ignore storage/URL access problems and keep the default tier.
-    }
-    return this.isSoftwareRenderer() ? 'low' : 'high';
-  }
-
-  /** CPU rasterisers (SwiftShader, llvmpipe) cannot carry the painterly passes. */
-  private isSoftwareRenderer(): boolean {
+  /** Caps the render scale on HiDPI panels (adaptToDeviceRatio renders at full DPR). */
+  private applyPixelRatio(maxRatio: number): void {
     const engine = this.scene.getEngine();
-    if (this.webgpu) return false;
-    try {
-      const info = (engine as unknown as { getGlInfo?: () => { renderer?: string; vendor?: string } }).getGlInfo?.();
-      const name = `${info?.renderer ?? ''} ${info?.vendor ?? ''}`.toLowerCase();
-      return /swiftshader|llvmpipe|softpipe|software/.test(name);
-    } catch {
-      return false;
-    }
+    const deviceRatio = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    const level = 1 / Math.min(deviceRatio, maxRatio);
+    if (Math.abs(engine.getHardwareScalingLevel() - level) > 0.001) engine.setHardwareScalingLevel(level);
   }
 
   private filterGeometryBuffer(list: Nullable<readonly AbstractMesh[]>, length: number): AbstractMesh[] {
@@ -557,16 +544,46 @@ export class SceneLook {
     if (!isLookSolidMaterial(mesh.material)) return false;
     if (this.visuals && mesh === this.visuals.terrainMesh) return false;
     if (mesh.name === 'fjord-terrain') return false;
-    const radius = mesh.getBoundingInfo().boundingSphere.radiusWorld;
-    if (radius > 360 && !(mesh instanceof Mesh && mesh.hasThinInstances)) return false;
-    return true;
+    const sphere = mesh.getBoundingInfo().boundingSphere;
+    const radius = sphere.radiusWorld;
+    // Map-spanning thin-instance batches: their sphere covers the whole map.
+    if (mesh instanceof Mesh && mesh.hasThinInstances) return true;
+    if (radius > 360) return false;
+    return this.insideShadowVolume(sphere.centerWorld, radius);
+  }
+
+  /**
+   * Light-space box test against the 130 m x 130 m x 420 m shadow window that
+   * fitShadowFrustum placed this frame (Babylon does not cull casters itself).
+   */
+  private insideShadowVolume(center: Vector3, radius: number): boolean {
+    const origin = this.shadowCenter;
+    const dx = center.x - origin.x;
+    const dy = center.y - origin.y;
+    const dz = center.z - origin.z;
+    // +1 m covers the texel snap between the stored and the snapped centre.
+    const half = SHADOW_FRUSTUM * 0.5 + radius + 1;
+    const right = this.shadowRight;
+    if (Math.abs(dx * right.x + dy * right.y + dz * right.z) > half) return false;
+    const up = this.shadowUp;
+    if (Math.abs(dx * up.x + dy * up.y + dz * up.z) > half) return false;
+    const direction = this.shadowDirection;
+    return Math.abs(dx * direction.x + dy * direction.y + dz * direction.z) <= SHADOW_DEPTH_RANGE * 0.5 + radius + 1;
   }
 
   private ensureShadows(size: number): void {
     const values = this.context.values;
     if (this.shadowGenerator && this.shadowGenerator.mapSize === size) return;
     this.shadowGenerator?.dispose();
-    const generator = new ShadowGenerator(size, this.sun, true, undefined, true);
+    const engine = this.scene.getEngine();
+    const caps = engine.getCaps();
+    // A red-only map needs a float or half-float target; the RGBA8 fallback
+    // keeps four channels so depth can be packed into them.
+    const floatTarget = Boolean(
+      (caps.textureFloatRender && caps.textureFloatLinearFiltering) ||
+        (caps.textureHalfFloatRender && caps.textureHalfFloatLinearFiltering),
+    );
+    const generator = new ShadowGenerator(size, this.sun, true, undefined, floatTarget);
     generator.filter = ShadowGenerator.FILTER_NONE;
     generator.bias = 0.00014;
     generator.normalBias = 0;
@@ -577,16 +594,16 @@ export class SceneLook {
       shadowMap.renderListPredicate = (mesh) => this.isShadowCaster(mesh);
       this.context.textures.shadowMap = shadowMap;
       const packed = shadowMap.textureType === Constants.TEXTURETYPE_UNSIGNED_BYTE ? 1 : 0;
-      const engine = this.scene.getEngine();
       const minZ = !engine.useReverseDepthBuffer && engine.isNDCHalfZRange ? 0 : 1;
       const maxZ = engine.useReverseDepthBuffer && engine.isNDCHalfZRange ? 0 : 1;
-      values.shadowDepth.set(minZ, minZ + maxZ, packed, 0);
+      values.shadowDepth.set(minZ, minZ + maxZ, packed, engine.useReverseDepthBuffer ? -1 : 1);
+      // One half-float ulp in [0.5, 1) is 1/2048 of the depth range; bias past it.
+      if (shadowMap.textureType === Constants.TEXTURETYPE_HALF_FLOAT) generator.bias = 0.0007;
     }
+    // Materials hold a reference to values.lightMatrix, so updating it in
+    // place reaches every toon and character shader.
     generator.onAfterShadowMapRenderObservable.add(() => {
       values.lightMatrix.copyFrom(generator.getTransformMatrix());
-      for (const [material, role] of this.context.materials) {
-        if (role === 'toon' || role === 'character') material.setMatrix('uFFLightMatrix', values.lightMatrix);
-      }
     });
     values.shadowParams.set(1 / size, (SHADOW_FRUSTUM / size) * 1.6, 1, 1);
     this.shadowGenerator = generator;
@@ -615,57 +632,67 @@ export class SceneLook {
     );
   }
 
-  private registerPostShaders(): void {
-    ShaderStore.ShadersStore.ffPaintPixelShader = paintFragmentGLSL;
-    ShaderStore.ShadersStoreWGSL.ffPaintPixelShader = paintFragmentWGSL;
-    ShaderStore.ShadersStore.ffComicPixelShader = comicFragmentGLSL;
-    ShaderStore.ShadersStoreWGSL.ffComicPixelShader = comicFragmentWGSL;
-  }
-
   private ensurePostProcesses(profile: QualityProfile): void {
-    const engine = this.scene.getEngine();
-    const language = this.webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL;
-    if (!this.comicPass) {
-      this.registerPostShaders();
-      this.paintPass = new PostProcess('ff-paint', 'ffPaint', {
-        uniforms: [...PAINT_UNIFORMS],
-        samplers: [],
-        size: 1,
-        camera: this.camera,
-        samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
-        engine,
-        shaderLanguage: language,
-      });
-      this.paintPass.onApplyObservable.add((effect) => {
-        const current = QUALITY[this.quality];
-        const height = engine.getRenderHeight();
-        const radius = Math.max(1, (current.paintRadius1080 * height) / 1080);
-        effect.setFloat2('uTexel', 1 / Math.max(1, engine.getRenderWidth()), 1 / Math.max(1, height));
-        effect.setFloat4('uPaintParams', radius, current.paintRings, 260, current.paintStrength);
-      });
-      this.comicPass = new PostProcess('ff-comic', 'ffComic', {
-        uniforms: [...COMIC_UNIFORMS],
-        samplers: [...COMIC_SAMPLERS],
-        size: 1,
-        camera: this.camera,
-        samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
-        engine,
-        shaderLanguage: language,
-      });
-      this.comicPass.onApplyObservable.add((effect) => this.bindComic(effect));
+    const wantPaint = profile.paint;
+    if (!this.comicPass || wantPaint !== (this.paintPass !== null)) {
+      // Rebuild the stack when ffPaint comes or goes: a detached pass would keep
+      // its MSAA targets alive, and new passes only attach at the chain's end.
+      this.disposePostProcesses();
+      registerLookPostShaders();
+      if (wantPaint) this.paintPass = this.createPaintPass();
+      this.comicPass = this.createComicPass();
     }
-    const paint = this.paintPass;
     const comic = this.comicPass;
-    if (!paint || !comic) return;
-    const attached = this.camera._postProcesses.includes(paint);
-    if (profile.paint && !attached) this.camera.attachPostProcess(paint, 0);
-    if (!profile.paint && attached) this.camera.detachPostProcess(paint);
-    if (profile.paint) {
-      paint.samples = profile.msaa;
+    if (!comic) return;
+    if (this.paintPass) {
+      this.paintPass.samples = profile.msaa;
       comic.samples = 1;
     } else {
       comic.samples = profile.msaa;
     }
+  }
+
+  private disposePostProcesses(): void {
+    this.paintPass?.dispose(this.camera);
+    this.paintPass = null;
+    this.comicPass?.dispose(this.camera);
+    this.comicPass = null;
+  }
+
+  private createPaintPass(): PostProcess {
+    const engine = this.scene.getEngine();
+    const pass = new PostProcess('ff-paint', 'ffPaint', {
+      uniforms: [...PAINT_UNIFORMS],
+      samplers: [],
+      size: 1,
+      camera: this.camera,
+      samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
+      engine,
+      shaderLanguage: this.webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
+    });
+    pass.onApplyObservable.add((effect) => {
+      const current = QUALITY[this.quality];
+      const height = engine.getRenderHeight();
+      const radius = Math.max(1, (current.paintRadius1080 * height) / 1080);
+      effect.setFloat2('uTexel', 1 / Math.max(1, engine.getRenderWidth()), 1 / Math.max(1, height));
+      effect.setFloat4('uPaintParams', radius, current.paintRings, 260, current.paintStrength);
+    });
+    return pass;
+  }
+
+  private createComicPass(): PostProcess {
+    const engine = this.scene.getEngine();
+    const pass = new PostProcess('ff-comic', 'ffComic', {
+      uniforms: [...COMIC_UNIFORMS],
+      samplers: [...COMIC_SAMPLERS],
+      size: 1,
+      camera: this.camera,
+      samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
+      engine,
+      shaderLanguage: this.webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
+    });
+    pass.onApplyObservable.add((effect) => this.bindComic(effect));
+    return pass;
   }
 
   private bindComic(effect: Effect): void {
@@ -688,9 +715,9 @@ export class SceneLook {
     effect.setFloat4('uWaterLevel', WATER_LEVEL + 0.04, 0, 0, 0);
     const position = camera.globalPosition;
     effect.setFloat3('uCamPos', position.x, position.y, position.z);
-    camera.getDirectionToRef(Vector3.Forward(), this.tmpForward);
-    camera.getDirectionToRef(Vector3.Right(), this.tmpRight);
-    camera.getDirectionToRef(Vector3.Up(), this.tmpUp);
+    camera.getDirectionToRef(SceneLook.FORWARD, this.tmpForward);
+    camera.getDirectionToRef(SceneLook.RIGHT, this.tmpRight);
+    camera.getDirectionToRef(SceneLook.UP, this.tmpUp);
     const tanHalf = Math.tan(camera.fov / 2);
     const aspect = width / height;
     effect.setFloat3('uCamForward', this.tmpForward.x, this.tmpForward.y, this.tmpForward.z);
@@ -809,6 +836,7 @@ export class SceneLook {
       { azimuth: 62, elevation: 27, width: 560 },
       { azimuth: 128, elevation: 25, width: 500 },
       { azimuth: 176, elevation: 13, width: 430 },
+      { azimuth: 18, elevation: 24, width: 440 },
     ];
     let created = 0;
     layout.forEach((slot, index) => {
@@ -821,8 +849,9 @@ export class SceneLook {
       const material = createCloudMaterial(this.scene, `ff-cloud-${index}`, texture);
       const azimuth = (slot.azimuth * Math.PI) / 180;
       const elevation = (slot.elevation * Math.PI) / 180;
-      const distance = 1350;
-      const plane = CreatePlane(`ff-cloud-${index}`, { width: slot.width, height: slot.width * 0.5 }, this.scene);
+      const distance = CLOUD_RING_DISTANCE;
+      const width = slot.width * CLOUD_WIDTH_SCALE;
+      const plane = CreatePlane(`ff-cloud-${index}`, { width, height: width * 0.5 }, this.scene);
       plane.material = material;
       plane.parent = root;
       plane.position.set(
@@ -892,6 +921,6 @@ export class SceneLook {
   }
 }
 
-export function createSceneLook(scene: Scene, camera: Camera): SceneLook {
-  return new SceneLook(scene, camera);
+export function createSceneLook(scene: Scene, camera: Camera, initialQuality: VisualQuality): SceneLook {
+  return new SceneLook(scene, camera, initialQuality);
 }
