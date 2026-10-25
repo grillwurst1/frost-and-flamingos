@@ -1,0 +1,362 @@
+/* ── Loading and deployment screen ─────────────────────────────────────────
+   One of the owner's painted scenes slowly pans behind the wordmark. The bottom is
+   darkened for the spinning taler, the hazard-striped progress bar and the tip note. */
+
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  background: #0f2650;
+  color: #fff;
+}
+
+.loading-art {
+  position: absolute;
+  inset: -6%;
+  background-position: center;
+  background-size: cover;
+  animation: ken-burns 26s ease-in-out infinite alternate;
+}
+
+.loading-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(8, 20, 52, 0.45) 0%, transparent 26%),
+    linear-gradient(0deg, rgba(6, 14, 38, 0.94) 0%, rgba(6, 14, 38, 0.78) 24%, rgba(6, 14, 38, 0.2) 48%, transparent 62%),
+    radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(6, 14, 38, 0.45) 100%);
+}
+
+@keyframes ken-burns {
+  from {
+    transform: scale(1.02) translate(-1.2%, 0.6%);
+  }
+  to {
+    transform: scale(1.14) translate(1.6%, -1.4%);
+  }
+}
+
+.loading-brand {
+  position: absolute;
+  top: clamp(1rem, 4vh, 2.4rem);
+  left: clamp(1.4rem, 4vw, 3.4rem);
+  --logo-size: 3.3rem;
+}
+
+.loading-bottom {
+  position: absolute;
+  bottom: clamp(1rem, 3.6vh, 2rem);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: min(46rem, calc(100vw - 2.4rem));
+  transform: translateX(-50%);
+}
+
+.loading-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.taler {
+  flex: none;
+  width: 3.9rem;
+  height: 3.9rem;
+  filter: drop-shadow(0 0.25rem 0 rgba(0, 0, 0, 0.45));
+  animation: coin-spin 1.5s linear infinite;
+}
+
+@keyframes coin-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+.loading-headline {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.loading-sub {
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-shadow:
+    0 0.1rem 0 var(--ink),
+    0.08rem 0 0 var(--ink),
+    -0.08rem 0 0 var(--ink),
+    0 -0.08rem 0 var(--ink);
+}
+
+.loading-headline h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.75rem;
+  -webkit-text-stroke: 0.14em var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 0.14rem 0 var(--ink);
+}
+
+.loading-percent {
+  color: var(--cheese);
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  -webkit-text-stroke: 0.14em var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 0.14rem 0 var(--ink);
+}
+
+.stripe-bar {
+  position: relative;
+  height: 1.85rem;
+  overflow: hidden;
+  border: 0.22rem solid var(--ink);
+  border-radius: 0.7rem;
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 210, 63, 0.14) 0 0.9rem, rgba(27, 20, 16, 0.4) 0.9rem 1.8rem),
+    #2a2118;
+  box-shadow:
+    0 0.25rem 0 var(--ink),
+    inset 0 0.2rem 0 rgba(0, 0, 0, 0.4);
+}
+
+.stripe-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-right: 0.18rem solid var(--ink);
+  background: repeating-linear-gradient(-45deg, #ffd23f 0 0.9rem, #1b1410 0.9rem 1.8rem);
+  background-size: 2.55rem 2.55rem;
+  animation: stripe-march 0.9s linear infinite;
+  transition: width 360ms cubic-bezier(0.3, 1.2, 0.5, 1);
+}
+
+.stripe-fill::after {
+  position: absolute;
+  top: 0.12rem;
+  right: 0.3rem;
+  left: 0.3rem;
+  height: 0.3rem;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.3);
+  content: '';
+}
+
+.stripe-bar.is-indeterminate .stripe-fill {
+  width: 42%;
+  animation:
+    stripe-march 0.9s linear infinite,
+    deploy-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes stripe-march {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 2.55rem 0;
+  }
+}
+
+@keyframes deploy-sweep {
+  from {
+    left: 0;
+  }
+  to {
+    left: 58%;
+  }
+}
+
+.loading-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.loading-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.14rem 0.75rem 0.2rem;
+  border: 0.14rem solid var(--ink);
+  border-radius: 99px;
+  background: linear-gradient(180deg, #fffaf0, var(--cream-2));
+  box-shadow: 0 0.16rem 0 rgba(0, 0, 0, 0.55);
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  opacity: 0.8;
+}
+
+.loading-chip b {
+  color: var(--wood);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.loading-chip[data-active='true'],
+.loading-chip.is-live {
+  background: linear-gradient(180deg, #fff6b4, var(--cheese));
+  opacity: 1;
+}
+
+.loading-chip[data-done='true'] {
+  opacity: 1;
+}
+
+.loading-chip[data-failed='true'] {
+  background: linear-gradient(180deg, #ffd0cc, #ff827c);
+  opacity: 1;
+}
+
+.loading-chip.is-renderer {
+  background: linear-gradient(180deg, #d4efff, #8fd0ff);
+  opacity: 1;
+}
+
+.step-icon {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  border: 0.12rem solid var(--ink);
+  border-radius: 50%;
+  background: #cbbd9f;
+}
+
+.loading-chip[data-active='true'] .step-icon {
+  border-color: var(--ink);
+  border-top-color: transparent;
+  background: transparent;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-chip[data-done='true'] .step-icon {
+  background: #3fae2a;
+}
+
+.loading-chip[data-failed='true'] .step-icon {
+  background: var(--red);
+}
+
+.step-icon svg {
+  display: block;
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.loading-tip {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 3.6rem;
+  padding: 0.6rem 1.1rem 0.7rem;
+  border-radius: 0.9rem;
+  transform: rotate(-0.5deg);
+}
+
+.tip-label {
+  flex: none;
+  padding: 0.14rem 0.7rem 0.2rem;
+  border: 0.14rem solid var(--ink);
+  border-radius: 0.5rem;
+  background: linear-gradient(180deg, #ffe66a, #ffb61f);
+  box-shadow: 0 0.16rem 0 var(--ink);
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: rotate(-3deg);
+}
+
+.loading-tip p {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+  animation: tip-swap 420ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+@keyframes tip-swap {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (max-width: 760px) {
+  .loading-brand {
+    --logo-size: 2.4rem;
+  }
+
+  .tip-label {
+    display: none;
+  }
+}
+
+.loading-versus {
+  position: absolute;
+  top: clamp(3.6rem, 9vh, 5rem);
+  right: clamp(1.4rem, 4vw, 3.4rem);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.versus-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 6.4rem;
+  text-align: center;
+}
+
+.versus-side .crest {
+  display: block;
+  width: 4.6rem;
+  height: 4.6rem;
+  filter: drop-shadow(0 0.3rem 0 rgba(0, 0, 0, 0.45));
+}
+
+.versus-side span {
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0.1rem 0 var(--ink),
+    0.08rem 0 0 var(--ink),
+    -0.08rem 0 0 var(--ink),
+    0 -0.08rem 0 var(--ink);
+  text-transform: uppercase;
+}
+
+.loading-versus b {
+  color: var(--cheese);
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 400;
+  -webkit-text-stroke: 0.16em var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 0.12rem 0 var(--ink);
+}
+
+@media (max-width: 900px) {
+  .loading-versus {
+    display: none;
+  }
+}

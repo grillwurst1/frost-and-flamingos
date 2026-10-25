@@ -136,6 +136,10 @@ scripts/      dev stack launcher
 - **No external 3D models, heightmaps, textures or audio samples.** Props, characters,
   vehicles and effects are procedural. The only external audio is the supplied music beds in
   `apps/client/public/audio/`, used with the project owner's permission.
+- **Owner-supplied 2D UI art only.** Menu key art, loading scenes, painted slot and skill
+  tiles, comic stickers and faction crests in `apps/client/public/art/` were supplied by the
+  project owner (AI-generated). Each one is optional and has a CSS/SVG fallback. See
+  [`CREDITS.md`](CREDITS.md).
 
 See [`game-decisions.md`](game-decisions.md) for the full design and decision record,
 [`CLAUDE.md`](CLAUDE.md) for agent-facing engineering notes and
@@ -145,10 +149,17 @@ See [`game-decisions.md`](game-decisions.md) for the full design and decision re
 
 ## Asset and IP policy
 
-This is an original clean-room project. It contains no Battlefield/EA assets, names, maps,
-sounds or copied compositions. All characters, props, weapons, vehicles, effects and
-interface art are generated procedurally. External audio is limited to the music files
-supplied by the project owner.
+This is an original clean-room project. It contains no Battlefield/EA or other third-party
+assets, names, maps, sounds or copied compositions. All characters, props, weapons, vehicles
+and effects are generated procedurally. The only external files are owner-supplied:
+
+- the five music beds in `apps/client/public/audio/`;
+- AI-generated 2D UI art in `apps/client/public/art/` (menu key art and cover, loading
+  scenes, painted weapon and skill tiles, comic popup stickers, faction crests). The HUD
+  falls back to procedural SVG pictograms and CSS lettering whenever a file is missing;
+- the bundled Luckiest Guy (Apache 2.0) and Fredoka (SIL OFL 1.1) fonts.
+
+[`CREDITS.md`](CREDITS.md) lists every file, its use and the font licences.
 
 ---
 

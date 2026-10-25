@@ -1,14 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { connection } from '../state/game';
   import { profile } from '../state/profile';
   import { t } from '../state/locale';
-  import {
-    factionClassNameKey,
-    factionMottoKey,
-    factionShortKey,
-  } from '../state/labels';
+  import { factionClassNameKey, factionShortKey } from '../state/labels';
   import AudioSettings from './AudioSettings.svelte';
   import ControlsList from './ControlsList.svelte';
+  import CoverLogo from './CoverLogo.svelte';
+  import PaperModal from './PaperModal.svelte';
+  import { COVER_URL, MENU_KEYART_URL, menuKeyart, probeMenuKeyart } from './icons/painted';
 
   export let onPlay: () => void;
   export let onWardrobe: () => void;
@@ -16,73 +16,78 @@
   let showControls = false;
   let showSettings = false;
 
+  onMount(() => probeMenuKeyart());
+
+  // The painted key art (no lettering) is preferred; the supplied cover poster is the fallback.
+  // While the probe is still running the key-art layout is kept (art fading in), so the menu
+  // never flashes the poster composition and then jumps.
+  $: keyart = $menuKeyart !== 'missing';
+  $: keyartReady = $menuKeyart === 'ok';
   $: connected = $connection.status === 'connected';
-  $: titleParts = $t('meta.title').split('&');
-  $: frostWord = titleParts[0]?.trim() ?? $t('meta.title');
-  $: flamingoWord = titleParts[1]?.trim() ?? '';
   $: statusLabelKey =
     $connection.status === 'connected'
-      ? 'common.connected' as const
+      ? ('common.connected' as const)
       : $connection.status === 'reconnecting'
-        ? 'hud.reconnecting' as const
+        ? ('hud.reconnecting' as const)
         : $connection.status === 'connecting'
-          ? 'common.connecting' as const
-          : 'common.offline' as const;
+          ? ('common.connecting' as const)
+          : ('common.offline' as const);
 
   function reconnect(): void {
     window.location.reload();
   }
 </script>
 
-<div class="cover-screen">
-  <div class="cover-split" aria-hidden="true">
-    <div class="cover-alpine"></div>
-    <div class="cover-lagoon"></div>
-    <div class="cover-seam"></div>
-    <div class="cover-sun"></div>
-    <div class="cover-peaks"></div>
-    <div class="cover-waves"></div>
+<div class="menu-screen" class:has-keyart={keyart}>
+  <div class="menu-backdrop" aria-hidden="true">
+    {#if keyart}
+      <img class="menu-keyart" class:is-loading={!keyartReady} src={MENU_KEYART_URL} alt="" draggable="false" />
+    {:else}
+      <div class="menu-blur" style={`background-image:url(${COVER_URL})`}></div>
+    {/if}
+    <div class="menu-vignette"></div>
   </div>
-  <div class="cover-grain" aria-hidden="true"></div>
 
-  <div class="cover-shell">
-    <section class="cover-menu">
-      <div class="cover-topline">
-        <span class="cover-season">{$t('meta.season')}</span>
-        <span class="hud-chip">{$t('menu.buildLabel')}</span>
+  <div class="menu-layout">
+    {#if !keyart}
+      <figure class="menu-poster">
+        <img src={COVER_URL} alt={`${$t('meta.title')} — ${$t('meta.subtitle')}`} draggable="false" />
+        <span class="poster-badge">{$t('meta.badge')}</span>
+      </figure>
+    {/if}
+
+    <section class="menu-stack">
+      {#if keyart}
+        <CoverLogo />
+      {/if}
+
+      <div class="menu-topline">
+        <span class="menu-ticket-chip">{$t('meta.season')}</span>
+        {#if keyart}<span class="menu-ticket-chip is-badge">{$t('meta.badge')}</span>{/if}
       </div>
 
-      <h1 class="cover-title">
-        <span class="cover-title-frost">{frostWord}</span>
-        {#if flamingoWord}<span class="cover-title-amp">&amp;</span>{/if}
-        {#if flamingoWord}<span class="cover-title-flamingo">{flamingoWord}</span>{/if}
-      </h1>
-      <p class="cover-subtitle">{$t('meta.subtitle')}</p>
-      <p class="cover-tagline">{$t('meta.tagline')}</p>
+      <p class="menu-lead">{$t('menu.lead')}</p>
 
-      <p class="cover-lead">{$t('menu.lead')}</p>
-
-      <div class="cover-actions">
+      <div class="menu-actions">
         <button class="btn-primary cover-play" type="button" disabled={!connected} on:click={onPlay}>
-          <span aria-hidden="true">▶</span>
+          <svg class="btn-play-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 3 L21 12 L6 21 Z" fill="#1b1410" />
+          </svg>
           {$t('menu.playNow')}
         </button>
-        <button class="btn-ghost" type="button" on:click={onWardrobe}>
-          {$t('menu.wardrobe')}
-        </button>
-        <button
-          class="btn-ghost"
-          type="button"
-          aria-pressed={showSettings}
-          on:click={() => (showSettings = !showSettings)}
-        >
-          {$t('menu.settings')}
-        </button>
+        <div class="menu-actions-row">
+          <button class="btn-ghost" type="button" on:click={onWardrobe}>
+            {$t('menu.wardrobe')}
+          </button>
+          <button class="btn-ghost" type="button" on:click={() => (showSettings = true)}>
+            {$t('menu.settings')}
+          </button>
+        </div>
       </div>
-      <p class="cover-hint">{$t(connected ? 'menu.playHint' : 'menu.waitingForServer')}</p>
-
-      {#if !connected}
-        <div class="cover-offline">
+      {#if connected}
+        <p class="menu-hint">{$t('menu.playHint')}</p>
+      {:else}
+        <div class="menu-offline paper">
           <p>{$t('menu.serverOfflineHint')}</p>
           <button class="btn-ghost" type="button" on:click={reconnect}>
             {$t('menu.reconnect')}
@@ -90,75 +95,49 @@
         </div>
       {/if}
 
-      {#if showSettings}
-        <div class="cover-settings glass">
-          <AudioSettings />
-          <p class="field-hint">{$t('menu.audioBody')}</p>
-        </div>
-      {/if}
-
-      <div class="cover-profile">
-        <div>
+      <div class="menu-tickets" aria-label={$t('menu.profileTitle')}>
+        <div class="menu-ticket">
           <span class="hud-label">{$t('menu.profileClass')}</span>
           <strong>{$t(factionClassNameKey($profile.faction, $profile.cosmetics.classId))}</strong>
         </div>
-        <div>
+        <div class="menu-ticket">
           <span class="hud-label">{$t('menu.profileFaction')}</span>
           <strong>{$t(factionShortKey($profile.faction))}</strong>
         </div>
-        <div>
+        <div class="menu-ticket">
           <span class="hud-label">{$t('menu.profileVoice')}</span>
           <strong class="mono">{Math.round((($profile.cosmetics.voicePitch - 0.8) / 0.45) * 100)}%</strong>
         </div>
       </div>
-      <p class="cover-profile-hint">{$t('menu.factionPreferenceHint')}</p>
+      <p class="menu-note">{$t('menu.factionPreferenceHint')}</p>
 
-      <div class="cover-controls">
-        <button
-          class="btn-ghost"
-          type="button"
-          aria-expanded={showControls}
-          on:click={() => (showControls = !showControls)}
-        >
-          {showControls ? $t('menu.controlsClose') : $t('menu.controlsOpen')}
+      <div class="menu-footer-row">
+        <button class="btn-ghost" type="button" on:click={() => (showControls = true)}>
+          {$t('menu.controlsOpen')}
         </button>
-        {#if showControls}
-          <ControlsList />
-        {/if}
+        <span class="menu-status" title={$t('menu.statusTitle')}>
+          <span class="status-dot" data-state={$connection.status}></span>
+          {$t(statusLabelKey)} · {$t('menu.playersOnline', { count: $connection.playersOnline })}
+        </span>
       </div>
 
-      <p class="cover-footnote">
+      <p class="menu-footnote">
         {$t('menu.footer')} · {$t('meta.cleanRoom')} · {$t('menu.musicCredit')}
       </p>
     </section>
-
-    <aside class="cover-aside">
-      <div class="cover-status glass-strong">
-        <div class="cover-status-head">
-          <span class="eyebrow">{$t('menu.statusTitle')}</span>
-          <span class="status-dot" data-state={$connection.status}></span>
-        </div>
-        <strong class="cover-status-line">{$t(statusLabelKey)}</strong>
-        <p class="mono">{$t('menu.playersOnline', { count: $connection.playersOnline })}</p>
-        <div class="hairline"></div>
-        <dl class="cover-factions">
-          <div>
-            <dt>{$t('factions.alpine.short')}</dt>
-            <dd>{$t(factionMottoKey('alpine'))}</dd>
-          </div>
-          <div>
-            <dt>{$t('factions.lagoon.short')}</dt>
-            <dd>{$t(factionMottoKey('lagoon'))}</dd>
-          </div>
-        </dl>
-        <div class="hairline"></div>
-        <div class="cover-status-meta">
-          <span class="hud-chip">{$t('menu.serverLabel')}</span>
-          <span class="hud-chip mono">{$t('menu.tickRate')}</span>
-          <span class="hud-chip mono">{$t('menu.physicsRate')}</span>
-        </div>
-        <p class="cover-escape">{$t('menu.escapeHint')}</p>
-      </div>
-    </aside>
   </div>
+
+  {#if showSettings}
+    <PaperModal title={$t('menu.settings')} onClose={() => (showSettings = false)}>
+      <AudioSettings />
+      <p class="field-hint">{$t('menu.audioBody')}</p>
+    </PaperModal>
+  {/if}
+
+  {#if showControls}
+    <PaperModal title={$t('menu.controlsTitle')} onClose={() => (showControls = false)}>
+      <p class="field-hint modal-lead">{$t('menu.controlsBody')}</p>
+      <ControlsList />
+    </PaperModal>
+  {/if}
 </div>
