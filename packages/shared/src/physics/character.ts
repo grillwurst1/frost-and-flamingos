@@ -41,7 +41,7 @@ import type {
   WindState,
 } from '../types/index.js';
 import { InputButton, ParachuteState as Parachute } from '../types/index.js';
-import { DRIFTER_COLLISION_GROUP, PLAYER_COLLISION_GROUP, type PhysicsWorld } from './world.js';
+import { DRIFTER_COLLISION_GROUP, PLAYER_COLLISION_GROUP, colliderHeightAt, type PhysicsWorld } from './world.js';
 
 export interface CharacterBodyOptions {
   position: Vec3;
@@ -66,8 +66,10 @@ interface SurfaceProperties {
 
 /** Collider height of a fully crouched character, as a share of the standing height. */
 export const CROUCH_HEIGHT_SCALE = 0.65;
-/** Drifter: the water floor holds this far above her hover height (shoreline sample/collider mismatch). */
-const DRIFTER_SHORE_MARGIN = 0.35;
+/** Drifter: the water floor holds this far above her hover height (capsule contact offset on slopes). */
+const DRIFTER_SHORE_MARGIN = 0.1;
+/** Drifter: downward press while walking on land, per m/s of walk speed (follows slopes up to ~50°). */
+const DRIFTER_GROUND_PRESS = 1.25;
 const CROUCH_SPEED_SCALE = 0.55;
 const STRAFE_SPEED_SCALE = 0.85;
 const BACKWARD_SPEED_SCALE = 0.7;
@@ -1049,15 +1051,16 @@ export class CharacterBody {
 
   /**
    * Feet height of the water surface she hovers on, or null where the
-   * terrain under her is clearly dry land. The floor is only ever a minimum
-   * (the ground wins wherever it is higher), so it stays in force up to
-   * DRIFTER_SHORE_MARGIN above the surface: at shorelines the sampled height
-   * and the Rapier heightfield disagree by up to ~0.45 m, and a plain
-   * "sample below water" test let her wade under the surface there.
+   * terrain collider under her is clearly dry land. It asks the collider's
+   * own height (colliderHeightAt): sampleMapHeight splits each cell along
+   * the other diagonal and is up to ~1.9 m off on steep shore cells, where
+   * she used to wade under the surface and then pop up. The floor is only
+   * ever a minimum (the ground wins wherever it is higher), so holding it
+   * DRIFTER_SHORE_MARGIN longer never lifts her above real ground.
    */
   private drifterWaterFloor(): number | null {
     const floor = WATER_LEVEL + DRIFTER_TUNING.waterHoverHeight;
-    if (sampleMapHeight(this.feet.x, this.feet.z) >= floor + DRIFTER_SHORE_MARGIN) return null;
+    if (colliderHeightAt(this.feet.x, this.feet.z) >= floor + DRIFTER_SHORE_MARGIN) return null;
     return floor;
   }
 
@@ -1130,6 +1133,12 @@ export class CharacterBody {
         const room = (waterFloor - this.feet.y) / FIXED_DT;
         this.linearVelocity.y = Math.max(this.linearVelocity.y, room);
       }
+    } else if (hasMovement) {
+      // Walking on land: press into the ground so she follows a falling
+      // slope every tick. Without it the controller let her drift off steep
+      // banks and dropped her in ~0.25 m steps. Standing still adds no press,
+      // so she never slides down a steep slope.
+      this.linearVelocity.y = -tuning.walkSpeed * DRIFTER_GROUND_PRESS;
     } else if (this.linearVelocity.y < 0) {
       this.linearVelocity.y = -1.5;
     }

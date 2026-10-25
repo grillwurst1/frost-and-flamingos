@@ -5,6 +5,7 @@
  *
  *   bun test apps/server/test
  */
+import RAPIER from '@dimforge/rapier3d-compat';
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import {
   CLASS_STATS,
@@ -18,6 +19,7 @@ import {
   WATER_LEVEL,
   WEAPON_STATS,
   classCapabilities,
+  colliderHeightAt,
   createDefaultProfile,
   decodeProfileMessage,
   decodeSnapshot,
@@ -35,6 +37,8 @@ import {
   findDeepWater,
   findFlat,
   findGentleShores,
+  findSteepShores,
+  STEEP_SHORE_REPROS,
   join,
   place,
   run,
@@ -399,9 +403,74 @@ describe('walk-only motor', () => {
     }
     console.log('[3G shore]', JSON.stringify({ shores: shores.length, crossings, ticksBelowWater: below, lowest, maxPop }));
     expect(below).toBe(0);
-    expect(maxPop).toBeLessThan(0.5);
+    expect(maxPop).toBeLessThan(0.15);
     expect(ghost.alive).toBe(true);
     dismiss(players);
+  });
+
+  test('across steep shore cells (collider under water, sampled height dry) she never wades under', () => {
+    const players = cast([['Ghost', 'drifter', 'alpine']]);
+    const ghostJ = players[0]!;
+    const ghost = ghostJ.player;
+    const shores = findSteepShores(9);
+    expect(shores.length).toBeGreaterThanOrEqual(STEEP_SHORE_REPROS.length);
+    // Through each point from 8 headings: 5 m before it to 5 m past it.
+    const approach = 5;
+    const walkTicks = Math.ceil(((approach * 2) / DRIFTER_TUNING.walkSpeed) * SECOND);
+    let crossings = 0;
+    let below = 0;
+    let lowest = Infinity;
+    let maxStep = 0;
+    for (const shore of shores) {
+      for (let heading = 0; heading < 8; heading += 1) {
+        const yaw = (heading / 8) * Math.PI * 2;
+        const startX = shore.x - Math.sin(yaw) * approach;
+        const startZ = shore.z - Math.cos(yaw) * approach;
+        place(ghost, startX, startZ, Math.max(colliderHeightAt(startX, startZ), WATER_LEVEL) + 0.4);
+        run(harness, SECOND / 2);
+        let lastY = ghost.character.position.y;
+        for (let tick = 0; tick < walkTicks; tick += 1) {
+          run(harness, 1, [{ joined: ghostJ, buttons: B.Forward, yaw }]);
+          const y = ghost.character.position.y;
+          if (y < WATER_LEVEL - 0.005) below += 1;
+          lowest = Math.min(lowest, y);
+          maxStep = Math.max(maxStep, Math.abs(y - lastY));
+          lastY = y;
+        }
+        crossings += 1;
+      }
+    }
+    console.log('[3G steep shore]', JSON.stringify({ shores: shores.length, crossings, ticksBelowWater: below, lowest, maxStep }));
+    expect(below).toBe(0);
+    expect(maxStep).toBeLessThan(0.15);
+    expect(ghost.alive).toBe(true);
+    dismiss(players);
+  });
+
+  test('colliderHeightAt matches the Rapier heightfield (downward rays)', async () => {
+    const physics = await PhysicsWorld.create();
+    const rayHeight = (x: number, z: number): number | null => {
+      const ray = new RAPIER.Ray({ x, y: 200, z }, { x: 0, y: -1, z: 0 });
+      const hit = physics.world.castRay(ray, 400, true, undefined, undefined, undefined, undefined, (collider) =>
+        collider.shape.type === RAPIER.ShapeType.HeightField,
+      );
+      return hit ? 200 - hit.timeOfImpact : null;
+    };
+    let seed = 7;
+    const random = (): number => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const points = [...STEEP_SHORE_REPROS];
+    for (let index = 0; index < 4000; index += 1) points.push({ x: (random() - 0.5) * 796, z: (random() - 0.5) * 796 });
+    let worst = 0;
+    let worstSampled = 0;
+    for (const point of points) {
+      const height = rayHeight(point.x, point.z);
+      expect(height).not.toBeNull();
+      worst = Math.max(worst, Math.abs(colliderHeightAt(point.x, point.z) - (height ?? 0)));
+      worstSampled = Math.max(worstSampled, Math.abs(sampleMapHeight(point.x, point.z) - (height ?? 0)));
+    }
+    console.log('[3G collider height]', JSON.stringify({ points: points.length, worst, worstSampled }));
+    expect(worst).toBeLessThan(0.001);
+    physics.dispose();
   });
 });
 

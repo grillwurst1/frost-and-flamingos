@@ -7,6 +7,7 @@ import {
   FJORD_MAP,
   PROTOCOL_VERSION,
   WATER_LEVEL,
+  colliderHeightAt,
   createDefaultProfile,
   sampleMapHeight,
   type CharacterBody,
@@ -219,6 +220,32 @@ export function findGentleShores(count: number, reach = 8, clearance = 10): Shor
         previous = height;
       }
       if (steady) shores.push({ x, z, dirX, dirZ });
+    }
+  }
+  return shores;
+}
+
+/** Steep shore cells from the 3G verification (feet were -0.19, -0.21 and -0.38 m there). */
+export const STEEP_SHORE_REPROS: ReadonlyArray<{ x: number; z: number }> = [
+  { x: -95.31, z: 82.81 },
+  { x: -104.69, z: 98.44 },
+  { x: -389, z: -17 },
+];
+
+/**
+ * Steep shore points where the terrain collider lies under the water while
+ * sampleMapHeight (the other cell diagonal) reads dry land well above it:
+ * the verification repros first, then map-wide finds `spacing` m apart.
+ */
+export function findSteepShores(count: number, spacing = 16): Array<{ x: number; z: number }> {
+  const shores = [...STEEP_SHORE_REPROS];
+  for (let x = -390; x <= 390 && shores.length < count; x += 1.5) {
+    for (let z = -390; z <= 390 && shores.length < count; z += 1.5) {
+      const collider = colliderHeightAt(x, z);
+      if (collider >= WATER_LEVEL - 0.02 || collider < WATER_LEVEL - 0.8) continue;
+      if (sampleMapHeight(x, z) < WATER_LEVEL + 0.25) continue;
+      if (shores.some((shore) => Math.hypot(shore.x - x, shore.z - z) < spacing)) continue;
+      shores.push({ x, z });
     }
   }
   return shores;

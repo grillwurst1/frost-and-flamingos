@@ -1366,8 +1366,9 @@ export class GameClient {
       this.lastWeaponSlot = slot;
       this.fireHeld = false;
       this.lastFireSentAt = 0;
-      // Unarmed classes (the drifter) have no weapon to draw.
-      if (classCapabilities(this.localClass).armed) audio.playUi('equip');
+      // Armed classes draw a weapon and mascots pick a move (the click is the
+      // only confirmation of which one); the drifter has nothing to pick.
+      if (character.form || classCapabilities(this.localClass).armed) audio.playUi('equip');
     }
 
     const input: PlayerInput = {
