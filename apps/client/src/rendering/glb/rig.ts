@@ -193,12 +193,21 @@ export class GlbRig {
    * Orients a hand so its finger direction (wrist → middle knuckle) points
    * along `fingers` and the thumb leans towards `thumb` (armature space).
    */
-  orientHand(hand: RigJoint, middle: RigJoint, thumbJoint: RigJoint, fingers: Vector3, thumb: Vector3, blend: number): void {
+  orientHand(
+    hand: RigJoint,
+    middle: RigJoint,
+    thumbJoint: RigJoint,
+    fingers: Vector3,
+    thumb: Vector3,
+    blend: number,
+    forearm?: RigJoint,
+  ): void {
     if (blend <= 0.001) return;
     const h = this.joints.get(hand);
     const m = this.joints.get(middle);
     const t = this.joints.get(thumbJoint);
     if (!h || !m || !t) return;
+    if (forearm) this.shareWristTwist(hand, middle, thumbJoint, forearm, fingers, thumb, blend);
     const before = h.node.rotationQuaternion?.clone();
     if (!before) return;
     // Current directions from the joints' local offsets (independent of refresh order).
@@ -222,5 +231,55 @@ export class GlbRig {
       const local = h.node.rotationQuaternion;
       if (local) Quaternion.SlerpToRef(before, local, blend, local);
     }
+  }
+
+  /** Wanted hand world rotation (same maths as orientHand, without applying it). */
+  private wantedHand(h: JointState, m: JointState, t: JointState, fingers: Vector3, thumb: Vector3): Quaternion {
+    const fingerNow = m.node.position.rotateByQuaternionToRef(h.rotation, new Vector3()).normalize();
+    const align = Quaternion.FromUnitVectorsToRef(fingerNow, fingers, new Quaternion());
+    const aligned = align.multiply(h.rotation);
+    const thumbNow = t.node.position.rotateByQuaternionToRef(aligned, new Vector3());
+    const thumbFlat = thumbNow.subtract(fingers.scale(Vector3.Dot(thumbNow, fingers)));
+    const wantFlat = thumb.subtract(fingers.scale(Vector3.Dot(thumb, fingers)));
+    if (thumbFlat.lengthSquared() < 1e-8 || wantFlat.lengthSquared() < 1e-8) return aligned;
+    return Quaternion.FromUnitVectorsToRef(thumbFlat.normalize(), wantFlat.normalize(), new Quaternion()).multiply(aligned);
+  }
+
+  /**
+   * There are no twist bones: move half of the wrist's twist (about the
+   * forearm axis) into the forearm so linear skinning does not pinch the
+   * wrist into a candy wrapper.
+   */
+  private shareWristTwist(
+    hand: RigJoint,
+    middle: RigJoint,
+    thumbJoint: RigJoint,
+    forearm: RigJoint,
+    fingers: Vector3,
+    thumb: Vector3,
+    blend: number,
+  ): void {
+    const h = this.joints.get(hand);
+    const m = this.joints.get(middle);
+    const t = this.joints.get(thumbJoint);
+    const f = this.joints.get(forearm);
+    if (!h || !m || !t || !f) return;
+    const axis = h.position.subtract(f.position);
+    if (axis.lengthSquared() < 1e-8) return;
+    axis.normalize();
+    const wanted = this.wantedHand(h, m, t, fingers, thumb);
+    const delta = wanted.multiply(Quaternion.Inverse(h.rotation));
+    // Swing-twist: the twist part is the rotation's projection on the axis.
+    const projection = axis.scale(delta.x * axis.x + delta.y * axis.y + delta.z * axis.z);
+    const twist = new Quaternion(projection.x, projection.y, projection.z, delta.w);
+    if (twist.lengthSquared() < 1e-10) return;
+    twist.normalize();
+    const angle = 2 * Math.atan2(Math.hypot(twist.x, twist.y, twist.z), twist.w);
+    const sign = Math.sign(twist.x * axis.x + twist.y * axis.y + twist.z * axis.z) || 1;
+    let signed = angle * sign;
+    if (signed > Math.PI) signed -= Math.PI * 2;
+    if (signed < -Math.PI) signed += Math.PI * 2;
+    this.rotateWorld(forearm, Quaternion.RotationAxis(axis, 0.5 * signed * blend));
+    this.refresh();
   }
 }

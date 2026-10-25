@@ -1,15 +1,20 @@
 /**
  * Optimises the owner's Meshy image-to-3D characters for the game client.
  *
- *   bun run models                       # every art-src/meshy/meshy-<faction>-<class>.glb
+ *   bun run models                       # every art-src/meshy/meshy-<name>.glb
  *   bun run models art-src/meshy/meshy-lagoon-heavy.glb
- *   bun run models --normal-size=1024    # smaller normal map (default 2048)
+ *   bun run models --normal-size=2048    # larger normal map (default 1024)
  *   bun run models --keep-normal=false   # also drop the normal map
+ *   bun run models --manifest-only       # just rewrite models/manifest.json
  *
  * Input:  untouched Meshy downloads (rigged Mixamo skeleton, PBR material with
  *         2048² baseColor + metallicRoughness + normal JPEGs, a few clips).
- * Output: apps/client/public/models/<faction>-<class>.glb, typically 3-4 MB,
- *         plus models/manifest.json listing every optimised model. The client
+ * Output: apps/client/public/models/<faction>-<class>.glb (mesh, skeleton,
+ *         clips; 1-2 MB) with its painted textures as sidecar files
+ *         <faction>-<class>-basecolor.webp / -normal.webp referenced by URI,
+ *         plus models/manifest.json listing every model and its textures.
+ *         The client loads every GLB for its clips (models borrow clips from
+ *         each other) but fetches the textures only for models on screen, and
  *         only requests listed files, so missing classes never cause a 404.
  *
  * Steps (all lossless for the skeleton and every animation clip):
@@ -17,9 +22,11 @@
  *   2. keep the painted base colour at its full 2048² and re-encode it as
  *      WebP q92 (EXT_texture_webp; PSNR ≈ 42 dB vs the Meshy JPEG at a
  *      quarter of the bytes; JPEG q92 is 1.5× larger and noisier),
- *   3. normal map: optional downsize (--normal-size), WebP q90,
+ *   3. normal map: 1024² (--normal-size), WebP q90 (the cel shader uses it
+ *      at a quarter strength, so the full 2048² only costs memory),
  *   4. resample animations (removes redundant keyframes, lossless),
- *   5. dedup + prune unused accessors/images.
+ *   5. dedup + prune unused accessors/images,
+ *   6. move the images out of the GLB binary into sidecar files.
  * The heavy lifting runs through the pinned glTF Transform CLI via `bunx`,
  * so no native image toolchain has to live in the workspace dependencies.
  */
@@ -33,19 +40,23 @@ const OUTPUT_DIR = join(ROOT, 'apps', 'client', 'public', 'models');
 const CLI = '@gltf-transform/cli@4.5.1';
 const BASE_QUALITY = 92;
 const NORMAL_QUALITY = 90;
-const NAME_PATTERN = /^meshy-(alpine|lagoon)-([a-z]+)\.glb$/;
+/** meshy-<name>.glb → <name>.glb (soldiers are meshy-<faction>-<class>.glb). */
+const NAME_PATTERN = /^meshy-([a-z0-9]+(?:-[a-z0-9]+)*)\.glb$/;
 
 interface Options {
+  manifestOnly: boolean;
   keepNormal: boolean;
   normalSize: number;
   files: string[];
 }
 
 function parseArgs(argv: string[]): Options {
-  const options: Options = { keepNormal: true, normalSize: 2048, files: [] };
+  const options: Options = { manifestOnly: false, keepNormal: true, normalSize: 1024, files: [] };
   for (const arg of argv) {
-    if (arg.startsWith('--normal-size=')) {
-      options.normalSize = Math.max(256, Number(arg.slice('--normal-size='.length)) || 2048);
+    if (arg === '--manifest-only') {
+      options.manifestOnly = true;
+    } else if (arg.startsWith('--normal-size=')) {
+      options.normalSize = Math.max(256, Number(arg.slice('--normal-size='.length)) || 1024);
     } else if (arg.startsWith('--keep-normal=')) {
       options.keepNormal = arg.slice('--keep-normal='.length) !== 'false';
     } else if (arg.startsWith('--')) {
@@ -54,7 +65,7 @@ function parseArgs(argv: string[]): Options {
       options.files.push(resolve(process.cwd(), arg));
     }
   }
-  if (options.files.length === 0 && existsSync(SOURCE_DIR)) {
+  if (options.files.length === 0 && !options.manifestOnly && existsSync(SOURCE_DIR)) {
     options.files = readdirSync(SOURCE_DIR)
       .filter((name) => NAME_PATTERN.test(name))
       .map((name) => join(SOURCE_DIR, name));
@@ -146,6 +157,73 @@ function stripUnusedTextures(parts: GlbParts, keepNormal: boolean): void {
   }
 }
 
+const IMAGE_EXTENSIONS: Record<string, string> = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' };
+
+/**
+ * Moves every embedded image into a sidecar file next to the GLB (image.uri)
+ * and compacts the binary chunk, so a client can load the mesh, skeleton and
+ * clips without the textures and fetch them only when the model is shown.
+ */
+function externalizeImages(parts: GlbParts, key: string): Array<[string, Uint8Array]> {
+  const json = parts.json as {
+    images?: Array<{ name?: string; uri?: string; bufferView?: number; mimeType?: string }>;
+    bufferViews?: Array<{ buffer: number; byteOffset?: number; byteLength: number; byteStride?: number; target?: number }>;
+    accessors?: Array<{ bufferView?: number; sparse?: { indices: { bufferView: number }; values: { bufferView: number } } }>;
+    buffers?: Array<{ byteLength: number }>;
+  };
+  const bin = parts.bin;
+  const views = json.bufferViews ?? [];
+  if (!bin || !json.images) return [];
+  const files: Array<[string, Uint8Array]> = [];
+  const removed = new Set<number>();
+  json.images.forEach((image, index) => {
+    if (image.bufferView === undefined) return;
+    const view = views[image.bufferView];
+    if (!view) return;
+    const offset = view.byteOffset ?? 0;
+    const slot = (image.name ?? `image-${index}`).replace(/^ff-/, '');
+    const fileName = `${key}-${slot}.${IMAGE_EXTENSIONS[image.mimeType ?? ''] ?? 'bin'}`;
+    files.push([fileName, bin.slice(offset, offset + view.byteLength)]);
+    removed.add(image.bufferView);
+    delete image.bufferView;
+    image.uri = fileName;
+  });
+  const remap = new Map<number, number>();
+  const kept: typeof views = [];
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  views.forEach((view, index) => {
+    if (removed.has(index)) return;
+    const padding = (4 - (length % 4)) % 4;
+    if (padding) {
+      chunks.push(new Uint8Array(padding));
+      length += padding;
+    }
+    const offset = view.byteOffset ?? 0;
+    chunks.push(bin.subarray(offset, offset + view.byteLength));
+    remap.set(index, kept.length);
+    kept.push({ ...view, buffer: 0, byteOffset: length });
+    length += view.byteLength;
+  });
+  for (const accessor of json.accessors ?? []) {
+    if (accessor.bufferView !== undefined) accessor.bufferView = remap.get(accessor.bufferView) ?? accessor.bufferView;
+    if (accessor.sparse) {
+      accessor.sparse.indices.bufferView = remap.get(accessor.sparse.indices.bufferView) ?? accessor.sparse.indices.bufferView;
+      accessor.sparse.values.bufferView = remap.get(accessor.sparse.values.bufferView) ?? accessor.sparse.values.bufferView;
+    }
+  }
+  json.bufferViews = kept;
+  const packed = new Uint8Array(length);
+  let cursor = 0;
+  for (const chunk of chunks) {
+    packed.set(chunk, cursor);
+    cursor += chunk.byteLength;
+  }
+  if (json.buffers?.[0]) json.buffers[0].byteLength = length;
+  parts.bin = packed;
+  return files;
+}
+
 async function run(args: string[]): Promise<void> {
   const proc = Bun.spawn(['bunx', CLI, ...args], { stdout: 'pipe', stderr: 'pipe' });
   const [code, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
@@ -159,8 +237,9 @@ function megabytes(bytes: number): string {
 async function optimize(file: string, options: Options, workDir: string): Promise<void> {
   const name = basename(file);
   const match = NAME_PATTERN.exec(name);
-  if (!match) throw new Error(`${name}: expected meshy-<alpine|lagoon>-<class>.glb`);
-  const outName = `${match[1]}-${match[2]}.glb`;
+  if (!match?.[1]) throw new Error(`${name}: expected meshy-<name>.glb (e.g. meshy-alpine-heavy.glb)`);
+  const key = match[1];
+  const outName = `${key}.glb`;
   const outFile = join(OUTPUT_DIR, outName);
   const stem = join(workDir, outName.replace('.glb', ''));
 
@@ -175,15 +254,19 @@ async function optimize(file: string, options: Options, workDir: string): Promis
   await run(['webp', `${stem}-2b.glb`, `${stem}-3.glb`, '--slots', 'normalTexture', '--quality', `${NORMAL_QUALITY}`, '--effort', '100']);
   await run(['resample', `${stem}-3.glb`, `${stem}-4.glb`]);
   await run(['dedup', `${stem}-4.glb`, `${stem}-5.glb`]);
-  await run(['prune', `${stem}-5.glb`, outFile]);
+  await run(['prune', `${stem}-5.glb`, `${stem}-6.glb`]);
+  const final = readGlb(new Uint8Array(await Bun.file(`${stem}-6.glb`).arrayBuffer()));
+  const sidecars = externalizeImages(final, key);
+  for (const [fileName, bytes] of sidecars) await Bun.write(join(OUTPUT_DIR, fileName), bytes);
+  await Bun.write(outFile, writeGlb(final));
 
   const before = statSync(file).size;
-  const after = statSync(outFile).size;
-  console.log(`${name} -> public/models/${outName}  ${megabytes(before)} -> ${megabytes(after)}`);
+  const after = statSync(outFile).size + sidecars.reduce((sum, [, bytes]) => sum + bytes.byteLength, 0);
+  console.log(`${name} -> public/models/${outName} + ${sidecars.length} textures  ${megabytes(before)} -> ${megabytes(after)}`);
 }
 
 const options = parseArgs(process.argv.slice(2));
-if (options.files.length === 0) console.log(`No meshy-<faction>-<class>.glb files in ${SOURCE_DIR}`);
+if (options.files.length === 0 && !options.manifestOnly) console.log(`No meshy-<name>.glb files in ${SOURCE_DIR}`);
 mkdirSync(OUTPUT_DIR, { recursive: true });
 const workDir = mkdtempSync(join(tmpdir(), 'ff-models-'));
 try {
@@ -195,11 +278,19 @@ await writeManifest();
 
 /** Lists every optimised model so the client never probes for missing files. */
 async function writeManifest(): Promise<void> {
-  const models: Record<string, { file: string; bytes: number }> = {};
-  for (const name of readdirSync(OUTPUT_DIR).sort()) {
-    const match = /^((?:alpine|lagoon)-[a-z]+)\.glb$/.exec(name);
+  const models: Record<string, { file: string; bytes: number; textures: Record<string, string> }> = {};
+  const names = readdirSync(OUTPUT_DIR).sort();
+  for (const name of names) {
+    const match = /^([a-z0-9]+(?:-[a-z0-9]+)*)\.glb$/.exec(name);
     if (!match?.[1]) continue;
-    models[match[1]] = { file: name, bytes: statSync(join(OUTPUT_DIR, name)).size };
+    const key = match[1];
+    const textures: Record<string, string> = {};
+    for (const slot of ['basecolor', 'normal']) {
+      const sidecar = names.find((file) => file.startsWith(`${key}-${slot}.`));
+      if (sidecar) textures[slot] = sidecar;
+    }
+    const bytes = [name, ...Object.values(textures)].reduce((sum, file) => sum + statSync(join(OUTPUT_DIR, file)).size, 0);
+    models[key] = { file: name, bytes, textures };
   }
   await Bun.write(join(OUTPUT_DIR, 'manifest.json'), `${JSON.stringify({ version: 1, models }, null, 2)}\n`);
   console.log(`models/manifest.json: ${Object.keys(models).join(', ') || '(empty)'}`);

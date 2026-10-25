@@ -8,7 +8,6 @@ import type { Animation } from '@babylonjs/core/Animations/animation';
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
 import type { AssetContainer } from '@babylonjs/core/assetContainer';
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader';
-import type { BaseTexture } from '@babylonjs/core/Materials/Textures/baseTexture';
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { SubMesh } from '@babylonjs/core/Meshes/subMesh';
@@ -16,11 +15,10 @@ import type { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   DEFAULT_CLIPS,
-  PAINTED_MODELS,
   RETARGET_ROLES,
+  paintedModelSpecByKey,
   resolveClip,
   type ClipRole,
-  type PaintedModelKey,
   type PaintedModelSpec,
 } from './catalog';
 import type { PaintedTextures } from './material';
@@ -29,6 +27,11 @@ import type { PaintedTextures } from './material';
  * Loads the owner's painted GLB characters once per scene into
  * AssetContainers; every player view instantiates its own clone (shared
  * geometry and textures, cloned skeleton and joint nodes).
+ *
+ * Generic over any GLB the manifest lists and the catalogue registers
+ * (skinned or static): the GLB itself (mesh, skeleton, clips) loads without
+ * materials, and the painted textures are separate sidecar files that are
+ * only fetched for models actually shown ({@link PaintedModelLibrary.textures}).
  *
  * Animation clips are baked once per model into dense 30 Hz rotation tables
  * (plus hips translation) so the per-view animator can blend, scrub and mask
@@ -73,7 +76,8 @@ export interface BakedClip {
 export interface PaintedModelAsset {
   spec: PaintedModelSpec;
   container: AssetContainer;
-  textures: PaintedTextures;
+  /** false for static GLBs (no skeleton, no clips). */
+  skinned: boolean;
   clipNames: ReadonlySet<string>;
   /** Bind-pose height of the model (top of head/hat above the feet). */
   height: number;
@@ -93,7 +97,11 @@ export type PaintedModelStatus = 'pending' | 'missing' | 'loading' | 'ready' | '
 
 interface ManifestEntry {
   file: string;
+  /** Sidecar texture files by slot ("basecolor", "normal"). */
+  textures: Readonly<Record<string, string>>;
 }
+
+const FILE_PATTERN = /^[a-z0-9-]+\.(glb|webp|jpg|png)$/;
 
 const MODELS_BASE = `${import.meta.env.BASE_URL}models/`;
 
@@ -109,9 +117,16 @@ async function fetchManifest(): Promise<ReadonlyMap<string, ManifestEntry>> {
     const models = (data as { models?: unknown }).models;
     if (!models || typeof models !== 'object') return result;
     for (const [key, value] of Object.entries(models as Record<string, unknown>)) {
-      if (!PAINTED_MODELS[key]) continue;
-      const file = value && typeof value === 'object' ? (value as { file?: unknown }).file : null;
-      if (typeof file === 'string' && /^[a-z0-9-]+\.glb$/.test(file)) result.set(key, { file });
+      if (!value || typeof value !== 'object') continue;
+      const entry = value as { file?: unknown; textures?: unknown };
+      if (typeof entry.file !== 'string' || !FILE_PATTERN.test(entry.file)) continue;
+      const textures: Record<string, string> = {};
+      if (entry.textures && typeof entry.textures === 'object') {
+        for (const [slot, file] of Object.entries(entry.textures as Record<string, unknown>)) {
+          if (typeof file === 'string' && FILE_PATTERN.test(file)) textures[slot] = file;
+        }
+      }
+      result.set(key, { file: entry.file, textures });
     }
   } catch {
     // Offline or malformed manifest: every class keeps the procedural rig.
@@ -165,7 +180,9 @@ function splitHat(mesh: Mesh, cutY: number): { bodyCount: number; hatCount: numb
     const a = indices[index] ?? 0;
     const b = indices[index + 1] ?? 0;
     const c = indices[index + 2] ?? 0;
-    const target = isHat[a] && isHat[b] && isHat[c] ? hat : body;
+    // Two or more hat vertices: the triangle belongs to the hat, so no
+    // saw-tooth fringe is left on the body when the hat comes off.
+    const target = (isHat[a] ?? 0) + (isHat[b] ?? 0) + (isHat[c] ?? 0) >= 2 ? hat : body;
     target.push(a, b, c);
   }
   if (hat.length === 0) return null;
@@ -176,28 +193,23 @@ function splitHat(mesh: Mesh, cutY: number): { bodyCount: number; hatCount: numb
   return { bodyCount: body.length, hatCount: hat.length };
 }
 
-function extractTextures(container: AssetContainer, mesh: Mesh): PaintedTextures | null {
-  const source = mesh.material as unknown as {
-    albedoTexture?: BaseTexture | null;
-    bumpTexture?: BaseTexture | null;
-  } | null;
-  const albedo = source?.albedoTexture ?? null;
-  if (!albedo) return null;
-  const normal = source?.bumpTexture ?? null;
-  // Full-resolution painted textures: trilinear mipmaps plus anisotropy so
-  // the painting stays crisp on glancing angles and at distance.
-  for (const texture of [albedo, normal]) {
-    if (!texture) continue;
-    if (texture instanceof Texture && texture.noMipmap) {
-      console.warn('[frost-and-flamingos] painted texture loaded without mipmaps');
-    }
-    texture.updateSamplingMode(Texture.TRILINEAR_SAMPLINGMODE);
+/** Loads one painted texture with trilinear mipmaps and anisotropy. */
+function loadTexture(scene: Scene, file: string): Promise<Texture | null> {
+  return new Promise((resolve) => {
+    const texture: Texture = new Texture(`${MODELS_BASE}${file}`, scene, {
+      noMipmap: false,
+      invertY: false,
+      samplingMode: Texture.TRILINEAR_SAMPLINGMODE,
+      onLoad: () => resolve(texture),
+      onError: () => {
+        texture.dispose();
+        resolve(null);
+      },
+    });
     texture.anisotropicFilteringLevel = 8;
-  }
-  for (const material of container.materials) material.dispose(false, false);
-  container.materials.length = 0;
-  mesh.material = null;
-  return { albedo, normal };
+    texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+    texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+  });
 }
 
 function apexOf(clip: Omit<BakedClip, 'apexTime'>): number {
@@ -249,8 +261,35 @@ function bakeGroup(
       hips[frame * 3 + 2] = value.z;
     }
   }
+  const bindHips = bindPose.get('Hips')?.position;
+  if (hips && bindHips) stripRootMotion(name, hips, frames, bindHips);
   const clip = { name, duration, frames, bones, rotations, hips, retargetedFrom: null };
   return { ...clip, apexTime: apexOf(clip) };
+}
+
+/**
+ * Meshy clips carry travel in the hips (a sprint moves 2.3 m, a swim cycle
+ * 3.5-4.3 m). The game moves the character itself, so the horizontal travel
+ * is removed (linear drift from first to last frame, re-centred on the bind
+ * pose) and swim clips are lifted so the back sits at the water line.
+ */
+function stripRootMotion(name: string, hips: Float32Array, frames: number, bindHips: Vector3): void {
+  const last = Math.max(1, frames - 1);
+  const x0 = hips[0] ?? 0;
+  const z0 = hips[2] ?? 0;
+  const dx = (hips[last * 3] ?? 0) - x0;
+  const dz = (hips[last * 3 + 2] ?? 0) - z0;
+  let meanY = 0;
+  for (let frame = 0; frame < frames; frame += 1) {
+    const k = frame / last;
+    hips[frame * 3] = (hips[frame * 3] ?? 0) - x0 - k * dx + bindHips.x;
+    hips[frame * 3 + 2] = (hips[frame * 3 + 2] ?? 0) - z0 - k * dz + bindHips.z;
+    meanY += hips[frame * 3 + 1] ?? 0;
+  }
+  if (/swim/i.test(name)) {
+    const lift = bindHips.y - 0.15 - meanY / frames;
+    for (let frame = 0; frame < frames; frame += 1) hips[frame * 3 + 1] = (hips[frame * 3 + 1] ?? 0) + lift;
+  }
 }
 
 /** Bind-pose rotation of every joint in armature space. */
@@ -277,6 +316,44 @@ export function bindWorldTransform(asset: PaintedModelAsset, joint: string): { r
   return { rotation, position: position.clone() };
 }
 
+/** Chains to follow when aligning bone directions between rigs. */
+const ALIGN_CHAINS: ReadonlyArray<readonly [string, string]> = [
+  ['Spine', 'Spine1'],
+  ['Spine1', 'Spine2'],
+  ['Spine2', 'Neck'],
+  ['Neck', 'Head'],
+  ...(['Left', 'Right'] as const).flatMap((side) => [
+    [`${side}Shoulder`, `${side}Arm`] as const,
+    [`${side}Arm`, `${side}ForeArm`] as const,
+    [`${side}ForeArm`, `${side}Hand`] as const,
+    [`${side}Hand`, `${side}HandMiddle1`] as const,
+    [`${side}UpLeg`, `${side}Leg`] as const,
+    [`${side}Leg`, `${side}Foot`] as const,
+    [`${side}Foot`, `${side}ToeBase`] as const,
+  ]),
+];
+
+/**
+ * Per-bone rotation that turns the target's bind bone direction onto the
+ * donor's (A-pose arms vs a T-pose donor are 40-67° apart). Applied in
+ * armature space before the donor's motion delta.
+ */
+function bindAlignment(source: PaintedModelAsset, target: PaintedModelAsset): Map<string, Quaternion> {
+  const align = new Map<string, Quaternion>();
+  for (const [bone, child] of ALIGN_CHAINS) {
+    const s0 = source.bindPositions.get(bone);
+    const s1 = source.bindPositions.get(child);
+    const t0 = target.bindPositions.get(bone);
+    const t1 = target.bindPositions.get(child);
+    if (!s0 || !s1 || !t0 || !t1) continue;
+    const from = t1.subtract(t0);
+    const to = s1.subtract(s0);
+    if (from.lengthSquared() < 1e-8 || to.lengthSquared() < 1e-8) continue;
+    align.set(bone, Quaternion.FromUnitVectorsToRef(from.normalize(), to.normalize(), new Quaternion()));
+  }
+  return align;
+}
+
 function depthOf(asset: PaintedModelAsset, name: string): number {
   let depth = 0;
   for (let parent = asset.jointParents.get(name) ?? null; parent; parent = asset.jointParents.get(parent) ?? null) depth += 1;
@@ -285,13 +362,15 @@ function depthOf(asset: PaintedModelAsset, name: string): number {
 
 /**
  * Transfers a clip between two Mixamo rigs as world-space rotation deltas from
- * each rig's bind pose: D = W_src(t) * W_src_bind^-1, W_dst = D * W_dst_bind.
- * Joints are matched by Mixamo name (missing ones keep their bind pose); hips
- * translation is scaled by the hip-height ratio.
+ * each rig's bind pose: D = W_src(t) * W_src_bind^-1, and
+ * W_dst = D * A * W_dst_bind, where A first turns the target's bind bone
+ * direction onto the donor's. Joints are matched by Mixamo name (missing ones
+ * keep their bind pose); hips translation is scaled by the hip-height ratio.
  */
 function retargetClip(source: PaintedModelAsset, clip: BakedClip, target: PaintedModelAsset): BakedClip {
   const sourceBind = bindWorldRotations(source);
   const targetBind = bindWorldRotations(target);
+  const align = bindAlignment(source, target);
   const sourceIndex = new Map<string, number>();
   clip.bones.forEach((bone, index) => sourceIndex.set(bone, index));
   const bones = [...target.jointParents.keys()]
@@ -316,7 +395,8 @@ function retargetClip(source: PaintedModelAsset, clip: BakedClip, target: Painte
     bones.forEach((bone, index) => {
       const sourceRotation = sourceWorld.get(bone) ?? sourceBind.get(bone) ?? Quaternion.Identity();
       const delta = sourceRotation.multiply(Quaternion.Inverse(sourceBind.get(bone) ?? Quaternion.Identity()));
-      const targetRotation = delta.multiply(targetBind.get(bone) ?? Quaternion.Identity());
+      const aligned = (align.get(bone) ?? Quaternion.Identity()).multiply(targetBind.get(bone) ?? Quaternion.Identity());
+      const targetRotation = delta.multiply(aligned);
       targetWorld.set(bone, targetRotation);
       const parent = target.jointParents.get(bone) ?? null;
       const parentWorld = parent ? targetWorld.get(parent) ?? targetBind.get(parent) ?? Quaternion.Identity() : Quaternion.Identity();
@@ -391,27 +471,29 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
       gltf: {
         animationStartMode: GLTFLoaderAnimationStartMode.NONE,
         compileMaterials: false,
-        // The cel shader treats painted texels like vertex colours (sRGB
-        // values); hardware sRGB decoding would darken every mid-tone.
-        useSRGBBuffers: false,
+        // Mesh, skeleton and clips only: the painted textures are sidecar
+        // files loaded on demand (and never as PBR materials).
+        skipMaterials: true,
       },
     },
   });
-  const mesh = container.meshes.find((candidate): candidate is Mesh => candidate instanceof Mesh && candidate.skeleton !== null);
-  const skeleton = mesh?.skeleton ?? null;
-  const textures = mesh ? extractTextures(container, mesh) : null;
-  if (!mesh || !skeleton || !textures) {
+  // Skinned characters carry one skinned mesh; static props any mesh.
+  const mesh =
+    container.meshes.find((candidate): candidate is Mesh => candidate instanceof Mesh && candidate.skeleton !== null) ??
+    container.meshes.find((candidate): candidate is Mesh => candidate instanceof Mesh && candidate.getTotalVertices() > 0);
+  if (!mesh) {
     container.dispose();
     return null;
   }
+  const skeleton = mesh.skeleton;
   const bounds = mesh.getBoundingInfo().boundingBox;
-  const height = Math.max(0.5, bounds.maximum.y - Math.min(0, bounds.minimum.y));
-  const hatSplit = spec.hatCutY === null ? null : splitHat(mesh, spec.hatCutY);
+  const height = Math.max(0.05, bounds.maximum.y - Math.min(0, bounds.minimum.y));
+  const hatSplit = spec.hatCutY === null || !skeleton ? null : splitHat(mesh, spec.hatCutY);
 
   const bindPose = new Map<string, BindPose>();
   const bindPositions = new Map<string, Vector3>();
   const jointParents = new Map<string, string | null>();
-  for (const bone of skeleton.bones) {
+  for (const bone of skeleton?.bones ?? []) {
     const node = bone.getTransformNode();
     if (!node) continue;
     const name = jointName(node.name);
@@ -428,7 +510,7 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
   const asset: PaintedModelAsset = {
     spec,
     container,
-    textures,
+    skinned: skeleton !== null,
     clipNames: new Set(container.animationGroups.map((group) => group.name)),
     height,
     hatSplit,
@@ -464,6 +546,8 @@ export class PaintedModelLibrary {
   private readonly assets = new Map<string, PaintedModelAsset | null>();
   private settledPromise: Promise<void> | null = null;
   private isSettled = false;
+  private readonly textureLoads = new Map<string, Promise<PaintedTextures | null>>();
+  private readonly loadedTextures = new Map<string, PaintedTextures>();
   /** Load time per model (ms), for the DEV probe. */
   readonly timings = new Map<string, number>();
 
@@ -482,9 +566,9 @@ export class PaintedModelLibrary {
   }
 
   /** Model keys that exist on the server (resolves once the manifest is read). */
-  async available(): Promise<ReadonlySet<PaintedModelKey>> {
+  async available(): Promise<ReadonlySet<string>> {
     const entries = await this.manifest;
-    return new Set([...entries.keys()] as PaintedModelKey[]);
+    return new Set(entries.keys());
   }
 
   status(key: string): PaintedModelStatus {
@@ -504,7 +588,7 @@ export class PaintedModelLibrary {
     if (existing) return existing;
     const promise = this.manifest.then(async (entries) => {
       const entry = entries.get(key);
-      const spec = PAINTED_MODELS[key];
+      const spec = paintedModelSpecByKey(key);
       if (!entry || !spec) {
         this.assets.set(key, null);
         return null;
@@ -526,14 +610,47 @@ export class PaintedModelLibrary {
   }
 
   /**
-   * Loads every model in the manifest (boot-time warm-up), then lets models
-   * borrow clips they lack from each other. Views wait for this promise.
+   * Painted textures of one model (sidecar files from the manifest), loaded
+   * once on first use and shared by every view of that model.
+   */
+  textures(key: string): Promise<PaintedTextures | null> {
+    const existing = this.textureLoads.get(key);
+    if (existing) return existing;
+    const promise = this.manifest.then(async (entries) => {
+      const files = entries.get(key)?.textures;
+      const albedoFile = files?.basecolor;
+      if (!albedoFile) return null;
+      const [albedo, normal] = await Promise.all([
+        loadTexture(this.scene, albedoFile),
+        files.normal ? loadTexture(this.scene, files.normal) : Promise.resolve(null),
+      ]);
+      if (!albedo) {
+        normal?.dispose();
+        return null;
+      }
+      const textures: PaintedTextures = { albedo, normal };
+      this.loadedTextures.set(key, textures);
+      return textures;
+    });
+    this.textureLoads.set(key, promise);
+    return promise;
+  }
+
+  /** Textures of a model if they finished loading, else null (no fetch). */
+  loadedTexturesOf(key: string): PaintedTextures | null {
+    return this.loadedTextures.get(key) ?? null;
+  }
+
+  /**
+   * Loads every registered model in the manifest (boot-time warm-up), then
+   * lets models borrow clips they lack from each other. Views wait for this.
    */
   settled(): Promise<void> {
     if (!this.settledPromise) {
       this.settledPromise = this.manifest.then(async (entries) => {
-        const assets = await Promise.all([...entries.keys()].map((key) => this.load(key)));
-        await shareClips(assets.filter((asset): asset is PaintedModelAsset => asset !== null));
+        const keys = [...entries.keys()].filter((key) => paintedModelSpecByKey(key) !== null);
+        const assets = await Promise.all(keys.map((key) => this.load(key)));
+        await shareClips(assets.filter((asset): asset is PaintedModelAsset => asset !== null && asset.skinned));
         this.isSettled = true;
         this.resolveSettled();
       });
@@ -553,8 +670,14 @@ export class PaintedModelLibrary {
 
   dispose(): void {
     for (const asset of this.assets.values()) asset?.container.dispose();
+    for (const textures of this.loadedTextures.values()) {
+      textures.albedo.dispose();
+      textures.normal?.dispose();
+    }
     this.assets.clear();
     this.loads.clear();
+    this.textureLoads.clear();
+    this.loadedTextures.clear();
   }
 }
 

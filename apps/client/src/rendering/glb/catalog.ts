@@ -41,7 +41,8 @@ export type ClipRole =
  * Candidate clip names per role, first match wins. When a model lacks a role
  * the library first retargets the clip from another loaded model (all share
  * Mixamo bone names; the motion is transferred as world-space rotation deltas
- * from bind pose, so differing A/T-poses still line up). Roles nobody has fall
+ * from bind pose after aligning each bone's bind direction to the donor's, so
+ * A-pose and T-pose rigs line up). Roles nobody has fall
  * back in the animator: idle → procedural breathing over the bind pose;
  * sprint → run; backpedal → walk played in reverse; air → a frozen mid-stride
  * run frame; swim → procedural prone crawl; death → procedural comic
@@ -55,7 +56,7 @@ export const DEFAULT_CLIPS: Readonly<Record<ClipRole, readonly string[]>> = {
   walk: ['Walking', 'Walk', 'Casual_Walk'],
   combatWalk: ['Walk_Fight_Forward'],
   run: ['Running', 'Run', 'Jog_Forward'],
-  sprint: ['Lean_Forward_Sprint', 'Lean_Forward_Sprint_inplace', 'Standard_Forward_Charge_inplace', 'Sprint'],
+  sprint: ['Lean_Forward_Sprint_inplace', 'Standard_Forward_Charge_inplace', 'Lean_Forward_Sprint', 'Sprint'],
   backpedal: ['Walk_Backward_inplace', 'Walk_Backward', 'Walking_Backward'],
   crouchBack: ['Crawl_Backward'],
   air: ['Jump', 'Regular_Jump', 'Jump_Up', 'Hop_with_Arms_Raised'],
@@ -90,7 +91,8 @@ export interface NativeOutfit {
 }
 
 export interface PaintedModelSpec {
-  key: PaintedModelKey;
+  /** Manifest key: `<faction>-<class>` for players, any name for others. */
+  key: string;
   file: string;
   native: NativeOutfit;
   /** Per-model clip overrides (merged in front of {@link DEFAULT_CLIPS}). */
@@ -107,9 +109,16 @@ export interface PaintedModelSpec {
   backZ: number;
   /** Shoulder width scale for back items (heavy = broad). */
   bulk: number;
+  /**
+   * Standing height in metres; defaults to the class height. Lets extra,
+   * non-soldier characters (e.g. a playable NPC class) reuse the view.
+   */
+  heightMeters?: number;
+  /** false for characters that never hold a weapon (walk/idle clips only). */
+  armed?: boolean;
 }
 
-export const PAINTED_MODELS: Readonly<Record<string, PaintedModelSpec>> = {
+const BUILT_IN_MODELS: Readonly<Record<string, PaintedModelSpec>> = {
   'alpine-allrounder': {
     key: 'alpine-allrounder',
     file: 'alpine-allrounder.glb',
@@ -256,15 +265,39 @@ export const PAINTED_MODELS: Readonly<Record<string, PaintedModelSpec>> = {
   },
 };
 
-export function paintedModelKey(profile: PlayerProfile): PaintedModelKey | null {
-  const classId = profile.cosmetics.classId;
+/**
+ * Registry of painted models (manifest key → spec). The six soldiers are
+ * built in; later packages add their own characters with
+ * {@link registerPaintedModel} before the library settles.
+ */
+const registry = new Map<string, PaintedModelSpec>(Object.entries(BUILT_IN_MODELS));
+
+/** Every registered spec (read-only view). */
+export const PAINTED_MODELS: Readonly<Record<string, PaintedModelSpec>> = new Proxy({} as Record<string, PaintedModelSpec>, {
+  get: (_target, key) => (typeof key === 'string' ? registry.get(key) : undefined),
+  ownKeys: () => [...registry.keys()],
+  getOwnPropertyDescriptor: (_target, key) =>
+    typeof key === 'string' && registry.has(key) ? { enumerable: true, configurable: true, value: registry.get(key) } : undefined,
+});
+
+/** Adds or replaces a painted model spec (e.g. a non-soldier class). */
+export function registerPaintedModel(spec: PaintedModelSpec): void {
+  registry.set(spec.key, spec);
+}
+
+export function paintedModelSpecByKey(key: string): PaintedModelSpec | null {
+  return registry.get(key) ?? null;
+}
+
+export function paintedModelKey(profile: PlayerProfile): string | null {
+  const classId: string = profile.cosmetics.classId;
   if (classId === 'mascot') return null;
   return `${profile.faction}-${classId}`;
 }
 
 export function paintedModelSpec(profile: PlayerProfile): PaintedModelSpec | null {
   const key = paintedModelKey(profile);
-  return key ? PAINTED_MODELS[key] ?? null : null;
+  return key ? registry.get(key) ?? null : null;
 }
 
 /**

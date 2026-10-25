@@ -23,8 +23,12 @@ export interface PaintedTextures {
   normal: BaseTexture | null;
 }
 
-/** x normal-map strength, y saturation, z contrast, w shade lift. */
-const PAINT_PARAMS = new Vector4(0.55, 1.12, 1.06, 0.28);
+/**
+ * x normal-map strength, y saturation, z contrast, w shade lift. The Meshy
+ * normal maps are mostly fine sculpt noise, so they stay subtle; the WebP
+ * albedo needs no saturation/contrast push (that crushed the painted darks).
+ */
+const PAINT_PARAMS = new Vector4(0.25, 1.0, 1.0, 0.28);
 const PROP_PARAMS = new Vector4(0, 1, 1, 0.12);
 
 /**
@@ -32,7 +36,21 @@ const PROP_PARAMS = new Vector4(0, 1, 1, 0.12);
  * the compiled shader program and the painted textures are shared, so a
  * second view of the same model costs no extra compile or texture memory.
  */
-export function createGlbMaterial(scene: Scene, name: string, textures: PaintedTextures | null): ShaderMaterial {
+/** Scene-alpha look mask values (see shaders/post.ts). */
+export const LOOK_MASK_CHARACTER = 0;
+export const LOOK_MASK_EXEMPT = 0.5;
+
+export interface GlbMaterialOptions {
+  /** Scene-alpha look mask: 0 stylised character (default), 0.5 exempt. */
+  lookMask?: number;
+}
+
+export function createGlbMaterial(
+  scene: Scene,
+  name: string,
+  textures: PaintedTextures | null,
+  options: GlbMaterialOptions = {},
+): ShaderMaterial {
   const webgpu = scene.getEngine().isWebGPU;
   const textured = textures !== null;
   const material = new ShaderMaterial(
@@ -55,6 +73,7 @@ export function createGlbMaterial(scene: Scene, name: string, textures: PaintedT
         'uFrozenState',
         'uTime',
         'uPaintParams',
+        'uLookMask',
         ...LOOK_UNIFORMS,
       ],
       samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : [...LOOK_SAMPLERS],
@@ -70,6 +89,7 @@ export function createGlbMaterial(scene: Scene, name: string, textures: PaintedT
   material.setFloat('uFrozenState', 0);
   material.setFloat('uTime', 0);
   material.setVector4('uPaintParams', textured ? PAINT_PARAMS : PROP_PARAMS);
+  material.setFloat('uLookMask', options.lookMask ?? LOOK_MASK_CHARACTER);
   if (textures) {
     material.setTexture('albedoSampler', textures.albedo);
     // Without a normal map the shader samples the albedo and a zero strength.

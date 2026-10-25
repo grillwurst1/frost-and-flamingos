@@ -3,27 +3,51 @@
   "models": {
     "alpine-allrounder": {
       "file": "alpine-allrounder.glb",
-      "bytes": 2833848
+      "bytes": 2546974,
+      "textures": {
+        "basecolor": "alpine-allrounder-basecolor.webp",
+        "normal": "alpine-allrounder-normal.webp"
+      }
     },
     "alpine-heavy": {
       "file": "alpine-heavy.glb",
-      "bytes": 2527716
+      "bytes": 2265432,
+      "textures": {
+        "basecolor": "alpine-heavy-basecolor.webp",
+        "normal": "alpine-heavy-normal.webp"
+      }
     },
     "alpine-infiltrator": {
       "file": "alpine-infiltrator.glb",
-      "bytes": 2732324
+      "bytes": 2495848,
+      "textures": {
+        "basecolor": "alpine-infiltrator-basecolor.webp",
+        "normal": "alpine-infiltrator-normal.webp"
+      }
     },
     "lagoon-allrounder": {
       "file": "lagoon-allrounder.glb",
-      "bytes": 3155328
+      "bytes": 2935386,
+      "textures": {
+        "basecolor": "lagoon-allrounder-basecolor.webp",
+        "normal": "lagoon-allrounder-normal.webp"
+      }
     },
     "lagoon-heavy": {
       "file": "lagoon-heavy.glb",
-      "bytes": 2832748
+      "bytes": 2613418,
+      "textures": {
+        "basecolor": "lagoon-heavy-basecolor.webp",
+        "normal": "lagoon-heavy-normal.webp"
+      }
     },
     "lagoon-infiltrator": {
       "file": "lagoon-infiltrator.glb",
-      "bytes": 3531364
+      "bytes": 3242204,
+      "textures": {
+        "basecolor": "lagoon-infiltrator-basecolor.webp",
+        "normal": "lagoon-infiltrator-normal.webp"
+      }
     }
   }
 }

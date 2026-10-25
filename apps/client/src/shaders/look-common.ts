@@ -18,6 +18,10 @@
  * uFFShadowDepth mirrors Babylon's shadow-depth metric: x = depth min, y =
  * min + max, z = 1 when the map is packed RGBA8, w = clip-z sign (-1 with a
  * reverse depth buffer), so depth = (w * clip.z + x) / y.
+ *
+ * `FF_TEXTURED` (defined only by the painted GLB character material) selects
+ * the painted-albedo variant: derivative-widened bands, no pow deepening of
+ * the shade colour, and a capped shadow normal offset.
  */
 
 /** Uniform names added by {@link LOOK_FRAGMENT_GLSL} / {@link LOOK_FRAGMENT_WGSL}. */
@@ -61,7 +65,13 @@ float ffShadow(vec3 worldPos, vec3 normal, float ndl) {
   if (uFFShadowParams.w < 0.5) return 1.0;
   float texel = uFFShadowParams.x;
   float slope = 1.0 - clamp(ndl, 0.0, 1.0);
-  vec3 offsetPos = worldPos + normal * uFFShadowParams.y * (0.8 + 2.6 * slope);
+  float offsetLen = uFFShadowParams.y * (0.8 + 2.6 * slope);
+#ifdef FF_TEXTURED
+  // Painted characters are thinner than the offset; cap it so self-shadows
+  // from brims and arms stay attached instead of jumping in coarse cells.
+  offsetLen = min(offsetLen, 0.12);
+#endif
+  vec3 offsetPos = worldPos + normal * offsetLen;
   vec4 lightClip = uFFLightMatrix * vec4(offsetPos, 1.0);
   vec3 clip = lightClip.xyz / lightClip.w;
   float edge = max(abs(clip.x), abs(clip.y));
@@ -119,14 +129,26 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   float ndl = dot(normal, light);
   float shadow = ffShadow(worldPos, normal, ndl);
 
-  float terminator = smoothstep(-0.02, 0.05, ndl + uFFToonParams.z);
-  float full = smoothstep(0.32, 0.39, ndl + uFFToonParams.z);
+#ifdef FF_TEXTURED
+  // Painted skinned characters: widen the hard bands by the screen-space
+  // derivative so dense meshes and normal maps do not alias into speckles.
+  float bandAA = fwidth(ndl) * 1.5;
+#else
+  float bandAA = 0.0;
+#endif
+  float terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uFFToonParams.z);
+  float full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uFFToonParams.z);
   float lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
 
   float skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
   vec3 fill = mix(uFFGroundFill, uFFSkyFill, skyMix);
+#ifdef FF_TEXTURED
+  // Painted albedo already carries its own soft shading: no extra deepening.
+  vec3 shade = base * ffShadeTint(base) * fill;
+#else
   vec3 deep = pow(max(base, vec3(0.001)), vec3(1.35));
   vec3 shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
+#endif
   // Lit snow and ice stay blue-white like the paintings (sky bounce).
   vec3 lit = base * uFFSunColor * mix(vec3(1.0), vec3(0.88, 0.95, 1.0), ffCoolMask(base) * 0.85);
   vec3 color = mix(shade, lit, lightLevel);
@@ -187,7 +209,11 @@ fn ffShadow(worldPos : vec3f, normal : vec3f, ndl : f32) -> f32 {
   if (uniforms.uFFShadowParams.w < 0.5) { return 1.0; }
   let texel = uniforms.uFFShadowParams.x;
   let slope = 1.0 - clamp(ndl, 0.0, 1.0);
-  let offsetPos = worldPos + normal * uniforms.uFFShadowParams.y * (0.8 + 2.6 * slope);
+  var offsetLen = uniforms.uFFShadowParams.y * (0.8 + 2.6 * slope);
+#ifdef FF_TEXTURED
+  offsetLen = min(offsetLen, 0.12);
+#endif
+  let offsetPos = worldPos + normal * offsetLen;
   let lightClip = uniforms.uFFLightMatrix * vec4f(offsetPos, 1.0);
   let clip = lightClip.xyz / lightClip.w;
   let edge = max(abs(clip.x), abs(clip.y));
@@ -245,14 +271,22 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let ndl = dot(normal, light);
   let shadow = ffShadow(worldPos, normal, ndl);
 
-  let terminator = smoothstep(-0.02, 0.05, ndl + uniforms.uFFToonParams.z);
-  let full = smoothstep(0.32, 0.39, ndl + uniforms.uFFToonParams.z);
+  var bandAA = 0.0;
+#ifdef FF_TEXTURED
+  bandAA = fwidth(ndl) * 1.5;
+#endif
+  let terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uniforms.uFFToonParams.z);
+  let full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uniforms.uFFToonParams.z);
   let lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
 
   let skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
   let fill = mix(uniforms.uFFGroundFill, uniforms.uFFSkyFill, skyMix);
+#ifdef FF_TEXTURED
+  let shade = base * ffShadeTint(base) * fill;
+#else
   let deep = pow(max(base, vec3f(0.001)), vec3f(1.35));
   let shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
+#endif
   let lit = base * uniforms.uFFSunColor * mix(vec3f(1.0), vec3f(0.88, 0.95, 1.0), ffCoolMask(base) * 0.85);
   var color = mix(shade, lit, lightLevel);
 

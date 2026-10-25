@@ -16,9 +16,17 @@ import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
  * with `viewProjection` (never a precomputed worldViewProjection).
  *
  * Lighting is the shared comic model from look-common.ts (cel bands, tinted
- * shade, cast shadows, rim, haze); the global ink outline comes from the
- * scene-look g-buffer edge pass. The effect uniforms match the procedural
- * character shader: soot (battle damage), charred and frozen.
+ * shade, cast shadows, rim, haze; FF_TEXTURED selects its painted-albedo
+ * variant); the global ink outline comes from the scene-look g-buffer edge
+ * pass. The effect uniforms match the procedural character shader: soot
+ * (battle damage), charred and frozen.
+ *
+ * Fidelity details for the dense Meshy UV atlases (1800-2500 islands):
+ * the painted textures are sampled at an explicit, slightly sharpened mip
+ * level (min(natural, max(1.5, natural - 1))) so trilinear filtering never
+ * bleeds neighbouring islands into eyes and brows, and the output alpha is 0
+ * to mark character pixels for the post stack (less paint smear, no normal
+ * ink or sharpen on characters; see shaders/post.ts).
  *
  * GLSL (WebGL2) and WGSL (WebGPU) blocks must stay line-for-line equivalent.
  */
@@ -76,6 +84,8 @@ uniform float uFrozenState;
 uniform float uTime;
 /** x normal-map strength, y saturation boost, z texture contrast, w shade lift. */
 uniform vec4 uPaintParams;
+/** Scene-alpha look mask written by this material (0 = stylised character, see post.ts). */
+uniform float uLookMask;
 #ifdef FF_TEXTURED
 uniform sampler2D albedoSampler;
 uniform sampler2D normalSampler;
@@ -88,6 +98,16 @@ float hash13(vec3 p) {
   return fract((p.x + p.y) * p.z);
 }
 
+float ffValueNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash13(vec3(i, 0.0)), hash13(vec3(i + vec2(1.0, 0.0), 0.0)), f.x),
+    mix(hash13(vec3(i + vec2(0.0, 1.0), 0.0)), hash13(vec3(i + vec2(1.0, 1.0), 0.0)), f.x), f.y);
+}
+
+// Cotangent frame from screen derivatives; tangent X is negated for the
+// left-handed scene (same convention as Babylon's own glTF path).
 vec3 ffPerturbNormal(vec3 n, vec3 p, vec2 uv, vec3 mapNormal) {
   vec3 dp1 = dFdx(p);
   vec3 dp2 = dFdy(p);
@@ -95,7 +115,7 @@ vec3 ffPerturbNormal(vec3 n, vec3 p, vec2 uv, vec3 mapNormal) {
   vec2 duv2 = dFdy(uv);
   vec3 dp2perp = cross(dp2, n);
   vec3 dp1perp = cross(n, dp1);
-  vec3 t = dp2perp * duv1.x + dp1perp * duv2.x;
+  vec3 t = -(dp2perp * duv1.x + dp1perp * duv2.x);
   vec3 b = dp2perp * duv1.y + dp1perp * duv2.y;
   float scale = inversesqrt(max(max(dot(t, t), dot(b, b)), 1e-12));
   return normalize(t * scale * mapNormal.x + b * scale * mapNormal.y + n * mapNormal.z);
@@ -106,29 +126,35 @@ void main(void) {
   if (!gl_FrontFacing) normal = -normal;
 
 #ifdef FF_TEXTURED
-  vec3 base = texture2D(albedoSampler, vUV).rgb;
-  vec3 mapNormal = texture2D(normalSampler, vUV).xyz * 2.0 - 1.0;
+  // Explicit mip level: never blurrier than natural, at most one level
+  // sharper, and never below 1.5 where box mips start mixing UV islands.
+  vec2 texSize = vec2(textureSize(albedoSampler, 0));
+  vec2 gx = dFdx(vUV) * texSize;
+  vec2 gy = dFdy(vUV) * texSize;
+  float lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
+  float lod = clamp(min(lodNatural, max(1.5, lodNatural - 1.0)), 0.0, 12.0);
+  vec3 base = texture2DLodEXT(albedoSampler, vUV, lod).rgb;
+  vec3 mapNormal = texture2DLodEXT(normalSampler, vUV, lod).xyz * 2.0 - 1.0;
   mapNormal.xy *= uPaintParams.x;
   normal = ffPerturbNormal(normal, vWorldPosition, vUV, normalize(mapNormal));
-  float gloss = 0.06;
+  float gloss = 0.0;
+  float grain = ffValueNoise(vUV * 96.0);
 #else
   vec3 base = vColor.rgb;
   float gloss = 0.3;
+  float grain = hash13(floor(vWorldPosition * 24.0));
 #endif
-  // Painted textures come out slightly flat after JPEG; push them back
-  // towards the saturated comic palette of the owner's sheets.
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
   base = mix(vec3(luma), base, uPaintParams.y);
   base = clamp((base - 0.5) * uPaintParams.z + 0.5, 0.0, 1.0);
 
-  float grain = hash13(floor(vWorldPosition * 24.0));
   float sootMask = smoothstep(0.58, 0.86, grain) * clamp(uBattleDamage, 0.0, 1.0);
   base = mix(base, vec3(0.075, 0.065, 0.055), sootMask * 0.82);
   base = mix(base, vec3(0.045, 0.04, 0.038), clamp(uCharredState, 0.0, 1.0) * 0.9);
   base = mix(base, vec3(0.66, 0.9, 1.0), clamp(uFrozenState, 0.0, 1.0) * 0.62);
 
   float vinyl = gloss * (1.0 - clamp(uCharredState, 0.0, 1.0)) + clamp(uFrozenState, 0.0, 1.0) * 0.6;
-  vec3 lit = ffToon(base, normal, vWorldPosition, vinyl, rimStrength * 1.6, 1.0);
+  vec3 lit = ffToon(base, normal, vWorldPosition, vinyl, rimStrength * 0.8, 1.0);
   // The painting already carries its own soft shading: lift the cel shade
   // band a little so the two do not stack into mud.
   lit = mix(lit, max(lit, base * uFFSunColor * 0.78), uPaintParams.w);
@@ -138,7 +164,8 @@ void main(void) {
   lit += vec3(1.0, 0.42, 0.12) * uCharredState * (0.04 + sootMask * 0.05);
 
   lit = ffHaze(lit, vWorldPosition);
-  gl_FragColor = vec4(lit, 1.0);
+  // The alpha marks character pixels for the post stack (opaque material).
+  gl_FragColor = vec4(lit, uLookMask);
 }
 `;
 
@@ -188,6 +215,7 @@ uniform uCharredState : f32;
 uniform uFrozenState : f32;
 uniform uTime : f32;
 uniform uPaintParams : vec4f;
+uniform uLookMask : f32;
 #ifdef FF_TEXTURED
 var albedoSamplerSampler : sampler;
 var albedoSampler : texture_2d<f32>;
@@ -207,6 +235,14 @@ fn hash13(pIn : vec3f) -> f32 {
   return fract((p.x + p.y) * p.z);
 }
 
+fn ffValueNoise(p : vec2f) -> f32 {
+  let i = floor(p);
+  var f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash13(vec3f(i, 0.0)), hash13(vec3f(i + vec2f(1.0, 0.0), 0.0)), f.x),
+    mix(hash13(vec3f(i + vec2f(0.0, 1.0), 0.0)), hash13(vec3f(i + vec2f(1.0, 1.0), 0.0)), f.x), f.y);
+}
+
 fn ffPerturbNormal(n : vec3f, p : vec3f, uv : vec2f, mapNormal : vec3f) -> vec3f {
   let dp1 = dpdx(p);
   let dp2 = dpdy(p);
@@ -214,7 +250,7 @@ fn ffPerturbNormal(n : vec3f, p : vec3f, uv : vec2f, mapNormal : vec3f) -> vec3f
   let duv2 = dpdy(uv);
   let dp2perp = cross(dp2, n);
   let dp1perp = cross(n, dp1);
-  let t = dp2perp * duv1.x + dp1perp * duv2.x;
+  let t = -(dp2perp * duv1.x + dp1perp * duv2.x);
   let b = dp2perp * duv1.y + dp1perp * duv2.y;
   let scale = inverseSqrt(max(max(dot(t, t), dot(b, b)), 1e-12));
   return normalize(t * scale * mapNormal.x + b * scale * mapNormal.y + n * mapNormal.z);
@@ -226,27 +262,33 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   if (!fragmentInputs.frontFacing) { normal = -normal; }
 
 #ifdef FF_TEXTURED
-  var base = textureSample(albedoSampler, albedoSamplerSampler, input.vUV).rgb;
-  var mapNormal = textureSample(normalSampler, normalSamplerSampler, input.vUV).xyz * 2.0 - 1.0;
+  let texSize = vec2f(textureDimensions(albedoSampler, 0));
+  let gx = dpdx(input.vUV) * texSize;
+  let gy = dpdy(input.vUV) * texSize;
+  let lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
+  let lod = clamp(min(lodNatural, max(1.5, lodNatural - 1.0)), 0.0, 12.0);
+  var base = textureSampleLevel(albedoSampler, albedoSamplerSampler, input.vUV, lod).rgb;
+  var mapNormal = textureSampleLevel(normalSampler, normalSamplerSampler, input.vUV, lod).xyz * 2.0 - 1.0;
   mapNormal = vec3f(mapNormal.xy * uniforms.uPaintParams.x, mapNormal.z);
   normal = ffPerturbNormal(normal, input.vWorldPosition, input.vUV, normalize(mapNormal));
-  let gloss = 0.06;
+  let gloss = 0.0;
+  let grain = ffValueNoise(input.vUV * 96.0);
 #else
   var base = input.vColor.rgb;
   let gloss = 0.3;
+  let grain = hash13(floor(input.vWorldPosition * 24.0));
 #endif
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));
   base = mix(vec3f(luma), base, uniforms.uPaintParams.y);
   base = clamp((base - 0.5) * uniforms.uPaintParams.z + 0.5, vec3f(0.0), vec3f(1.0));
 
-  let grain = hash13(floor(input.vWorldPosition * 24.0));
   let sootMask = smoothstep(0.58, 0.86, grain) * clamp(uniforms.uBattleDamage, 0.0, 1.0);
   base = mix(base, vec3f(0.075, 0.065, 0.055), sootMask * 0.82);
   base = mix(base, vec3f(0.045, 0.04, 0.038), clamp(uniforms.uCharredState, 0.0, 1.0) * 0.9);
   base = mix(base, vec3f(0.66, 0.9, 1.0), clamp(uniforms.uFrozenState, 0.0, 1.0) * 0.62);
 
   let vinyl = gloss * (1.0 - clamp(uniforms.uCharredState, 0.0, 1.0)) + clamp(uniforms.uFrozenState, 0.0, 1.0) * 0.6;
-  var lit = ffToon(base, normal, input.vWorldPosition, vinyl, uniforms.rimStrength * 1.6, 1.0);
+  var lit = ffToon(base, normal, input.vWorldPosition, vinyl, uniforms.rimStrength * 0.8, 1.0);
   lit = mix(lit, max(lit, base * uniforms.uFFSunColor * 0.78), uniforms.uPaintParams.w);
 
   let iceShimmer = sin(uniforms.uTime * 4.0 + input.vWorldPosition.y * 18.0) * 0.5 + 0.5;
@@ -254,6 +296,6 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   lit += vec3f(1.0, 0.42, 0.12) * uniforms.uCharredState * (0.04 + sootMask * 0.05);
 
   lit = ffHaze(lit, input.vWorldPosition);
-  fragmentOutputs.color = vec4f(lit, 1.0);
+  fragmentOutputs.color = vec4f(lit, uniforms.uLookMask);
 }
 `;

@@ -36,7 +36,7 @@ import {
   type PaintedModelAsset,
 } from './glb/library';
 import { buildBackAttachment, buildHandAttachment, buildHeadAttachment, HEAD_UNIT } from './glb/cosmetics';
-import { createGlbMaterial, updateGlbMaterial } from './glb/material';
+import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { buildCanopyProp, buildWeaponProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
 import { GlbRig, type RigJoint } from './glb/rig';
 
@@ -87,7 +87,7 @@ const NATURAL_SPEED: Partial<Record<ClipRole, number>> = {
   backpedal: 1.3,
 };
 
-const BASE_ROLES: readonly ClipRole[] = ['idle', 'walk', 'combatWalk', 'run', 'sprint', 'backpedal', 'air', 'swim', 'death'];
+const LOCOMOTION: readonly ClipRole[] = ['walk', 'combatWalk', 'run', 'sprint', 'backpedal'];
 const OVERLAY_ROLES: readonly ClipRole[] = ['reload', 'taunt'];
 
 interface ClipBinding {
@@ -109,8 +109,8 @@ interface ClipBinding {
 
 /** Hold offsets in the aim frame: x = character right, y = up, z = forward. */
 const HOLD_OFFSETS: Readonly<Record<HoldStyle, readonly [number, number, number]>> = {
-  rifle: [0.09, -0.1, 0.2],
-  launcher: [0.15, 0.02, 0.1],
+  rifle: [0.0, -0.1, 0.28],
+  launcher: [0.15, 0.02, 0.25],
   pistol: [0.03, -0.04, 0.34],
   melee: [0.22, -0.16, 0.24],
   polearm: [0.18, -0.2, 0.18],
@@ -198,7 +198,9 @@ export class GlbCharacterView implements AvatarView {
   private readonly bindings = new Map<ClipRole, ClipBinding>();
   private readonly weapons = new Map<WeaponId, WeaponProp | null>();
   private readonly attachments: Mesh[] = [];
-  private readonly stats;
+  private readonly height: number;
+  /** false for unarmed characters: weapons are never shown. */
+  private readonly armedModel: boolean;
   private readonly scale: number;
   private readonly shoulderHalf: number;
   private readonly bulk: number;
@@ -225,14 +227,23 @@ export class GlbCharacterView implements AvatarView {
   private armed = 0;
   private aliveBlend = 1;
   private deathTilt = 0;
+  private locoPhase = Math.random();
 
-  constructor(scene: Scene, shadowMaterial: StandardMaterial, profile: PlayerProfile, asset: PaintedModelAsset) {
+  constructor(
+    scene: Scene,
+    shadowMaterial: StandardMaterial,
+    profile: PlayerProfile,
+    asset: PaintedModelAsset,
+    textures: PaintedTextures,
+  ) {
     this.scene = scene;
     this.asset = asset;
     this.shadowMaterial = shadowMaterial;
-    this.stats = CLASS_STATS[profile.cosmetics.classId];
     const spec = asset.spec;
-    this.scale = this.stats.height / asset.height;
+    const classHeight = (CLASS_STATS as Partial<Record<string, { height: number }>>)[profile.cosmetics.classId]?.height;
+    this.height = spec.heightMeters ?? classHeight ?? asset.height;
+    this.armedModel = spec.armed !== false;
+    this.scale = this.height / asset.height;
     this.bulk = spec.bulk;
     const leftArm = asset.bindPositions.get('LeftArm');
     const rightArm = asset.bindPositions.get('RightArm');
@@ -249,7 +260,7 @@ export class GlbCharacterView implements AvatarView {
     this.modelRoot.position.y = -0.55;
     this.modelRoot.scaling.setAll(this.scale);
 
-    this.material = createGlbMaterial(scene, `glb-${spec.key}-${profile.displayName}`, asset.textures);
+    this.material = createGlbMaterial(scene, `glb-${spec.key}-${profile.displayName}`, textures);
     this.propMaterial = createGlbMaterial(scene, `glb-props-${profile.displayName}`, null);
 
     this.entries = asset.container.instantiateModelsToScene((name) => name, false, {
@@ -264,6 +275,9 @@ export class GlbCharacterView implements AvatarView {
     this.bodyMesh = mesh;
     mesh.material = this.material;
     mesh.isPickable = false;
+    // Skinned bounds are never refreshed (a death clip travels ~1 m flat on
+    // the ground), so never frustum-cull the body; ≤16 characters are cheap.
+    mesh.alwaysSelectAsActiveMesh = true;
     for (const child of gltfRoot.getChildMeshes(false)) child.isPickable = false;
 
     // Joint nodes by normalised Mixamo name, in parent-first order.
@@ -578,8 +592,7 @@ export class GlbCharacterView implements AvatarView {
       } else {
         const run = smoothstep(2.2, 4.4, speed);
         targets.run = move * run;
-        targets.walk = move * (1 - run) * 0.5;
-        targets.combatWalk = move * (1 - run) * 0.5;
+        targets.walk = move * (1 - run);
       }
       targets.idle = 1 - move;
     }
@@ -629,9 +642,23 @@ export class GlbCharacterView implements AvatarView {
       tauntBinding.weight = approach(tauntBinding.weight, tauntBinding.target, dt * 5);
     }
 
+    // Locomotion loops share one normalised phase so blended legs stay in step.
+    let dominant: ClipBinding | null = null;
+    for (const role of LOCOMOTION) {
+      const binding = this.bindings.get(role);
+      if (binding && binding.hold === null && (!dominant || binding.weight > dominant.weight)) dominant = binding;
+    }
+    if (dominant && dominant.weight > 0.002) {
+      this.locoPhase = (this.locoPhase + (dt * dominant.rate) / Math.max(0.1, dominant.clip.duration)) % 1;
+    }
     for (const binding of this.bindings.values()) {
       if (binding.hold !== null) {
         binding.time = binding.hold;
+        continue;
+      }
+      if (LOCOMOTION.includes(binding.role)) {
+        const phase = binding.reverse ? 1 - this.locoPhase : this.locoPhase;
+        binding.time = phase * binding.clip.duration;
         continue;
       }
       const duration = binding.clip.duration;
@@ -651,7 +678,7 @@ export class GlbCharacterView implements AvatarView {
     const weaponVisible =
       alive && !swimming && !rolling && this.parachute < 0.2 && this.tauntTime < 0 && this.weapon !== null;
     this.armed = approach(this.armed, weaponVisible ? 1 : 0, dt * 6);
-    this.setWeapon(pose.weaponId ?? null);
+    this.setWeapon(this.armedModel ? pose.weaponId ?? null : null);
     if (this.weapon) this.weapon.mesh.setEnabled(this.armed > 0.3);
 
     if (this.remotePitchTimer > 0) this.remotePitchTimer -= dt;
@@ -678,7 +705,7 @@ export class GlbCharacterView implements AvatarView {
     const deathTarget = !alive && !has('death') ? -1.45 : 0;
     this.deathTilt = approach(this.deathTilt, deathTarget, dt * (deathTarget !== 0 ? 4.5 : 8));
     this.tiltPivot.rotation.x = this.deathTilt + proneSwim * this.swim;
-    this.tiltPivot.position.y = -0.32 * this.swim;
+    this.tiltPivot.position.y = has('swim') ? 0 : -0.32 * this.swim;
     this.updateMaterial();
   }
 
@@ -899,7 +926,7 @@ export class GlbCharacterView implements AvatarView {
     const local = toArmature(
       offset[0] * (this.shoulderHalf / 0.2),
       offset[1],
-      offset[2] * this.bulk - this.recoil * 0.05,
+      offset[2] - this.recoil * 0.05,
     );
     let frame = aim;
     if (this.swing >= 0) {
@@ -911,6 +938,24 @@ export class GlbCharacterView implements AvatarView {
     }
     const grip = chest.add(local.rotateByQuaternionToRef(frame, new Vector3()));
     const weaponRotation = frame.multiply(Quaternion.RotationAxis(AXIS_X, -hold.tilt));
+    let support = this.supportPoint(hold, grip, weaponRotation);
+    if (support) {
+      // Short painted arms: pull the whole weapon towards the left shoulder
+      // until the support hand can reach its grip.
+      const leftArm = rig.position('LeftArm');
+      const leftFore = rig.position('LeftForeArm');
+      const leftHand = rig.position('LeftHand');
+      if (leftArm && leftFore && leftHand) {
+        const reach = 0.92 * (Vector3.Distance(leftArm, leftFore) + Vector3.Distance(leftFore, leftHand));
+        const toShoulder = leftArm.subtract(support);
+        const distance = toShoulder.length();
+        if (distance > reach && distance > 1e-4) {
+          const shift = toShoulder.scale((distance - reach) / distance);
+          grip.addInPlace(shift);
+          support = support.add(shift);
+        }
+      }
+    }
     this.weaponAnchor.position.copyFrom(grip);
     this.weaponAnchor.rotationQuaternion?.copyFrom(weaponRotation);
 
@@ -919,8 +964,7 @@ export class GlbCharacterView implements AvatarView {
     rig.refresh();
     const fingers = toArmature(-0.35, -0.45, 0.82).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
     const thumb = toArmature(-0.2, 0.65, 0.73).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
-    rig.orientHand('RightHand', 'RightHandMiddle1', 'RightHandThumb1', fingers, thumb, armed);
-    const support = this.supportPoint(hold, grip, weaponRotation);
+    rig.orientHand('RightHand', 'RightHandMiddle1', 'RightHandThumb1', fingers, thumb, armed, 'RightForeArm');
     if (support) {
       // Protract the left clavicle so short painted arms reach the foregrip.
       rig.rotateWorld('LeftShoulder', Quaternion.RotationAxis(AXIS_Y, -0.38 * armed));
@@ -931,7 +975,7 @@ export class GlbCharacterView implements AvatarView {
       rig.refresh();
       const leftFingers = toArmature(0.45, -0.35, 0.82).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
       const leftThumb = toArmature(0.15, 0.6, 0.78).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
-      rig.orientHand('LeftHand', 'LeftHandMiddle1', 'LeftHandThumb1', leftFingers, leftThumb, armed * reloadDrop);
+      rig.orientHand('LeftHand', 'LeftHandMiddle1', 'LeftHandThumb1', leftFingers, leftThumb, armed * reloadDrop, 'LeftForeArm');
     }
   }
 
@@ -1034,22 +1078,23 @@ class PendingPaintedView implements AvatarView {
     installGlbDebugHandle();
     debugEvent(`pending ${shadowName}`);
     const library = paintedModelLibrary(scene);
+    const key = paintedModelSpec(profile)?.key ?? null;
     void library
       .whenSettled()
-      .then(() => {
+      .then(async () => {
+        const asset = key ? library.get(key) : null;
+        const textures = key && asset ? await library.textures(key) : null;
         if (this.disposed) {
           debugEvent(`pending ${shadowName} disposed before models settled`);
           return;
         }
-        const key = paintedModelSpec(profile)?.key;
-        const asset = key ? library.get(key) : null;
-        debugEvent(`settled ${shadowName} ${key ?? '-'} ${asset ? 'asset' : 'no asset'}`);
-        if (!asset) return;
+        debugEvent(`settled ${shadowName} ${key ?? '-'} ${asset ? 'asset' : 'no asset'} ${textures ? 'textures' : 'no textures'}`);
+        if (!asset || !textures) return;
         const previous = this.current;
         const enabled = previous.root.isEnabled(false);
         const position = previous.root.position;
         const shadow = createShadowMaterial(scene, `${shadowName}-painted`);
-        const next = new GlbCharacterView(scene, shadow, profile, asset);
+        const next = new GlbCharacterView(scene, shadow, profile, asset, textures);
         next.setPosition({ x: position.x, y: position.y, z: position.z });
         next.setYaw(this.lastYaw, true);
         next.setEffects(this.effects);
@@ -1057,6 +1102,7 @@ class PendingPaintedView implements AvatarView {
         previous.dispose();
         this.current = next;
         this.painted = true;
+        pendingViews.delete(this);
       })
       .catch((error: unknown) => {
         console.warn('[frost-and-flamingos] painted view swap failed; keeping the procedural rig', error);
@@ -1131,9 +1177,11 @@ export function createPaintedAvatarView(
   debugEvent(`create ${shadowMaterial.name} ${spec.key} ${status}`);
   if (status === 'missing' || status === 'failed') return null;
   const asset = library.get(spec.key);
-  if (asset) {
+  if (asset && !asset.skinned) return null;
+  const textures = library.loadedTexturesOf(spec.key);
+  if (asset && textures) {
     try {
-      return new GlbCharacterView(scene, shadowMaterial, profile, asset);
+      return new GlbCharacterView(scene, shadowMaterial, profile, asset, textures);
     } catch (error) {
       console.warn('[frost-and-flamingos] painted view failed; using the procedural rig', error);
       return null;

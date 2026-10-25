@@ -386,9 +386,31 @@ export class GameClient {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => {
       this.resizeTimer = null;
-      this.engine?.resize();
+      this.applyCanvasSize();
     }, RESIZE_SETTLE_MS);
   };
+  /** Exact device-pixel canvas size (fractional DPR), when the browser reports it. */
+  private devicePixelBox: { width: number; height: number } | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * At full device resolution (hardware scaling = 1 / DPR) the backing store
+   * takes the browser's exact device-pixel box, so fractional DPRs (1.25,
+   * 1.5) are not resampled; with a DPR cap Babylon's own sizing applies.
+   */
+  private applyCanvasSize(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const box = this.devicePixelBox;
+    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    if (box && Math.abs(engine.getHardwareScalingLevel() * dpr - 1) < 0.001) {
+      if (engine.getRenderWidth() !== box.width || engine.getRenderHeight() !== box.height) {
+        engine.setSize(box.width, box.height);
+      }
+    } else {
+      engine.resize();
+    }
+  }
   private readonly handleFullscreenChange = (): void => {
     if (this.resizeTimer) {
       clearTimeout(this.resizeTimer);
@@ -487,6 +509,19 @@ export class GameClient {
       });
       window.addEventListener('resize', this.handleResize);
       document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver((entries) => {
+          const size = entries[0]?.devicePixelContentBoxSize?.[0];
+          this.devicePixelBox = size ? { width: Math.round(size.inlineSize), height: Math.round(size.blockSize) } : null;
+          this.handleResize();
+        });
+        try {
+          this.resizeObserver.observe(this.canvas, { box: 'device-pixel-content-box' });
+        } catch {
+          // Safari: no device-pixel box; Babylon's own sizing stays in charge.
+          this.resizeObserver.observe(this.canvas);
+        }
+      }
 
       this.engine.runRenderLoop(() => this.frame());
       setLoadingStep('engine', 'done');
@@ -693,6 +728,8 @@ export class GameClient {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     window.removeEventListener('resize', this.handleResize);
     document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.input?.dispose();
     this.network?.disconnect();
     this.localView?.dispose();
