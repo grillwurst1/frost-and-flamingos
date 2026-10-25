@@ -95,7 +95,9 @@ import {
   getProfile,
   profile as profileStore,
   profileFingerprint,
+  setFaction,
 } from '../state/profile';
+import { translateNow } from '../state/locale';
 import { CameraRig } from './camera-rig';
 import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
@@ -1046,6 +1048,23 @@ export class GameClient {
         } else if (!this.mascots?.playDeath(victimProfile, victim, victim?.position)) {
           audio.playDeathScream(victim?.position, victimProfile?.cosmetics.voicePitch ?? 1);
         }
+        return;
+      }
+      case 'PROFILE_NOTICE': {
+        if (event.actorId !== this.localId) return;
+        if (event.paramValue === 1) {
+          notify('wardrobe.appliesOnRespawn');
+          return;
+        }
+        // Moved to the other side at respawn: the wardrobe preference follows the server.
+        const faction: Faction = event.paramX === 0 ? 'alpine' : 'lagoon';
+        this.suppressProfileSend = true;
+        try {
+          setFaction(faction);
+        } finally {
+          this.suppressProfileSend = false;
+        }
+        notify('notifications.teamBalanced', { faction: translateNow(`factions.${faction}.short`) });
         return;
       }
       case 'TURRET_CAPTURED': {

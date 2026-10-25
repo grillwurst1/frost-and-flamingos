@@ -149,7 +149,7 @@ function interimPad(index: number, x: number, z: number): SpawnPoint {
  * rule: 88.5 s from the Tower C pads vs 33.6 s from the Tower A pads, Lagoon
  * League won 7 of 7 bot rounds). While Peak Guard holds Tower C, `share` of
  * the spawns that would use its Tower C pads use these plates beside the
- * cable-car mid station on the village side instead (they also show only
+ * cable-car mid station instead (they also show only
  * while Peak Guard holds Tower C). From these plates Tower B is ~16 s away.
  * With 65 % of the Tower C spawns here, the measured mean time from a spawn to
  * the Tower B zone is 31.9 s for Peak Guard vs 35.0 s for the Lagoon League
@@ -169,9 +169,11 @@ export const INTERIM_CABLE_CAR_SPAWNS: {
   faction: 'alpine',
   heldTower: 'tower_c',
   share: 0.65,
-  // Open plateau east of the mid station, 49–53 m from every Tower B pad (open sky, flat,
-  // no clutter, ≥ 45 m from rival Tower B spawns; audited by test/spawn.test.ts).
-  pads: [interimPad(0, 70, 48), interimPad(1, 73, 51), interimPad(2, 73, 45), interimPad(3, 70, 54)],
+  // Gorge floor right below the mid station: no line of sight to any rival
+  // Tower B pad (the gorge wall covers them), ≥ 45 m from them, open sky,
+  // flat, no clutter (audited by test/spawn.test.ts). Bots climb out by the
+  // south gorge trail.
+  pads: [interimPad(0, 54, 70), interimPad(1, 50, 74), interimPad(2, 54, 76)],
 };
 
 /**

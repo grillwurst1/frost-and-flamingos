@@ -101,6 +101,7 @@ export const en = {
     waitingForServer: 'Waiting for the resort server…',
   },
   wardrobe: {
+    appliesOnRespawn: 'New class and loadout apply at your next respawn.',
     eyebrow: 'The vacationer workshop',
     title: 'Wardrobe & Armory',
     subtitle: 'Seven cosmetic slots, twelve skin tones, eight hair colours and a live 3D fitting room.',
@@ -558,6 +559,7 @@ export const en = {
     spawned: 'Welcome to Fjord Fiesta.',
     respawned: 'Returned to a safe shore.',
     serverFull: 'The resort is full. Try again in a moment.',
+    teamBalanced: 'You now play for {faction} to keep the teams even.',
   },
   world: {
     mapName: 'Fjord Fiesta',

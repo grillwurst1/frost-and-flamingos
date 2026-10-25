@@ -14,6 +14,7 @@ import {
   PhysicsWorld,
   captureZoneIndexAt,
   type Faction,
+  type SpawnPoint,
   type TowerId,
   type Vec3,
 } from '@frost-and-flamingos/shared';
@@ -79,28 +80,44 @@ describe('pad audit (static blueprint)', () => {
     expect(poor).toEqual([]);
   });
 
-  test('no pad or plate lies inside a capture zone (defenders walk in like everyone else)', () => {
-    const inside = ALL_PADS.filter((pad) => captureZoneIndexAt(pad.position) !== -1).map((pad) => pad.id);
-    expect(inside).toEqual([]);
+  test('every pad and plate keeps a body at least 1 m outside every capture zone', () => {
+    const close: string[] = [];
+    for (const pad of ALL_PADS) {
+      // Measure where a placed body really stands after a physics tick (float32 drift included).
+      const body = world.createCharacter({ position: pad.position, classId: 'heavy', faction: pad.faction });
+      body.simulate({ sequence: 1, buttons: 0, yaw: 0, pitch: 0, weaponSlot: 1 });
+      world.step();
+      const feet = body.position;
+      world.removeCharacter(body);
+      for (const tower of CONQUEST_TOWERS) {
+        const distance = Math.hypot(feet.x - tower.position.x, feet.z - tower.position.z);
+        if (distance < tower.captureRadius + 1) close.push(`${pad.id}: ${distance.toFixed(2)} m from ${tower.id}`);
+      }
+      if (captureZoneIndexAt(feet) !== -1) close.push(`${pad.id}: inside a zone`);
+    }
+    expect(close).toEqual([]);
   });
 
-  test('interim cable-car plates keep 45 m (or 40 m behind cover) from every rival Tower B pad', () => {
-    const rivalPads = FJORD_MAP.towers.find((tower) => tower.id === 'tower_b')?.spawnPads ?? [];
-    expect(rivalPads.length).toBeGreaterThan(0);
-    const exposed: string[] = [];
-    for (const plate of INTERIM_CABLE_CAR_SPAWNS.pads) {
-      for (const pad of rivalPads) {
-        const distance = Math.hypot(pad.position.x - plate.position.x, pad.position.z - plate.position.z);
-        if (distance >= 45) continue;
-        const eye = { x: plate.position.x, y: plate.position.y + 1.6, z: plate.position.z };
-        const target = { x: pad.position.x, y: pad.position.y + 1.6, z: pad.position.z };
+  test('rival tower pads and interim plates that can be live together never see each other within 120 m', () => {
+    const groupOf = (pad: SpawnPoint): string => (pad.id.startsWith('cablecar_') ? 'interim' : pad.source);
+    // Main-base pads are only live while a team holds no tower; the summit overlooking the
+    // Peak Guard base is a base-protection question for the map, reported separately.
+    const pads = ALL_PADS.filter((pad) => pad.source !== 'base');
+    const seen: string[] = [];
+    for (const a of pads) {
+      for (const b of pads) {
+        if (a.id >= b.id || a.faction === b.faction || groupOf(a) === groupOf(b)) continue;
+        const distance = Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
+        if (distance > 120) continue;
+        const eye = { x: a.position.x, y: a.position.y + 1.6, z: a.position.z };
+        const target = { x: b.position.x, y: b.position.y + 1.6, z: b.position.z };
         const length = Math.hypot(target.x - eye.x, target.y - eye.y, target.z - eye.z);
         const direction = { x: (target.x - eye.x) / length, y: (target.y - eye.y) / length, z: (target.z - eye.z) / length };
-        const covered = world.raycast(eye, direction, length) !== null;
-        if (distance < 40 || !covered) exposed.push(`${plate.id} → ${pad.id}: ${distance.toFixed(1)} m${covered ? '' : ' in sight'}`);
+        if (world.raycast(eye, direction, length) === null) seen.push(`${a.id} ↔ ${b.id}: ${distance.toFixed(1)} m in sight`);
+        if (distance < 45) seen.push(`${a.id} ↔ ${b.id}: only ${distance.toFixed(1)} m apart`);
       }
     }
-    expect(exposed).toEqual([]);
+    expect(seen).toEqual([]);
   });
 
   test('facing turns away from a wall right in front of the pad', () => {

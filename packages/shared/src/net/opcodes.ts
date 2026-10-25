@@ -88,6 +88,12 @@ export const GameEventCode = {
   MASCOT_IMPACT: 22,
   /** Coconut-milk puddle. param = centre (dm), value = lifetime in deciseconds. */
   MASCOT_PUDDLE: 23,
+  /**
+   * Wardrobe notice to one player: paramValue 1 = class/loadout change waits
+   * for the next respawn; 2 = moved to the faction paramX (0 Peak Guard,
+   * 1 Lagoon League) at respawn to balance the teams.
+   */
+  PROFILE_NOTICE: 24,
 } as const;
 
 export type GameEventCodeValue = (typeof GameEventCode)[keyof typeof GameEventCode];

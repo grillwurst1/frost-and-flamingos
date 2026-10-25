@@ -30,6 +30,7 @@ export interface ConquestTestPlayer {
   spawnProtectionUntil: number;
   lastProfileUpdateAt: number;
   pendingProfile: PlayerProfile | null;
+  skillCooldowns: [number, number, number];
   bot: { targetId: number } | null;
 }
 

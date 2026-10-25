@@ -103,6 +103,7 @@ export const de: TranslationDictionary = {
     waitingForServer: 'Warte auf den Resort-Server…',
   },
   wardrobe: {
+    appliesOnRespawn: 'Neue Klasse und Ausrüstung gelten ab deinem nächsten Respawn.',
     eyebrow: 'Die Urlauber-Werkstatt',
     title: 'Garderobe & Waffenkammer',
     subtitle: 'Sieben Kosmetik-Slots, zwölf Hauttöne, acht Haarfarben und eine Live-3D-Anprobe.',
@@ -560,6 +561,7 @@ export const de: TranslationDictionary = {
     spawned: 'Willkommen in Fjord-Fiesta.',
     respawned: 'An einen sicheren Strand zurückgekehrt.',
     serverFull: 'Das Resort ist voll. Versuche es gleich noch einmal.',
+    teamBalanced: 'Du spielst jetzt für die {faction}, damit die Teams ausgeglichen bleiben.',
   },
   world: {
     mapName: 'Fjord-Fiesta',

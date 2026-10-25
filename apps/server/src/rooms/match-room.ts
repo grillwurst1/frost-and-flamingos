@@ -12,6 +12,7 @@ import {
   MASCOT_SHOCKWAVE,
   MASCOT_STATUS,
   MAX_INPUT_BACKLOG,
+  captureZoneIndexAt,
   MAX_PLAYERS,
   PHYSICS_TICK_RATE,
   WATER_LEVEL,
@@ -161,6 +162,8 @@ interface PlayerConnection {
   /** Feet at the last (re)spawn, and whether the player was hurt since: "fresh at the spawn". */
   spawnPosition: Vec3;
   hurtSinceSpawn: boolean;
+  /** Fired, used a skill or a mascot move since the last (re)spawn. */
+  actedSinceSpawn: boolean;
   skillCooldowns: [number, number, number];
   speedUntilTick: number;
   shieldUntilTick: number;
@@ -597,6 +600,7 @@ export class MatchRoom {
     const spawn = this.spawnFor(player.profile.faction, player.id);
     player.spawnPosition = { ...spawn.position };
     player.hurtSinceSpawn = false;
+    player.actedSinceSpawn = false;
     if (player.bot) this.rollBotClass(player, spawn.position);
     const classId = player.profile.cosmetics.classId;
     player.character.setColliderEnabled(true);
@@ -821,6 +825,7 @@ export class MatchRoom {
     }
 
     player.lastFireTick = this.physicsTick;
+    player.actedSinceSpawn = true;
     this.broadcastEvent({
       eventType: 'WEAPON_FIRED',
       actorId: player.id,
@@ -1035,6 +1040,7 @@ export class MatchRoom {
     if ((player.skillCooldowns[index] ?? 0) > 0) return;
     const skill = skillsForClass(player.profile.cosmetics.classId, player.profile.faction)[index];
     player.skillCooldowns[index] = skill.cooldownSeconds;
+    player.actedSinceSpawn = true;
     this.applySkill(player, skill);
     this.broadcastEvent({
       eventType: 'SKILL_USED',
@@ -1189,6 +1195,7 @@ export class MatchRoom {
     const form = player.character.form;
     if (!form || !player.alive) return;
     if (event.type === 'move') {
+      player.actedSinceSpawn = true;
       this.broadcastEvent({
         eventType: 'SKILL_USED',
         actorId: player.id,
@@ -1655,6 +1662,7 @@ export class MatchRoom {
         pendingProfile: null,
         spawnPosition: { ...spawn.position },
         hurtSinceSpawn: false,
+        actedSinceSpawn: false,
         bot: {
           mascotChance: entry.mascotChance,
           humanClass: entry.classId,
@@ -2064,6 +2072,7 @@ export class MatchRoom {
       pendingProfile: null,
       spawnPosition: { ...spawn.position },
       hurtSinceSpawn: false,
+      actedSinceSpawn: false,
       bot: null,
     };
     this.players.set(id, player);
@@ -2135,12 +2144,15 @@ export class MatchRoom {
   /**
    * A validated wardrobe change. Faction stays server-assigned. Cosmetics and
    * name apply live and never touch health, life or spawn protection. A class
-   * or loadout change applies at once only while the player is fresh at the
-   * spawn (within 4 m of it, unhurt since spawning) or during the results
-   * intermission, keeping the health fraction and the running protection;
-   * otherwise it waits for the next respawn. While dead, the change is only
-   * stored. (Earlier this revived the dead and refilled health and immunity
-   * on every update, every 120 ms.)
+   * or loadout change applies at once only while the player is still fresh
+   * on the spawn pad (spawn-protected, within 4 m, unhurt, no shot, skill or
+   * move yet, outside every capture zone) or during the results
+   * intermission; it keeps the health fraction, the running cooldowns and
+   * the ammo of unchanged weapons. Otherwise it waits for the next respawn
+   * (the owner gets a notice). A move from a class that does not count
+   * toward team balance to one that does always waits for the respawn, where
+   * the balance is re-run. While dead, the change is only stored. (Earlier
+   * this revived the dead and refilled health and immunity on every update.)
    */
   handleProfileUpdate(socket: GameSocket, incoming: PlayerProfile): void {
     const playerId = this.sockets.get(socket);
@@ -2177,9 +2189,20 @@ export class MatchRoom {
       this.broadcastProfile(player);
       return;
     }
-    if (!this.freshAtSpawn(player) && !this.isCeasefire()) {
-      // Takes effect at the next respawn; the owner's wardrobe keeps showing the choice.
+    const rebalances =
+      !classCapabilities(live.cosmetics.classId).countsTowardBalance && classCapabilities(classId).countsTowardBalance;
+    if (rebalances || !(this.isCeasefire() || this.freshAtSpawn(player))) {
       player.pendingProfile = profile;
+      // Name and cosmetics still apply live (on the current class); the owner keeps its
+      // wardrobe choice, so the echo goes to everyone else only.
+      if (classId === live.cosmetics.classId) {
+        player.profile = { ...live, displayName: profile.displayName, cosmetics: { ...profile.cosmetics, classId: live.cosmetics.classId } };
+        this.broadcastProfile(player, true);
+      } else if (profile.displayName !== live.displayName) {
+        player.profile = { ...live, displayName: profile.displayName };
+        this.broadcastProfile(player, true);
+      }
+      this.sendProfileNotice(player, 1);
       return;
     }
     player.pendingProfile = null;
@@ -2187,23 +2210,46 @@ export class MatchRoom {
     this.broadcastProfile(player);
   }
 
-  /** At the spawn pad and not hurt since spawning: a kit change there is free. */
+  /**
+   * Still on the spawn pad as spawned: protected, within 4 m of it, unhurt,
+   * no shot, skill or mascot move yet, and outside every capture zone.
+   */
   private freshAtSpawn(player: PlayerConnection): boolean {
-    if (player.hurtSinceSpawn) return false;
+    if (player.hurtSinceSpawn || player.actedSinceSpawn) return false;
+    if (this.physicsTick >= player.spawnProtectionUntil) return false;
     const feet = player.character.position;
+    if (captureZoneIndexAt(feet) !== -1) return false;
     const spawn = player.spawnPosition;
     return Math.hypot(feet.x - spawn.x, feet.z - spawn.z) <= 4 && Math.abs(feet.y - spawn.y) <= 3;
   }
 
+  /** A wardrobe notice for one player (see GameEventCode.PROFILE_NOTICE). */
+  private sendProfileNotice(player: PlayerConnection, kind: 1 | 2): void {
+    player.socket?.send(
+      encodeGameEvent({
+        eventType: 'PROFILE_NOTICE',
+        actorId: player.id,
+        targetId: 0,
+        paramX: player.profile.faction === 'alpine' ? 0 : 1,
+        paramZ: 0,
+        paramValue: kind,
+      }),
+    );
+  }
+
   /**
-   * Switches class/loadout in place: the capsule is rebuilt at the same feet
-   * and the health fraction is kept. Life, shield and protection stay as they are.
+   * Switches class/loadout in place: the capsule is rebuilt at the same feet,
+   * the health fraction and the running skill cooldowns are kept, unchanged
+   * weapons keep their ammo. Life and spawn protection stay as they are;
+   * timed effects the new class has no skill for (cloak, speed boost, armour
+   * shield) end with the old class.
    */
   private applyKit(player: PlayerConnection, profile: PlayerProfile): void {
     const previous = player.profile;
     const oldMax = classStatsFor(previous.cosmetics.classId, previous.faction).maxHp;
     const newMax = classStatsFor(profile.cosmetics.classId, profile.faction).maxHp;
-    if (profile.cosmetics.classId !== previous.cosmetics.classId || profile.faction !== previous.faction) {
+    const classChanged = profile.cosmetics.classId !== previous.cosmetics.classId;
+    if (classChanged || profile.faction !== previous.faction) {
       const position = player.character.position;
       const heading = player.character.heading;
       this.physics.removeCharacter(player.character);
@@ -2214,13 +2260,26 @@ export class MatchRoom {
       });
       player.character.setHeading(heading);
     }
+    if (classChanged) {
+      const kinds = new Set(skillsForClass(profile.cosmetics.classId, profile.faction).map((skill) => skill.kind));
+      if (!kinds.has('cloak')) player.cloakUntilTick = 0;
+      if (!kinds.has('speed')) player.speedUntilTick = 0;
+      if (!kinds.has('shield')) {
+        player.shield = 0;
+        player.shieldUntilTick = 0;
+      }
+    }
+    const slots: WeaponSlot[] = [1, 2, 3];
+    const fresh = createAmmo(profile.loadout);
+    player.ammo = slots.map((slot, index) => {
+      const same = weaponForSlot(profile.loadout, slot) === weaponForSlot(previous.loadout, slot);
+      return (same ? player.ammo[index] : undefined) ?? fresh[index] ?? { magazine: 0, reserve: 0 };
+    });
     player.profile = profile;
     player.hp = Math.max(1, Math.min(newMax, Math.round((player.hp / Math.max(1, oldMax)) * newMax)));
-    player.ammo = createAmmo(profile.loadout);
     player.activeSlot = 1;
     player.reloadEndsTick = 0;
     player.lastFireTick = -999;
-    player.skillCooldowns = [0, 0, 0];
     player.inputQueue.length = 0;
     player.fireQueue.length = 0;
   }
@@ -2238,9 +2297,11 @@ export class MatchRoom {
     const wasCounted = classCapabilities(player.profile.cosmetics.classId).countsTowardBalance;
     const counts = classCapabilities(pending.cosmetics.classId).countsTowardBalance;
     const faction = !wasCounted && counts ? this.pickFaction(player.profile.faction, player.id) : player.profile.faction;
+    const moved = faction !== player.profile.faction;
     this.applyKit(player, { ...pending, faction });
     this.conquestBots.forget(player.id);
     this.broadcastProfile(player);
+    if (moved) this.sendProfileNotice(player, 2);
   }
 
   broadcastEvent(event: GameEvent): void {
@@ -2250,9 +2311,10 @@ export class MatchRoom {
     }
   }
 
-  private broadcastProfile(player: PlayerConnection): void {
+  private broadcastProfile(player: PlayerConnection, exceptOwner = false): void {
     const packet = encodeProfileMessage({ playerId: player.id, profile: player.profile });
     for (const other of this.players.values()) {
+      if (exceptOwner && other.id === player.id) continue;
       other.socket?.send(packet);
     }
   }

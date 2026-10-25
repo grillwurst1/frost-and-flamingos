@@ -344,7 +344,8 @@ export type GameEventType =
   | 'SKILL_USED'
   | 'MASCOT_RAM'
   | 'MASCOT_IMPACT'
-  | 'MASCOT_PUDDLE';
+  | 'MASCOT_PUDDLE'
+  | 'PROFILE_NOTICE';
 
 export interface GameEvent {
   eventType: GameEventType;

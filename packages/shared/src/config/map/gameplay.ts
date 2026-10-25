@@ -71,18 +71,19 @@ function bothFactions(tower: TowerId, zone: ZoneId, positions: readonly Vec3[], 
 
 const A = TOWER_A_POSITION;
 /**
- * Tower A pads on the pier heads, 19–24 m from the lighthouse: outside the
- * 16 m capture zone (a defender walks in like at Towers B and C instead of
- * respawning inside it; audited by test/spawn.test.ts).
+ * Tower A pads on the piers' solid rest decks (past the two destructible
+ * 6 m segments), 29–34 m from the lighthouse: outside the 16 m capture zone,
+ * so a defender walks in like at Towers B and C, and still standing after
+ * the M6 pier segments are blown away (audited by test/spawn.test.ts).
  */
 const harborPads: Vec3[] = (
   [
-    ['pier_ne', 3],
-    ['pier_ne', 8],
-    ['pier_e', 3],
-    ['pier_e', 8],
-    ['pier_s', 3],
-    ['pier_w', 3],
+    ['pier_ne', 13.5],
+    ['pier_ne', 18.5],
+    ['pier_e', 13.5],
+    ['pier_e', 18.5],
+    ['pier_s', 13.5],
+    ['pier_w', 13.5],
   ] as const
 ).map(([id, along]) => {
   const layout = PIER_LAYOUTS.find((candidate) => candidate.id === id);
@@ -105,7 +106,8 @@ const summitPads: Vec3[] = [
   [11, 15],
   [-19, 2],
   [19, 2],
-  [0, -16],
+  // Clear of the 16 m capture zone by more than a metre (was exactly on its edge).
+  [0, -18],
 ].map(([lx, lz]) => {
   const world = localToWorld(TOWER_C_POSITION, SUMMIT_YAW, vec3(lx ?? 0, 0, lz ?? 0));
   return ground(world.x, world.z, 0.05);

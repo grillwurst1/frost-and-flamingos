@@ -12,6 +12,7 @@ import {
   RESPAWN_DELAY_SECONDS,
   PHYSICS_TICK_RATE,
   createDefaultProfile,
+  decodeGameEvent,
   type ClassCapabilities,
   type ClassId,
   type Faction,
@@ -45,6 +46,17 @@ function walkAway(player: ConquestTestPlayer): void {
 }
 
 const RESPAWN_TICKS = RESPAWN_DELAY_SECONDS * PHYSICS_TICK_RATE;
+
+/** Room members these tests poke beyond the shared harness view. */
+function internals(harness: ConquestHarness): {
+  useSkill(player: ConquestTestPlayer, index: 0 | 1 | 2): void;
+  players: Map<number, { cloakUntilTick: number }>;
+} {
+  return harness.internal as unknown as {
+    useSkill(player: ConquestTestPlayer, index: 0 | 1 | 2): void;
+    players: Map<number, { cloakUntilTick: number }>;
+  };
+}
 
 describe('profile updates', () => {
   test('a dead player is not revived: the change is stored for the respawn', async () => {
@@ -114,6 +126,93 @@ describe('profile updates', () => {
     expect(lagoon.profile.cosmetics.hairColorIndex).toBe(hair);
     expect(lagoon.hp).toBe(hp);
     expect(lagoon.alive).toBe(true);
+  });
+});
+
+describe('immediate kit swaps are narrow', () => {
+  test('a drifter switching to a combat class at its pad still waits and rebalances at respawn', async () => {
+    const harness = await createConquestRoom(false);
+    override('infiltrator', { countsTowardBalance: false });
+    addDummy(harness, 'alpine');
+    addDummy(harness, 'lagoon');
+    addDummy(harness, 'lagoon');
+    const drifter = addDummy(harness, 'lagoon', 'infiltrator');
+    ticks(harness, 20);
+    wardrobe(harness, drifter, 'allrounder');
+    expect(drifter.profile.cosmetics.classId).toBe('infiltrator');
+    expect(drifter.pendingProfile?.cosmetics.classId).toBe('allrounder');
+    harness.internal.killPlayer(drifter, null, null, false);
+    ticks(harness, RESPAWN_TICKS + 2);
+    expect(drifter.profile.cosmetics.classId).toBe('allrounder');
+    expect(drifter.profile.faction).toBe('alpine');
+  });
+
+  test('a drifter switching during the results waits for the reset and rebalances', async () => {
+    const harness = await createConquestRoom(false);
+    override('infiltrator', { countsTowardBalance: false });
+    addDummy(harness, 'alpine');
+    addDummy(harness, 'lagoon');
+    addDummy(harness, 'lagoon');
+    const drifter = addDummy(harness, 'lagoon', 'infiltrator');
+    ticks(harness, 20);
+    harness.internal.conquest.devSetTickets('alpine', 0);
+    ticks(harness, 2);
+    expect(harness.room.isCeasefire()).toBe(true);
+    wardrobe(harness, drifter, 'allrounder');
+    expect(drifter.profile.cosmetics.classId).toBe('infiltrator');
+    ticks(harness, 15 * PHYSICS_TICK_RATE + 2);
+    expect(harness.room.isCeasefire()).toBe(false);
+    expect(drifter.profile.cosmetics.classId).toBe('allrounder');
+    expect(drifter.profile.faction).toBe('alpine');
+  });
+
+  test('no free swap once the player acted or the protection ran out; cooldowns carry over', async () => {
+    const harness = await createConquestRoom(false);
+    const heavy = addDummy(harness, 'lagoon', 'heavy');
+    ticks(harness, 10);
+    internals(harness).useSkill(heavy, 1);
+    const cooldowns = [...heavy.skillCooldowns];
+    expect(cooldowns[1]).toBeGreaterThan(0);
+    wardrobe(harness, heavy, 'heavy', (profile) => {
+      profile.loadout = { ...profile.loadout, gimmick: profile.loadout.gimmick === 'horn' ? 'halberd' : 'horn' };
+    });
+    expect(heavy.pendingProfile).not.toBeNull();
+    expect(heavy.skillCooldowns).toEqual(cooldowns);
+
+    const fresh = addDummy(harness, 'lagoon', 'allrounder');
+    ticks(harness, 130);
+    wardrobe(harness, fresh, 'heavy');
+    expect(fresh.profile.cosmetics.classId).toBe('allrounder');
+    expect(fresh.pendingProfile?.cosmetics.classId).toBe('heavy');
+  });
+
+  test('a swap that does apply keeps the cooldowns and ends the old class cloak', async () => {
+    const harness = await createConquestRoom(false);
+    const sneak = addDummy(harness, 'lagoon', 'infiltrator');
+    ticks(harness, 10);
+    harness.internal.conquest.devSetTickets('alpine', 0);
+    ticks(harness, 2);
+    sneak.skillCooldowns = [5, 0, 7];
+    internals(harness).players.get(sneak.id)!.cloakUntilTick = harness.internal.physicsTick + 300;
+    wardrobe(harness, sneak, 'heavy');
+    expect(sneak.profile.cosmetics.classId).toBe('heavy');
+    expect(sneak.skillCooldowns).toEqual([5, 0, 7]);
+    expect(internals(harness).players.get(sneak.id)!.cloakUntilTick).toBe(0);
+  });
+
+  test('a deferred change tells the owner it applies at the next respawn', async () => {
+    const harness = await createConquestRoom(false);
+    const player = addDummy(harness, 'lagoon');
+    const notices: number[] = [];
+    if (!player.socket) throw new Error('Dummy without socket.');
+    player.socket.send = (data: string | ArrayBuffer | Uint8Array) => {
+      const event = data instanceof ArrayBuffer ? decodeGameEvent(data) : null;
+      if (event?.eventType === 'PROFILE_NOTICE') notices.push(event.paramValue);
+    };
+    ticks(harness, 150);
+    walkAway(player);
+    wardrobe(harness, player, 'heavy');
+    expect(notices).toEqual([1]);
   });
 });
 
