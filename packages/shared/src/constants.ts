@@ -1,6 +1,8 @@
 /** Networking, simulation and world constants shared by client and server. */
 
-export const PROTOCOL_VERSION = 7;
+/** 7: ambient critter trailer in the snapshot and the CRITTER_KILLED event (3H). */
+/** 8: vehicle block in the snapshot and the VEHICLE_* events (4V), on top of 7. */
+export const PROTOCOL_VERSION = 8;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;

@@ -29,6 +29,7 @@
     ponk: 'fire',
     plosh: 'ice',
     bouch: 'red',
+    bok: 'cream',
   };
 
   const WORD_KEY = /^comic\.([a-z_]+)\.text$/;

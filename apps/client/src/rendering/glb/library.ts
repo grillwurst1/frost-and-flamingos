@@ -17,7 +17,7 @@ import {
   type ClipRole,
   type PaintedModelSpec,
 } from './catalog';
-import { bakeAnimationGroup, jointName, readRig, type BakedClip, type RigInfo } from './clips';
+import { bakeAnimationGroup, jointName, leftFootContactPhase, readRig, type BakedClip, type RigInfo } from './clips';
 import { readBakedClips, readGlb, writeGlb } from './glb-binary';
 import type { PaintedTextures } from './material';
 
@@ -56,8 +56,41 @@ export interface PaintedModelAsset extends RigInfo {
   height: number;
   /** Index ranges of the body and the removable painted headgear. */
   hatSplit: { bodyCount: number; hatCount: number } | null;
+  /**
+   * Bind-pose torso depth around the chest joint (armature z, +Z forward):
+   * where back items sit and how far held props stay in front. Null for
+   * static or unrigged models.
+   */
+  torso: TorsoDepth | null;
   /** Resolved clip per animation role (baked offline, or baked at load). */
   clips: Map<ClipRole, BakedClip>;
+}
+
+export interface TorsoDepth {
+  /** Bind z of the chest joint (Spine2). */
+  chestZ: number;
+  /** Frontmost chest/belly surface around chest height. */
+  front: number;
+  /** Back surface behind the spine at chest height. */
+  back: number;
+}
+
+/** Measures the bind-pose torso around Spine2 from the skinned vertices. */
+function measureTorso(mesh: Mesh, rig: RigInfo): TorsoDepth | null {
+  const chest = rig.bindPositions.get('Spine2');
+  const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
+  if (!chest || !positions) return null;
+  let front = -Infinity;
+  let back = Infinity;
+  for (let vertex = 0; vertex < positions.length / 3; vertex += 1) {
+    const x = (positions[vertex * 3] ?? 0) - chest.x;
+    const y = (positions[vertex * 3 + 1] ?? 0) - chest.y;
+    const z = positions[vertex * 3 + 2] ?? 0;
+    if (Math.abs(y) < 0.12 && Math.abs(x) < 0.25) front = Math.max(front, z);
+    if (Math.abs(y) < 0.06 && Math.abs(x) < 0.08) back = Math.min(back, z);
+  }
+  if (!Number.isFinite(front) || !Number.isFinite(back)) return null;
+  return { chestZ: chest.z, front, back };
 }
 
 export type PaintedModelStatus = 'pending' | 'missing' | 'loading' | 'ready' | 'failed';
@@ -239,6 +272,7 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
     clipNames: new Set(baked.size > 0 ? [...baked.values()].map((clip) => clip.name) : container.animationGroups.map((group) => group.name)),
     height,
     hatSplit,
+    torso: skeleton ? measureTorso(mesh, rig) : null,
     clips: new Map(),
   };
   if (baked.size > 0) {
@@ -251,6 +285,22 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
       asset.clips.set(role, bakeAnimationGroup(group, rig.bindPose));
       await nextTask();
     }
+  }
+  // Locomotion cycles share one phase in the animator: record where each
+  // one's left-foot contact sits so they blend in step.
+  for (const role of ['walk', 'combatWalk', 'run', 'sprint', 'backpedal', 'crouchBack'] as const) {
+    const clip = asset.clips.get(role);
+    if (clip) asset.clips.set(role, { ...clip, contactPhase: leftFootContactPhase(clip, rig) });
+  }
+  // The jump clip's hips rise (up to 0.4 m in the Meshy clips) would lift the
+  // body off the physics capsule while it is held at the apex: cap the hips
+  // at their bind height (apexTime keeps the original peak).
+  const air = asset.clips.get('air');
+  const bindHips = rig.bindPose.get('Hips')?.position;
+  if (air?.hips && bindHips) {
+    const hips = air.hips.slice();
+    for (let frame = 0; frame < air.frames; frame += 1) hips[frame * 3 + 1] = Math.min(hips[frame * 3 + 1] ?? 0, bindHips.y);
+    asset.clips.set('air', { ...air, hips });
   }
   // The baked tables replace the glTF animation groups.
   for (const group of [...container.animationGroups]) group.dispose();
@@ -348,7 +398,20 @@ export class PaintedModelLibrary {
   /** Model and painted textures together (null when either is unavailable). */
   async loadWithTextures(key: string): Promise<{ asset: PaintedModelAsset; textures: PaintedTextures } | null> {
     const [asset, textures] = await Promise.all([this.load(key), this.textures(key)]);
-    return asset && textures ? { asset, textures } : null;
+    if (asset && textures) return { asset, textures };
+    // Half a model is no model: release whichever half did load.
+    if (textures) {
+      textures.albedo.dispose();
+      textures.normal?.dispose();
+      this.loadedTextures.delete(key);
+      this.textureLoads.set(key, Promise.resolve(null));
+    }
+    if (asset) {
+      asset.container.dispose();
+      this.assets.set(key, null);
+      this.loads.set(key, Promise.resolve(null));
+    }
+    return null;
   }
 
   /**

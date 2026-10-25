@@ -26,6 +26,7 @@ import {
   PhysicsWorld,
   classStatsFor,
   createDefaultProfile,
+  critterKillValue,
   encodeGameEvent,
   encodeMapStateSync,
   encodeProfileMessage,
@@ -71,6 +72,7 @@ import {
   spreadDirection,
   type CombatTarget,
 } from './combat.js';
+import { CritterSystem, type CritterKill, type CritterThreat } from './critters.js';
 import { mascotBotButtons, type MascotBotMemory } from './mascot-bot.js';
 import { VehicleManager, type VehicleStatus } from './vehicle-manager.js';
 
@@ -243,6 +245,19 @@ export interface JoinError {
   reason: string;
 }
 
+export interface MatchRoomOptions {
+  /** Number of AI bots (default 4). Tests use 0 for a quiet room. */
+  bots?: number;
+  /** Seed of the critter simulation (default: random per server start; fixed under tests). */
+  critterSeed?: number;
+  /**
+   * Ambient critters (wandering hens). Default true, except under `bun test`
+   * (NODE_ENV=test): test rooms have none unless they pass `critters: true`
+   * or a `critterSeed`, so hens never wander into other suites' firing lines.
+   */
+  critters?: boolean;
+}
+
 export interface RoomStatus {
   online: boolean;
   players: number;
@@ -263,6 +278,13 @@ export interface RoomStatus {
     lastRam: MascotRamRecord | null;
   };
   vehicles: VehicleStatus;
+  critters: {
+    alive: number;
+    total: number;
+    kills: number;
+    respawns: number;
+    flees: number;
+  };
 }
 
 const PROFILE_UPDATE_COOLDOWN_MS = 120;
@@ -345,6 +367,7 @@ function distanceToCapsule(point: Vec3, feet: Vec3, radius: number, height: numb
 
 export class MatchRoom {
   private readonly physics: PhysicsWorld;
+  private readonly critters: CritterSystem;
   private readonly players = new Map<number, PlayerConnection>();
   private readonly sockets = new Map<GameSocket, number>();
   private readonly lagHistory: LagSample[] = [];
@@ -372,7 +395,7 @@ export class MatchRoom {
   /** Drivable vehicles (package 4V); see vehicle-manager.ts. */
   readonly vehicles: VehicleManager<PlayerConnection>;
 
-  private constructor(physics: PhysicsWorld) {
+  private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean) {
     this.physics = physics;
     this.vehicles = new VehicleManager<PlayerConnection>(physics, {
       physicsTick: () => this.physicsTick,
@@ -385,12 +408,21 @@ export class MatchRoom {
       combatTargets: (owner, clientTick) => this.combatTargets(owner, clientTick),
       broadcastEvent: (event) => this.broadcastEvent(event),
     });
+    this.critters = new CritterSystem(physics, {
+      seed: critterSeed,
+      enabled: critters,
+      onKill: (kill) => this.broadcastCritterKill(kill),
+    });
   }
 
-  static async create(): Promise<MatchRoom> {
+  static async create(options: MatchRoomOptions = {}): Promise<MatchRoom> {
     const physics = await PhysicsWorld.create();
-    const room = new MatchRoom(physics);
-    room.spawnBots();
+    const testRun = process.env.NODE_ENV === 'test';
+    const critters = options.critters ?? (!testRun || options.critterSeed !== undefined);
+    // Tests are reproducible: a fixed seed unless one is given.
+    const seed = options.critterSeed ?? (testRun ? 0x3e9 : Math.floor(Math.random() * 0xffffffff));
+    const room = new MatchRoom(physics, seed, critters);
+    room.spawnBots(options.bots ?? BOT_COUNT);
     return room;
   }
 
@@ -467,8 +499,10 @@ export class MatchRoom {
     }
 
     this.vehicles.step();
+    this.critters.step(this.physicsTick, this.critterThreats());
     this.physics.step();
     this.resolveMascotRams();
+    this.resolveCritterRams();
     // Out-of-world guard: anything that slips below the world respawns safely.
     for (const player of this.players.values()) {
       if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
@@ -745,6 +779,16 @@ export class MatchRoom {
       paramZ: Math.round(player.lastInput.pitch * 100),
       paramValue: WEAPON_TABLE.code[weaponId],
     });
+    // Gunfire scatters the critters near the shooter and along the shot up to
+    // where it meets the world. A projectile arcs: only the shooter's
+    // surroundings scatter now, the impact blast does the rest.
+    {
+      const eye = this.eyePosition(player);
+      const aim = directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
+      const lane =
+        stats.fireMode === 'projectile' ? 0 : Math.min(stats.range, this.physics.raycast(eye, aim, stats.range)?.distance ?? stats.range);
+      this.critters.alertShot(eye, aim, lane);
+    }
 
     if (stats.fireMode === 'projectile') {
       const direction = directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
@@ -793,10 +837,19 @@ export class MatchRoom {
     const maxDistance = Math.min(range, worldHit?.distance ?? range);
     const targets = this.combatTargets(player, player.isBot ? 0 : clientTick);
     const hit = raycastTargets(origin, direction, maxDistance, targets);
-    // Vehicle hulls stop bullets (the world ray already ends on their colliders).
+    // Hulls and critters stop bullets: the nearest of hull, critter and player takes the shot.
     const vehicleHit = this.vehicles.raycast(origin, normalizeDirection(direction), maxDistance + 0.3, this.vehicles.vehicleIdOf(player.id));
-    if (vehicleHit && (!hit || vehicleHit.distance < hit.distance)) {
+    // Critters are rewound like players.
+    const rewindTick = player.isBot ? null : (this.findLagSample(clientTick)?.tick ?? null);
+    const critterHit = this.critters.raycast(origin, direction, maxDistance, rewindTick);
+    const playerDistance = hit ? hit.distance : Number.POSITIVE_INFINITY;
+    const critterDistance = critterHit ? critterHit.distance : Number.POSITIVE_INFINITY;
+    if (vehicleHit && vehicleHit.distance < playerDistance && vehicleHit.distance <= critterDistance) {
       this.vehicles.damageFromWeapon(vehicleHit.id, player, damage, weaponId);
+      return;
+    }
+    if (critterHit && critterDistance < playerDistance) {
+      this.critters.kill(critterHit.critterId, player.id, weaponId);
       return;
     }
     if (!hit) return;
@@ -990,6 +1043,7 @@ export class MatchRoom {
         return;
       }
       case 'aoe': {
+        this.critterBlast(player.character.position, skill.radius, player.id, null);
         for (const other of this.players.values()) {
           if (other.id === player.id || !other.alive) continue;
           if (other.profile.faction === player.profile.faction) continue;
@@ -1001,6 +1055,7 @@ export class MatchRoom {
         return;
       }
       case 'slow': {
+        this.critterBlast(player.character.position, skill.radius, player.id, null);
         for (const other of this.players.values()) {
           if (other.id === player.id || !other.alive) continue;
           if (other.profile.faction === player.profile.faction) continue;
@@ -1053,13 +1108,13 @@ export class MatchRoom {
       const from = projectile.position;
       const worldHit = this.physics.raycast(from, direction, step);
       if (worldHit) {
-        this.explode(owner, worldHit.point, projectile.damage, projectile.splashRadius);
+        this.explode(owner, worldHit.point, projectile.damage, projectile.splashRadius, projectile.weaponId);
         this.projectiles.splice(index, 1);
         continue;
       }
 
       const targets = this.combatTargets(owner, 0);
-      const hit = raycastTargets(from, direction, step, targets);
+      const hit = raycastTargets(from, direction, step, targets) ?? this.critters.raycast(from, direction, step, null);
       const next = {
         x: from.x + projectile.velocity.x * FIXED_DT,
         y: from.y + projectile.velocity.y * FIXED_DT,
@@ -1068,12 +1123,12 @@ export class MatchRoom {
       projectile.position = next;
       projectile.velocity.y -= 9.81 * FIXED_DT;
       if (hit) {
-        this.explode(owner, next, projectile.damage, projectile.splashRadius);
+        this.explode(owner, next, projectile.damage, projectile.splashRadius, projectile.weaponId);
         this.projectiles.splice(index, 1);
         continue;
       }
       if (next.y < FALL_RESPAWN_Y) {
-        this.explode(owner, next, projectile.damage, projectile.splashRadius);
+        this.explode(owner, next, projectile.damage, projectile.splashRadius, projectile.weaponId);
         this.projectiles.splice(index, 1);
       }
     }
@@ -1084,8 +1139,10 @@ export class MatchRoom {
     position: Vec3,
     damage: number,
     radius: number,
+    weaponId: WeaponId | null = null,
   ): void {
     if (radius <= 0) return;
+    this.critterBlast(position, radius, owner.id, weaponId);
     for (const other of this.players.values()) {
       if (!other.alive) continue;
       if (other.id === owner.id) continue;
@@ -1146,6 +1203,8 @@ export class MatchRoom {
     const wave = MASCOT_SHOCKWAVE[kind];
     const heading = player.character.heading;
     this.mascotStats.shockwaves += 1;
+    // Same volume as for players: the radius on the ground, within the wave's vertical reach.
+    this.critterBlast(position, skill.radius, player.id, kind === 'stomp' ? 'hoof_stomp' : 'ground_pound', wave.verticalReach);
     this.broadcastEvent({
       eventType: 'MASCOT_IMPACT',
       actorId: player.id,
@@ -1506,6 +1565,68 @@ export class MatchRoom {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Critters (wandering hens)
+  // ---------------------------------------------------------------------------
+
+  /** Living players scare critters; nobody else does. */
+  private critterThreats(): CritterThreat[] {
+    const threats: CritterThreat[] = [];
+    for (const player of this.players.values()) {
+      if (player.alive) threats.push({ position: player.character.position });
+    }
+    return threats;
+  }
+
+  /** Splash, shockwaves and area skills: critters inside die, those nearby scatter. */
+  private critterBlast(
+    position: Vec3,
+    radius: number,
+    killerId: number,
+    weaponId: WeaponId | null,
+    verticalReach: number | null = null,
+  ): void {
+    this.critters.killInSphere(position, radius, killerId, weaponId, null, verticalReach);
+    this.critters.alertBlast(position, radius);
+  }
+
+  /** A charging mascot runs critters over (contact sphere, current and rewound poses). */
+  private resolveCritterRams(): void {
+    for (const rammer of this.players.values()) {
+      const form = rammer.character.form;
+      if (!form || !rammer.alive) continue;
+      const tuning = MASCOT_RAM[form];
+      const velocity = rammer.character.velocity;
+      if (Math.hypot(velocity.x, velocity.z) < tuning.minSpeed) continue;
+      const rewindTick = rammer.isBot ? null : this.physicsTick - MASCOT_RAM_REWIND_TICKS;
+      this.critters.killInSphere(
+        this.ramContactPoint(rammer, form),
+        tuning.contactRadius,
+        rammer.id,
+        MASCOT_RAM_WEAPON[form],
+        rewindTick,
+      );
+    }
+  }
+
+  private broadcastCritterKill(kill: CritterKill): void {
+    this.broadcastEvent({
+      eventType: 'CRITTER_KILLED',
+      actorId: kill.killerId,
+      targetId: kill.critterId,
+      paramX: toDecimetres(kill.position.x),
+      paramZ: toDecimetres(kill.position.z),
+      paramValue: critterKillValue(kill.species, kill.weaponId),
+    });
+  }
+
+  /** DEV-only probe (FF_DEV_TOOLS=1): gathers the critters of that half around a point. */
+  devGatherCritters(x: number, z: number): { ok: boolean; moved: number } {
+    const hit = this.physics.raycast({ x, y: 160, z }, { x: 0, y: -1, z: 0 }, 200);
+    const moved = this.critters.gather({ x, y: hit?.point.y ?? 0, z });
+    return { ok: moved > 0, moved };
+  }
+
   /** Mascot-capable bots re-roll between the mascot and their human class. */
   private rollBotClass(player: PlayerConnection, position: Vec3): void {
     const bot = player.bot;
@@ -1532,8 +1653,8 @@ export class MatchRoom {
     this.broadcastProfile(player);
   }
 
-  private spawnBots(): void {
-    for (const entry of BOT_NAMES.slice(0, BOT_COUNT)) {
+  private spawnBots(count: number): void {
+    for (const entry of BOT_NAMES.slice(0, Math.max(0, count))) {
       const id = this.allocatePlayerId();
       const classId: ClassId = entry.mascotChance > 0 ? 'mascot' : entry.classId;
       const base = createDefaultProfile(entry.name, classId);
@@ -2168,6 +2289,7 @@ export class MatchRoom {
       turretStates: 0,
       players,
       vehicles: this.vehicles.snapshot(),
+      critters: this.critters.states(),
     };
   }
 
@@ -2218,6 +2340,13 @@ export class MatchRoom {
         lastRam: this.mascotStats.lastRam,
       },
       vehicles: this.vehicles.status(),
+      critters: {
+        alive: this.critters.states().filter((critter) => critter.alive).length,
+        total: this.critters.count,
+        kills: this.critters.stats.kills,
+        respawns: this.critters.stats.respawns,
+        flees: this.critters.stats.flees,
+      },
     };
   }
 }

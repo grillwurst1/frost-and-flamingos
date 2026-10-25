@@ -32,6 +32,13 @@
         "normal": "alpine-infiltrator-normal.webp"
       }
     },
+    "hen": {
+      "file": "hen.glb",
+      "bytes": 889826,
+      "textures": {
+        "basecolor": "hen-basecolor.webp"
+      }
+    },
     "lagoon-allrounder": {
       "file": "lagoon-allrounder.glb",
       "bytes": 2616234,

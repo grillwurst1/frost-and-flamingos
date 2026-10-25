@@ -1,10 +1,11 @@
 /**
  * Optimises the owner's Meshy image-to-3D characters for the game client.
  *
- *   bun run models                       # every art-src/meshy/meshy-<name>.glb
- *   bun run models art-src/meshy/meshy-lagoon-heavy.glb
+ *   bun run models                       # the shipped set: catalogue soldiers + EXTRA_BAKES + MODEL_TUNING
+ *   bun run models art-src/meshy/meshy-lagoon-heavy.glb   # explicit files (any meshy-<name>.glb)
  *   bun run models --normal-size=2048    # larger normal map (default 1024)
  *   bun run models --keep-normal=false   # also drop the normal map
+ *   bun run models --base-size=1024      # override every model's base colour edge
  *   bun run models --manifest-only       # just rewrite models/manifest.json
  *
  * Input:  untouched Meshy downloads (rigged Mixamo skeleton, PBR material with
@@ -18,7 +19,9 @@
  *         cause a 404.
  *
  * Steps (lossless for the skeleton; clips as described in step 1):
- *   0. CLEAN_ISLANDS models: drop tiny floating mesh fragments (glb-islands.ts),
+ *   0. CLEAN_ISLANDS models: drop tiny floating mesh fragments (glb-islands.ts);
+ *      MODEL_TUNING models (small props, critters) are simplified to their
+ *      triangle budget (glb-simplify.ts) and get a smaller base colour,
  *   1. models of the bake set (the catalogue's soldiers plus EXTRA_BAKES) get
  *      their clips replaced by one `ff:<role>` animation per animation role:
  *      the model's own clip for the role (per-model clip table), else, for
@@ -35,8 +38,12 @@
  *   5. resample animations (removes redundant keyframes),
  *   6. dedup + prune unused accessors/images,
  *   7. move the images out of the GLB binary into sidecar files.
- * The heavy lifting runs through the pinned glTF Transform CLI via `bunx`,
- * so no native image toolchain has to live in the workspace dependencies.
+ * The heavy lifting runs through the glTF Transform CLI via `bunx`, so no
+ * native image toolchain has to live in the workspace dependencies. Only the
+ * CLI version is pinned: bunx resolves its @gltf-transform/core, extensions
+ * and functions dependencies (^4.5.1) outside bun.lock and needs network
+ * access on first use. The committed outputs were built with all four at
+ * 4.5.1; a newer 4.x can change the bytes (not the content) of re-runs.
  */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -47,6 +54,7 @@ import { readGlb, writeBakedAnimations, writeGlb, type GlbParts } from '../apps/
 import { bakeClipLibrary, type BakeSource } from '../apps/client/src/rendering/glb/offline-bake';
 import { removeSmallIslands, type GlbJson } from './glb-islands';
 import { splitVehicle, VEHICLE_PART_SPECS } from './vehicle-parts';
+import { simplifyGlb, type SimplifyJson } from './glb-simplify';
 
 const ROOT = resolve(import.meta.dir, '..');
 const SOURCE_DIR = join(ROOT, 'art-src', 'meshy');
@@ -59,6 +67,22 @@ const NAME_PATTERN = /^meshy-([a-z0-9]+(?:-[a-z0-9]+)*)\.glb$/;
 /** Models whose Meshy mesh carries tiny floating fragments (see glb-islands.ts). */
 const CLEAN_ISLANDS = new Set(['alpine-ghostgirl']);
 
+interface ModelTuning {
+  /** Base colour edge in px (the soldiers keep their full painted 2048²). */
+  baseSize?: number;
+  /** Triangle budget: the mesh is welded and simplified below it. */
+  maxTriangles?: number;
+}
+
+/**
+ * Per-model settings for small, numerous models: a 45 cm hen needs neither
+ * a soldier's 20k triangles nor a 2048² texture. A plain `bun run models`
+ * applies these; --base-size overrides the base colour edge of a run.
+ */
+const MODEL_TUNING: Readonly<Record<string, ModelTuning>> = {
+  hen: { baseSize: 1024, maxTriangles: 8000 },
+};
+
 interface BakeEntry {
   /** Role → candidate clip names, first match wins. */
   clips: Readonly<Record<string, readonly string[]>>;
@@ -69,7 +93,9 @@ interface BakeEntry {
 /**
  * Non-soldier characters whose clips are baked too. They keep their own
  * motion set only (no lending or borrowing); the tables mirror the clip
- * tables their runtime specs register (package 3G, glb/drifter-models.ts).
+ * tables their runtime specs register in package 3G (apps/client/src/rendering/glb/
+ * drifter-models.ts on feat/3g-ghost-girl, which registers them via
+ * registerPaintedModel; until it merges, nothing requests these keys).
  */
 const EXTRA_BAKES: Readonly<Record<string, BakeEntry>> = {
   'alpine-ghostgirl': {
@@ -135,16 +161,21 @@ interface Options {
   manifestOnly: boolean;
   keepNormal: boolean;
   normalSize: number;
+  /** Base colour edge in px for every model of the run; 0 uses MODEL_TUNING (else full size). */
+  baseSize: number;
   files: string[];
 }
 
 function parseArgs(argv: string[]): Options {
-  const options: Options = { manifestOnly: false, keepNormal: true, normalSize: 1024, files: [] };
+  const options: Options = { manifestOnly: false, keepNormal: true, normalSize: 1024, baseSize: 0, files: [] };
   for (const arg of argv) {
     if (arg === '--manifest-only') {
       options.manifestOnly = true;
     } else if (arg.startsWith('--normal-size=')) {
       options.normalSize = Math.max(256, Number(arg.slice('--normal-size='.length)) || 1024);
+    } else if (arg.startsWith('--base-size=')) {
+      const value = Number(arg.slice('--base-size='.length));
+      options.baseSize = Number.isFinite(value) && value >= 256 ? Math.round(value) : 0;
     } else if (arg.startsWith('--keep-normal=')) {
       options.keepNormal = arg.slice('--keep-normal='.length) !== 'false';
     } else if (arg.startsWith('--')) {
@@ -153,10 +184,13 @@ function parseArgs(argv: string[]): Options {
       options.files.push(resolve(process.cwd(), arg));
     }
   }
-  if (options.files.length === 0 && !options.manifestOnly && existsSync(SOURCE_DIR)) {
-    options.files = readdirSync(SOURCE_DIR)
-      .filter((name) => NAME_PATTERN.test(name))
-      .map((name) => join(SOURCE_DIR, name));
+  if (options.files.length === 0 && !options.manifestOnly) {
+    // Default: exactly the shipped set (the bake set plus the MODEL_TUNING
+    // models that keep their own clips, e.g. the hen). Other art-src/meshy
+    // files (vehicles, mascots) belong to their own packages and need explicit paths.
+    options.files = [...new Set([...bakeEntries().keys(), ...Object.keys(MODEL_TUNING)])]
+      .map((key) => join(SOURCE_DIR, `meshy-${key}.glb`))
+      .filter((file) => existsSync(file));
   }
   return options;
 }
@@ -290,6 +324,18 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
     const report = removeSmallIslands(parts.json as GlbJson, parts.bin);
     console.log(`${name}: removed ${report.removedIslands} stray islands (${report.removedTriangles} tris), kept ${report.keptTriangles}`);
   }
+  const tuning = MODEL_TUNING[key] ?? {};
+  if (tuning.maxTriangles) {
+    const simplified = await simplifyGlb(parts.json as SimplifyJson, parts.bin, tuning.maxTriangles);
+    if (simplified) {
+      parts.bin = simplified.bin;
+      const report = simplified.report;
+      console.log(
+        `${name}: simplified ${report.trianglesBefore} -> ${report.trianglesAfter} triangles, ${report.verticesBefore} -> ${report.verticesAfter} vertices ` +
+          `(budget ${tuning.maxTriangles}, error ${report.error.toFixed(4)} within ${report.bound}${report.permissive ? ', permissive' : ''})`,
+      );
+    }
+  }
   const clips = baked.get(key);
   if (clips) writeBakedAnimations(parts, orderedClips(clips));
   stripUnusedTextures(parts, options.keepNormal);
@@ -298,6 +344,12 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
   await run(['prune', `${stem}-0.glb`, `${stem}-1.glb`]);
   const size = `${options.normalSize}`;
   await run(['resize', `${stem}-1.glb`, `${stem}-2.glb`, '--pattern', 'ff-normal', '--width', size, '--height', size]);
+  const baseSize = options.baseSize > 0 ? options.baseSize : (tuning.baseSize ?? 0);
+  if (baseSize > 0) {
+    const base = `${baseSize}`;
+    await run(['resize', `${stem}-2.glb`, `${stem}-2a.glb`, '--pattern', 'ff-basecolor', '--width', base, '--height', base]);
+    await Bun.write(`${stem}-2.glb`, Bun.file(`${stem}-2a.glb`));
+  }
   await run(['webp', `${stem}-2.glb`, `${stem}-2b.glb`, '--slots', 'baseColorTexture', '--quality', `${BASE_QUALITY}`, '--effort', '100']);
   await run(['webp', `${stem}-2b.glb`, `${stem}-3.glb`, '--slots', 'normalTexture', '--quality', `${NORMAL_QUALITY}`, '--effort', '100']);
   await run(['resample', `${stem}-3.glb`, `${stem}-4.glb`]);

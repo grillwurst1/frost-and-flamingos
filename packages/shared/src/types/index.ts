@@ -329,6 +329,30 @@ export interface VehicleSnapshot {
   seats: number[];
 }
 
+/** Ambient critter species (wire table `CRITTER_SPECIES_IDS`, append only). */
+export type CritterSpecies = 'hen';
+
+/** What a critter is doing; drives the client animation layers. */
+export type CritterBehaviour = 'idle' | 'walk' | 'peck' | 'scratch' | 'look' | 'flee';
+
+/** Authoritative state of one ambient critter (protocol 7 snapshot trailer). */
+export interface CritterState {
+  /** Stable id (1–255); a respawned critter keeps its id. */
+  id: number;
+  species: CritterSpecies;
+  /** The map half it lives on and never leaves. */
+  half: Faction;
+  /** Feet position. */
+  position: Vec3;
+  yaw: number;
+  /** Horizontal ground speed (m/s), for gait playback. */
+  speed: number;
+  behaviour: CritterBehaviour;
+  alive: boolean;
+  /** In the air: a flee hop or a drop off a ledge. */
+  airborne: boolean;
+}
+
 export interface WorldSnapshot {
   serverTick: number;
   weatherBalance: number;
@@ -339,6 +363,8 @@ export interface WorldSnapshot {
   turretStates: number;
   players: PlayerState[];
   vehicles: VehicleSnapshot[];
+  /** Ambient critters (hens), alive and waiting to respawn. */
+  critters: CritterState[];
 }
 
 export interface MapStateSync {
@@ -374,7 +400,8 @@ export type GameEventType =
   | 'VEHICLE_DAMAGED'
   | 'VEHICLE_DESTROYED'
   | 'VEHICLE_HORN'
-  | 'VEHICLE_SEAT';
+  | 'VEHICLE_SEAT'
+  | 'CRITTER_KILLED';
 
 export interface GameEvent {
   eventType: GameEventType;

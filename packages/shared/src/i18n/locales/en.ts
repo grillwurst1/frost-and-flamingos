@@ -332,6 +332,7 @@ export const en = {
     ponk: { text: 'PONK!', sprite: 'ponk' },
     plosh: { text: 'PLOSH!', sprite: 'plosh' },
     bouch: { text: 'BOUCH!', sprite: 'bouch' },
+    bok: { text: 'BOK!', sprite: '' },
   },
   audio: {
     title: 'Audio mix',
@@ -819,6 +820,16 @@ export const en = {
       yoursDestroyed: 'Your {vehicle} went up in a cloud of cheese!',
       locked: 'That vehicle belongs to the other team.',
     },
+  },
+  critters: {
+    species: {
+      hen: 'Hen',
+    },
+    killFeed: {
+      hen: '{name} bagged a hen',
+      henAnonymous: 'A hen got bagged',
+    },
+    bagged: 'Hen bagged!',
   },
 };
 

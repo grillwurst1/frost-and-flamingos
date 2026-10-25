@@ -70,6 +70,7 @@ describe('vehicle networking', () => {
       turretStates: 0,
       players: [],
       vehicles: [vehicle],
+      critters: [],
     };
     const decoded = decodeSnapshot(encodeSnapshot(snapshot))?.vehicles[0];
     expect(decoded).toBeDefined();

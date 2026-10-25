@@ -680,6 +680,82 @@
   }
 }
 
+/* Bagged hen: one comic line instead of killer → victim. */
+.kill-ribbon.is-critter {
+  background: linear-gradient(180deg, #ffffff, #e4f6d8);
+}
+
+.kill-ribbon.is-critter.is-mine {
+  background: linear-gradient(180deg, #fff6b4, #ffcf3a);
+}
+
+.kill-critter-line {
+  overflow: hidden;
+  max-width: 16rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kill-hen {
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  margin: -0.3rem -0.2rem -0.3rem 0;
+  animation: kill-hen-hop 900ms ease-out 1;
+}
+
+.kill-hen svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.kill-hen .hen-body,
+.kill-hen .hen-tail {
+  fill: #fffdf6;
+}
+
+.kill-hen .hen-wing {
+  fill: #e9e1cf;
+}
+
+.kill-hen .hen-comb {
+  fill: #e8332f;
+}
+
+.kill-hen .hen-beak {
+  fill: #f5b22e;
+}
+
+.kill-hen .hen-eye {
+  fill: var(--ink);
+  stroke: none;
+}
+
+.kill-hen .hen-legs {
+  fill: none;
+  stroke: #e89a22;
+  stroke-width: 1.8;
+}
+
+@keyframes kill-hen-hop {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  30% {
+    transform: translateY(-0.35rem) rotate(-12deg);
+  }
+  60% {
+    transform: translateY(0) rotate(8deg);
+  }
+}
+
 /* ── Crosshair, hit marker, prompts ────────────────────────────────────── */
 
 .crosshair-hud {

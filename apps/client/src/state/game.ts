@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type {
   ClassId,
+  CritterSpecies,
   Faction,
   ParachuteState,
   TranslationKey,
@@ -158,6 +159,8 @@ export interface KillFeedEntry {
   /** Optional teams of the two parties; the HUD infers them from the local player when absent. */
   killerFaction?: Faction;
   victimFaction?: Faction;
+  /** Set for a bagged ambient critter: the ribbon reads "{name} bagged a hen" (no victim side). */
+  critter?: CritterSpecies;
 }
 
 export interface HitMarkerState {
@@ -280,7 +283,8 @@ export type ComicWord =
   | 'splash'
   | 'ponk'
   | 'plosh'
-  | 'bouch';
+  | 'bouch'
+  | 'bok';
 
 const lastPopAt = new Map<string, number>();
 const POP_DEDUPE_MS = 700;

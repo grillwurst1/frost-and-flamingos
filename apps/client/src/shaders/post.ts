@@ -16,14 +16,15 @@
  *   alpha 1    world: the full painterly look.
  *   alpha 0    stylised character (painted GLB soldiers; procedural rigs and
  *              mascots can opt in): the paint filter keeps 85 % of the
- *              original detail, no sharpen, no normal-edge ink, outlines 25 %
- *              thinner, paper grain reduced.
- *   alpha 0.5  fully exempt ("photoreal"): no paint, sharpen, grain, ink or
- *              colour grading, only the vignette. A pixel counts as exempt
- *              only when it and its 4 neighbours read ≈ 0.5, so the
- *              anti-aliased 0↔1 edge of a stylised character never does.
- *              Exempt meshes should also call excludeFromInk() so the world
- *              around them draws no depth outline.
+ *              original detail, no sharpen, no interior normal-edge ink,
+ *              paper grain reduced. The figure gets a bold silhouette: ink
+ *              where the mask changes between character and anything else
+ *              (depth-gated, so translucent effects over a character draw
+ *              none), 1.25× the world's outline width, on every tier.
+ *   There is deliberately no "fully exempt" level: blended surfaces over a
+ *   character (water, smoke) leave alpha = their own alpha there, so any
+ *   in-band value can be produced by accident. A photoreal exemption needs
+ *   an out-of-band signal (stencil or a geometry-buffer channel).
  * ffPaint passes the alpha through; ffComic writes alpha 1 so the canvas
  * stays opaque.
  */
@@ -44,18 +45,10 @@ uniform vec4 uPaintParams;
 // after sampling: no runtime-indexed arrays, no per-tap trigonometry.
 const vec2 FF_HALF_STEP = vec2(0.98078528, 0.19509032);
 
-float ffExemptOf(float a) {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
-// x = stylised-character weight, y = exempt (photoreal) weight.
+// x = stylised-character weight, y = reserved (no exempt level: blends over a
+// character can produce any alpha, so an in-band value could false-trigger).
 vec2 ffLookMask(vec2 uv, float a0) {
-  float exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a));
-  return vec2((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2(1.0 - a0, 0.0);
 }
 
 vec2 ffStagger(vec2 d) {
@@ -138,18 +131,8 @@ struct FFSectorSum {
   q : vec3f,
 };
 
-fn ffExemptOf(a : f32) -> f32 {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
 fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  let texel = uniforms.uTexel;
-  var exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a));
-  return vec2f((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2f(1.0 - a0, 0.0);
 }
 
 fn ffStagger(d : vec2f) -> vec2f {
@@ -267,18 +250,10 @@ float ffHash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-float ffExemptOf(float a) {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
-// x = stylised-character weight, y = exempt (photoreal) weight.
+// x = stylised-character weight, y = reserved (no exempt level: blends over a
+// character can produce any alpha, so an in-band value could false-trigger).
 vec2 ffLookMask(vec2 uv, float a0) {
-  float exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a));
-  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a));
-  return vec2((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2(1.0 - a0, 0.0);
 }
 
 float ffNoise(vec2 p) {
@@ -304,6 +279,21 @@ vec3 ffNormal(vec2 uv) {
 float ffNormalEdge(vec3 n0, vec3 n1) {
   if (dot(n0, n0) < 0.25 || dot(n1, n1) < 0.25) return 0.0;
   return 1.0 - dot(normalize(n0), normalize(n1));
+}
+
+// Stylised-character coverage of a scene-alpha value (photoreal 0.5 and the
+// world both read 0).
+float ffCharOf(float a) {
+  return 1.0 - smoothstep(0.12, 0.3, a);
+}
+
+// Silhouette tap: the mask flips between this pixel and the one at o, and
+// so does the depth (a translucent puff over a character changes the alpha
+// but not the geometry-buffer depth, so it draws no line).
+float ffSilhouetteTap(vec2 uv, float char0, float d0, vec2 o) {
+  float charN = ffCharOf(texture2D(textureSampler, uv + o).a);
+  float gate = smoothstep(0.0012, 0.005, abs(ffDepth(uv + o) / d0 - 1.0));
+  return abs(charN - char0) * gate;
 }
 
 void main(void) {
@@ -336,7 +326,7 @@ void main(void) {
     near = min(d0, min(min(ffDepth(uv + vec2(uTexel.x, 0.0)), ffDepth(uv - vec2(uTexel.x, 0.0))), min(ffDepth(uv + vec2(0.0, uTexel.y)), ffDepth(uv - vec2(0.0, uTexel.y)))));
   }
   float farMix = smoothstep(uInkFade.x, uInkFade.y, near);
-  float width = uInkParams.x * widthNoise * mix(1.0, uInkFade.z, farMix) * mix(1.0, 0.75, charMask);
+  float width = uInkParams.x * widthNoise * mix(1.0, uInkFade.z, farMix);
   vec2 ox = vec2(uTexel.x * width, 0.0);
   vec2 oy = vec2(0.0, uTexel.y * width);
   vec2 od1 = (ox + oy) * 0.7071;
@@ -353,7 +343,18 @@ void main(void) {
   float normalEdge = smoothstep(uInkParams.z, uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uInkFade.x * 0.7, uInkFade.y * 0.55, near));
   normalEdge *= 1.0 - charMask;
 
-  float ink = max(depthEdge, normalEdge) * mix(1.0, uInkFade.w, farMix);
+  // Bold character silhouette (see the mask contract above).
+  float char0 = ffCharOf(texture2D(textureSampler, uv).a);
+  vec2 sx = ox * 1.25;
+  vec2 sy = oy * 1.25;
+  float silhouette = max(max(ffSilhouetteTap(uv, char0, d0, sx), ffSilhouetteTap(uv, char0, d0, -sx)),
+    max(ffSilhouetteTap(uv, char0, d0, sy), ffSilhouetteTap(uv, char0, d0, -sy)));
+  if (detailed) {
+    silhouette = max(silhouette, max(max(ffSilhouetteTap(uv, char0, d0, od1 * 1.25), ffSilhouetteTap(uv, char0, d0, -od1 * 1.25)),
+      max(ffSilhouetteTap(uv, char0, d0, od2 * 1.25), ffSilhouetteTap(uv, char0, d0, -od2 * 1.25))));
+  }
+
+  float ink = max(max(depthEdge, normalEdge), silhouette) * mix(1.0, uInkFade.w, farMix);
   if (near < 50000.0 && uCamPos.y > uWaterLevel.x) {
     vec3 ray = uCamForward + (vUV.x * 2.0 - 1.0) * uCamRight + (vUV.y * 2.0 - 1.0) * uCamUp;
     float worldY = uCamPos.y + ray.y * near;
@@ -425,18 +426,8 @@ fn ffHash(p : vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn ffExemptOf(a : f32) -> f32 {
-  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
-}
-
 fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  let texel = uniforms.uTexel;
-  var exempt = ffExemptOf(a0);
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a));
-  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a));
-  return vec2f((1.0 - a0) * (1.0 - exempt), exempt);
+  return vec2f(1.0 - a0, 0.0);
 }
 
 fn ffNoise(p : vec2f) -> f32 {
@@ -463,6 +454,16 @@ fn ffNormal(uv : vec2f) -> vec3f {
 fn ffNormalEdge(n0 : vec3f, n1 : vec3f) -> f32 {
   if (dot(n0, n0) < 0.25 || dot(n1, n1) < 0.25) { return 0.0; }
   return 1.0 - dot(normalize(n0), normalize(n1));
+}
+
+fn ffCharOf(a : f32) -> f32 {
+  return 1.0 - smoothstep(0.12, 0.3, a);
+}
+
+fn ffSilhouetteTap(uv : vec2f, char0 : f32, d0 : f32, o : vec2f) -> f32 {
+  let charN = ffCharOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + o, 0.0).a);
+  let gate = smoothstep(0.0012, 0.005, abs(ffDepth(uv + o) / d0 - 1.0));
+  return abs(charN - char0) * gate;
 }
 
 @fragment
@@ -497,7 +498,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     near = min(d0, min(min(ffDepth(uv + vec2f(texel.x, 0.0)), ffDepth(uv - vec2f(texel.x, 0.0))), min(ffDepth(uv + vec2f(0.0, texel.y)), ffDepth(uv - vec2f(0.0, texel.y)))));
   }
   let farMix = smoothstep(uniforms.uInkFade.x, uniforms.uInkFade.y, near);
-  let width = uniforms.uInkParams.x * widthNoise * mix(1.0, uniforms.uInkFade.z, farMix) * mix(1.0, 0.75, charMask);
+  let width = uniforms.uInkParams.x * widthNoise * mix(1.0, uniforms.uInkFade.z, farMix);
   let ox = vec2f(texel.x * width, 0.0);
   let oy = vec2f(0.0, texel.y * width);
   let od1 = (ox + oy) * 0.7071;
@@ -513,7 +514,17 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let depthEdge = smoothstep(uniforms.uInkParams.y, uniforms.uInkParams.y * 2.2, lap);
   let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.7, uniforms.uInkFade.y * 0.55, near)) * (1.0 - charMask);
 
-  var ink = max(depthEdge, normalEdge) * mix(1.0, uniforms.uInkFade.w, farMix);
+  let char0 = ffCharOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv, 0.0).a);
+  let sx = ox * 1.25;
+  let sy = oy * 1.25;
+  var silhouette = max(max(ffSilhouetteTap(uv, char0, d0, sx), ffSilhouetteTap(uv, char0, d0, -sx)),
+    max(ffSilhouetteTap(uv, char0, d0, sy), ffSilhouetteTap(uv, char0, d0, -sy)));
+  if (detailed) {
+    silhouette = max(silhouette, max(max(ffSilhouetteTap(uv, char0, d0, od1 * 1.25), ffSilhouetteTap(uv, char0, d0, -od1 * 1.25)),
+      max(ffSilhouetteTap(uv, char0, d0, od2 * 1.25), ffSilhouetteTap(uv, char0, d0, -od2 * 1.25))));
+  }
+
+  var ink = max(max(depthEdge, normalEdge), silhouette) * mix(1.0, uniforms.uInkFade.w, farMix);
   if (near < 50000.0 && uniforms.uCamPos.y > uniforms.uWaterLevel.x) {
     let ray = uniforms.uCamForward + (input.vUV.x * 2.0 - 1.0) * uniforms.uCamRight + (input.vUV.y * 2.0 - 1.0) * uniforms.uCamUp;
     let worldY = uniforms.uCamPos.y + ray.y * near;

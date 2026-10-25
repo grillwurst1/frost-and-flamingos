@@ -105,6 +105,8 @@ export interface MapVisuals {
   skyMesh: Mesh;
   terrainMesh: Mesh;
   previewStage: PreviewStage;
+  /** The podium mesh at {@link previewStage} (the wardrobe may swap in its own stage). */
+  previewStageMesh: Mesh | null;
   /** Destructible element id (blueprint `destructibleId`) → its own mesh. */
   destructibleMeshes: Map<string, Mesh>;
   towers: Map<TowerId, TowerVisual>;
@@ -591,6 +593,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     skyMesh: sky,
     terrainMesh: terrain,
     previewStage,
+    previewStageMesh: preview,
     destructibleMeshes,
     towers,
     staticMeshes,
