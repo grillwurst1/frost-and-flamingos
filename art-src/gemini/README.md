@@ -21,6 +21,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-sheet-map-toys.webp` | Coaster bobs, T-bar, hammock, cheese bomb, coconut silo, barrel, crates |
 | `gemini-ui-icons.webp` | Currency, VIP, trophy and reward icons for the meta screens |
 | `gemini-podium.webp` | End-of-round winners podium design reference / backdrop |
+| `gemini-sheet-chalet-damage.webp` | Chalet destruction stages: intact, damaged, burning, ruin |
 | `gemini-vfx.webp` | Explosion, smoke, fire, snow, water, dust and muzzle-flash particle sprites |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
