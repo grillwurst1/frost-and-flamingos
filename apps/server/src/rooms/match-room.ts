@@ -33,7 +33,7 @@ import {
   encodeSnapshot,
   normalizeProfile,
   sampleMapHeight,
-  selectSpawn,
+  selectConquestSpawn,
   spawnYawToWire,
   towerOwnerBits,
   sanitizeDisplayName,
@@ -106,6 +106,8 @@ interface BotState {
   nextStrafeTick: number;
   strafeDirection: number;
   aimError: number;
+  /** Horizontal aim error of precision single-shot weapons (sniper, crossbow); 0 otherwise. */
+  aimYawError: number;
   patrolYaw: number;
   /** Probability of playing the mascot on each respawn (0 = never). */
   mascotChance: number;
@@ -274,6 +276,13 @@ export interface RoomStatus {
 const PROFILE_UPDATE_COOLDOWN_MS = 120;
 const RESPAWN_DELAY_TICKS = RESPAWN_DELAY_SECONDS * PHYSICS_TICK_RATE;
 const SPAWN_PROTECTION_TICKS = SPAWN_PROTECTION_SECONDS * PHYSICS_TICK_RATE;
+/**
+ * Bot aim with precision single-shot weapons (sniper 65, crossbow 55 damage):
+ * total aim error in both axes. Without it the Lagoon infiltrator bot's
+ * sniper went 55 kills / 16 deaths in a 25-minute soak and decided rounds.
+ */
+const BOT_PRECISION_DAMAGE = 45;
+const BOT_PRECISION_AIM_ERROR = 0.045;
 /** Bots ignore rivals out of sight beyond this range and keep playing the objective. */
 const BOT_OBJECTIVE_CHASE_RANGE = 40;
 const LAG_HISTORY_TICKS = 2 * PHYSICS_TICK_RATE;
@@ -560,7 +569,7 @@ export class MatchRoom {
   private spawnFor(faction: Faction, selfId = 0): { position: Vec3; yaw: number } {
     if (!this.arena) {
       // Pads around the towers the faction holds; the main base when it holds none.
-      const spawn = selectSpawn(faction, this.conquest.heldTowers(faction), Math.random, (position) =>
+      const spawn = selectConquestSpawn(faction, this.conquest.heldTowers(faction), Math.random, (position) =>
         this.isSpawnOccupied(position, selfId),
       );
       const objective = spawnObjective(spawn.position, faction, this.conquest.snapshot().towers);
@@ -1633,6 +1642,7 @@ export class MatchRoom {
           nextStrafeTick: 0,
           strafeDirection: Math.random() < 0.5 ? -1 : 1,
           aimError: 0,
+          aimYawError: 0,
           patrolYaw: Math.random() * Math.PI * 2,
           route: createBotRoute(),
         },
@@ -1681,7 +1691,7 @@ export class MatchRoom {
       const dy = targetPoint.y - origin.y;
       const dz = targetPoint.z - origin.z;
       const horizontal = Math.hypot(dx, dz);
-      yaw = Math.atan2(dx, dz);
+      yaw = Math.atan2(dx, dz) + bot.aimYawError;
       pitch = Math.atan2(dy, Math.max(0.001, horizontal)) + bot.aimError;
       const distance = Math.hypot(horizontal, dy);
       const targetDirection = normalizeDirection({ x: dx, y: dy, z: dz });
@@ -1758,7 +1768,11 @@ export class MatchRoom {
             interval +
             (weapon.automatic ? 0 : 5) +
             Math.floor(Math.random() * 9);
-          bot.aimError = (Math.random() - 0.5) * 0.045;
+          // A bot's precision rifle shot (one hit = most of a life) wobbles in both
+          // axes; rapid-fire weapons keep the small vertical-only error.
+          const precision = !weapon.automatic && weapon.fireMode === 'hitscan' && weapon.damage >= BOT_PRECISION_DAMAGE;
+          bot.aimError = (Math.random() - 0.5) * (precision ? BOT_PRECISION_AIM_ERROR : 0.045);
+          bot.aimYawError = precision ? (Math.random() - 0.5) * BOT_PRECISION_AIM_ERROR : 0;
         }
 
         if (

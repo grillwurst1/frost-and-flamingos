@@ -51,6 +51,7 @@ export class ConquestClient {
   private localCanCapture = true;
   private protectedUntil = 0;
   private lastPruneAt = 0;
+  private publishedKey = '';
   private readonly pendingHalos = new Map<number, number>();
 
   constructor(scene: Scene, visuals: MapVisuals, toonMaterial: Material, probe: GroundProbe) {
@@ -62,10 +63,22 @@ export class ConquestClient {
     this.latest = state;
     this.view.setState(state.towers);
     this.localCanCapture = classCapabilities(local.classId).canCapture;
-    updateConnection({
-      towerProgress: [0, 1, 2].map((index) => Math.abs(state.towers[index]?.control ?? 0)) as [number, number, number],
-    });
-    conquest.set({ ...state, localZone: this.localZone, localCanCapture: this.localCanCapture, synced: true });
+    // Publish only visible changes (snapshots arrive at 30 Hz; the HUD needs far less).
+    const key = [
+      ...state.towers.map((tower) => `${tower.owner}${tower.pushing}${tower.contested}${tower.alpine}${tower.lagoon}${Math.round(tower.control * 100)}`),
+      state.phase,
+      state.winner,
+      state.round,
+      Math.ceil(state.secondsLeft),
+      this.localCanCapture,
+    ].join('|');
+    if (key !== this.publishedKey) {
+      this.publishedKey = key;
+      updateConnection({
+        towerProgress: [0, 1, 2].map((index) => Math.abs(state.towers[index]?.control ?? 0)) as [number, number, number],
+      });
+      conquest.set({ ...state, localZone: this.localZone, localCanCapture: this.localCanCapture, synced: true });
+    }
 
     if (this.lastPhase === 'live' && state.phase === 'ended') {
       audio.playRoundEnd(state.winner === null ? 'draw' : state.winner === local.faction ? 'victory' : 'defeat');
@@ -144,6 +157,7 @@ export class ConquestClient {
     this.protectedUntil = 0;
     this.pendingHalos.clear();
     this.localZone = -1;
+    this.publishedKey = '';
     resetConquestUi();
   }
 

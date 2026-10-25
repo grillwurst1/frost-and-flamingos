@@ -17,6 +17,7 @@ import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   FJORD_MAP,
+  INTERIM_CABLE_CAR_SPAWNS,
   MAP_HALF_SIZE,
   SNOWLINE_Y,
   isClutterFree,
@@ -532,6 +533,17 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
       const batch = padBatches.get(padKey) ?? new GeometryBatch();
       padBatches.set(padKey, batch);
       batch.at(spawn.position.x, spawn.position.y - 0.05, spawn.position.z, facing, () => drawSpawnPad(batch, style));
+    }
+  }
+  // INTERIM (until the cable car lands): Peak Guard plates by the cable-car mid
+  // station, shown with the holder's look of their tower only.
+  if (INTERIM_CABLE_CAR_SPAWNS.enabled) {
+    const rule = INTERIM_CABLE_CAR_SPAWNS;
+    const padKey = `${rule.heldTower}:${rule.faction}`;
+    const batch = padBatches.get(padKey) ?? new GeometryBatch();
+    padBatches.set(padKey, batch);
+    for (const pad of rule.pads) {
+      batch.at(pad.position.x, pad.position.y - 0.05, pad.position.z, pad.rotationY, () => drawSpawnPad(batch, rule.faction));
     }
   }
 

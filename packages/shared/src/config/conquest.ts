@@ -5,8 +5,8 @@
  * client and server share the capture-zone test.
  */
 import { MATCH_TICKETS, PHYSICS_TICK_RATE } from '../constants.js';
-import type { Faction, TowerDefinition, TowerId, Vec3 } from '../types/index.js';
-import { FJORD_TOWERS } from './map-fjord.js';
+import type { Faction, SpawnPoint, TowerDefinition, TowerId, Vec3 } from '../types/index.js';
+import { FJORD_TOWERS, selectSpawn } from './map-fjord.js';
 
 /** Wire and HUD order of the weather towers (badges A, B, C). */
 export const TOWER_ORDER = ['tower_a', 'tower_b', 'tower_c'] as const satisfies readonly TowerId[];
@@ -122,4 +122,76 @@ export function captureZoneIndexAt(position: Vec3): number {
     if (tower && insideCaptureZone(tower, position)) return index;
   }
   return -1;
+}
+
+// ---------------------------------------------------------------------------
+// INTERIM balance rule — remove when the cable car lands (rest of M5)
+// ---------------------------------------------------------------------------
+
+/** Tower B centre, for the interim plates' default facing. */
+const VILLAGE_SQUARE = FJORD_TOWERS.find((tower) => tower.id === 'tower_b')?.position ?? { x: 0, y: 18, z: 0 };
+
+function interimPad(index: number, x: number, z: number): SpawnPoint {
+  return {
+    id: `cablecar_mid_pad_${index}`,
+    position: { x, y: 18.05, z },
+    rotationY: Math.atan2(VILLAGE_SQUARE.x - x, VILLAGE_SQUARE.z - z),
+    zone: 'village',
+    faction: 'alpine',
+    source: 'tower_c',
+  };
+}
+
+/**
+ * INTERIM until the cable car exists. Peak Guard's quick way from the summit
+ * down to the village is the cable car, which is not in M5 core; on foot the
+ * summit is far further from Tower B than the harbour (bot soak before this
+ * rule: 88.5 s from the Tower C pads vs 33.6 s from the Tower A pads, Lagoon
+ * League won 7 of 7 bot rounds). While Peak Guard holds Tower C, `share` of
+ * the spawns that would use its Tower C pads use these plates beside the
+ * cable-car mid station on the village side instead (they also show only
+ * while Peak Guard holds Tower C). From these plates Tower B is ~13 s away.
+ * With half the Tower C spawns here, the measured mean time from a spawn to
+ * the Tower B zone is 35.9 s for Peak Guard vs 36.8 s for the Lagoon League
+ * (120-minute bot soak, apps/server/test/time-to-b.ts; rounds 6:10 instead
+ * of 0:7). A higher share made Peak Guard win ~3 of 4 rounds (fast
+ * reinforcements). Delete this constant and `selectConquestSpawn`'s interim
+ * branch when the cable car lands.
+ */
+export const INTERIM_CABLE_CAR_SPAWNS: {
+  readonly enabled: boolean;
+  readonly faction: Faction;
+  readonly heldTower: TowerId;
+  readonly share: number;
+  readonly pads: readonly SpawnPoint[];
+} = {
+  enabled: true,
+  faction: 'alpine',
+  heldTower: 'tower_c',
+  share: 0.5,
+  // Open plateau south of the mid station (open sky, flat, no clutter; audited by test/spawn.test.ts).
+  pads: [interimPad(0, 38, 42), interimPad(1, 42, 46), interimPad(2, 48, 40), interimPad(3, 46, 36)],
+};
+
+/**
+ * Conquest spawn selection: the blueprint rule (`selectSpawn`: pads of held
+ * towers, the main base without towers) plus the interim cable-car plates.
+ */
+export function selectConquestSpawn(
+  faction: Faction,
+  heldTowers: readonly TowerId[],
+  random: () => number = Math.random,
+  isBlocked: (position: Vec3) => boolean = () => false,
+): SpawnPoint {
+  const spawn = selectSpawn(faction, heldTowers, random, isBlocked);
+  const rule = INTERIM_CABLE_CAR_SPAWNS;
+  if (!rule.enabled || faction !== rule.faction || spawn.source !== rule.heldTower) return spawn;
+  if (random() >= rule.share) return spawn;
+  const pads = rule.pads;
+  const start = Math.min(pads.length - 1, Math.floor(random() * pads.length));
+  for (let offset = 0; offset < pads.length; offset += 1) {
+    const candidate = pads[(start + offset) % pads.length];
+    if (candidate && !isBlocked(candidate.position)) return candidate;
+  }
+  return spawn;
 }
