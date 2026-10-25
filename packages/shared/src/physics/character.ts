@@ -1,6 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { classStatsFor, mascotFormOf, type ClassStats } from '../config/classes.js';
-import { sampleMapHeight, surfaceTagAt, type SurfaceTag } from '../config/map-fjord.js';
+import { sampleMapHeight, surfaceTagAt } from '../config/map-fjord.js';
 import {
   COCONUT_TUNING,
   COW_TUNING,
@@ -26,6 +26,7 @@ import {
   PLAYER_STEP_HEIGHT,
   WATER_LEVEL,
 } from '../constants.js';
+import type { SurfaceTag } from '../types/map.js';
 import type {
   ClassId,
   Faction,
@@ -756,7 +757,7 @@ export class CharacterBody {
     const forwardAxis = normalizedZ;
     const hasMovement = magnitude > 0.001;
 
-    this.surface = surfaceTagAt(this.feet.x, this.feet.z);
+    this.surface = surfaceTagAt(this.feet.x, this.feet.z, this.feet.y);
     const groundHeight = sampleMapHeight(this.feet.x, this.feet.z);
     const deepWater = groundHeight < WATER_LEVEL - 1.1;
     const wasSwimming = this.isSwimming;
@@ -990,14 +991,21 @@ export class CharacterBody {
 
     const blockedX = desiredMovement.x - corrected.x;
     const blockedZ = desiredMovement.z - corrected.z;
-    if (Math.abs(corrected.x - desiredMovement.x) > 0.0001) {
+    const blockedSpeed = Math.hypot(blockedX, blockedZ) / FIXED_DT;
+    const wallBounce = wallRestitution > 0 && blockedSpeed > wallMinSpeed;
+    // Climbing a slope or stair ramp shortens the horizontal step. Keeping the
+    // intended velocity there stops the per-axis acceleration from skewing the
+    // heading sideways (players slid off ramps and drifted on hillsides).
+    // A mascot wall bounce always clips first so the reflection points away.
+    const climbingSlope =
+      !wallBounce && controllerGrounded && corrected.y > desiredMovement.y + 0.0001;
+    if (!climbingSlope && Math.abs(corrected.x - desiredMovement.x) > 0.0001) {
       this.linearVelocity.x = corrected.x / FIXED_DT;
     }
-    if (Math.abs(corrected.z - desiredMovement.z) > 0.0001) {
+    if (!climbingSlope && Math.abs(corrected.z - desiredMovement.z) > 0.0001) {
       this.linearVelocity.z = corrected.z / FIXED_DT;
     }
-    const blockedSpeed = Math.hypot(blockedX, blockedZ) / FIXED_DT;
-    if (wallRestitution > 0 && blockedSpeed > wallMinSpeed) {
+    if (wallBounce) {
       this.linearVelocity.x -= (blockedX / FIXED_DT) * wallRestitution;
       this.linearVelocity.z -= (blockedZ / FIXED_DT) * wallRestitution;
     }
@@ -1087,7 +1095,7 @@ export class CharacterBody {
     this.canopyBlend = 0;
     this.groundClearance = 0;
 
-    this.surface = surfaceTagAt(this.feet.x, this.feet.z);
+    this.surface = surfaceTagAt(this.feet.x, this.feet.z, this.feet.y);
     const groundHeight = sampleMapHeight(this.feet.x, this.feet.z);
     const deepWater = groundHeight < WATER_LEVEL - 1.1;
 

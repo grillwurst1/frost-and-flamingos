@@ -34,7 +34,6 @@ import {
   type PlayerProfile,
   type PlayerState,
   type ProfileMessage,
-  type TranslationKey,
   type Vec3,
   type WelcomeMessage,
   type WeaponId,
@@ -88,6 +87,7 @@ import {
   profileFingerprint,
 } from '../state/profile';
 import { CameraRig } from './camera-rig';
+import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
 import { cameraProfileFor, MascotClient } from './mascot-client';
 
@@ -256,6 +256,7 @@ export class GameClient {
   private input: InputController | null = null;
   private network: NetworkClient | null = null;
   private visuals: MapVisuals | null = null;
+  private devCamera: DevCameraOverride | null = null;
   private toonMaterial: ReturnType<typeof createToonMaterial> | null = null;
 
   private localId: number | null = null;
@@ -432,6 +433,18 @@ export class GameClient {
         return hit ? hit.point.y : fromY - 1.5;
       });
       this.mascots = new MascotClient(this.mascotFx);
+      if (import.meta.env.DEV) {
+        installMapDevTools({
+          scene: () => this.scene,
+          engine: () => this.engine,
+          localId: () => this.localId,
+          visuals: () => this.visuals,
+          frameDrawCalls: () => this.frameDrawCalls,
+          setCameraOverride: (override) => {
+            this.devCamera = override;
+          },
+        });
+      }
       this.rebuildPreviewView(getProfile());
       setLoadingProgress(0.7);
       setLoadingStep('world', 'done');
@@ -545,6 +558,7 @@ export class GameClient {
     this.unsubscribeWardrobe();
     this.unsubscribeSpin();
     this.unsubscribeEffect();
+    if (import.meta.env.DEV) uninstallMapDevTools();
     window.removeEventListener('resize', this.handleResize);
     this.input?.dispose();
     this.network?.disconnect();
@@ -1184,6 +1198,11 @@ export class GameClient {
   private updateCamera(delta: number): void {
     const camera = this.cameraRig;
     if (!camera) return;
+    if (this.devCamera) {
+      camera.camera.position.copyFrom(this.devCamera.position);
+      camera.camera.setTarget(this.devCamera.target);
+      return;
+    }
     if (this.deathAt > 0 && this.physics) {
       const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
       const killer = latest?.players.find((player) => player.id === this.deathKillerId);
@@ -1446,9 +1465,9 @@ export class GameClient {
       ambience = 'menu';
     } else if (character?.swimming) {
       ambience = 'water';
-    } else if (zone.id === 'harbor' || zone.id === 'shoreline') {
+    } else if (zone.climate === 'lagoon') {
       ambience = 'lagoon';
-    } else if (zone.id === 'village') {
+    } else if (zone.climate === 'village') {
       ambience = 'village';
     } else {
       ambience = 'alpine';
@@ -1615,7 +1634,7 @@ export class GameClient {
         ] as [number, number, number],
         cloaked: state?.cloaked ?? false,
         alive: state?.alive ?? true,
-        zoneKey: zone.labelKey as TranslationKey,
+        zoneKey: zone.labelKey,
       });
       this.mascots?.publishHud(character, state, this.localFaction, weaponSlot);
     }
