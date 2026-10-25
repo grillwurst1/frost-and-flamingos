@@ -54,7 +54,7 @@ import {
   updateToonMaterial,
   updateWaterMaterial,
 } from '../rendering/materials';
-import { createSceneLook, type SceneLook } from '../rendering/scene-look';
+import { createSceneLook, type SceneLook, type VisualQuality } from '../rendering/scene-look';
 import {
   clearCombatUi,
   damageFlash,
@@ -512,6 +512,20 @@ export class GameClient {
       },
       attempt === 0 ? DEPLOYMENT_DURATION_MS : 150,
     );
+  }
+
+  /** Painterly post stack tier (persists per browser). */
+  setVisualQuality(tier: VisualQuality): void {
+    this.look?.setVisualQuality(tier);
+  }
+
+  get visualQuality(): VisualQuality {
+    return this.look?.visualQuality ?? 'high';
+  }
+
+  /** Weather grading: -1 icy, 0 azure, +1 golden (drive from the server's weatherBalance). */
+  setWeatherLook(balance: number): void {
+    this.look?.setWeatherLook(balance);
   }
 
   pause(): void {

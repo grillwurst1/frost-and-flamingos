@@ -351,12 +351,18 @@ export class SceneLook {
     this.installDevHandle();
   }
 
-  /** Hooks the map's sky/water meshes once the world is built. */
+  /**
+   * Hooks the map once the world is built: the sky and water never get ink or
+   * cast shadows, and the terrain only receives shadows (casting it would only
+   * add acne on its own slopes; the cel bands already shade them).
+   */
   attachMap(visuals: MapVisuals): void {
     this.visuals = visuals;
-    if (this.geometryBuffer) {
-      visuals.skyMesh.isPickable = false;
-    }
+    excludeFromInk(visuals.skyMesh);
+    excludeFromInk(visuals.waterMesh);
+    excludeFromShadows(visuals.skyMesh);
+    excludeFromShadows(visuals.waterMesh);
+    excludeFromShadows(visuals.terrainMesh);
   }
 
   get visualQuality(): VisualQuality {
