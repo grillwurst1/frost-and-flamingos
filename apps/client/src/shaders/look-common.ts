@@ -91,15 +91,19 @@ float ffShadow(vec3 worldPos, vec3 normal, float ndl) {
   return mix(mix(1.0, lit, uFFShadowParams.z), 1.0, fade);
 }
 
-vec3 ffShadeTint(vec3 base) {
+float ffCoolMask(vec3 base) {
   float maxC = max(base.r, max(base.g, base.b));
   float minC = min(base.r, min(base.g, base.b));
   float saturation = (maxC - minC) / max(maxC, 0.001);
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
   float pale = smoothstep(0.62, 0.86, luma) * (1.0 - smoothstep(0.1, 0.3, saturation));
   float bluish = smoothstep(0.02, 0.18, base.b - base.r) * smoothstep(0.35, 0.7, luma);
-  float cool = clamp(max(pale, bluish), 0.0, 1.0);
-  vec3 tint = mix(uFFShadeWarm, uFFShadeCool, cool);
+  return clamp(max(pale, bluish), 0.0, 1.0);
+}
+
+vec3 ffShadeTint(vec3 base) {
+  float luma = dot(base, vec3(0.299, 0.587, 0.114));
+  vec3 tint = mix(uFFShadeWarm, uFFShadeCool, ffCoolMask(base));
   return tint * mix(0.78, 0.95, luma);
 }
 
@@ -119,7 +123,8 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   vec3 fill = mix(uFFGroundFill, uFFSkyFill, skyMix);
   vec3 deep = pow(max(base, vec3(0.001)), vec3(1.35));
   vec3 shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
-  vec3 lit = base * uFFSunColor;
+  // Lit snow and ice stay blue-white like the paintings (sky bounce).
+  vec3 lit = base * uFFSunColor * mix(vec3(1.0), vec3(0.88, 0.95, 1.0), ffCoolMask(base) * 0.85);
   vec3 color = mix(shade, lit, lightLevel);
 
   float shadeAmount = 1.0 - lightLevel;
@@ -212,15 +217,19 @@ fn ffShadow(worldPos : vec3f, normal : vec3f, ndl : f32) -> f32 {
   return mix(mix(1.0, lit, uniforms.uFFShadowParams.z), 1.0, fade);
 }
 
-fn ffShadeTint(base : vec3f) -> vec3f {
+fn ffCoolMask(base : vec3f) -> f32 {
   let maxC = max(base.r, max(base.g, base.b));
   let minC = min(base.r, min(base.g, base.b));
   let saturation = (maxC - minC) / max(maxC, 0.001);
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));
   let pale = smoothstep(0.62, 0.86, luma) * (1.0 - smoothstep(0.1, 0.3, saturation));
   let bluish = smoothstep(0.02, 0.18, base.b - base.r) * smoothstep(0.35, 0.7, luma);
-  let cool = clamp(max(pale, bluish), 0.0, 1.0);
-  let tint = mix(uniforms.uFFShadeWarm, uniforms.uFFShadeCool, cool);
+  return clamp(max(pale, bluish), 0.0, 1.0);
+}
+
+fn ffShadeTint(base : vec3f) -> vec3f {
+  let luma = dot(base, vec3f(0.299, 0.587, 0.114));
+  let tint = mix(uniforms.uFFShadeWarm, uniforms.uFFShadeCool, ffCoolMask(base));
   return tint * mix(0.78, 0.95, luma);
 }
 
@@ -240,7 +249,7 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let fill = mix(uniforms.uFFGroundFill, uniforms.uFFSkyFill, skyMix);
   let deep = pow(max(base, vec3f(0.001)), vec3f(1.35));
   let shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
-  let lit = base * uniforms.uFFSunColor;
+  let lit = base * uniforms.uFFSunColor * mix(vec3f(1.0), vec3f(0.88, 0.95, 1.0), ffCoolMask(base) * 0.85);
   var color = mix(shade, lit, lightLevel);
 
   let shadeAmount = 1.0 - lightLevel;

@@ -270,7 +270,12 @@ void main(void) {
   float sat = max(color.r, max(color.g, color.b)) - min(color.r, min(color.g, color.b));
   color = mix(vec3(luma), color, uGrade.z * (1.0 + uGrade.w * (1.0 - clamp(sat * 2.5, 0.0, 1.0))));
   color = clamp(color, 0.0, 1.0);
-  color = mix(color, color * color * (3.0 - 2.0 * color), uGrade.y - 1.0);
+  // Hue-preserving tone curve on luminance: soft S-curve plus a highlight
+  // shoulder so snow and sand keep their tint instead of clipping to white.
+  float toneIn = max(dot(color, vec3(0.299, 0.587, 0.114)), 0.0001);
+  float toneOut = mix(toneIn, toneIn * toneIn * (3.0 - 2.0 * toneIn), uGrade.y - 1.0);
+  toneOut = toneOut > 0.8 ? 0.8 + (toneOut - 0.8) * 0.55 : toneOut;
+  color = clamp(color * (toneOut / toneIn), 0.0, 1.0);
   luma = clamp(dot(color, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
   color += uShadowTone * (1.0 - luma) * (1.0 - luma) * uGradeExtra.z;
   color += uHighlightTone * luma * luma * uGradeExtra.w;
@@ -401,7 +406,10 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let sat = max(color.r, max(color.g, color.b)) - min(color.r, min(color.g, color.b));
   color = mix(vec3f(luma), color, uniforms.uGrade.z * (1.0 + uniforms.uGrade.w * (1.0 - clamp(sat * 2.5, 0.0, 1.0))));
   color = clamp(color, vec3f(0.0), vec3f(1.0));
-  color = mix(color, color * color * (3.0 - 2.0 * color), uniforms.uGrade.y - 1.0);
+  let toneIn = max(dot(color, vec3f(0.299, 0.587, 0.114)), 0.0001);
+  var toneOut = mix(toneIn, toneIn * toneIn * (3.0 - 2.0 * toneIn), uniforms.uGrade.y - 1.0);
+  toneOut = select(toneOut, 0.8 + (toneOut - 0.8) * 0.55, toneOut > 0.8);
+  color = clamp(color * (toneOut / toneIn), vec3f(0.0), vec3f(1.0));
   luma = clamp(dot(color, vec3f(0.299, 0.587, 0.114)), 0.0, 1.0);
   color += uniforms.uShadowTone * (1.0 - luma) * (1.0 - luma) * uniforms.uGradeExtra.z;
   color += uniforms.uHighlightTone * luma * luma * uniforms.uGradeExtra.w;

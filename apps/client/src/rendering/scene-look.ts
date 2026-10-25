@@ -179,9 +179,9 @@ const WEATHER_NEUTRAL: WeatherPreset = {
   waterShallow: hex('#3FE0D0'),
   waterMid: hex('#1FB5C9'),
   waterDeep: hex('#0E6FA8'),
-  grade: new Vector4(1.02, 1.22, 1.13, 0.35),
+  grade: new Vector4(1.0, 1.18, 1.08, 0.28),
   shadowTone: new Color3(-0.015, 0.0, 0.04),
-  highlightTone: new Color3(0.03, 0.01, -0.012),
+  highlightTone: new Color3(0.012, 0.004, -0.006),
   tint: new Color3(1, 1, 1),
 };
 
@@ -227,7 +227,7 @@ const WEATHER_GOLDEN: WeatherPreset = {
   waterShallow: hex('#4AE8CC'),
   waterMid: hex('#1EB8BE'),
   waterDeep: hex('#0E6F9E'),
-  grade: new Vector4(1.05, 1.25, 1.16, 0.35),
+  grade: new Vector4(1.03, 1.2, 1.14, 0.3),
   shadowTone: new Color3(0.0, -0.01, 0.03),
   highlightTone: new Color3(0.07, 0.035, -0.04),
   tint: new Color3(1.06, 1.0, 0.9),
