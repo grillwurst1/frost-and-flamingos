@@ -67,6 +67,10 @@ interface Wheel {
 }
 
 const TILT_RESPONSE = 7;
+/** The painted model loads once the vehicle comes this close to the camera… */
+const LAZY_LOAD_RANGE = 120;
+/** …or is on screen within this range (farther away the stand-in is a few pixels). */
+const LAZY_ON_SCREEN_RANGE = 400;
 
 export class VehicleView {
   readonly root: TransformNode;
@@ -88,6 +92,9 @@ export class VehicleView {
   private time = 0;
   private balloon = 0;
   private disposed = false;
+  private loadRequested = false;
+  /** Ground tilt of the last probe; parked hulls reuse it instead of ray-casting every frame. */
+  private readonly probe = { x: Number.NaN, z: Number.NaN, yaw: Number.NaN, pitch: 0, roll: 0 };
   private readonly lastPose: VehicleViewPose;
 
   constructor(scene: Scene, kind: DrivableVehicleKind) {
@@ -110,7 +117,19 @@ export class VehicleView {
       afloat: false,
       damage: 0,
     };
+    // The vertex-coloured stand-in shows until the painted model is wanted
+    // (see update: near the camera or on screen); far vehicles never load it.
     this.buildFallback();
+  }
+
+  /** Loads the painted model once the vehicle is near or on screen. */
+  private requestModel(position: Vec3, cameraPosition: Vector3): void {
+    if (this.loadRequested) return;
+    const distance = Math.hypot(position.x - cameraPosition.x, position.y - cameraPosition.y, position.z - cameraPosition.z);
+    const camera = this.scene.activeCamera;
+    const onScreen = distance < LAZY_ON_SCREEN_RANGE && !!camera && !!this.fallback && camera.isInFrustum(this.fallback);
+    if (distance > LAZY_LOAD_RANGE && !onScreen) return;
+    this.loadRequested = true;
     void this.load();
   }
 
@@ -194,6 +213,7 @@ export class VehicleView {
    */
   update(deltaSeconds: number, pose: VehicleViewPose, ground: VehicleGroundProbe | null, cameraPosition: Vector3): void {
     if (this.disposed) return;
+    this.requestModel(pose.position, cameraPosition);
     const dt = Math.min(0.1, Math.max(0, deltaSeconds));
     this.time += dt;
     Object.assign(this.lastPose, pose);
@@ -209,6 +229,9 @@ export class VehicleView {
       targetPitch = -Math.min(0.12, speed * 0.006) + Math.sin(this.time * 1.7) * 0.025;
       targetRoll = Math.sin(this.time * 1.3 + 0.7) * 0.035;
       lift = pose.afloat ? Math.sin(this.time * 2.1) * 0.06 : 0;
+    } else if (ground && !pose.wreck && Math.abs(pose.position.x - this.probe.x) < 0.01 && Math.abs(pose.position.z - this.probe.z) < 0.01 && Math.abs(pose.yaw - this.probe.yaw) < 0.001) {
+      targetPitch = this.probe.pitch;
+      targetRoll = this.probe.roll;
     } else if (ground && !pose.wreck) {
       const sample = (lx: number, lz: number): number | null => {
         const point = vehicleLocalToWorld(pose.position, pose.yaw, { x: lx, y: 0, z: lz });
@@ -223,6 +246,7 @@ export class VehicleView {
       if (left !== null && right !== null) targetRoll = Math.atan2(right - left, half.x * 1.6);
       targetPitch = Math.max(-0.6, Math.min(0.6, targetPitch));
       targetRoll = Math.max(-0.45, Math.min(0.45, targetRoll));
+      Object.assign(this.probe, { x: pose.position.x, z: pose.position.z, yaw: pose.yaw, pitch: targetPitch, roll: targetRoll });
     }
     const alpha = 1 - Math.exp(-dt * TILT_RESPONSE);
     this.pitch += (targetPitch - this.pitch) * alpha;
@@ -250,12 +274,14 @@ export class VehicleView {
     for (const wheel of this.wheels) wheel.node.rotation.set(this.wheelAngle / wheel.radius, 0, 0);
 
     const charred = pose.wreck ? 1 : 0;
-    updateGlbMaterial(this.material, cameraPosition, this.time, {
-      battleDamage: Math.min(1, pose.damage * 1.1),
-      charred,
-      frozen: 0,
-    });
-    updateGlbMaterial(this.fallbackMaterial, cameraPosition, this.time, { battleDamage: pose.damage, charred, frozen: 0 });
+    if (this.entries) {
+      updateGlbMaterial(this.material, cameraPosition, this.time, {
+        battleDamage: Math.min(1, pose.damage * 1.1),
+        charred,
+        frozen: 0,
+      });
+    }
+    if (this.fallback) updateGlbMaterial(this.fallbackMaterial, cameraPosition, this.time, { battleDamage: pose.damage, charred, frozen: 0 });
   }
 
   /** World position of a seat anchor including the visual tilt. */

@@ -72,6 +72,8 @@ interface ModelTuning {
   baseSize?: number;
   /** Triangle budget: the mesh is welded and simplified below it. */
   maxTriangles?: number;
+  /** false drops the normal map (not visible at the model's viewing distance). */
+  keepNormal?: boolean;
 }
 
 /**
@@ -81,6 +83,12 @@ interface ModelTuning {
  */
 const MODEL_TUNING: Readonly<Record<string, ModelTuning>> = {
   hen: { baseSize: 1024, maxTriangles: 8000 },
+  // Vehicles: nine of them stand around the map; seen from 4-10 m behind
+  // the hull at most, so 8k triangles, a 1024² paint and no normal map.
+  'vehicle-fondue-crawler': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
+  'vehicle-coconut-tank': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
+  'vehicle-flamingo-boat': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
+  'vehicle-sidecar': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
 };
 
 interface BakeEntry {
@@ -338,7 +346,7 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
   }
   const clips = baked.get(key);
   if (clips) writeBakedAnimations(parts, orderedClips(clips));
-  stripUnusedTextures(parts, options.keepNormal);
+  stripUnusedTextures(parts, options.keepNormal && tuning.keepNormal !== false);
   await Bun.write(`${stem}-0.glb`, writeGlb(parts));
 
   await run(['prune', `${stem}-0.glb`, `${stem}-1.glb`]);

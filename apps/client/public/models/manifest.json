@@ -73,34 +73,30 @@
     },
     "vehicle-coconut-tank": {
       "file": "vehicle-coconut-tank.glb",
-      "bytes": 1936822,
+      "bytes": 751584,
       "textures": {
-        "basecolor": "vehicle-coconut-tank-basecolor.webp",
-        "normal": "vehicle-coconut-tank-normal.webp"
+        "basecolor": "vehicle-coconut-tank-basecolor.webp"
       }
     },
     "vehicle-flamingo-boat": {
       "file": "vehicle-flamingo-boat.glb",
-      "bytes": 1124150,
+      "bytes": 394560,
       "textures": {
-        "basecolor": "vehicle-flamingo-boat-basecolor.webp",
-        "normal": "vehicle-flamingo-boat-normal.webp"
+        "basecolor": "vehicle-flamingo-boat-basecolor.webp"
       }
     },
     "vehicle-fondue-crawler": {
       "file": "vehicle-fondue-crawler.glb",
-      "bytes": 1709910,
+      "bytes": 663380,
       "textures": {
-        "basecolor": "vehicle-fondue-crawler-basecolor.webp",
-        "normal": "vehicle-fondue-crawler-normal.webp"
+        "basecolor": "vehicle-fondue-crawler-basecolor.webp"
       }
     },
     "vehicle-sidecar": {
       "file": "vehicle-sidecar.glb",
-      "bytes": 2098594,
+      "bytes": 751854,
       "textures": {
-        "basecolor": "vehicle-sidecar-basecolor.webp",
-        "normal": "vehicle-sidecar-normal.webp"
+        "basecolor": "vehicle-sidecar-basecolor.webp"
       }
     }
   }
