@@ -182,6 +182,28 @@ const FLASHES: Record<MuzzleKind, FlashSpec> = {
   },
 };
 
+/** Live props, for the DEV probe `window.__ffWeapons` (screenshot tooling). */
+const liveWeapons = new Set<HeroWeaponProp>();
+
+function installDevHandle(): void {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return;
+  const holder = window as unknown as { __ffWeapons?: unknown };
+  if (holder.__ffWeapons) return;
+  holder.__ffWeapons = {
+    /** Fires every held (enabled) prop's flash / pop; returns how many. */
+    fireAll: (): number => {
+      let count = 0;
+      for (const weapon of liveWeapons) {
+        if (!weapon.mesh.isEnabled(true)) continue;
+        weapon.fire();
+        count += 1;
+      }
+      return count;
+    },
+    list: () => [...liveWeapons].map((weapon) => ({ id: weapon.id, enabled: weapon.mesh.isEnabled(true), vertices: weapon.vertexCount })),
+  };
+}
+
 function vec(value: V3, mirror: boolean): Vector3 {
   return new Vector3(mirror ? -value[0] : value[0], value[1], value[2]);
 }
@@ -270,6 +292,12 @@ class HeroWeaponProp implements HeroWeapon {
     }
     this.vertexCount = vertices;
     this.rear = hold.butt !== undefined ? hold.butt + origin[2] : null;
+    if (import.meta.env.DEV) {
+      // Views dispose the mesh directly; the probe forgets the prop with it.
+      liveWeapons.add(this);
+      this.mesh.onDisposeObservable.addOnce(() => liveWeapons.delete(this));
+      installDevHandle();
+    }
     this.pose = {
       shoulder: [hold.shoulder[0], hold.shoulder[1], hold.shoulder[2]],
       tilt: hold.tilt,
