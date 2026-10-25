@@ -56,8 +56,41 @@ export interface PaintedModelAsset extends RigInfo {
   height: number;
   /** Index ranges of the body and the removable painted headgear. */
   hatSplit: { bodyCount: number; hatCount: number } | null;
+  /**
+   * Bind-pose torso depth around the chest joint (armature z, +Z forward):
+   * where back items sit and how far held props stay in front. Null for
+   * static or unrigged models.
+   */
+  torso: TorsoDepth | null;
   /** Resolved clip per animation role (baked offline, or baked at load). */
   clips: Map<ClipRole, BakedClip>;
+}
+
+export interface TorsoDepth {
+  /** Bind z of the chest joint (Spine2). */
+  chestZ: number;
+  /** Frontmost chest/belly surface around chest height. */
+  front: number;
+  /** Back surface behind the spine at chest height. */
+  back: number;
+}
+
+/** Measures the bind-pose torso around Spine2 from the skinned vertices. */
+function measureTorso(mesh: Mesh, rig: RigInfo): TorsoDepth | null {
+  const chest = rig.bindPositions.get('Spine2');
+  const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
+  if (!chest || !positions) return null;
+  let front = -Infinity;
+  let back = Infinity;
+  for (let vertex = 0; vertex < positions.length / 3; vertex += 1) {
+    const x = (positions[vertex * 3] ?? 0) - chest.x;
+    const y = (positions[vertex * 3 + 1] ?? 0) - chest.y;
+    const z = positions[vertex * 3 + 2] ?? 0;
+    if (Math.abs(y) < 0.12 && Math.abs(x) < 0.25) front = Math.max(front, z);
+    if (Math.abs(y) < 0.06 && Math.abs(x) < 0.08) back = Math.min(back, z);
+  }
+  if (!Number.isFinite(front) || !Number.isFinite(back)) return null;
+  return { chestZ: chest.z, front, back };
 }
 
 export type PaintedModelStatus = 'pending' | 'missing' | 'loading' | 'ready' | 'failed';
@@ -239,6 +272,7 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
     clipNames: new Set(baked.size > 0 ? [...baked.values()].map((clip) => clip.name) : container.animationGroups.map((group) => group.name)),
     height,
     hatSplit,
+    torso: skeleton ? measureTorso(mesh, rig) : null,
     clips: new Map(),
   };
   if (baked.size > 0) {
