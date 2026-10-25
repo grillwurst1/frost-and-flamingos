@@ -1,3 +1,5 @@
+import { Constants } from '@babylonjs/core/Engines/constants';
+import { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
@@ -8,6 +10,7 @@ import type { AvatarPose, AvatarView } from './avatar';
 import { GlbCharacterView } from './glb-character';
 import { DRIFTER_MODEL_KEYS } from './glb/drifter-models';
 import { paintedModelLibrary } from './glb/library';
+import type { PaintedTextures } from './glb/material';
 import { createShadowMaterial, type CharacterMaterialState } from './materials';
 
 /**
@@ -28,6 +31,31 @@ const BECKON_AFTER = 4;
 /** Chance that an idle one-shot is the skip instead of the beckon. */
 const SKIP_CHANCE = 0.18;
 const IDLE_SPEED = 0.35;
+
+const flatNormals = new WeakMap<Scene, RawTexture>();
+
+/**
+ * Flat tangent-space normal map (0.5, 0.5, 1). The Creepy Mountain Girl ships
+ * without a normal map; binding the albedo in its place (with zero strength)
+ * still feeds the albedo's blue channel into the normal's z, which can flip
+ * or zero it. One tiny texture per scene, disposed with the scene.
+ */
+function flatNormalTexture(scene: Scene): RawTexture {
+  const cached = flatNormals.get(scene);
+  if (cached) return cached;
+  const texels = new Uint8Array(4 * 4 * 4);
+  for (let index = 0; index < texels.length; index += 4) texels.set([128, 128, 255, 255], index);
+  const texture = RawTexture.CreateRGBATexture(texels, 4, 4, scene, false, false, Constants.TEXTURE_NEAREST_SAMPLINGMODE);
+  texture.name = 'ff-drifter-flat-normal';
+  flatNormals.set(scene, texture);
+  scene.onDisposeObservable.addOnce(() => flatNormals.delete(scene));
+  return texture;
+}
+
+/** Her textures with a flat normal map in place of a missing one. */
+function withNormalMap(scene: Scene, textures: PaintedTextures): PaintedTextures {
+  return textures.normal ? textures : { ...textures, normal: flatNormalTexture(scene) };
+}
 
 export class DrifterView implements AvatarView {
   readonly root: TransformNode;
@@ -64,7 +92,7 @@ export class DrifterView implements AvatarView {
           createShadowMaterial(scene, `${shadowMaterial.name}-painted`),
           profile,
           loaded.asset,
-          loaded.textures,
+          withNormalMap(scene, loaded.textures),
         );
         painted.root.parent = this.root;
         painted.setPosition({ x: 0, y: 0, z: 0 });

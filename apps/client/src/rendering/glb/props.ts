@@ -203,12 +203,48 @@ const BUILDERS: Partial<Record<WeaponId, (p: PartList) => HoldSpec>> = {
   },
 };
 
+/**
+ * Hand-attach API of the painted characters (glb-character.ts), for the
+ * weapon package and anything else held in the hands:
+ *
+ *   - `mesh` is built in weapon space: origin at the right-hand grip, barrel
+ *     along +Z, +Y up, metres at the character's scale (the view's class
+ *     height scaling applies on top). The view parents it to its weapon
+ *     anchor, enables only the current weapon, and disposes every prop it
+ *     built when the view is disposed (one prop per weapon id and view).
+ *   - `hold.style` picks the hold frame in front of the chest (rifle,
+ *     pistol, launcher, melee, polearm, umbrella; see HOLD_OFFSETS there),
+ *     the aim pitch and recoil move that frame, and two-bone IK pulls the
+ *     right hand onto the origin.
+ *   - `hold.support` is the left-hand grip in weapon space (null = the left
+ *     arm stays free); `hold.tilt` pitches the prop up (polearms).
+ *   - The mesh's bounding box is read once: its rear (minimum z) is kept in
+ *     front of the chest, so long stocks are pushed forward instead of
+ *     passing through the body.
+ *   - Render with `material` (the view's vertex-colour cel material, so the
+ *     prop gets the character look) or with your own material; the view
+ *     counts one draw call per held prop.
+ *
+ * {@link registerWeaponProp} replaces the built-in placeholder props below
+ * per weapon id; views created afterwards use the registered factory.
+ */
 export interface WeaponProp {
   mesh: Mesh;
   hold: HoldSpec;
 }
 
+export type WeaponPropFactory = (scene: Scene, id: WeaponId, material: ShaderMaterial) => WeaponProp | null;
+
+const registeredProps = new Map<WeaponId, WeaponPropFactory>();
+
+/** Registers the held prop of one weapon (see the hand-attach API above). */
+export function registerWeaponProp(id: WeaponId, factory: WeaponPropFactory): void {
+  registeredProps.set(id, factory);
+}
+
 export function buildWeaponProp(scene: Scene, id: WeaponId, material: ShaderMaterial): WeaponProp | null {
+  const registered = registeredProps.get(id);
+  if (registered) return registered(scene, id, material);
   const builder = BUILDERS[id];
   if (!builder) return null;
   const parts = new PartList(scene);

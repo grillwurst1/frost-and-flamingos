@@ -48,6 +48,9 @@ procedural sky, clouds, detail tiles and water foam when one is missing (contrac
 | `tex/grass.jpg` | `gemini-ground-mixed.webp` | Grey luminance overlay; toroidal quilting of 96 px grass patches that avoids snow, mud, fronds and rocks. |
 | `tex/sand.jpg` | `gemini-ground-mixed.webp` | Grey luminance overlay; toroidal quilting of 160 px sand patches, ripples and pebbles kept. |
 | `tex/water_foam.png` | `gemini-panorama-lagoon.webp`, `gemini-panorama-trans-a.webp` (painted sea) | Alpha foam mask, not a colour tile: white crest streaks keyed off the painted sea, perspective undone and scattered seamlessly to about 10 % coverage. RGB is white, alpha is the foam. |
+| `wardrobe/fir-snow.png` | `gemini-sheet-trees.webp`, snowy fir (top left) | Cut-out for the Peak Guard wardrobe stage: white ground flood-filled from the border (outline-bounded, so the painted snow stays), 1 px alpha erode and feather, 190 × 302 at source resolution. |
+| `wardrobe/palm.png` | `gemini-sheet-trees.webp`, leaning palm | Same cut-out for the Lagoon League wardrobe stage, 166 × 300. |
+| `wardrobe/palm-small.png` | `gemini-sheet-trees.webp`, small palm | Same cut-out, 120 × 128. |
 
 Derived from the same sheets but not shipped in the client bundle until a package uses them, kept
 under `art-src/painted-world/`: `tex/<name>_color.jpg`, the full-colour seamless tiles the grey
@@ -63,8 +66,9 @@ library) from the owner's own A-pose drawings in `art-src/for-3d/`. Free-plan Me
 licensed **CC BY 4.0**. Attribution: "3D model generated with Meshy (meshy.ai)". The untouched
 downloads are in `art-src/meshy/`. `bun run models` (`scripts/optimize-models.ts`) optimises
 them: it drops the metallic-roughness map, encodes the painted 2048 px textures as WebP, and
-resamples the clips. Animation clips missing from a model are retargeted at runtime from the
-other models, which were generated the same way.
+bakes each model's animation clips into its own GLB. Clips a soldier lacks are retargeted at
+build time from the other soldiers, which were generated the same way. The two drifter
+characters are processed the same way but keep only their own clips.
 
 | File | Character | Source | License |
 | --- | --- | --- | --- |
@@ -74,6 +78,8 @@ other models, which were generated the same way.
 | `apps/client/public/models/lagoon-allrounder.glb` | Lagoon League allrounder | `art-src/meshy/meshy-lagoon-allrounder.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/lagoon-heavy.glb` | Lagoon League heavy | `art-src/meshy/meshy-lagoon-heavy.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/lagoon-infiltrator.glb` | Lagoon League infiltrator | `art-src/meshy/meshy-lagoon-infiltrator.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/alpine-ghostgirl.glb` | Creepy Mountain Girl (drifter) | `art-src/meshy/meshy-alpine-ghostgirl.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/lagoon-beachgirl.glb` | Hot Beach Girl (drifter; Meshy's static export, rigged in the project) | `art-src/meshy/meshy-lagoon-beachgirl.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 
 ## Music
 
