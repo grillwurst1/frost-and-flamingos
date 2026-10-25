@@ -1116,7 +1116,8 @@ export class GlbCharacterView implements AvatarView {
       keepOut();
       for (let step = 0; step < 8 && Vector3.Distance(grip, rightArm) > reach; step += 1) {
         grip.x += (rightArm.x - grip.x) * 0.3;
-        grip.y += (rightArm.y - 0.1 - grip.y) * 0.3;
+        // Raise a low grip a little, never up into the face (big guns sit above the grip).
+        if (grip.y < rightArm.y - 0.28) grip.y += (rightArm.y - 0.28 - grip.y) * 0.3;
         keepOut();
       }
       // Still too far (an outstretched pistol): pull straight in, but not into the chest.
