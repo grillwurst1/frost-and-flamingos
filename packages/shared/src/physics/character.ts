@@ -68,10 +68,6 @@ interface SurfaceProperties {
 export const CROUCH_HEIGHT_SCALE = 0.65;
 /** Drifter: the water floor holds this far above her hover height (capsule contact offset on slopes). */
 const DRIFTER_SHORE_MARGIN = 0.1;
-/** Drifter: the descent press never exceeds this many times her walk speed. */
-const DRIFTER_DESCENT_PRESS_CAP = 1.25;
-/** Drifter: feet within this of the terrain collider count as walking on the terrain (not on a prop). */
-const DRIFTER_ON_TERRAIN = 0.25;
 const CROUCH_SPEED_SCALE = 0.55;
 const STRAFE_SPEED_SCALE = 0.85;
 const BACKWARD_SPEED_SCALE = 0.7;
@@ -1067,17 +1063,6 @@ export class CharacterBody {
   }
 
   /**
-   * How far the terrain collider falls over her next step (m), 0 when it is
-   * level or rising, or when she stands on something other than the terrain.
-   */
-  private drifterTerrainDrop(): number {
-    const here = colliderHeightAt(this.feet.x, this.feet.z);
-    if (this.feet.y - here > DRIFTER_ON_TERRAIN) return 0;
-    const ahead = colliderHeightAt(this.feet.x + this.linearVelocity.x * FIXED_DT, this.feet.z + this.linearVelocity.z * FIXED_DT);
-    return Math.max(0, here - ahead);
-  }
-
-  /**
    * Drifter: walk only. WASD relative to the camera at a calm walking pace
    * (strafe and backwards slower), no sprint, jump, crouch, roll, mantle or
    * parachute. Statuses (slows, boosts, puddles, launches) do not reach her.
@@ -1135,7 +1120,6 @@ export class CharacterBody {
       this.linearVelocity.z = moveTowards(this.linearVelocity.z, desiredZ, rate);
     }
 
-    const slopeDrop = hasMovement && this.isGrounded ? this.drifterTerrainDrop() : 0;
     if (waterFloor !== null && this.feet.y <= waterFloor) {
       // Back up onto the surface (only after something pushed her below it).
       this.linearVelocity.y = Math.min(tuning.waterRiseSpeed, (waterFloor - this.feet.y) / FIXED_DT);
@@ -1147,12 +1131,6 @@ export class CharacterBody {
         const room = (waterFloor - this.feet.y) / FIXED_DT;
         this.linearVelocity.y = Math.max(this.linearVelocity.y, room);
       }
-    } else if (slopeDrop > 0.0005) {
-      // Walking down a falling bank: press exactly as far as the terrain
-      // drops ahead, so she follows it instead of drifting off and dropping
-      // in steps. Never on level or rising ground and never on props: a
-      // press there is projected along the slope and kills the autostep.
-      this.linearVelocity.y = -Math.min(tuning.walkSpeed * DRIFTER_DESCENT_PRESS_CAP, slopeDrop / FIXED_DT + 0.3);
     } else if (this.linearVelocity.y < 0) {
       this.linearVelocity.y = -1.5;
     }

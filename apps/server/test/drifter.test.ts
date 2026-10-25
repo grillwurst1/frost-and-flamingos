@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from '
 import {
   CLASS_STATS,
   DRIFTER_AURA,
+  FJORD_MAP,
   DRIFTER_FORM_AVAILABLE,
   DRIFTER_TUNING,
   InputButton,
@@ -483,6 +484,37 @@ describe('walk-only motor', () => {
     console.log('[3G kerb]', JSON.stringify({ feetY: feet.y, top, z: feet.z - site.z }));
     expect(feet.z - site.z).toBeGreaterThan(2.5);
     expect(Math.abs(feet.y - top)).toBeLessThan(0.08);
+    dismiss(players);
+  });
+
+  test('walks onto the lagoon dock from its side (autostep onto the deck)', () => {
+    const players = cast([['Ghost', 'drifter', 'lagoon']]);
+    const ghostJ = players[0]!;
+    const ghost = ghostJ.player;
+    const dock = FJORD_MAP.props.find((prop) => prop.id === 'lagoon_dock');
+    expect(dock).toBeDefined();
+    const deck = dock?.colliders.find((collider) => collider.type === 'box');
+    if (!dock || !deck || deck.type !== 'box') throw new Error('lagoon_dock has no deck box');
+    const cos = Math.cos(dock.rotationY);
+    const sin = Math.sin(dock.rotationY);
+    const centre = {
+      x: dock.position.x + deck.offset.x * cos + deck.offset.z * sin,
+      z: dock.position.z - deck.offset.x * sin + deck.offset.z * cos,
+    };
+    const top = dock.position.y + deck.offset.y + deck.halfExtents.y;
+    // The deck's local x axis in world space; start 1.5 m off its side edge.
+    const yaw = dock.rotationY + (deck.rotation?.y ?? 0);
+    const axis = { x: Math.cos(yaw), z: -Math.sin(yaw) };
+    const start = { x: centre.x - axis.x * (deck.halfExtents.x + 1.5), z: centre.z - axis.z * (deck.halfExtents.x + 1.5) };
+    place(ghost, start.x, start.z, Math.max(colliderHeightAt(start.x, start.z), WATER_LEVEL + DRIFTER_TUNING.waterHoverHeight) + 0.3);
+    run(harness, SECOND);
+    const walk = Math.ceil(((deck.halfExtents.x + 1.5) / DRIFTER_TUNING.walkSpeed) * SECOND);
+    run(harness, walk, [{ joined: ghostJ, buttons: B.Forward, yaw: Math.atan2(axis.x, axis.z) }]);
+    const feet = ghost.character.position;
+    const travelled = Math.hypot(feet.x - start.x, feet.z - start.z);
+    console.log('[3G dock]', JSON.stringify({ feetY: feet.y, top, travelled, ticks: walk }));
+    expect(travelled).toBeGreaterThan(deck.halfExtents.x);
+    expect(Math.abs(feet.y - top)).toBeLessThan(0.1);
     dismiss(players);
   });
 
