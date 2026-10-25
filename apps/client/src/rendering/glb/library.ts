@@ -107,6 +107,8 @@ const MODELS_BASE = `${import.meta.env.BASE_URL}models/`;
 
 async function fetchManifest(): Promise<ReadonlyMap<string, ManifestEntry>> {
   const result = new Map<string, ManifestEntry>();
+  // `?painted=0` keeps every class on the procedural rig (QA / comparisons).
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('painted') === '0') return result;
   try {
     const response = await fetch(`${MODELS_BASE}manifest.json`, { cache: 'no-cache' });
     if (!response.ok) return result;
@@ -563,6 +565,11 @@ export class PaintedModelLibrary {
       this.manifestEntries = entries;
       return entries;
     });
+  }
+
+  /** The scene this library loads into (DEV probes). */
+  get sceneRef(): Scene {
+    return this.scene;
   }
 
   /** Model keys that exist on the server (resolves once the manifest is read). */

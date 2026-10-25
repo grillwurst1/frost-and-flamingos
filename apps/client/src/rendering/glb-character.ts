@@ -161,6 +161,7 @@ function installGlbDebugHandle(): void {
     views: () => [...liveViews].map((view) => view.debugInfo()),
     pending: () => [...pendingViews].map((view) => view.debugInfo()),
     events: () => [...debugEvents],
+    scene: () => lastLibrary?.sceneRef ?? null,
     library: () => {
       const library = lastLibrary;
       if (!library) return null;
