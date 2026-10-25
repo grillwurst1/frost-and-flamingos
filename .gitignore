@@ -33,3 +33,6 @@ logs/
 
 # Local scratch files
 .tmp-*
+
+# Agent worktrees (local only)
+.claude/worktrees/
