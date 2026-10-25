@@ -366,21 +366,30 @@ void main(void) {
     near = min(d0, min(min(ffDepth(uv + vec2(uTexel.x, 0.0)), ffDepth(uv - vec2(uTexel.x, 0.0))), min(ffDepth(uv + vec2(0.0, uTexel.y)), ffDepth(uv - vec2(0.0, uTexel.y)))));
   }
   float farMix = smoothstep(uInkFade.x, uInkFade.y, near);
-  float width = uInkParams.x * widthNoise * mix(1.0, uInkFade.z, farMix);
+  // Bold contours up close, fine lines far away (thin far geometry must not clot).
+  float nearBoost = mix(1.5, 1.0, smoothstep(5.0, 26.0, near));
+  float width = uInkParams.x * widthNoise * nearBoost * mix(1.0, uInkFade.z, farMix);
   vec2 ox = vec2(uTexel.x * width, 0.0);
   vec2 oy = vec2(0.0, uTexel.y * width);
   vec2 od1 = (ox + oy) * 0.7071;
   vec2 od2 = (ox - oy) * 0.7071;
 
-  float lap = max(abs(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), abs(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
+  // Signed depth Laplacian (ratio form, zero on any plane): negative on the
+  // NEAR side of a depth step. Only the nearer surface is inked, so contours
+  // hug the object instead of doubling onto the background, which keeps
+  // railings, planks and trusses as single lines instead of a black clot.
+  float lap = max(-(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), -(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
   vec3 n0 = ffNormal(uv);
   float nEdge = max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy))));
   if (detailed) {
-    lap = max(lap, max(abs(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), abs(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
+    lap = max(lap, max(-(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), -(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
     nEdge = max(nEdge, max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2))));
   }
-  float depthEdge = smoothstep(uInkParams.y, uInkParams.y * 2.2, lap);
-  float normalEdge = smoothstep(uInkParams.z, uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uInkFade.x * 0.7, uInkFade.y * 0.55, near));
+  float depthThreshold = uInkParams.y * (1.0 + farMix * 1.2);
+  float depthEdge = smoothstep(depthThreshold, depthThreshold * 2.2, lap);
+  // Creases (normal edges) only near the camera: at range plank bevels and
+  // railing posts turn into noise, so far objects keep only their contours.
+  float normalEdge = smoothstep(uInkParams.z, uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uInkFade.x * 0.5, uInkFade.x * 2.1, near));
   normalEdge *= 1.0 - charMask;
 
   // Bold character silhouette (see the mask contract above).
@@ -402,7 +411,10 @@ void main(void) {
   }
   // Painted sprites carry their own painted ink: no g-buffer lines over them.
   ink *= uInkColor.a * (1.0 - exempt) * (1.0 - spriteMask);
-  color = mix(color, uInkColor.rgb, clamp(ink, 0.0, 1.0));
+  // Line colour picks up a little of the local paint (warm brown on wood,
+  // deep blue on snow) like inked-and-coloured comic art; never pure black.
+  vec3 localInk = mix(uInkColor.rgb, color * 0.32, 0.3);
+  color = mix(color, localInk, clamp(ink, 0.0, 1.0));
   vec3 ungraded = color;
 
   // Paper grain and a faint canvas weave.
@@ -552,21 +564,23 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     near = min(d0, min(min(ffDepth(uv + vec2f(texel.x, 0.0)), ffDepth(uv - vec2f(texel.x, 0.0))), min(ffDepth(uv + vec2f(0.0, texel.y)), ffDepth(uv - vec2f(0.0, texel.y)))));
   }
   let farMix = smoothstep(uniforms.uInkFade.x, uniforms.uInkFade.y, near);
-  let width = uniforms.uInkParams.x * widthNoise * mix(1.0, uniforms.uInkFade.z, farMix);
+  let nearBoost = mix(1.5, 1.0, smoothstep(5.0, 26.0, near));
+  let width = uniforms.uInkParams.x * widthNoise * nearBoost * mix(1.0, uniforms.uInkFade.z, farMix);
   let ox = vec2f(texel.x * width, 0.0);
   let oy = vec2f(0.0, texel.y * width);
   let od1 = (ox + oy) * 0.7071;
   let od2 = (ox - oy) * 0.7071;
 
-  var lap = max(abs(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), abs(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
+  var lap = max(-(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), -(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
   let n0 = ffNormal(uv);
   var nEdge = max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy))));
   if (detailed) {
-    lap = max(lap, max(abs(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), abs(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
+    lap = max(lap, max(-(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), -(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
     nEdge = max(nEdge, max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2))));
   }
-  let depthEdge = smoothstep(uniforms.uInkParams.y, uniforms.uInkParams.y * 2.2, lap);
-  let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.7, uniforms.uInkFade.y * 0.55, near)) * (1.0 - charMask);
+  let depthThreshold = uniforms.uInkParams.y * (1.0 + farMix * 1.2);
+  let depthEdge = smoothstep(depthThreshold, depthThreshold * 2.2, lap);
+  let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.5, uniforms.uInkFade.x * 2.1, near)) * (1.0 - charMask);
 
   let char0 = ffCharOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv, 0.0).a);
   let sx = ox * 1.25;
@@ -585,7 +599,8 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     ink *= 1.0 - smoothstep(0.05, 0.9, uniforms.uWaterLevel.x - worldY) * 0.85;
   }
   ink *= uniforms.uInkColor.a * (1.0 - exempt) * (1.0 - spriteMask);
-  color = mix(color, uniforms.uInkColor.rgb, clamp(ink, 0.0, 1.0));
+  let localInk = mix(uniforms.uInkColor.rgb, color * 0.32, 0.3);
+  color = mix(color, localInk, clamp(ink, 0.0, 1.0));
   let ungraded = color;
 
   if (uniforms.uGradeExtra.y > 0.0) {

@@ -10,12 +10,13 @@ const MIN_DISTANCE = 2.7;
 const MAX_DISTANCE = 8.2;
 /**
  * Painting-style framing (owner reference art): close, low and wide. The
- * pivot sits at chest height, the camera ~4 m behind a wider shoulder, so
- * the busy foreground (tufts, drifts, crates) and the horizon share the frame.
+ * pivot sits just above the shoulders and ~1 m to the side, so the hero
+ * stands in the lower-left like the painted foreground figures and the scene
+ * (busy foreground, horizon) keeps the centre of the frame.
  */
-const SHOULDER_OFFSET = 0.82;
-const PLAYER_PIVOT_HEIGHT = 1.32;
-const PLAYER_DISTANCE = 4.0;
+const SHOULDER_OFFSET = 1.02;
+const PLAYER_PIVOT_HEIGHT = 1.46;
+const PLAYER_DISTANCE = 3.9;
 /** Vertical FOV while playing (72 deg); menu, wardrobe and killer cam keep the tele framing. */
 const PLAYER_FOV = 1.2566;
 const SHOWCASE_FOV = 0.88;

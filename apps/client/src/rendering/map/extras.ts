@@ -74,13 +74,17 @@ function tikiMask(batch: GeometryBatch, x: number, y: number, z: number, yaw: nu
 function railing(batch: GeometryBatch, a: V3, b: V3, height: number, color: RGB, bamboo: boolean): void {
   const length = Math.hypot(b[0] - a[0], b[2] - a[2]);
   const posts = Math.max(2, Math.round(length / (bamboo ? 0.32 : 0.28)));
-  for (let index = 0; index <= posts; index += 1) {
-    const t = index / posts;
-    const x = a[0] + (b[0] - a[0]) * t;
-    const z = a[2] + (b[2] - a[2]) * t;
-    if (bamboo) batch.log([x, a[1], z], [x, a[1] + height, z], 0.05, index % 2 === 0 ? P.bamboo : P.bambooDark, 'wood', { segments: 5 });
-    else batch.box(x, a[1] + height / 2, z, 0.13, height, 0.13, index % 2 === 0 ? color : shade(color, 1.12), 'wood', 0);
-  }
+  const drawPosts = (step: number): void => {
+    for (let index = 0; index <= posts; index += step) {
+      const t = index / posts;
+      const x = a[0] + (b[0] - a[0]) * t;
+      const z = a[2] + (b[2] - a[2]) * t;
+      if (bamboo) batch.log([x, a[1], z], [x, a[1] + height, z], 0.05, index % 2 === 0 ? P.bamboo : P.bambooDark, 'wood', { segments: 5 });
+      else batch.box(x, a[1] + height / 2, z, 0.13, height, 0.13, index % 2 === 0 ? color : shade(color, 1.12), 'wood', 0);
+    }
+  };
+  // Dense posts up close, every fourth one at range (no comb of ink lines).
+  batch.fineDetail(() => drawPosts(1), () => drawPosts(4));
   batch.log([a[0], a[1] + height, a[2]], [b[0], b[1] + height, b[2]], 0.06, bamboo ? P.bambooDark : shade(color, 0.85), 'wood', { segments: 5 });
   batch.log([a[0], a[1] + height * 0.45, a[2]], [b[0], b[1] + height * 0.45, b[2]], 0.045, bamboo ? P.bamboo : shade(color, 0.85), 'wood', { segments: 4 });
 }

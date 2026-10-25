@@ -127,12 +127,14 @@ const QUALITY: Record<VisualQuality, QualityProfile> = {
     maxPixelRatio: 1.5,
   },
   low: {
+    // No Kuwahara pass, but the painted surface tiles stay: they are what makes
+    // the ground and walls read as the owner's paintings (single-axis sampling).
     paint: false,
     paintRings: 1,
     paintRadius1080: 0,
     paintStrength: 0,
-    detailMode: 0,
-    hatch: 0,
+    detailMode: 1,
+    hatch: 0.1,
     grain: 0,
     sharpen: 0,
     shadowSize: 1024,
@@ -175,10 +177,11 @@ const WEATHER_NEUTRAL: WeatherPreset = {
   horizon: hex('#9FD3F5'),
   sunDisc: new Color3(1, 0.99, 0.9),
   glow: new Color3(1, 0.93, 0.7),
-  sunColor: new Color3(1.02, 1.0, 0.97),
+  // Warm key light against cool blue-violet shade (paintings).
+  sunColor: new Color3(1.08, 1.0, 0.88),
   skyFill: new Color3(0.98, 1.0, 1.04),
   groundFill: new Color3(1.04, 0.98, 0.93),
-  shadeCool: new Color3(0.83, 0.905, 0.98),
+  shadeCool: new Color3(0.74, 0.83, 1.0),
   shadeWarm: new Color3(0.97, 0.91, 0.93),
   haze: new Color4(0.7, 0.85, 0.97, 0.62),
   hazeStart: 200,
@@ -299,7 +302,7 @@ export class SceneLook {
   private readonly shadowTone = new Color3(0, 0, 0);
   private readonly highlightTone = new Color3(0, 0, 0);
   private readonly inkParams = new Vector4(1.35, 0.06, 0.32, 1.6);
-  private readonly inkFade = new Vector4(70, 700, 0.45, 0.55);
+  private readonly inkFade = new Vector4(28, 240, 0.5, 0.5);
   private readonly gbufferList: AbstractMesh[] = [];
   private cloudRoot: TransformNode | null = null;
   private hasPainterlyClouds = false;

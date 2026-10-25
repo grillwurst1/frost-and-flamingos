@@ -118,7 +118,7 @@ float ffCoolMask(vec3 base) {
 vec3 ffShadeTint(vec3 base) {
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
   vec3 tint = mix(uFFShadeWarm, uFFShadeCool, ffCoolMask(base));
-  return tint * mix(0.78, 0.95, luma);
+  return tint * mix(0.68, 0.88, luma);
 }
 
 vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount, float hatch) {
@@ -150,7 +150,7 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   vec3 shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
 #endif
   // Lit snow and ice stay blue-white like the paintings (sky bounce).
-  vec3 lit = base * uFFSunColor * mix(vec3(1.0), vec3(0.88, 0.95, 1.0), ffCoolMask(base) * 0.85);
+  vec3 lit = base * uFFSunColor * mix(vec3(1.0), vec3(0.86, 0.95, 1.07), ffCoolMask(base) * 0.85);
   vec3 color = mix(shade, lit, lightLevel);
 
   float shadeAmount = 1.0 - lightLevel;
@@ -260,7 +260,7 @@ fn ffCoolMask(base : vec3f) -> f32 {
 fn ffShadeTint(base : vec3f) -> vec3f {
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));
   let tint = mix(uniforms.uFFShadeWarm, uniforms.uFFShadeCool, ffCoolMask(base));
-  return tint * mix(0.78, 0.95, luma);
+  return tint * mix(0.68, 0.88, luma);
 }
 
 fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount : f32, hatch : f32) -> vec3f {
@@ -287,7 +287,7 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let deep = pow(max(base, vec3f(0.001)), vec3f(1.35));
   let shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
 #endif
-  let lit = base * uniforms.uFFSunColor * mix(vec3f(1.0), vec3f(0.88, 0.95, 1.0), ffCoolMask(base) * 0.85);
+  let lit = base * uniforms.uFFSunColor * mix(vec3f(1.0), vec3f(0.86, 0.95, 1.07), ffCoolMask(base) * 0.85);
   var color = mix(shade, lit, lightLevel);
 
   let shadeAmount = 1.0 - lightLevel;

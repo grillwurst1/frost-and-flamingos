@@ -359,10 +359,16 @@ function drawBalcony(batch: GeometryBatch, layout: BuildingLayout, style: Buildi
       const outer = (along ? sign : sign) * (d / 2 - 0.08);
       const zRail = along ? outer : outer;
       const balusters = Math.max(4, Math.round(length / 0.3));
-      for (let index = 0; index <= balusters; index += 1) {
-        const x = -length / 2 + (index / balusters) * length;
-        batch.box(x, balcony.railHeight / 2, zRail, 0.16, balcony.railHeight, 0.07, index % 2 === 0 ? style.wood : shade(style.wood, 1.15), 'wood', 0.02);
-      }
+      batch.fineDetail(
+        () => {
+          for (let index = 0; index <= balusters; index += 1) {
+            const x = -length / 2 + (index / balusters) * length;
+            batch.box(x, balcony.railHeight / 2, zRail, 0.16, balcony.railHeight, 0.07, index % 2 === 0 ? style.wood : shade(style.wood, 1.15), 'wood', 0.02);
+          }
+        },
+        // Far away the comb of balusters reads as one painted board.
+        () => batch.box(0, balcony.railHeight / 2, zRail, length, balcony.railHeight, 0.07, shade(style.wood, 1.05), 'wood', 0),
+      );
       batch.box(0, balcony.railHeight + 0.05, zRail, length + 0.1, 0.14, 0.2, shade(style.wood, 0.85), 'wood', 0.04);
       batch.box(0, 0.12, zRail, length + 0.1, 0.1, 0.16, shade(style.wood, 0.85), 'wood', 0.03);
       if (style.flowers) {

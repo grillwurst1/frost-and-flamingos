@@ -284,6 +284,7 @@ interface Pools {
   decalStone: SpriteEntry[];
   decalFrond: SpriteEntry[];
   decalStump: SpriteEntry[];
+  propBeach: SpriteEntry[];
 }
 
 function makePools(atlas: SpriteAtlas): Pools {
@@ -319,6 +320,7 @@ function makePools(atlas: SpriteAtlas): Pools {
     decalStone: atlas.pick('decal', 'stone-plate'),
     decalFrond: atlas.pick('decal', 'frond'),
     decalStump: atlas.pick('decal', 'stump'),
+    propBeach: [...atlas.pick('prop', 'beach'), ...atlas.pick('prop', 'harbor').filter((entry) => entry.id === 'lifering-post')],
   };
 }
 
@@ -506,15 +508,27 @@ export function buildVegetation(
           break;
         }
         case 'snow':
-          if (pick < 0.42) put(choose(pools.coverSnow, hash3(x, z, 14)), CULL.cover);
+          // Drifts and mounds in banded ridges across the slopes (paintings), larger ones in the bands.
+          if (pick < 0.5) {
+            const ridge = Math.sin(z * 0.19 + x * 0.083 + Math.sin(x * 0.061) * 2.2) * 0.5 + 0.5;
+            const entry = choose(pools.coverSnow, hash3(x, z, 14));
+            if (entry) {
+              const height = entry.height * scale * (1 + ridge * 1.1);
+              batch.billboard(entry, x, y - 0.05, z, height, flip, CULL.bush);
+            }
+          }
           else if (pick < 0.5) put(choose(pools.rockSnowSmall, hash3(x, z, 15)), CULL.rock, 0.3);
           else if (pick < 0.62 && nearFir(x, z)) put(choose(pools.saplingSnow, hash3(x, z, 16)), CULL.prop, 0.25);
           else if (pick < 0.68) put(choose(pools.bushForest.filter((entry) => entry.tags.has('snow')), hash3(x, z, 17)), CULL.bush, 0.3);
           else if (pick < 0.72) decal(choose(pools.decalStone, hash3(x, z, 18)), 0.75, 0.8);
           break;
         case 'sand': {
-          const inland = coastDistanceAt(x, z) > 10 || y > 1.6;
-          if (pick < 0.36) put(choose(pools.coverBeach, hash3(x, z, 19)), CULL.cover);
+          const coast = coastDistanceAt(x, z);
+          const inland = coast > 10 || y > 1.6;
+          // Beach-resort clusters on the dry sand: parasols and life-ring posts.
+          const resort = hash3(Math.floor(x / 26), 7, Math.floor(z / 26)) > 0.6 && coast > 5 && coast < 30;
+          if (resort && pick < 0.12) put(choose(pools.propBeach, hash3(x, z, 26)), CULL.prop, 0.35);
+          else if (pick < 0.36) put(choose(pools.coverBeach, hash3(x, z, 19)), CULL.cover);
           else if (pick < 0.46) put(choose(pools.rockBeachSmall, hash3(x, z, 20)), CULL.rock, 0.3);
           else if (pick < 0.6 && inland) put(choose(pools.bushBeach, hash3(x, z, 21)), CULL.bush, 0.3);
           else if (pick < 0.7 && nearPalm(x, z)) decal(choose(pools.decalFrond, hash3(x, z, 22)), 0.95);
@@ -524,9 +538,14 @@ export function buildVegetation(
         case 'rock_cliff':
           if (pick < 0.22) put(choose(snowAt(x, z) > 0.4 ? pools.rockSnowSmall : pools.rockBeachSmall, hash3(x, z, 24)), CULL.rock, 0.3);
           break;
-        case 'cobblestone':
+        case 'cobblestone': {
+          // Muddy, slushy verges break the hard road edge (paintings); the square stays clean.
+          const onSquare = Math.max(Math.abs(x), Math.abs(z)) < FjordLayout.SQUARE_HALF + 2;
           if (busy < 0.98 && pick < 0.08) put(choose(pools.coverMeadow, hash3(x, z, 25)), CULL.cover);
+          else if (!onSquare && pick < 0.2 && snowAt(x, z, 5) > 0.15) decal(choose(pools.decalSnow, hash3(x, z, 27)), 0.9, 0.7);
+          else if (!onSquare && pick < 0.17) decal(choose(pools.decalMud, hash3(x, z, 28)), 0.8, 0.55);
           break;
+        }
         default:
           break;
       }

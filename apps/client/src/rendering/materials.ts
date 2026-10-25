@@ -50,8 +50,12 @@ import {
 } from '../shaders/water';
 import { registerLookMaterial } from './look-state';
 
-/** Direction towards the sun: south-west, ~32° above the horizon (long comic shadows). */
-export const SUN_DIRECTION = new Vector3(-0.6, 0.53, -0.6).normalize();
+/**
+ * Direction towards the sun: south-west, ~40° above the horizon. High enough
+ * that character and prop shadows stay compact contact shapes (paintings)
+ * instead of long streaks across snow and roads.
+ */
+export const SUN_DIRECTION = new Vector3(-0.6, 0.71, -0.6).normalize();
 /** Light aerial haze (was the heavy fog). Starts far so only distant mountains turn blue. */
 export const FOG_COLOR = new Color4(0.66, 0.83, 0.96, 1);
 export const FOG_NEAR = 260;
@@ -214,8 +218,18 @@ export function isWaterMaterial(material: unknown): boolean {
   return material instanceof ShaderMaterial && waterMaterials.has(material);
 }
 
-export function createToonMaterial(scene: Scene, name: string): ShaderMaterial {
+/** Vertex attributes of the painted terrain layers (see shaders/detail.ts, FF_TERRAIN). */
+export const TERRAIN_MIX_A_ATTRIBUTE = 'terrainMixA';
+export const TERRAIN_MIX_B_ATTRIBUTE = 'terrainMixB';
+
+export interface ToonMaterialOptions {
+  /** Terrain variant: painted layer weights from `terrainMixA/B` instead of albedo classification. */
+  terrain?: boolean;
+}
+
+export function createToonMaterial(scene: Scene, name: string, options: ToonMaterialOptions = {}): ShaderMaterial {
   const webgpu = scene.getEngine().isWebGPU;
+  const terrain = options.terrain === true;
   const material = new ShaderMaterial(
     name,
     scene,
@@ -224,7 +238,8 @@ export function createToonMaterial(scene: Scene, name: string): ShaderMaterial {
       fragmentSource: webgpu ? toonFragmentWGSL : toonFragmentGLSL,
     },
     {
-      attributes: ['position', 'normal'],
+      attributes: terrain ? ['position', 'normal', TERRAIN_MIX_A_ATTRIBUTE, TERRAIN_MIX_B_ATTRIBUTE] : ['position', 'normal'],
+      defines: terrain ? ['#define FF_TERRAIN'] : [],
       uniforms: [
         'world',
         'viewProjection',

@@ -27,6 +27,7 @@ import {
 import { GeometryBatch, hash3, mix, shade, type RGB } from './geometry';
 import { P } from './palette';
 import { SURFACE_ATTRIBUTE, surfaceId, type SurfaceKind } from './surfaces';
+import { TERRAIN_MIX_A_ATTRIBUTE, TERRAIN_MIX_B_ATTRIBUTE } from '../materials';
 
 /** Vertex attributes a future weather shader can use to move the snowline. */
 export const TERRAIN_BARE_COLOR_ATTRIBUTE = 'bareColor';
@@ -34,6 +35,21 @@ export const TERRAIN_SNOW_BIAS_ATTRIBUTE = 'snowBias';
 
 function noise(x: number, z: number, scale: number): number {
   return hash3(Math.floor(x * scale) * 1.3, 0.7, Math.floor(z * scale) * 1.7);
+}
+
+/** Bilinear value noise (smooth patches, unlike the blocky `noise`). */
+function softNoise(x: number, z: number, scale: number, seed: number): number {
+  const fx = x * scale;
+  const fz = z * scale;
+  const ix = Math.floor(fx);
+  const iz = Math.floor(fz);
+  const tx = smooth(fx - ix);
+  const tz = smooth(fz - iz);
+  const a = hash3(ix, seed, iz);
+  const b = hash3(ix + 1, seed, iz);
+  const c = hash3(ix, seed, iz + 1);
+  const d = hash3(ix + 1, seed, iz + 1);
+  return a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz;
 }
 
 function smooth(t: number): number {
@@ -46,6 +62,33 @@ interface TerrainPaint {
   final: RGB;
   snowBias: number;
   surface: SurfaceKind;
+  /** Painted layer weights (shaders/detail.ts FF_TERRAIN): snow, sand, grass, rock. */
+  mixA: [number, number, number, number];
+  /** cobble, mud, ice, wet shore. */
+  mixB: [number, number, number, number];
+}
+
+/** Layer stack painted "over" like brush washes: each layer covers what lies beneath. */
+class TerrainLayers {
+  snow = 0;
+  sand = 0;
+  grass = 1;
+  rock = 0;
+  cobble = 0;
+  mud = 0;
+
+  over(layer: 'snow' | 'sand' | 'grass' | 'rock' | 'cobble' | 'mud', amount: number): void {
+    const t = Math.min(1, Math.max(0, amount));
+    if (t <= 0) return;
+    const keep = 1 - t;
+    this.snow *= keep;
+    this.sand *= keep;
+    this.grass *= keep;
+    this.rock *= keep;
+    this.cobble *= keep;
+    this.mud *= keep;
+    this[layer] += t;
+  }
 }
 
 const SQUARE_HALF = FjordLayout.SQUARE_HALF;
@@ -56,27 +99,38 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
   const fine = noise(x, z, 0.45);
   let bare: RGB;
   let surface: SurfaceKind = 'grass';
+  const layers = new TerrainLayers();
+  let wetShore = 0;
 
   // Meadow base with saturated patches.
   const grass = mix(mix(P.grassShade, P.grass, 0.55 + patch * 0.45), P.grassLight, fine > 0.82 ? 0.45 : 0);
   bare = grass;
   // Grass/mud transition band just below the snowline and on worn slopes.
   const band = smooth((height - (SNOWLINE_Y - 6)) / 4) * (1 - smooth((height - SNOWLINE_Y - 2) / 3));
-  if (band > 0) bare = mix(bare, mix(P.mud, P.dirt, patch), band * 0.55);
+  if (band > 0) {
+    bare = mix(bare, mix(P.mud, P.dirt, patch), band * 0.55);
+    layers.over('mud', band * 0.55);
+  }
   if (biome.dirt > 0) {
     bare = mix(bare, mix(P.dirt, P.mud, fine * 0.6), biome.dirt);
+    layers.over('mud', biome.dirt);
     if (biome.dirt > 0.5) surface = 'mud';
   }
   if (biome.sand > 0) {
-    const wet = 1 - smooth((height - 0.15) / 0.9);
+    // Wet strip at the waterline (~0-2 m up the beach), then pale dry sand.
+    const wet = 1 - smooth((height - 0.2) / 0.8);
     const sand = mix(mix(P.sandShade, P.sand, 0.5 + patch * 0.5), P.wetSand, wet);
     bare = mix(bare, sand, biome.sand);
+    layers.over('sand', biome.sand);
+    wetShore = wet * biome.sand;
     if (biome.sand > 0.5) surface = 'sand';
   }
   if (height < WATER_LEVEL) {
     // Lagoon floor: bright sand turning teal with depth (the water is translucent).
     const depth = smooth(-height / 4.5);
     bare = mix(mix(P.sand, P.wetSand, 0.4), mix(P.lagoonMid, P.lagoonDeep, 0.3), depth * 0.75);
+    layers.over('sand', 1);
+    wetShore = 0;
     surface = 'sand';
   }
   // Lanes crossing the beach read as trodden sand tracks, not cobbles (paintings).
@@ -84,12 +138,22 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
   const sandTrack = !square && biome.sand > 0.35 ? biome.cobble : 0;
   if (sandTrack > 0) {
     bare = mix(bare, mix(P.wetSand, P.sandShade, 0.35 + fine * 0.3), sandTrack * 0.75);
+    layers.over('sand', sandTrack * 0.75);
   }
   if (biome.cobble > 0 && sandTrack === 0) {
-    // Per-vertex flagstone tones with real contrast; the plaza disc is dark grout under the paving mesh.
-    const stone = hash3(Math.floor(x / 1.6), Math.floor(z / 1.6), 41) > 0.5 ? P.cobble : mix(P.cobbleWarm, P.cobbleDark, 0.25);
+    // Painted cobbles (colour tile) over a warm stone tone; the plaza disc is dark grout under the paving mesh.
+    const stone = mix(P.cobble, P.cobbleWarm, patch);
     const grout = Math.hypot(x, z) < 24.8 ? 1 : 0;
-    bare = mix(bare, mix(mix(stone, P.cobbleDark, fine * 0.55), shade(P.cobbleDark, 0.8), grout), biome.cobble);
+    bare = mix(bare, mix(mix(stone, P.cobbleDark, fine * 0.25), shade(P.cobbleDark, 0.8), grout), biome.cobble);
+    layers.over('cobble', biome.cobble);
+    // Lanes outside the square are muddy cobble tracks: mud washes in patches and along the verges.
+    if (!square) {
+      const verge = smooth((0.85 - biome.cobble) / 0.5);
+      const puddle = smooth((softNoise(x, z, 0.09, 23) - 0.52) / 0.22);
+      const muddy = Math.min(0.75, verge * 0.6 + puddle * 0.5) * biome.cobble;
+      bare = mix(bare, mix(P.mud, P.dirt, fine), muddy);
+      layers.over('mud', muddy);
+    }
     if (biome.cobble > 0.5) surface = 'cobble';
   }
   // Rock outcrops breaking through the snow on the high alps (relief for the NE massif).
@@ -100,6 +164,7 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
     const strata = Math.sin(height * 1.7 + patch * 2) * 0.5 + 0.5;
     const rock = mix(mix(P.rockShade, P.rock, strata), P.rockLight, fine > 0.75 ? 0.4 : 0);
     bare = mix(bare, rock, rockWeight);
+    layers.over('rock', rockWeight);
     if (rockWeight > 0.5) surface = 'rock';
   }
   let final = bare;
@@ -115,6 +180,7 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
     const windBlown = smooth((slope - 0.16) / 0.34) * 0.6;
     const snowColor = mix(mix(P.snowShade, P.snow, 0.55 + Math.min(1, snow) * 0.45 - rockWeight * 0.3), P.snowShade, windBlown);
     final = mix(bare, snowColor, Math.min(1, snow * 1.15));
+    layers.over('snow', snow * 1.15);
     if (snow > 0.5 && surface !== 'cobble') surface = 'snow';
     // Packed snow trails: roads and trails above the snowline stay visible as
     // trodden, slightly warm-grey bands with darker ruts (paintings).
@@ -126,11 +192,21 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
       surface = 'snow';
     }
   }
+  let ice = 0;
   if (isOnIcePatch(x, z)) {
     final = mix(P.iceDeep, P.ice, 0.45 + patch * 0.4);
     surface = 'ice';
+    ice = 1;
   }
-  return { bare, final, snowBias: biome.snowBias, surface };
+  const keep = 1 - ice;
+  return {
+    bare,
+    final,
+    snowBias: biome.snowBias,
+    surface,
+    mixA: [layers.snow * keep, layers.sand * keep, layers.grass * keep, layers.rock * keep],
+    mixB: [layers.cobble * keep, layers.mud * keep, ice, wetShore * keep],
+  };
 }
 
 export function buildTerrainMesh(scene: Scene, material: Material): Mesh {
@@ -141,6 +217,8 @@ export function buildTerrainMesh(scene: Scene, material: Material): Mesh {
   const bareColors = new Float32Array(count * 4);
   const snowBias = new Float32Array(count);
   const surfaces = new Float32Array(count);
+  const mixA = new Float32Array(count * 4);
+  const mixB = new Float32Array(count * 4);
   const height = (column: number, row: number): number => {
     const c = Math.min(GRID_POINTS - 1, Math.max(0, column));
     const r = Math.min(GRID_POINTS - 1, Math.max(0, row));
@@ -169,6 +247,8 @@ export function buildTerrainMesh(scene: Scene, material: Material): Mesh {
       bareColors.set([paint.bare[0], paint.bare[1], paint.bare[2], 1], index * 4);
       snowBias[index] = paint.snowBias;
       surfaces[index] = surfaceId(paint.surface);
+      mixA.set(paint.mixA, index * 4);
+      mixB.set(paint.mixB, index * 4);
     }
   }
   const segments = GRID_POINTS - 1;
@@ -195,6 +275,8 @@ export function buildTerrainMesh(scene: Scene, material: Material): Mesh {
   mesh.setVerticesData(TERRAIN_BARE_COLOR_ATTRIBUTE, bareColors, false, 4);
   mesh.setVerticesData(TERRAIN_SNOW_BIAS_ATTRIBUTE, snowBias, false, 1);
   mesh.setVerticesData(SURFACE_ATTRIBUTE, surfaces, false, 1);
+  mesh.setVerticesData(TERRAIN_MIX_A_ATTRIBUTE, mixA, false, 4);
+  mesh.setVerticesData(TERRAIN_MIX_B_ATTRIBUTE, mixB, false, 4);
   mesh.material = material;
   mesh.isPickable = false;
   mesh.receiveShadows = true;

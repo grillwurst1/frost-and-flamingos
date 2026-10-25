@@ -30,7 +30,7 @@ import {
   type Vec3,
 } from '@frost-and-flamingos/shared';
 import type { FacadeAtlas } from './facade-atlas';
-import { createFacadeMaterial, createSkyMaterial, createSpriteMaterial, createWaterMaterial } from './materials';
+import { createFacadeMaterial, createSkyMaterial, createSpriteMaterial, createToonMaterial, createWaterMaterial } from './materials';
 import type { SpriteAtlas } from './sprite-atlas';
 import { buildFacadeMesh, supportsFacade } from './map/facades';
 import { SPRITE_PROP_KINDS, buildVegetation, type SpriteInstanceHandle } from './map/vegetation';
@@ -134,6 +134,8 @@ export interface MapVisuals {
 
 const CHUNK = 100;
 const CLUTTER_LOD_DISTANCE = 150;
+/** Beyond this distance thin railings and slats swap to their solid far stand-ins. */
+const FINE_LOD_DISTANCE = 58;
 
 class ChunkSet {
   readonly batches = new Map<string, GeometryBatch>();
@@ -481,7 +483,9 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   const skyMaterial = createSkyMaterial(scene, 'sky-material');
   const waterMaterial = createWaterMaterial(scene, 'water-material');
 
-  const terrain = buildTerrainMesh(scene, material);
+  // The terrain paints its own layers (snow, sand, grass, rock, cobble, mud) from the mesh weights.
+  const terrainMaterial = createToonMaterial(scene, 'fjord-terrain-material', { terrain: true });
+  const terrain = buildTerrainMesh(scene, terrainMaterial);
   const water = buildWaterMesh(scene, waterMaterial);
   const staticMeshes: Mesh[] = [];
   const stream = buildStreamMesh(scene, waterMaterial);
@@ -497,6 +501,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   sky.renderingGroupId = 0;
 
   const chunks = new ChunkSet();
+  const fineDetails: Array<{ id: string; fine: GeometryBatch | null; far: GeometryBatch | null }> = [];
   const destructibleBatches = new Map<string, GeometryBatch>();
   const towerBatches = new Map<TowerId, GeometryBatch>();
   const dressingBatches = new Map<string, GeometryBatch>();
@@ -523,6 +528,12 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
       batch = chunks.at(prop.position.x, prop.position.z);
     }
     drawPropAt(batch, prop, painted.has(prop.id));
+    // Static props: thin railings and slats become their own near-LOD mesh
+    // (solid stand-ins far away) so distant balconies do not clot into ink.
+    if (batch.vertexCount > 0 && !prop.destructibleId && !tower && !dressing) {
+      const detail = batch.takeDetail();
+      if (detail.fine) fineDetails.push({ id: prop.id, ...detail });
+    }
   }
 
   // Radial cobblestone paving around the Tower B fountain.
@@ -588,6 +599,12 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   for (const [key, batch] of chunks.clutter) {
     const mesh = register(batch.toMesh(scene, `map-clutter-${key}`, material), staticMeshes);
     if (mesh) mesh.addLODLevel(CLUTTER_LOD_DISTANCE, null);
+  }
+  for (const detail of fineDetails) {
+    const near = detail.fine ? register(detail.fine.toMesh(scene, `map-fine-${detail.id}`, material), staticMeshes) : null;
+    if (!near) continue;
+    const far = detail.far ? register(detail.far.toMesh(scene, `map-fine-far-${detail.id}`, material), staticMeshes) : null;
+    near.addLODLevel(FINE_LOD_DISTANCE, far);
   }
   register(routes.toMesh(scene, 'map-routes', material), staticMeshes);
   register(coaster.toMesh(scene, 'map-coaster', material), staticMeshes);

@@ -473,9 +473,27 @@ function pack(channels: Array<Uint8ClampedArray | null>): Uint8Array {
   return packed;
 }
 
-/** Painted colour tiles in the 2x2 `detailColor` atlas (see shaders/detail.ts). */
-const COLOR_TILES = ['wood_planks_color.jpg', 'log_wall_color.jpg', 'shingles_color.jpg', 'cobblestone_color.jpg'] as const;
+/**
+ * Painted colour tiles in the 4x2 `detailColor` atlas (see shaders/detail.ts):
+ * top row planks | log wall | shingles | cobblestone, bottom row snow | sand |
+ * grass | rock. Each 512 px cell holds the tile at 480 px with a 16 px wrapped
+ * gutter, so mip levels sample the tile's own continuation instead of the
+ * neighbouring cell.
+ */
+const COLOR_TILES = [
+  'wood_planks_color.jpg',
+  'log_wall_color.jpg',
+  'shingles_color.jpg',
+  'cobblestone_color.jpg',
+  'snow_color.jpg',
+  'sand_color.jpg',
+  'grass_color.jpg',
+  'rock_color.jpg',
+] as const;
+export const COLOR_ATLAS_COLUMNS = 4;
+export const COLOR_ATLAS_ROWS = 2;
 const COLOR_TILE_SIZE = 512;
+export const COLOR_TILE_GUTTER = 16;
 
 /**
  * Draws one painted colour tile into its atlas cell, normalised so its mean
@@ -487,7 +505,12 @@ function paintColorTile(target: Uint8Array, image: HTMLImageElement, cell: numbe
   canvas.height = COLOR_TILE_SIZE;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return false;
-  ctx.drawImage(image, 0, 0, COLOR_TILE_SIZE, COLOR_TILE_SIZE);
+  const inner = COLOR_TILE_SIZE - COLOR_TILE_GUTTER * 2;
+  for (const dy of [-inner, 0, inner]) {
+    for (const dx of [-inner, 0, inner]) {
+      ctx.drawImage(image, COLOR_TILE_GUTTER + dx, COLOR_TILE_GUTTER + dy, inner, inner);
+    }
+  }
   const data = ctx.getImageData(0, 0, COLOR_TILE_SIZE, COLOR_TILE_SIZE).data;
   const count = COLOR_TILE_SIZE * COLOR_TILE_SIZE;
   let r = 0;
@@ -499,9 +522,9 @@ function paintColorTile(target: Uint8Array, image: HTMLImageElement, cell: numbe
     b += data[index * 4 + 2] ?? 0;
   }
   const mean = [Math.max(8, r / count), Math.max(8, g / count), Math.max(8, b / count)];
-  const atlasWidth = COLOR_TILE_SIZE * 2;
-  const ox = (cell % 2) * COLOR_TILE_SIZE;
-  const oy = Math.floor(cell / 2) * COLOR_TILE_SIZE;
+  const atlasWidth = COLOR_TILE_SIZE * COLOR_ATLAS_COLUMNS;
+  const ox = (cell % COLOR_ATLAS_COLUMNS) * COLOR_TILE_SIZE;
+  const oy = Math.floor(cell / COLOR_ATLAS_COLUMNS) * COLOR_TILE_SIZE;
   for (let y = 0; y < COLOR_TILE_SIZE; y += 1) {
     for (let x = 0; x < COLOR_TILE_SIZE; x += 1) {
       const source = (y * COLOR_TILE_SIZE + x) * 4;
@@ -519,7 +542,7 @@ export interface DetailTextureSet {
   detailA: RawTexture;
   detailB: RawTexture;
   detailC: RawTexture;
-  /** Painted colour tiles (planks, log wall, shingles, cobble), neutral until loaded. */
+  /** Painted colour tiles (planks, log, shingles, cobble, snow, sand, grass, rock), neutral until loaded. */
   detailColor: RawTexture;
   /** Resolves once optional painted tiles were probed and merged. */
   painted: Promise<number>;
@@ -555,11 +578,11 @@ export function createDetailTextures(scene: Scene): DetailTextureSet {
     textures[name] = texture;
   }
 
-  const colorData = new Uint8Array(COLOR_TILE_SIZE * 2 * COLOR_TILE_SIZE * 2 * 4).fill(128);
+  const colorData = new Uint8Array(COLOR_TILE_SIZE * COLOR_ATLAS_COLUMNS * COLOR_TILE_SIZE * COLOR_ATLAS_ROWS * 4).fill(128);
   const detailColor = RawTexture.CreateRGBATexture(
     colorData,
-    COLOR_TILE_SIZE * 2,
-    COLOR_TILE_SIZE * 2,
+    COLOR_TILE_SIZE * COLOR_ATLAS_COLUMNS,
+    COLOR_TILE_SIZE * COLOR_ATLAS_ROWS,
     scene,
     true,
     false,
