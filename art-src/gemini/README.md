@@ -29,6 +29,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-cosmetics-body.webp` | Wardrobe torso and back items |
 | `gemini-cosmetics-limbs.webp` | Wardrobe hands, legs and feet items |
 | `gemini-sheet-buildings.webp` | Village chalets and harbour/summit huts |
+| `gemini-sheet-stations.webp` | Cable-car, T-bar and coaster stations, pylon, jump ramp |
 | `gemini-vfx.webp` | Explosion, smoke, fire, snow, water, dust and muzzle-flash particle sprites |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
