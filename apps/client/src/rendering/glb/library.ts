@@ -286,6 +286,16 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
       await nextTask();
     }
   }
+  // The jump clip's hips rise (up to 0.4 m in the Meshy clips) would lift the
+  // body off the physics capsule while it is held at the apex: cap the hips
+  // at their bind height (apexTime keeps the original peak).
+  const air = asset.clips.get('air');
+  const bindHips = rig.bindPose.get('Hips')?.position;
+  if (air?.hips && bindHips) {
+    const hips = air.hips.slice();
+    for (let frame = 0; frame < air.frames; frame += 1) hips[frame * 3 + 1] = Math.min(hips[frame * 3 + 1] ?? 0, bindHips.y);
+    asset.clips.set('air', { ...air, hips });
+  }
   // The baked tables replace the glTF animation groups.
   for (const group of [...container.animationGroups]) group.dispose();
   container.animationGroups.length = 0;

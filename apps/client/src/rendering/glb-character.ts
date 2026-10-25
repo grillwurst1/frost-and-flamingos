@@ -78,14 +78,20 @@ const LOOPING: Readonly<Record<ClipRole, boolean>> = {
   reload: true,
 };
 
-/** Ground speed (m/s, for a 1.7 m model) at which each loop plays at 1×. */
+/**
+ * Ground speed (m/s, model space) at which each loop plays at 1×: the stance
+ * foot speed measured over the Meshy cycles (walk 1.23-1.35, combat walk
+ * 0.63-0.74, run 3.2-4.6, sprint 3.1-4.2, backpedal 0.88-1.04).
+ */
 const NATURAL_SPEED: Partial<Record<ClipRole, number>> = {
-  walk: 1.45,
-  combatWalk: 1.3,
-  run: 4.6,
-  sprint: 6.2,
-  backpedal: 1.3,
+  walk: 1.3,
+  combatWalk: 0.7,
+  run: 3.9,
+  sprint: 3.9,
+  backpedal: 0.95,
 };
+/** Highest playback rate of an in-place loop (fast crouch-walks stay readable). */
+const MAX_LOOP_RATE = 3.2;
 
 const LOCOMOTION: readonly ClipRole[] = ['walk', 'combatWalk', 'run', 'sprint', 'backpedal'];
 const OVERLAY_ROLES: readonly ClipRole[] = ['reload', 'taunt'];
@@ -230,6 +236,10 @@ export class GlbCharacterView implements AvatarView {
   private airTime = 0;
   private deathTime = 0;
   private rollPhase = 0;
+  /** Forward curl of the dodge-roll tuck (0..1). */
+  private rollTuck = 0;
+  /** Air clip active last frame (its rising edge rewinds to just before the apex). */
+  private airActive = false;
   private crouch = 0;
   private twist = 0;
   private pitch = 0;
@@ -271,10 +281,12 @@ export class GlbCharacterView implements AvatarView {
     this.tiltPivot.parent = this.root;
     this.rollPivot = new TransformNode('glb-roll-pivot', scene);
     this.rollPivot.parent = this.tiltPivot;
-    this.rollPivot.position.y = 0.55;
+    // Roll pivot at the tucked body centre, so the curled figure stays above the ground.
+    const rollCentre = 0.36 * this.height;
+    this.rollPivot.position.y = rollCentre;
     this.modelRoot = new TransformNode('glb-model-root', scene);
     this.modelRoot.parent = this.rollPivot;
-    this.modelRoot.position.y = -0.55;
+    this.modelRoot.position.y = -rollCentre;
     this.modelRoot.scaling.setAll(this.scale);
 
     this.material = createGlbMaterial(scene, `glb-${spec.key}-${profile.displayName}`, textures);
@@ -599,7 +611,10 @@ export class GlbCharacterView implements AvatarView {
     } else if (swimming) {
       if (has('swim')) targets.swim = 1;
       else targets.combatWalk = 1;
-    } else if (rolling || airborne) {
+    } else if (rolling) {
+      // Dodge roll: a crouched tuck (curled by the procedural layer), not the jump clip.
+      targets.idle = 1;
+    } else if (airborne) {
       targets.air = 1;
     } else {
       const move = smoothstep(0.35, 1.6, speed);
@@ -622,15 +637,17 @@ export class GlbCharacterView implements AvatarView {
       binding.target = targets[binding.role] ?? 0;
       binding.weight = approach(binding.weight, binding.target, fade);
       const natural = NATURAL_SPEED[binding.role];
-      binding.rate = natural ? Math.min(1.9, Math.max(0.55, speed / natural)) : 1;
+      binding.rate = natural ? Math.min(MAX_LOOP_RATE, Math.max(0.55, speed / natural)) : 1;
       if (binding.role === 'swim') binding.rate = 0.8 + Math.min(1, speed / 4) * 0.5;
       if (binding.role === 'combatWalk' && swimming && !has('swim')) binding.rate = 0.7;
     }
     const air = this.bindings.get('air');
     if (air && air.hold === null) {
-      // A real jump clip: run quickly into the apex and hold it while airborne.
-      if (air.target > 0 && air.weight < 0.05) air.time = Math.max(0, air.clip.apexTime - 0.3);
-      air.rate = air.time < air.clip.apexTime ? 1.6 : 0;
+      // A real jump clip: on take-off run quickly into the apex, then hold it
+      // while airborne; it stays parked while grounded.
+      if (air.target > 0 && !this.airActive) air.time = Math.max(0, air.clip.apexTime - 0.3);
+      this.airActive = air.target > 0;
+      air.rate = air.target > 0 && air.time < air.clip.apexTime ? 1.6 : 0;
     }
     const death = this.bindings.get('death');
     if (death) {
@@ -706,7 +723,7 @@ export class GlbCharacterView implements AvatarView {
     this.pitch = approach(this.pitch, alive ? Math.max(-0.9, Math.min(0.9, pitchInput)) : 0, dt * 6);
     const twistTarget =
       alive && pose.grounded && !swimming && speed > 0.8 && !backward
-        ? Math.max(-0.7, Math.min(0.7, Math.atan2(rightSpeed, Math.max(0.1, Math.abs(forwardSpeed))))) * 0.55
+        ? Math.max(-1.1, Math.min(1.1, Math.atan2(rightSpeed, Math.max(0.1, Math.abs(forwardSpeed))))) * 0.7
         : 0;
     this.twist = approach(this.twist, twistTarget, dt * 4);
     this.recoil = Math.max(0, this.recoil - dt * 9);
@@ -720,6 +737,7 @@ export class GlbCharacterView implements AvatarView {
     // ---- whole-body pivots ----------------------------------------------
     if (rolling) this.rollPhase += dt * 11;
     else this.rollPhase = 0;
+    this.rollTuck = approach(this.rollTuck, rolling ? 1 : 0, dt * 10);
     this.rollPivot.rotation.x = this.rollPhase;
     const proneSwim = swimming && !has('swim') ? 1.2 : 0;
     const deathTarget = !alive && !has('death') ? -1.45 : 0;
@@ -896,6 +914,15 @@ export class GlbCharacterView implements AvatarView {
       rig.refresh();
       if (leftFoot) rig.solveTwoBone('LeftUpLeg', 'LeftLeg', 'LeftFoot', leftFoot, new Vector3(0.2, 0, 1), 1);
       if (rightFoot) rig.solveTwoBone('RightUpLeg', 'RightLeg', 'RightFoot', rightFoot, new Vector3(-0.2, 0, 1), 1);
+    }
+
+    // Dodge-roll tuck: curl the spine and head forward.
+    const tuck = this.rollTuck * blend;
+    if (tuck > 0.01) {
+      for (const [joint, angle] of [['Spine', 0.35], ['Spine1', 0.4], ['Spine2', 0.4], ['Neck', 0.3]] as const) {
+        rig.rotateWorld(joint, Quaternion.RotationAxis(AXIS_X, angle * tuck));
+        rig.refresh();
+      }
     }
 
     // Strafe: hips turn towards the movement, the chest stays on target.
