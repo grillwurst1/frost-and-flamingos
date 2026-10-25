@@ -772,11 +772,13 @@ export class GameClient {
   private handleWelcome(welcome: WelcomeMessage): void {
     if (this.disposed || !this.scene || !this.physics || !this.toonMaterial) return;
     if (!this.booted) {
-      // Owner-painted GLB characters download once the resort answered, so
-      // the handshake never waits on model decoding; views made before they
-      // arrive show the procedural rig and swap in place.
+      // Owner-painted GLB characters: the local player's model is prefetched
+      // once the resort answered (the handshake never waits on model
+      // decoding); every other model loads when its character first appears
+      // on screen. Views made before their model arrives show the procedural
+      // rig and swap in place.
       const scene = this.scene;
-      void preloadPaintedModels(scene).then(() => {
+      void preloadPaintedModels(scene, getProfile()).then(() => {
         if (!this.disposed) setPaintedModels(paintedModelsAvailable(scene));
       });
     }

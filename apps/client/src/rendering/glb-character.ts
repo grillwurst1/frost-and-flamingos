@@ -55,7 +55,7 @@ import { GlbRig, type RigJoint } from './glb/rig';
  *   ├─ canopy pivot             parachute
  *   └─ contact shadow disc
  *
- * Animation: baked clips (see glb/library.ts) are blended per joint with
+ * Animation: baked clips (see glb/clips.ts and glb/glb-binary.ts) are blended per joint with
  * weights from the movement state (idle/walk/run/sprint/backpedal/air/swim/
  * death, reload and taunt overlays), then procedural layers run in armature
  * space: crouch (hips drop + leg IK), strafe hip twist, aim pitch on the
@@ -165,8 +165,12 @@ function installGlbDebugHandle(): void {
     library: () => {
       const library = lastLibrary;
       if (!library) return null;
-      const result: Record<string, unknown> = { ready: library.ready };
-      for (const key of Object.keys(PAINTED_MODELS)) result[key] = [library.status(key), library.timings.get(key) ?? null];
+      // ready: no requested model is still loading. Per key: status, load
+      // time (ms) and whether anything asked for it (models load lazily).
+      const result: Record<string, unknown> = { ready: library.idle };
+      for (const key of Object.keys(PAINTED_MODELS)) {
+        result[key] = [library.status(key), library.timings.get(key) ?? null, library.requested(key)];
+      }
       return result;
     },
   };
@@ -1049,21 +1053,38 @@ export class GlbCharacterView implements AvatarView {
   }
 }
 
+/** Characters further away than this never trigger a painted-model download. */
+const LAZY_LOAD_DISTANCE = 220;
+/** Seconds between on-screen checks of a stand-in. */
+const LAZY_CHECK_INTERVAL = 0.25;
+
 /**
- * Stand-in while the painted models are still downloading: shows the
- * procedural rig and swaps to the painted view as soon as the library has
- * settled. If the model turns out to be unavailable, it simply stays.
+ * Stand-in while the painted model is not loaded: shows the procedural rig,
+ * requests the model (GLB and textures) once the character is actually on
+ * screen (or shown in the wardrobe preview), and swaps to the painted view
+ * in place. If the model turns out to be unavailable, the stand-in stays.
  */
 class PendingPaintedView implements AvatarView {
   private current: AvatarView;
   private painted = false;
   private disposed = false;
+  private requested = false;
+  private checkIn = 0;
   private effects: Partial<CharacterMaterialState> = {};
   private lastYaw = 0;
   private label = '';
+  private readonly key: string | null;
+  private readonly center = new Vector3();
 
   debugInfo(): Record<string, unknown> {
-    return { view: this.label, painted: this.painted, disposed: this.disposed, enabled: this.root.isEnabled(false) };
+    return {
+      view: this.label,
+      model: this.key,
+      painted: this.painted,
+      requested: this.requested,
+      disposed: this.disposed,
+      enabled: this.root.isEnabled(false),
+    };
   }
 
   constructor(
@@ -1072,30 +1093,49 @@ class PendingPaintedView implements AvatarView {
     private readonly profile: PlayerProfile,
   ) {
     this.current = new CharacterView(scene, shadowMaterial, profile);
-    const shadowName = shadowMaterial.name;
-    this.label = shadowName;
+    this.label = shadowMaterial.name;
+    this.key = paintedModelSpec(profile)?.key ?? null;
     lastLibrary = paintedModelLibrary(scene);
     pendingViews.add(this);
     installGlbDebugHandle();
-    debugEvent(`pending ${shadowName}`);
-    const library = paintedModelLibrary(scene);
-    const key = paintedModelSpec(profile)?.key ?? null;
+    debugEvent(`pending ${this.label}`);
+  }
+
+  /** True when the stand-in is enabled, near enough and inside the camera frustum. */
+  private onScreen(): boolean {
+    const root = this.current.root;
+    if (!root.isEnabled()) return false;
+    const camera = this.scene.activeCamera;
+    if (!camera) return false;
+    const position = root.getAbsolutePosition();
+    this.center.set(position.x, position.y + 0.9, position.z);
+    if (Vector3.DistanceSquared(this.center, camera.globalPosition) > LAZY_LOAD_DISTANCE * LAZY_LOAD_DISTANCE) return false;
+    const planes = this.scene.frustumPlanes;
+    if (!planes || planes.length < 6) return true;
+    return planes.every((plane) => plane.dotCoordinate(this.center) > -1.4);
+  }
+
+  private request(): void {
+    if (this.requested || !this.key) return;
+    this.requested = true;
+    const key = this.key;
+    const label = this.label;
+    const library = paintedModelLibrary(this.scene);
+    debugEvent(`request ${label} ${key}`);
     void library
-      .whenSettled()
-      .then(async () => {
-        const asset = key ? library.get(key) : null;
-        const textures = key && asset ? await library.textures(key) : null;
+      .loadWithTextures(key)
+      .then((loaded) => {
         if (this.disposed) {
-          debugEvent(`pending ${shadowName} disposed before models settled`);
+          debugEvent(`pending ${label} disposed before ${key} loaded`);
           return;
         }
-        debugEvent(`settled ${shadowName} ${key ?? '-'} ${asset ? 'asset' : 'no asset'} ${textures ? 'textures' : 'no textures'}`);
-        if (!asset || !textures) return;
+        debugEvent(`loaded ${label} ${key} ${loaded ? 'ok' : 'unavailable'}`);
+        if (!loaded) return;
         const previous = this.current;
         const enabled = previous.root.isEnabled(false);
         const position = previous.root.position;
-        const shadow = createShadowMaterial(scene, `${shadowName}-painted`);
-        const next = new GlbCharacterView(scene, shadow, profile, asset, textures);
+        const shadow = createShadowMaterial(this.scene, `${label}-painted`);
+        const next = new GlbCharacterView(this.scene, shadow, this.profile, loaded.asset, loaded.textures);
         next.setPosition({ x: position.x, y: position.y, z: position.z });
         next.setYaw(this.lastYaw, true);
         next.setEffects(this.effects);
@@ -1110,6 +1150,14 @@ class PendingPaintedView implements AvatarView {
       });
   }
 
+  private checkOnScreen(deltaSeconds: number): void {
+    if (this.requested || this.painted) return;
+    this.checkIn -= deltaSeconds;
+    if (this.checkIn > 0) return;
+    this.checkIn = LAZY_CHECK_INTERVAL;
+    if (this.onScreen()) this.request();
+  }
+
   get root(): TransformNode {
     return this.current.root;
   }
@@ -1117,11 +1165,14 @@ class PendingPaintedView implements AvatarView {
   update(deltaSeconds: number, pose: AvatarPose): void {
     this.lastYaw = pose.yaw;
     this.current.update(deltaSeconds, pose);
+    this.checkOnScreen(deltaSeconds);
   }
 
   updatePreview(deltaSeconds: number, spin: number, weaponId?: WeaponId | null): void {
     this.lastYaw = spin;
     this.current.updatePreview(deltaSeconds, spin, weaponId);
+    // The wardrobe / menu preview is always on screen.
+    this.request();
   }
 
   setEffects(partial: Partial<CharacterMaterialState>): void {
@@ -1191,17 +1242,31 @@ export function createPaintedAvatarView(
   return new PendingPaintedView(scene, shadowMaterial, profile);
 }
 
-/** Starts downloading every painted model listed in the manifest. */
-export function preloadPaintedModels(scene: Scene): Promise<void> {
+/**
+ * Boot prefetch: reads the manifest and downloads the local player's painted
+ * model (GLB and textures) so it is ready before the first spawn. Every other
+ * model loads lazily when its character first appears on screen. Resolves
+ * once the prefetch settled.
+ */
+export async function preloadPaintedModels(scene: Scene, profile: PlayerProfile | null = null): Promise<void> {
   lastLibrary = paintedModelLibrary(scene);
   installGlbDebugHandle();
-  return lastLibrary.settled();
+  const library = lastLibrary;
+  await library.available();
+  const spec = profile ? paintedModelSpec(profile) : null;
+  if (spec && library.status(spec.key) !== 'missing') await library.loadWithTextures(spec.key);
 }
 
-/** Model keys that loaded successfully (after {@link preloadPaintedModels}). */
+/**
+ * Model keys the client can show: listed in the manifest, registered in the
+ * catalogue and not failed (after {@link preloadPaintedModels}).
+ */
 export function paintedModelsAvailable(scene: Scene): ReadonlySet<string> {
   const library = paintedModelLibrary(scene);
   const keys = new Set<string>();
-  for (const key of Object.keys(PAINTED_MODELS)) if (library.get(key)) keys.add(key);
+  for (const key of Object.keys(PAINTED_MODELS)) {
+    const status = library.status(key);
+    if (status === 'loading' || status === 'ready') keys.add(key);
+  }
   return keys;
 }
