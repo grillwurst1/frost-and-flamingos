@@ -22,3 +22,6 @@ Free-plan Meshy output is licensed CC BY 4.0 — attribution is in `CREDITS.md`.
 | `meshy-vehicle-sidecar.glb` | Alpine vintage sidecar motorcycle (riveted sidecar, wheels fused); static, 19.8k tris, 3× 2048² JPEG | — |
 | `meshy-vehicle-gondola.glb` | Alpine red cable-car gondola with white star and hanger arm (no cable); static, 20.1k tris, 3× 2048² JPEG | — |
 | `meshy-vehicle-flamingo-boat.glb` | Lagoon "Badi-Flamingo" inflatable ring boat with harpoon gun on the neck; static, 20.9k tris, 3× 2048² JPEG | — |
+| `meshy-vehicle-coconut-tank.glb` | Lagoon coconut cannon tank (plank jeep cab on tracks, palm-frond camouflage, coconut turret, bamboo barrel); static, 19.4k tris, 3× 2048² JPEG | — |
+| `meshy-vehicle-fondue-crawler.glb` | Alpine Fondue Crawler (red snow-plough tank, fondue-pot turret with spoon, cheese wheels); static, 20.3k tris, 3× 2048² JPEG | — |
+| `meshy-npc-cow.glb` | Grumpy brown-and-white NPC cow with brass bell (M5 map toy); Meshy "Quadruped Dog" rig, 20.7k tris, 2048² PNG base colour | Walking (clip `Armature|Unreal Take|baselayer`) |
