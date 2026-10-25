@@ -1,11 +1,13 @@
 import { Color4, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder';
-import type { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import { CoconutFaceDecal } from './coconut-expression';
 import { fbm3, ink, mixColor, PartBin, seededRandom, shade } from './mascot-geometry';
+import { excludeFromInk, excludeFromShadows } from './materials';
 import { buildRigidSkin } from './mascot-rig';
 
 /**
@@ -78,14 +80,11 @@ export interface CoconutRig {
   wobbleScale: TransformNode;
   wobbleUnyaw: TransformNode;
   shell: TransformNode;
-  face: TransformNode;
   facePivot: TransformNode;
-  leiSegments: TransformNode[];
-  /** Horizontal outward direction of each lei segment (face space). */
-  leiDirections: Vector3[];
+  face: TransformNode;
+  lei: LeiBuild;
   /** Procedural shell mesh (null while the Meshy shell is in use). */
   shellMesh: Mesh | null;
-  leiMesh: Mesh | null;
   decal: CoconutFaceDecal;
 }
 
@@ -226,6 +225,7 @@ export function buildCoconutRig(
   leiMaterial: ShaderMaterial,
   root: TransformNode,
   style: ShellStyle,
+  leiStyle: LeiStyle,
 ): CoconutRig {
   const visual = node(scene, 'coconut-visual', root, 0, COCONUT_RADIUS, 0);
   const wobbleYaw = node(scene, 'coconut-wobble-yaw', visual);
@@ -239,19 +239,61 @@ export function buildCoconutRig(
 
   // --- upright face + lei layer ------------------------------------------------------
   const face = node(scene, 'coconut-face', wobbleUnyaw);
-  const leiSegments: TransformNode[] = [];
-  const leiDirections: Vector3[] = [];
-  const bins: PartBin[] = [];
-  for (let segment = 0; segment < LEI_SEGMENTS; segment += 1) {
+  const lei = leiStyle === 'painted' ? buildPaintedLei(scene, leiMaterial, face) : buildProceduralLei(scene, leiMaterial, face);
+
+  // Painted face decal (expressions swap cells; the procedural painter is the fallback).
+  const facePivot = node(scene, 'coconut-face-pivot', face);
+  const decal = new CoconutFaceDecal(scene, facePivot, SHELL_RADII, 0.06);
+
+  return {
+    visual,
+    wobbleYaw,
+    wobbleScale,
+    wobbleUnyaw,
+    shell,
+    face,
+    facePivot,
+    lei,
+    shellMesh,
+    decal,
+  };
+}
+
+/** Lei garland: spring-driven segments (bones) skinned into one mesh. */
+export interface LeiBuild {
+  style: LeiStyle;
+  root: TransformNode;
+  segments: TransformNode[];
+  /** Horizontal outward direction of each segment (face space). */
+  directions: Vector3[];
+  mesh: Mesh | null;
+}
+
+export type LeiStyle = 'painted' | 'procedural';
+
+/** Lei worn low like a necklace: lowest at the front, rising toward the back. */
+function leiHeight(angle: number): number {
+  return -0.52 + (1 - Math.cos(angle)) * 0.2;
+}
+
+function leiRoot(scene: Scene, face: TransformNode, count: number, name: string): Pick<LeiBuild, 'root' | 'segments' | 'directions'> {
+  const root = node(scene, name, face);
+  const segments: TransformNode[] = [];
+  const directions: Vector3[] = [];
+  for (let segment = 0; segment < count; segment += 1) {
     // Segment pivots sit at the nut's centre, so their small rotations slide
     // the flowers along the shell surface instead of into it.
-    leiSegments.push(node(scene, `coconut-lei-${segment}`, face));
-    const angle = (segment / LEI_SEGMENTS) * Math.PI * 2;
-    leiDirections.push(new Vector3(Math.sin(angle), 0, Math.cos(angle)));
-    bins.push(new PartBin(scene, `coconut-lei-${segment}-mesh`));
+    segments.push(node(scene, `${name}-${segment}`, root));
+    const angle = (segment / count) * Math.PI * 2;
+    directions.push(new Vector3(Math.sin(angle), 0, Math.cos(angle)));
   }
-  // Lei worn low like a necklace: lowest at the front, rising toward the back.
-  const leiHeight = (angle: number): number => -0.52 + (1 - Math.cos(angle)) * 0.2;
+  return { root, segments, directions };
+}
+
+/** The 1C geometric lei (blob petals and leaves), now 8 spring segments. Fallback. */
+export function buildProceduralLei(scene: Scene, material: ShaderMaterial, face: TransformNode): LeiBuild {
+  const base = leiRoot(scene, face, LEI_SEGMENTS, 'coconut-lei');
+  const bins = base.segments.map((_, segment) => new PartBin(scene, `coconut-lei-${segment}-mesh`));
   const flowerCount = 22;
   const segmentOf = (angle: number): number => {
     const wrapped = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
@@ -299,27 +341,135 @@ export function buildCoconutRig(
     }
   }
   bins.forEach((bin, segment) => {
-    const target = leiSegments[segment];
-    if (target) bin.merge(leiMaterial, target);
+    const target = base.segments[segment];
+    if (target) bin.merge(material, target);
   });
-  const lei = buildRigidSkin(scene, 'coconut-lei', face, leiMaterial);
+  const skin = buildRigidSkin(scene, 'coconut-lei', base.root, material);
+  return { style: 'procedural', ...base, mesh: skin?.mesh ?? null };
+}
 
-  // Painted face decal (expressions swap cells; the procedural painter is the fallback).
-  const facePivot = node(scene, 'coconut-face-pivot', face);
-  const decal = new CoconutFaceDecal(scene, facePivot, SHELL_RADII, 0.06);
+export const LEI_ATLAS_URL = `${import.meta.env.BASE_URL}art/mascot/lei-flowers.png`;
+/** Owner's lei flower sheet, 4x4 cells of 256 on a 1024² atlas (sheet order). */
+const LEI_CELL = {
+  hibiscusCoral: 0,
+  hibiscusOrange: 1,
+  hibiscusYellow: 2,
+  hibiscusRed: 3,
+  plumeriaWhite: 4,
+  plumeriaYellow: 5,
+  plumeriaCoral: 6,
+  plumeriaOrange: 7,
+  blossomBlue: 8,
+  blossomRoyal: 9,
+  blossomSky: 10,
+  blossomViolet: 11,
+  leafA: 12,
+  leafB: 13,
+  fern: 14,
+  leafPair: 15,
+} as const;
+/** Colour order around the garland, after the owner's turnaround. */
+const LEI_SEQUENCE: readonly number[] = [
+  LEI_CELL.hibiscusCoral,
+  LEI_CELL.plumeriaWhite,
+  LEI_CELL.blossomBlue,
+  LEI_CELL.hibiscusOrange,
+  LEI_CELL.plumeriaYellow,
+  LEI_CELL.blossomSky,
+  LEI_CELL.hibiscusRed,
+  LEI_CELL.plumeriaCoral,
+  LEI_CELL.blossomViolet,
+  LEI_CELL.hibiscusYellow,
+  LEI_CELL.plumeriaOrange,
+  LEI_CELL.blossomRoyal,
+];
+const LEAF_SEQUENCE: readonly number[] = [LEI_CELL.leafA, LEI_CELL.leafPair, LEI_CELL.leafB, LEI_CELL.fern];
+/** Painted flowers around the ring, each its own spring bone. */
+export const PAINTED_LEI_FLOWERS = 24;
 
-  return {
-    visual,
-    wobbleYaw,
-    wobbleScale,
-    wobbleUnyaw,
-    shell,
-    face,
-    facePivot,
-    leiSegments,
-    leiDirections,
-    shellMesh,
-    leiMesh: lei?.mesh ?? null,
-    decal,
+/** A slightly cupped card (3x3 grid) facing +Z, UVs on one atlas cell. */
+function leiCard(scene: Scene, cell: number, size: number, cup: number): Mesh {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const column = cell % 4;
+  const row = Math.floor(cell / 4);
+  const inset = 2 / 1024;
+  const u0 = column / 4 + inset;
+  const v0 = row / 4 + inset;
+  const span = 0.25 - inset * 2;
+  const steps = 3;
+  for (let j = 0; j <= steps; j += 1) {
+    for (let i = 0; i <= steps; i += 1) {
+      const x = (i / steps - 0.5) * size;
+      const y = (0.5 - j / steps) * size;
+      const r = (x * x + y * y) / ((size * size) / 4);
+      positions.push(x, y, -cup * r * size);
+      uvs.push(u0 + (i / steps) * span, v0 + (j / steps) * span);
+    }
+  }
+  for (let j = 0; j < steps; j += 1) {
+    for (let i = 0; i < steps; i += 1) {
+      const a = j * (steps + 1) + i;
+      const b = a + 1;
+      const c = a + steps + 1;
+      const d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  const data = new VertexData();
+  data.positions = positions;
+  data.uvs = uvs;
+  data.indices = indices;
+  const normals: number[] = [];
+  VertexData.ComputeNormals(positions, indices, normals);
+  data.normals = normals;
+  const mesh = new Mesh('coconut-lei-card', scene);
+  data.applyToMesh(mesh);
+  return mesh;
+}
+
+/**
+ * The owner's painted lei: flower cards (hibiscus, plumeria, blossoms) with
+ * leaves tucked between them, all on one atlas, one skinned mesh, one draw
+ * call; every flower is its own spring bone (lag and bounce per flower).
+ */
+export function buildPaintedLei(scene: Scene, material: ShaderMaterial, face: TransformNode): LeiBuild {
+  const base = leiRoot(scene, face, PAINTED_LEI_FLOWERS, 'coconut-painted-lei');
+  const random = seededRandom(4242);
+  const place = (card: Mesh, direction: Vector3, lift: number, roll: number, parent: TransformNode): void => {
+    const orient = facing(direction, roll);
+    card.rotation.copyFrom(orient);
+    card.position.copyFrom(onShell(direction, lift));
+    card.bakeCurrentTransformIntoVertices();
+    card.parent = parent;
   };
+  for (let index = 0; index < PAINTED_LEI_FLOWERS; index += 1) {
+    const segment = base.segments[index];
+    if (!segment) continue;
+    const angle = (index / PAINTED_LEI_FLOWERS) * Math.PI * 2 + 0.05;
+    const cell = LEI_SEQUENCE[index % LEI_SEQUENCE.length] ?? 0;
+    const hibiscus = cell <= LEI_CELL.hibiscusRed;
+    const blossom = cell >= LEI_CELL.blossomBlue;
+    // Card sizes so the painted flowers (≈ 2/3 of a cell, blossoms ≈ 1/2) read
+    // 18–24 cm across and overlap into one dense garland, as on the owner's sheet.
+    const size = hibiscus ? 0.36 : blossom ? 0.36 : 0.33;
+    const wobble = (random() - 0.5) * 0.05;
+    const direction = new Vector3(Math.sin(angle), leiHeight(angle) + wobble, Math.cos(angle));
+    // Leaves first, a touch lower on the shell so the flowers overlap them.
+    const leafAngle = angle + Math.PI / PAINTED_LEI_FLOWERS;
+    const leafCell = LEAF_SEQUENCE[index % LEAF_SEQUENCE.length] ?? LEI_CELL.leafA;
+    const leafDirection = new Vector3(Math.sin(leafAngle), leiHeight(leafAngle) + (index % 2 === 0 ? 0.07 : -0.06), Math.cos(leafAngle));
+    const leaf = leiCard(scene, leafCell, 0.3, 0.08);
+    const leafRoll = (index % 2 === 0 ? 1 : -1) * (0.9 + random() * 0.6) + Math.PI;
+    place(leaf, leafDirection, 0.012, leafRoll, segment);
+    const flower = leiCard(scene, cell, size, 0.1);
+    place(flower, direction, 0.034 + random() * 0.012, random() * Math.PI * 2, segment);
+  }
+  const skin = buildRigidSkin(scene, 'coconut-painted-lei', base.root, material);
+  if (skin) {
+    excludeFromInk(skin.mesh);
+    excludeFromShadows(skin.mesh);
+  }
+  return { style: 'painted', ...base, mesh: skin?.mesh ?? null };
 }

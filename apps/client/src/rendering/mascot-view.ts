@@ -20,10 +20,20 @@ import {
 } from '@frost-and-flamingos/shared';
 import { audio } from '../audio/synth';
 import type { AvatarPose } from './avatar';
-import { CoconutFaceController, FACE, faceAtlas, type FaceCell } from './coconut-expression';
+import { CoconutFaceController, FACE, faceAtlas, type FaceCell, type FaceInput } from './coconut-expression';
 import { applyCowPose, CowAnimator, type CowDrive, type CowSkeleton } from './cow-animator';
 import { createShadowMaterial, type CharacterMaterialState } from './materials';
-import { buildCoconutRig, buildCoconutShell, buildFibreFringe, COCONUT_RADIUS, LEI_SEGMENTS, type CoconutRig, type ShellStyle } from './mascot-coconut';
+import {
+  buildCoconutRig,
+  buildCoconutShell,
+  buildFibreFringe,
+  buildProceduralLei,
+  COCONUT_RADIUS,
+  LEI_ATLAS_URL,
+  type CoconutRig,
+  type LeiStyle,
+  type ShellStyle,
+} from './mascot-coconut';
 import { buildCowRig } from './mascot-cow';
 import { puffKindForSurface, type MascotFx } from './mascot-fx';
 import { createMascotMaterial, updateMascotMaterial } from './mascot-material';
@@ -49,30 +59,54 @@ export type CoconutShellChoice = 'meshy' | 'painted' | 'vertex';
 const DEFAULT_COCONUT_SHELL: CoconutShellChoice = 'painted';
 
 const HUSK_URL = `${import.meta.env.BASE_URL}art/mascot/coconut-husk.jpg`;
-const huskTextures = new WeakMap<Scene, { texture: Texture; failed: boolean; listeners: Set<() => void> }>();
 
-function huskTexture(scene: Scene): { texture: Texture; failed: boolean; listeners: Set<() => void> } {
-  let entry = huskTextures.get(scene);
-  if (entry) return entry;
+interface SharedTexture {
+  texture: Texture;
+  failed: boolean;
+  listeners: Set<() => void>;
+}
+
+const sharedTextures = new WeakMap<Scene, Map<string, SharedTexture>>();
+
+/** One texture per scene and URL, with a failure flag (fallbacks swap in on error). */
+function sharedTexture(scene: Scene, url: string): SharedTexture {
+  let byUrl = sharedTextures.get(scene);
+  if (!byUrl) {
+    byUrl = new Map();
+    sharedTextures.set(scene, byUrl);
+  }
+  const existing = byUrl.get(url);
+  if (existing) return existing;
   const listeners = new Set<() => void>();
-  const created = { texture: null as unknown as Texture, failed: false, listeners };
-  created.texture = new Texture(HUSK_URL, scene, {
+  const created: SharedTexture = { texture: null as unknown as Texture, failed: false, listeners };
+  created.texture = new Texture(url, scene, {
     invertY: false,
     samplingMode: Constants.TEXTURE_TRILINEAR_SAMPLINGMODE,
     onError: () => {
       created.failed = true;
-      for (const listener of listeners) listener();
+      for (const listener of [...listeners]) listener();
     },
   });
   created.texture.anisotropicFilteringLevel = 4;
-  huskTextures.set(scene, created);
-  entry = created;
+  byUrl.set(url, created);
+  return created;
+}
+
+function huskTexture(scene: Scene): SharedTexture {
+  return sharedTexture(scene, HUSK_URL);
+}
+
+function leiTexture(scene: Scene): SharedTexture {
+  const entry = sharedTexture(scene, LEI_ATLAS_URL);
+  entry.texture.hasAlpha = true;
   return entry;
 }
 
 /** Starts loading the mascot textures (face atlas, painted husk) during boot. */
 export function preloadMascotTextures(scene: Scene): void {
+  if (coconutShellChoice() === 'meshy') mascotModels(scene).load('coconut');
   faceAtlas(scene);
+  leiTexture(scene);
   if (coconutShellChoice() === 'painted') huskTexture(scene);
 }
 
@@ -180,6 +214,16 @@ export class MascotView {
   private meshyShell: MeshyShell | null = null;
   private fibreFringe: Mesh | null = null;
   private readonly faceController = new CoconutFaceController();
+  private readonly faceInput: FaceInput = {
+    alive: true,
+    dazed: false,
+    battleCry: false,
+    ramming: false,
+    airborne: false,
+    vitality: 1,
+    idle: 0,
+    preview: false,
+  };
   private readonly squash = new Spring(170, 9);
   private readonly wobbleX = new Spring(90, 7);
   private readonly wobbleZ = new Spring(90, 7);
@@ -340,21 +384,31 @@ export class MascotView {
           })
         : this.partMaterial;
     if (this.shellMaterial !== this.partMaterial) this.materials.push(this.shellMaterial);
-    const rig = buildCoconutRig(this.scene, this.shellMaterial, this.partMaterial, this.root, husk && !husk.failed ? 'painted' : 'vertex');
+    const lei = leiTexture(this.scene);
+    const leiStyle: LeiStyle = lei.failed || queryOverride('lei') === 'procedural' ? 'procedural' : 'painted';
+    let leiMaterial = this.partMaterial;
+    if (leiStyle === 'painted') {
+      leiMaterial = createMascotMaterial(this.scene, `mascot-${this.name}-lei`, {
+        albedo: lei.texture,
+        cutout: true,
+        paint: new Vector4(0, 1.06, 1.04, 0.2),
+      });
+      this.leiMaterial = leiMaterial;
+      this.materials.push(leiMaterial);
+      lei.listeners.add(this.onLeiFailed);
+    }
+    const rig = buildCoconutRig(
+      this.scene,
+      this.shellMaterial,
+      leiMaterial,
+      this.root,
+      husk && !husk.failed ? 'painted' : 'vertex',
+      leiStyle,
+    );
     this.coconut = rig;
     for (const material of rig.decal.materials) this.materials.push(material);
-    for (let segment = 0; segment < LEI_SEGMENTS; segment += 1) {
-      const stiffness = 150 * (1 + 0.18 * Math.sin(segment * 2.1));
-      this.leiBounce.push(new Spring(stiffness, 6.5));
-      this.leiSway.push(new Spring(stiffness * 0.8, 6));
-      this.leiOut.push(new Spring(stiffness * 1.2, 8));
-      const direction = rig.leiDirections[segment] ?? new Vector3(0, 0, 1);
-      // Tangent axis: rotating about it slides the segment's flowers up/down the shell.
-      this.leiAxes.push(new Vector3(direction.z, 0, -direction.x));
-    }
-    if (husk && !husk.failed) {
-      husk.listeners.add(() => this.huskFailed());
-    }
+    this.resetLeiSprings();
+    if (husk && !husk.failed) husk.listeners.add(this.onHuskFailed);
     if (this.coconutShell === 'meshy' && modelsEnabled()) {
       const library = mascotModels(this.scene);
       library.load('coconut');
@@ -365,12 +419,42 @@ export class MascotView {
     }
   }
 
-  private huskFailed(): void {
+  private leiMaterial: ShaderMaterial | null = null;
+
+  /** One spring set per lei segment (8 procedural segments or one per painted flower). */
+  private resetLeiSprings(): void {
+    const rig = this.coconut;
+    this.leiBounce.length = 0;
+    this.leiSway.length = 0;
+    this.leiOut.length = 0;
+    this.leiAxes.length = 0;
+    if (!rig) return;
+    rig.lei.directions.forEach((direction, segment) => {
+      const stiffness = 150 * (1 + 0.18 * Math.sin(segment * 2.1));
+      this.leiBounce.push(new Spring(stiffness, 6.5));
+      this.leiSway.push(new Spring(stiffness * 0.8, 6));
+      this.leiOut.push(new Spring(stiffness * 1.2, 8));
+      // Tangent axis: rotating about it slides the segment's flowers up/down the shell.
+      this.leiAxes.push(new Vector3(direction.z, 0, -direction.x));
+    });
+  }
+
+  private readonly onHuskFailed = (): void => {
     const rig = this.coconut;
     if (!rig || this.disposed || this.meshyShell) return;
     rig.shellMesh?.dispose();
     rig.shellMesh = buildCoconutShell(this.scene, this.partMaterial, rig.shell, 'vertex');
-  }
+  };
+
+  /** The painted lei atlas failed: fall back to the procedural garland. */
+  private readonly onLeiFailed = (): void => {
+    const rig = this.coconut;
+    if (!rig || this.disposed || rig.lei.style === 'procedural') return;
+    rig.lei.mesh?.skeleton?.dispose();
+    rig.lei.root.dispose(false, false);
+    rig.lei = buildProceduralLei(this.scene, this.partMaterial, rig.face);
+    this.resetLeiSprings();
+  };
 
   private attachMeshyShell(): void {
     const rig = this.coconut;
@@ -578,10 +662,13 @@ export class MascotView {
 
     // Feedback: bell clank, topple thud, hoof dust.
     const fx = this.fx;
-    if (fx && animator.bellClank > 0) audio.playCowbell(pose.position, 0.25 + animator.bellClank * 0.5);
+    const audible = fx !== null && this.audible(pose.position);
+    if (audible && animator.bellClank > 0) audio.playCowbell(pose.position, 0.25 + animator.bellClank * 0.5);
     if (fx && animator.thud > 0) {
-      audio.playCowbell(pose.position, 0.85);
-      audio.playLand(pose.position);
+      if (audible) {
+        audio.playCowbell(pose.position, 0.85);
+        audio.playLand(pose.position);
+      }
       fx.burst(puffKindForSurface(surfaceTagAt(x, z, pose.position.y)), pose.position, 12, 3.2, 0.45);
     }
     const speed = Math.abs(drive.forward);
@@ -624,6 +711,22 @@ export class MascotView {
   }
 
   private wasStomping = false;
+
+  /**
+   * Positional one-shots only near the camera and while the audio context
+   * runs (a suspended context, e.g. before the first click or in a
+   * background tab, would otherwise pile up nodes that never finish).
+   */
+  private audible(position: Vec3): boolean {
+    const context = (audio as unknown as { ctx?: AudioContext | null }).ctx;
+    if (!context || context.state !== 'running') return false;
+    const camera = this.scene.activeCamera;
+    if (!camera) return false;
+    const dx = camera.position.x - position.x;
+    const dy = camera.position.y - position.y;
+    const dz = camera.position.z - position.z;
+    return dx * dx + dy * dy + dz * dz < 45 * 45;
+  }
 
   // ---------------------------------------------------------------------------
   // Coconut
@@ -747,9 +850,10 @@ export class MascotView {
     rig.wobbleUnyaw.rotation.y = -direction;
 
     // --- lei: spring-driven segments (lag, bounce, sway) --------------------------------
-    for (let segment = 0; segment < LEI_SEGMENTS; segment += 1) {
-      const node = rig.leiSegments[segment];
-      const along = rig.leiDirections[segment];
+    const segments = rig.lei.segments;
+    for (let segment = 0; segment < segments.length; segment += 1) {
+      const node = segments[segment];
+      const along = rig.lei.directions[segment];
       const axis = this.leiAxes[segment];
       const bounceSpring = this.leiBounce[segment];
       const swaySpring = this.leiSway[segment];
@@ -770,16 +874,16 @@ export class MascotView {
     }
 
     // --- expression -------------------------------------------------------------------
-    const cell = this.faceController.update(dt, {
-      alive: pose.alive,
-      dazed: (pose.dazed ?? false) || launched,
-      battleCry: boosting || pounding || this.cryTimer > 0,
-      ramming: speed > COCONUT_TUNING.maxRollSpeed * 0.7 && grounded,
-      airborne: !pose.grounded && !swimming,
-      vitality: pose.vitality ?? 1,
-      idle: this.idleTime,
-      preview: this.preview,
-    });
+    const faceInput = this.faceInput;
+    faceInput.alive = pose.alive;
+    faceInput.dazed = (pose.dazed ?? false) || launched;
+    faceInput.battleCry = boosting || pounding || this.cryTimer > 0;
+    faceInput.ramming = speed > COCONUT_TUNING.maxRollSpeed * 0.7 && grounded;
+    faceInput.airborne = !pose.grounded && !swimming;
+    faceInput.vitality = pose.vitality ?? 1;
+    faceInput.idle = this.idleTime;
+    faceInput.preview = this.preview;
+    const cell = this.faceController.update(dt, faceInput);
     const relative = Math.atan2(velocity.x, velocity.z) - this.faceYaw;
     this.dazedLook = speed > 0.5 ? -Math.sin(relative) * Math.min(1, speed / 6) : Math.sin(this.time * 0.5) * 0.3;
     rig.decal.show(cell, this.faceController.changed && cell !== FACE.blink, this.dazedLook, clamp(velocity.y / 10, -1, 1), dt);
@@ -833,6 +937,9 @@ export class MascotView {
     this.disposed = true;
     this.pendingModel?.();
     if (this.cowFallbackTimer) clearTimeout(this.cowFallbackTimer);
+    huskTexture(this.scene).listeners.delete(this.onHuskFailed);
+    leiTexture(this.scene).listeners.delete(this.onLeiFailed);
+    this.coconut?.lei.mesh?.skeleton?.dispose();
     this.cowBody?.dispose();
     this.coconut?.decal.dispose();
     this.meshyShell?.dispose();

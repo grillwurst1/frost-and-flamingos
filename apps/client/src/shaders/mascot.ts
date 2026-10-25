@@ -20,6 +20,8 @@ import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
  *                  husk: white = paint as is, dark = germination pores).
  *   FF_DECAL       alpha-blended painted decal (the coconut face). uAtlasRect
  *                  picks one cell of the expression atlas (xy offset, zw size).
+ *   FF_CUTOUT      alpha-tested painted cards (the lei flowers), double sided.
+ *   FF_VCOLOR      the mesh carries vertex colours (always without a texture).
  *
  * The effect uniforms match the character shader: soot (battle damage),
  * charred and frozen. GLSL (WebGL2) and WGSL (WebGPU) must stay equivalent.
@@ -126,6 +128,11 @@ void main(void) {
   alpha = texel.a;
   if (alpha < 0.04) discard;
   gloss = 0.0;
+#endif
+#ifdef FF_CUTOUT
+  if (texel.a < 0.45) discard;
+  if (!gl_FrontFacing) normal = -normal;
+  gloss = 0.04;
 #endif
 #else
   vec3 base = vColor.rgb;
@@ -260,6 +267,11 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   alpha = texel.a;
   if (alpha < 0.04) { discard; }
   gloss = 0.0;
+#endif
+#ifdef FF_CUTOUT
+  if (texel.a < 0.45) { discard; }
+  if (!fragmentInputs.frontFacing) { normal = -normal; }
+  gloss = 0.04;
 #endif
 #else
   var base = input.vColor.rgb;

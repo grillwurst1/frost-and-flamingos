@@ -254,11 +254,14 @@ export function mascotModels(scene: Scene): MascotModelLibrary {
   return library;
 }
 
-/** Starts loading the mascot models (call during boot, after the scene exists). */
-export function preloadMascotModels(scene: Scene): void {
+/**
+ * Starts loading the mascot models (call during boot, after the scene
+ * exists). The Meshy coconut shell is only fetched when that shell is in use.
+ */
+export function preloadMascotModels(scene: Scene, includeCoconut = false): void {
   const library = mascotModels(scene);
   library.load('cow');
-  library.load('coconut');
+  if (includeCoconut) library.load('coconut');
 }
 
 export type { MascotModelLibrary };

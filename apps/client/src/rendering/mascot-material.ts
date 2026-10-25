@@ -26,6 +26,8 @@ export interface MascotMaterialOptions {
   vertexTint?: boolean;
   /** Alpha-blended decal with an atlas cell (coconut face). */
   decal?: boolean;
+  /** Alpha-tested, double-sided painted cards (lei flowers). */
+  cutout?: boolean;
   /** x normal strength, y saturation, z contrast, w shade lift. */
   paint?: Vector4;
 }
@@ -46,6 +48,7 @@ export function createMascotMaterial(scene: Scene, name: string, options: Mascot
   if (vertexColour) defines.push('#define FF_VCOLOR');
   if (normalMapped) defines.push('#define FF_NORMALMAP');
   if (textured && options.decal) defines.push('#define FF_DECAL');
+  if (textured && options.cutout) defines.push('#define FF_CUTOUT');
   const samplers: string[] = [...LOOK_SAMPLERS];
   if (textured) samplers.push('albedoSampler');
   if (normalMapped) samplers.push('normalSampler');
@@ -89,7 +92,7 @@ export function createMascotMaterial(scene: Scene, name: string, options: Mascot
   material.setVector4('uAtlasRect', FULL_RECT);
   if (options.albedo) material.setTexture('albedoSampler', options.albedo);
   if (normalMapped && options.normal) material.setTexture('normalSampler', options.normal);
-  material.backFaceCulling = true;
+  material.backFaceCulling = !options.cutout;
   if (options.decal) {
     // The decal floats just above the shell; it never needs depth writes.
     material.disableDepthWrite = true;

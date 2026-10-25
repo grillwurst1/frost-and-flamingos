@@ -570,9 +570,10 @@ export class CowAnimator {
     const swing = this.bellSwing.step((drive.forwardAccel + vertical * 2) / 9.81, dt);
     const side = this.bellSide.step((drive.lateralAccel + flinch * 4 * this.flinchSide) / 9.81, dt);
     const impact = Math.max(this.bellSwing.lastImpact, this.bellSide.lastImpact * 0.6);
-    if (impact > 1.1 && this.bellCooldown <= 0 && drive.alive) {
-      this.bellClank = Math.min(1, impact / 6);
-      this.bellCooldown = 0.16;
+    // Only real knocks clank (stops, landings, hits); the stride jingle is MascotClient's.
+    if (impact > 2.6 && this.bellCooldown <= 0 && drive.alive) {
+      this.bellClank = Math.min(1, impact / 7);
+      this.bellCooldown = 0.45;
     }
     // Angles relative to gravity; the rig compensates the parents' tilt.
     pose.bellPitch = -swing;

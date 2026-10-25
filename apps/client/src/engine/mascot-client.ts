@@ -218,6 +218,10 @@ export class MascotClient {
       state.hoof = Math.min(state.hoof, 0.3);
       return;
     }
+    // A suspended audio context (no click yet, background tab) never finishes
+    // the scheduled nodes, so stride foley would only pile up: skip it.
+    const context = (audio as unknown as { ctx?: AudioContext | null }).ctx;
+    if (!context || context.state !== 'running') return;
     const travelled = speed * delta;
     const where = at ?? position;
     const surface = where ? surfaceTagAt(where.x, where.z, where.y) : 'grass_mud';

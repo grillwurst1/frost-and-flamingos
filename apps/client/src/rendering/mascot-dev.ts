@@ -260,6 +260,20 @@ export function installMascotDevHandle(scene: Scene, fx: MascotFx | null): void 
       look.setCameraOverride(x, y, z, tx, ty, tz);
       return true;
     },
+    /** Scene/engine counters for leak hunting. */
+    stats(): Record<string, number> {
+      const engine = scene.getEngine() as unknown as { _compiledEffects?: Record<string, unknown> };
+      const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+      return {
+        effects: Object.keys(engine._compiledEffects ?? {}).length,
+        meshes: scene.meshes.length,
+        materials: scene.materials.length,
+        textures: scene.textures.length,
+        skeletons: scene.skeletons.length,
+        transformNodes: scene.transformNodes.length,
+        heapMB: memory ? Math.round(memory.usedJSHeapSize / 1048576) : -1,
+      };
+    },
     /** Hides the HUD layer for clean captures. */
     hud(visible: boolean): void {
       const root = document.querySelector<HTMLElement>('.hud-root');
