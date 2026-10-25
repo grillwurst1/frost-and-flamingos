@@ -17,10 +17,12 @@ import {
   PRIMARY_WEAPON_TABLE,
   SECONDARY_WEAPON_TABLE,
 } from '../config/weapons.js';
+import { CRITTER_BEHAVIOUR_TABLE, CRITTER_SPECIES_TABLE } from '../config/critters.js';
 import type { IdTable } from '../config/ids.js';
 import type {
   BridgeState,
   ClassId,
+  CritterState,
   MascotWireState,
   CraterState,
   DestructibleState,
@@ -40,6 +42,8 @@ import type {
 } from '../types/index.js';
 import {
   CLASS_CODE,
+  CRITTER_BEHAVIOUR_MASK,
+  CRITTER_FLAG,
   FACTION_CODE,
   GameEventCode,
   MASCOT_FLAG,
@@ -135,6 +139,50 @@ function shortTimerToWire(seconds: number): number {
 
 function wireToShortTimer(value: number): number {
   return value / PHYSICS_TICK_RATE;
+}
+
+/** Sanity cap for the critter trailer (the map holds a handful). */
+const MAX_WIRE_CRITTERS = 64;
+/** Critter ground speed travels as u8 twentieths of a metre per second. */
+const CRITTER_SPEED_SCALE = 20;
+
+/** Critter trailer entry: 12 bytes (id, species, state, position, yaw, speed). */
+function writeCritterState(writer: BinaryWriter, critter: CritterState): void {
+  writer
+    .writeUint8(critter.id & 0xff)
+    .writeUint8(CRITTER_SPECIES_TABLE.code[critter.species])
+    .writeUint8(
+      (CRITTER_BEHAVIOUR_TABLE.code[critter.behaviour] & CRITTER_BEHAVIOUR_MASK) |
+        (critter.alive ? CRITTER_FLAG.Alive : 0) |
+        (critter.half === 'lagoon' ? CRITTER_FLAG.LagoonHalf : 0) |
+        (critter.airborne ? CRITTER_FLAG.Airborne : 0),
+    )
+    .writePosition(critter.position)
+    .writeAngle(critter.yaw)
+    .writeUint8(clampByte(critter.speed * CRITTER_SPEED_SCALE));
+}
+
+function readCritterState(reader: BinaryReader): CritterState {
+  const id = reader.readUint8();
+  const species = readTableId(reader, CRITTER_SPECIES_TABLE);
+  const state = reader.readUint8();
+  const behaviour = CRITTER_BEHAVIOUR_TABLE.byCode[state & CRITTER_BEHAVIOUR_MASK];
+  if (behaviour === undefined) throw new RangeError('Unknown critter behaviour.');
+  const position = reader.readPosition();
+  const yaw = reader.readAngle();
+  const speed = reader.readUint8() / CRITTER_SPEED_SCALE;
+  return {
+    id,
+    species,
+    half: (state & CRITTER_FLAG.LagoonHalf) !== 0 ? 'lagoon' : 'alpine',
+    position,
+    // Wire angles are 0…2π; the simulation keeps -π…π.
+    yaw: yaw > Math.PI ? yaw - Math.PI * 2 : yaw,
+    speed,
+    behaviour,
+    alive: (state & CRITTER_FLAG.Alive) !== 0,
+    airborne: (state & CRITTER_FLAG.Airborne) !== 0,
+  };
 }
 
 function writeMascotState(writer: BinaryWriter, mascot: MascotWireState): void {
@@ -442,6 +490,11 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
       .writeUint16(Math.max(0, Math.min(65535, Math.round(vehicle.health))));
   }
 
+  // Protocol 7: ambient critter trailer.
+  const critters = snapshot.critters.slice(0, MAX_WIRE_CRITTERS);
+  writer.writeUint8(critters.length);
+  for (const critter of critters) writeCritterState(writer, critter);
+
   return writer.finish();
 }
 
@@ -535,6 +588,11 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       });
     }
 
+    const critterCount = reader.readUint8();
+    if (critterCount > MAX_WIRE_CRITTERS) throw new RangeError('Too many critters in snapshot.');
+    const critters: CritterState[] = [];
+    for (let index = 0; index < critterCount; index += 1) critters.push(readCritterState(reader));
+
     return {
       serverTick,
       weatherBalance,
@@ -545,6 +603,7 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       turretStates,
       players,
       vehicles,
+      critters,
     };
   });
 }

@@ -1,6 +1,7 @@
 /** Networking, simulation and world constants shared by client and server. */
 
-export const PROTOCOL_VERSION = 6;
+/** 7: ambient critter trailer in the snapshot and the CRITTER_KILLED event (3H). */
+export const PROTOCOL_VERSION = 7;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;
