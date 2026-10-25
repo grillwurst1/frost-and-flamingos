@@ -46,6 +46,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-facade-towerb.webp` | Tower B clock pavilion + fountain facade sheet |
 | `gemini-sprites-vegetation.webp` | Painted vegetation billboard sprites |
 | `gemini-facade-tikialm.webp` | Tiki-Alm facade texture sheet (front/side/back/roof) |
+| `gemini-sprites-clutter.webp` | Painted clutter billboard sprites (crates, fences, lantern, tufts...) |
 | `gemini-vfx.webp` | Explosion, smoke, fire, snow, water, dust and muzzle-flash particle sprites |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
