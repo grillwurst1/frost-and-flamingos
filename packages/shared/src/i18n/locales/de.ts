@@ -355,12 +355,14 @@ export const de: TranslationDictionary = {
       heavy: 'Senn-Koloss',
       infiltrator: 'Gämsen-Jäger',
       mascot: 'Alpenkuh',
+      drifter: 'Gruseliges Bergmädchen',
     },
     lagoon: {
       allrounder: 'Yacht-Kapitän',
       heavy: 'Hafen-Hüne',
       infiltrator: 'Riff-Schmuggler',
       mascot: 'Kampf-Kokosnuss',
+      drifter: 'Hot Beach Girl',
     },
   },
   controls: {
@@ -387,6 +389,8 @@ export const de: TranslationDictionary = {
     reload: 'Nachladen',
     interact: 'Interagieren',
     taunt: 'Spotthymne',
+    scoreboard: 'Punktetafel',
+    scoreboardKey: 'Tab halten',
     parachute: 'Fallschirm',
     parachuteHint: 'Im langen Fall öffnen · Space / C abtrennen',
     hold: 'Halten',
@@ -622,6 +626,10 @@ export const de: TranslationDictionary = {
       name: 'Maskottchen',
       role: 'Maskottchen',
     },
+    drifter: {
+      name: 'Wanderin',
+      role: 'Unberührbare Versorgerin',
+    },
   },
   debug: {
     title: 'Netzwerk- & Engine-Telemetrie',
@@ -755,5 +763,63 @@ export const de: TranslationDictionary = {
       henAnonymous: 'Ein Huhn wurde erlegt',
     },
     bagged: 'Huhn erlegt!',
+  },
+  drifter: {
+    description: 'Unberührbar. Geht einfach.',
+    classBadge: 'Unberührbar · Versorgungs-Aura',
+    forms: {
+      mountain_girl: 'Gruseliges Bergmädchen',
+      beach_girl: 'Hot Beach Girl',
+    },
+    formFaction: {
+      mountain_girl: 'Gipfel-Garde · Alpen',
+      beach_girl: 'Lagunen-Liga · Strand',
+    },
+    stats: 'Unberührbar · geht {speed} m/s',
+    wardrobeTitle: 'Unberührbare Wanderin',
+    yourForm: 'Deine Gestalt',
+    wardrobeBody:
+      'Nichts kann ihr etwas anhaben: Kugeln, Explosionen und Körper gehen einfach durch sie hindurch. Sie trägt weder Waffen noch Fähigkeiten – sie geht nur und schwebt übers Wasser.',
+    wardrobeAura:
+      'Versorgungs-Aura: Mitspieler im Umkreis von {radius} m erhalten {heal} Vitalität pro Sekunde, sobald sie {seconds} s keinen Schaden genommen haben, und ihre Reservemunition füllt sich alle {magazine} s um ein Magazin auf.',
+    wardrobeAuraTheme: {
+      mountain_girl: 'Sie summt ein Spieluhr-Wiegenlied; zarte blaue Noten schweben zu den Mitspielern, die sie heilt.',
+      beach_girl: 'Sie verteilt Kokos-Cocktails; warme Korallenfunken steigen über den Mitspielern auf, die sie heilt.',
+    },
+    wardrobePoints: 'Je {vitality} geheilte Vitalität und jedes aufgefüllte Magazin bringen ihr einen Support-Punkt.',
+    wardrobeRules: 'Sie kann keine Wettertürme einnehmen und zählt nicht für den Teamausgleich. Bots lassen sie in Ruhe.',
+    wardrobeFixed: 'Festes Aussehen: Nur das Rufzeichen lässt sich ändern.',
+    hud: {
+      card: 'Wanderin-Status',
+      untouchable: 'Unberührbar',
+      untouchableHint: 'Nichts kann dir schaden. Geh zu deinem Team und versorge es.',
+      support: 'Support',
+      supportPoints: '{points} Support',
+      auraRadius: 'Aura {radius} m',
+      auraIdle: 'Kein Mitspieler in Reichweite',
+      auraActive: 'Versorgt: {count}',
+      healed: {
+        mountain_girl: 'Wiegenlied',
+        beach_girl: 'Cocktail',
+      },
+      resupplied: 'Munition kommt',
+      plusPoint: '+{points}',
+    },
+    controls: {
+      walk: 'Gehen',
+      walkKey: 'W A S D',
+      hint: 'Gehen',
+      noActions: 'Kein Springen, Sprinten, Ducken und keine Waffen: Sie geht nur.',
+    },
+  },
+  scoreboard: {
+    title: 'Punktetafel',
+    hint: 'Tab gedrückt halten',
+    player: 'Urlauber',
+    kills: 'Treffer',
+    deaths: 'Tode',
+    support: 'Support',
+    you: 'du',
+    empty: 'Noch niemand hier',
   },
 };

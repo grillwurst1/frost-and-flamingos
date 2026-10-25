@@ -35,7 +35,9 @@ export type ClipRole =
   | 'swim'
   | 'death'
   | 'taunt'
-  | 'reload';
+  | 'reload'
+  /** A second one-shot, full-body idle clip (e.g. the drifter's rare skip). */
+  | 'emote';
 
 /**
  * Candidate clip names per role, first match wins. When a model lacks a role
@@ -64,6 +66,7 @@ export const DEFAULT_CLIPS: Readonly<Record<ClipRole, readonly string[]>> = {
   death: ['Fall_Dead_from_Abdominal_Injury', 'Dying', 'Death'],
   taunt: ['Show_Both_Arm_Muscles', 'Cheer_with_Both_Hands_Up', 'Cheer_with_Both_Hands_1', 'Skip_Forward', 'Victory'],
   reload: ['Forward_Reload_Subtle', 'Reloading', 'Reload'],
+  emote: [],
 };
 
 /** Roles worth retargeting from another model when a model lacks them. */
@@ -116,6 +119,26 @@ export interface PaintedModelSpec {
   heightMeters?: number;
   /** false for characters that never hold a weapon (walk/idle clips only). */
   armed?: boolean;
+  /**
+   * Extra characters with their own motion set (the drifter class): when
+   * false the model neither lends clips to nor borrows clips from the others,
+   * and only its own `clips` table is resolved (no {@link DEFAULT_CLIPS}).
+   */
+  shareClips?: boolean;
+  /** false: never attach cosmetic items (fixed painted look). */
+  cosmetics?: boolean;
+  /**
+   * Walk-only locomotion: only idle, walk and backpedal blend (no run, sprint,
+   * air, swim, crouch or death poses). Values are the model-space ground speed
+   * (m/s) at which the walk / backpedal loop plants its feet at 1×; the
+   * playback rate follows the speed so the feet never skate. `idleRate` plays
+   * the walk loop as a near-still idle when the model has no idle clip.
+   */
+  gait?: { walk: number; backpedal: number; idleRate?: number };
+  /** Hovers this far (m) above the ground with a slow bob of `bob` m every `period` s. */
+  hover?: { height: number; bob: number; period: number };
+  /** Physically based shading instead of the cel bands (character look mask: silhouette ink only). */
+  photoreal?: boolean;
 }
 
 const BUILT_IN_MODELS: Readonly<Record<string, PaintedModelSpec>> = {
@@ -337,7 +360,8 @@ export function paintedOutfitReset(profile: PlayerProfile): Pick<Cosmetics, 'tor
 
 /** Resolves a role to the first clip name present in the model. */
 export function resolveClip(spec: PaintedModelSpec, role: ClipRole, available: ReadonlySet<string>): string | null {
-  const candidates = [...(spec.clips[role] ?? []), ...DEFAULT_CLIPS[role]];
+  const own = spec.clips[role] ?? [];
+  const candidates = spec.shareClips === false ? own : [...own, ...DEFAULT_CLIPS[role]];
   for (const name of candidates) {
     if (available.has(name)) return name;
   }

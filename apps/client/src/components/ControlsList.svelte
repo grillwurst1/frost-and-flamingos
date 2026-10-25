@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { mascotFormOf, type MascotForm, type TranslationKey } from '@frost-and-flamingos/shared';
+  import { mascotFormOf, type ClassId, type MascotForm, type TranslationKey } from '@frost-and-flamingos/shared';
   import { localPlayer, phase } from '../state/game';
   import { t } from '../state/locale';
   import { profile } from '../state/profile';
@@ -11,6 +11,7 @@
 
   const SHARED_ROWS: ControlRow[] = [
     { label: 'controls.taunt', value: 'controls.tauntKey' },
+    { label: 'controls.scoreboard', value: 'controls.scoreboardKey' },
     { label: 'controls.shoulder', value: 'controls.shoulderKey' },
     { label: 'controls.zoom', value: 'controls.zoomKey' },
     { label: 'controls.pause', value: 'controls.pauseKey' },
@@ -51,6 +52,13 @@
     ...SHARED_ROWS,
   ];
 
+  // The drifter only walks: movement, look and the camera keys, nothing else.
+  const DRIFTER_ROWS: ControlRow[] = [
+    { label: 'drifter.controls.walk', value: 'drifter.controls.walkKey' },
+    { label: 'controls.look', value: 'controls.mouse' },
+    ...SHARED_ROWS.filter((row) => row.label !== 'controls.taunt'),
+  ];
+
   // In a round the server-assigned class and faction decide; in the menus the
   // local profile does.
   $: inRound = ($phase === 'playing' || $phase === 'paused') && $localPlayer !== null;
@@ -58,7 +66,16 @@
   $: form = inRound && $localPlayer
     ? mascotFormOf($localPlayer.classId, $localPlayer.faction)
     : mascotFormOf($profile.cosmetics.classId, $profile.faction);
-  $: rows = form === 'cow' ? COW_ROWS : form === 'coconut' ? COCONUT_ROWS : HUMAN_ROWS;
+  let classId: ClassId = 'allrounder';
+  $: classId = inRound && $localPlayer ? $localPlayer.classId : $profile.cosmetics.classId;
+  $: rows =
+    classId === 'drifter'
+      ? DRIFTER_ROWS
+      : form === 'cow'
+        ? COW_ROWS
+        : form === 'coconut'
+          ? COCONUT_ROWS
+          : HUMAN_ROWS;
 </script>
 
 <div class="controls-grid">
@@ -70,6 +87,8 @@
   {/each}
   {#if form === 'coconut'}
     <p class="controls-note">{$t('mascot.controls.poundHint')}</p>
+  {:else if classId === 'drifter'}
+    <p class="controls-note">{$t('drifter.controls.noActions')}</p>
   {/if}
 </div>
 

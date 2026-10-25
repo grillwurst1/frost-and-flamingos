@@ -76,7 +76,9 @@
   import SlotCarousel from './SlotCarousel.svelte';
   import MascotClassBadge from './MascotClassBadge.svelte';
   import MascotWardrobePanel from './MascotWardrobePanel.svelte';
-  import { mascotFormForFaction } from '@frost-and-flamingos/shared';
+  import DrifterClassBadge from './DrifterClassBadge.svelte';
+  import DrifterWardrobePanel from './DrifterWardrobePanel.svelte';
+  import { classAvailableForFaction, mascotFormForFaction } from '@frost-and-flamingos/shared';
 
   export let onClose: () => void;
 
@@ -93,6 +95,11 @@
   $: bodyPercent = Math.round(cosmetics.bodyType * 100);
   $: voicePercent = Math.round(((cosmetics.voicePitch - 0.8) / 0.45) * 100);
   $: isMascot = cosmetics.classId === 'mascot';
+  // The drifter wears one fixed painted look: no appearance, outfit, voice or loadout.
+  $: isDrifter = cosmetics.classId === 'drifter';
+  $: fixedLook = isMascot || isDrifter;
+  // A drifter card shows only on a side whose form has shipped (Peak Guard today).
+  $: classIds = CLASS_IDS.filter((classId) => classAvailableForFaction(classId, $profile.faction));
 
   function chooseClass(classId: (typeof CLASS_IDS)[number]): void {
     if (classId === cosmetics.classId) return;
@@ -208,17 +215,18 @@
         <small>{$t('wardrobe.classHint')}</small>
       </div>
       <div class="class-grid">
-        {#each CLASS_IDS as classId (classId)}
+        {#each classIds as classId (classId)}
           <button
             class="class-card"
             class:is-mascot={classId === 'mascot'}
+            class:is-drifter={classId === 'drifter'}
             type="button"
             aria-pressed={cosmetics.classId === classId}
             on:click={() => chooseClass(classId)}
           >
             <strong>{$t(factionClassNameKey($profile.faction, classId))}</strong>
             <span>{$t(classRoleKey(classId))}</span>
-            {#if classId === 'mascot'}<MascotClassBadge />{:else}
+            {#if classId === 'mascot'}<MascotClassBadge />{:else if classId === 'drifter'}<DrifterClassBadge faction={$profile.faction} />{:else}
             <small class="mono">{$t('hud.health')} {CLASS_STATS[classId].maxHp} · {$t('hud.meters', { value: CLASS_STATS[classId].moveSpeed.toFixed(1) })}</small>
             {/if}
           </button>
@@ -227,7 +235,7 @@
 
       <div class="hairline"></div>
 
-      {#if isMascot}<MascotWardrobePanel faction={$profile.faction} />{:else}
+      {#if isMascot}<MascotWardrobePanel faction={$profile.faction} />{:else if isDrifter}<DrifterWardrobePanel faction={$profile.faction} />{:else}
       <div class="section-heading">
         <span>{$t('wardrobe.appearance')}</span>
         <small>{$t('wardrobe.bodyTypeHint')}</small>
@@ -291,6 +299,7 @@
       </div>
 
       {/if}
+      {#if !isDrifter}
       <label class="range-field" for="wardrobe-voice">
         <span>{$t('wardrobe.voice')}</span>
         <strong class="mono">{voicePercent}%</strong>
@@ -311,8 +320,9 @@
         </button>
       </div>
       <p class="field-hint">{$t('wardrobe.voiceHint')}</p>
+      {/if}
 
-      {#if !isMascot}
+      {#if !fixedLook}
       <div class="hairline"></div>
 
       <div class="section-heading">
@@ -443,6 +453,8 @@
         </button>
       </div>
 
+      <!-- Nothing can freeze, singe or soot the drifter: no effect previews for her. -->
+      {#if !isDrifter}
       <div class="effect-grid">
         {#each effects as effect (effect.id)}
           <button
@@ -455,6 +467,7 @@
           </button>
         {/each}
       </div>
+      {/if}
 
       <div class="wardrobe-actions">
         <button class="btn-primary" type="button" on:click={shuffle}>{$t('wardrobe.randomize')}</button>

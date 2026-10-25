@@ -1,10 +1,15 @@
 <script lang="ts">
-  import { ParachuteState } from '@frost-and-flamingos/shared';
+  import { ParachuteState, drifterFormForFaction } from '@frost-and-flamingos/shared';
   import { connection, damageFlash, localPlayer } from '../../state/game';
   import { t } from '../../state/locale';
+  import DrifterEmblem from '../DrifterEmblem.svelte';
 
   $: player = $localPlayer;
   $: faction = player?.faction ?? 'alpine';
+  // The drifter cannot be hurt: her vitality bar becomes the "untouchable" badge.
+  $: untouchable = player?.classId === 'drifter';
+  // Teammates see what the friendly drifter's aura is doing for them.
+  $: auraForm = drifterFormForFaction(faction);
   $: maxHp = Math.max(1, player?.maxHp ?? 100);
   $: hp = Math.max(0, player?.hp ?? maxHp);
   $: healthPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100));
@@ -36,9 +41,17 @@
     {#if player?.swimming}<span class="status-tag">{$t('hud.swimming')}</span>{/if}
     {#if player?.sprinting}<span class="status-tag">{$t('hud.sprinting')}</span>{/if}
     {#if player?.crouched}<span class="status-tag">{$t('hud.crouched')}</span>{/if}
+    {#if player?.auraHealed}<span class={`status-tag is-aura is-${auraForm}`}>{$t(`drifter.hud.healed.${auraForm}`)}</span>{/if}
+    {#if player?.auraResupplied}<span class={`status-tag is-aura is-${auraForm}`}>{$t('drifter.hud.resupplied')}</span>{/if}
   </div>
 
   <div class="status-bar">
+    {#if untouchable}
+    <div class={`sb-untouchable is-${auraForm}`} role="status" title={$t('drifter.hud.untouchableHint')}>
+      <DrifterEmblem form={auraForm} size={34} />
+      <strong>{$t('drifter.hud.untouchable')}</strong>
+    </div>
+    {:else}
     <!-- Heart + vitality bar. -->
     <div class="sb-heart" aria-hidden="true">
       <svg viewBox="0 0 48 44" focusable="false">
@@ -67,6 +80,7 @@
       {/if}
       <span class="sb-shine"></span>
     </div>
+    {/if}
 
     <!-- Tickets: Alps vs Beach, two plain badges. A small caret marks the player's side. -->
     <div

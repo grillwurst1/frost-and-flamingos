@@ -3,8 +3,10 @@ import { Engine } from '@babylonjs/core/Engines/engine';
 import { WebGPUEngine } from '@babylonjs/core/Engines/webgpuEngine';
 import { Vector3 } from '@babylonjs/core/Maths/math';
 import { Scene } from '@babylonjs/core/scene';
+import { get } from 'svelte/store';
 import {
   CLASS_STATS,
+  CROUCH_HEIGHT_SCALE,
   FIXED_DT,
   InputButton,
   MASCOT_SLOT_WEAPONS,
@@ -20,6 +22,7 @@ import {
   classStatsFor,
   createDefaultProfile,
   mascotFormOf,
+  classCapabilities,
   profileAppearanceKey,
   skillsForClass,
   surfaceTagAt,
@@ -50,6 +53,8 @@ import { createCritterViewFactory } from '../rendering/critters/hen-view';
 import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
 import { WardrobeStage } from '../rendering/glb/wardrobe-stage';
 import { MascotFx } from '../rendering/mascot-fx';
+import { DrifterFx } from '../rendering/drifter-fx';
+import { TracerFx } from '../rendering/tracer-fx';
 import {
   createShadowMaterial,
   createToonMaterial,
@@ -68,6 +73,8 @@ import {
   localPlayer,
   notify,
   pushKillFeed,
+  scoreboard,
+  scoreboardOpen,
   showComicPop,
   showHitMarker,
   phase,
@@ -84,6 +91,7 @@ import {
   wardrobeSpin,
   type GamePhase,
   type RendererName,
+  type ScoreboardRow,
   type WardrobeEffect,
 } from '../state/game';
 import {
@@ -104,6 +112,7 @@ import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from
 import { InputController } from './input';
 import { CritterClient } from './critter-client';
 import { cameraProfileFor, MascotClient } from './mascot-client';
+import { DrifterClient } from './drifter-client';
 
 const INTERPOLATION_DELAY_MS = 110;
 const SNAPSHOT_HISTORY = 40;
@@ -332,6 +341,10 @@ export class GameClient {
   private mascotFx: MascotFx | null = null;
   private mascots: MascotClient | null = null;
   private critters: CritterClient | null = null;
+  private drifters: DrifterClient | null = null;
+  private tracers: TracerFx | null = null;
+  /** Rendered feet per player id this frame (local prediction, remote interpolation). */
+  private readonly renderedFeet = new Map<number, Vec3>();
   private previewKey: string | null = null;
   private previewYaw = 0.35;
   private previewSpin = true;
@@ -440,6 +453,7 @@ export class GameClient {
         this.slowMenuSince = 0;
       }
       this.currentPhase = next;
+      if (next !== 'playing' && next !== 'deploying') scoreboardOpen.set(false);
       this.look?.setBooting(next === 'booting');
       audio.setScene(
         next === 'booting'
@@ -505,8 +519,16 @@ export class GameClient {
         onWheel: (delta) => this.cameraRig?.zoom(delta),
         onSwapShoulder: () => this.cameraRig?.swapShoulder(),
         onToggleDebug: () => debugVisible.update((visible) => !visible),
+        onScoreboard: (held) => {
+          const open = held && (this.currentPhase === 'playing' || this.currentPhase === 'deploying');
+          scoreboardOpen.set(open);
+          if (open) this.lastHudAt = 0;
+          return open;
+        },
         onTaunt: () => {
           const profile = this.localProfile;
+          // The drifter has no voice and no taunt: she only walks.
+          if (profile?.cosmetics.classId === 'drifter') return;
           if (profile && !this.mascots?.playTaunt(profile)) {
             audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
             this.localView?.taunt?.();
@@ -569,6 +591,15 @@ export class GameClient {
         viewFactory: createCritterViewFactory(scene),
       });
       if (import.meta.env.DEV) this.installCritterDevTools();
+      this.tracers = new TracerFx(scene, (origin, direction, maxDistance) =>
+        this.physics?.raycast(origin, direction, maxDistance)?.distance ?? null,
+      );
+      this.drifters = new DrifterClient(
+        new DrifterFx(scene, (x, z, fromY) => {
+          const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 12);
+          return hit ? hit.point.y : fromY - 4;
+        }),
+      );
       this.look?.attachMap(this.visuals);
       if (import.meta.env.DEV) {
         installMapDevTools({
@@ -777,6 +808,10 @@ export class GameClient {
     this.remoteViews.clear();
     this.mascotFx?.dispose();
     this.critters?.dispose();
+    this.drifters?.dispose();
+    this.drifters = null;
+    this.tracers?.dispose();
+    this.tracers = null;
     audio.setRollRumble(0);
     this.physics?.dispose();
     this.look?.dispose();
@@ -1122,6 +1157,14 @@ export class GameClient {
         if (event.actorId === this.localId) return;
         const weaponId = WEAPON_TABLE.byCode[event.paramValue];
         if (weaponId) audio.playWeaponFire(weaponId, actor?.position);
+        if (weaponId && actor) {
+          // From the rendered (interpolated) shooter, at a crouched eye when crouched.
+          const stats = classStatsFor(actor.classId, actor.faction);
+          const feet = this.renderedFeet.get(event.actorId) ?? actor.position;
+          const height = actor.crouched ? stats.height * CROUCH_HEIGHT_SCALE : stats.height;
+          const eye = { x: feet.x, y: feet.y + height - stats.radius * 0.65, z: feet.z };
+          this.tracers?.shot(weaponId, eye, event.paramX / 100, event.paramZ / 100);
+        }
         this.remoteViews.get(event.actorId)?.view.kick?.(event.paramZ / 100);
         return;
       }
@@ -1408,6 +1451,8 @@ export class GameClient {
     this.updateRemoteViews(delta, now);
     const listener = this.cameraRig?.camera.position;
     this.critters?.update(delta, now, listener ? { x: listener.x, y: listener.y, z: listener.z } : null);
+    this.updateDrifters(delta);
+    this.tracers?.update(delta);
     this.mascotFx?.update(delta);
     this.updateAudio(delta);
     this.updateMaterials(now);
@@ -1434,7 +1479,9 @@ export class GameClient {
       this.lastWeaponSlot = slot;
       this.fireHeld = false;
       this.lastFireSentAt = 0;
-      audio.playUi('equip');
+      // Armed classes draw a weapon and mascots pick a move (the click is the
+      // only confirmation of which one); the drifter has nothing to pick.
+      if (character.form || classCapabilities(this.localClass).armed) audio.playUi('equip');
     }
 
     const input: PlayerInput = {
@@ -1474,8 +1521,11 @@ export class GameClient {
     });
     if (this.pendingInputs.length > MAX_PREDICTION_REPLAY) this.pendingInputs.shift();
     this.network.sendInput(input);
-    // Mascots carry no firearms: their slots are the motor-driven moves.
-    if (!character.form) this.maybeSendFire(buttons, slot, character, camera);
+    // Mascots carry no firearms (their slots are the motor-driven moves) and
+    // drifters carry nothing at all.
+    if (!character.form && classCapabilities(this.localClass).armed) {
+      this.maybeSendFire(buttons, slot, character, camera);
+    }
   }
 
   private maybeSendFire(
@@ -1519,6 +1569,12 @@ export class GameClient {
       weaponId: WEAPON_TABLE.code[weaponId],
     });
     audio.playWeaponFire(weaponId, undefined, true);
+    this.tracers?.shot(
+      weaponId,
+      { x: character.position.x, y: character.position.y + character.eyeHeight, z: character.position.z },
+      camera.lookYaw,
+      camera.lookPitch,
+    );
     this.localView?.kick?.();
     if (stats.magazine > 0 && state && state.ammo <= 0) audio.playDryFire();
   }
@@ -1604,12 +1660,19 @@ export class GameClient {
       parachuteState: character.parachuteState,
       parachuteBlend: character.parachuteBlend,
       parachuteSway: character.parachuteSwayAngle,
-      weaponId: this.localProfile
-        ? weaponForSlot(this.localProfile.loadout, this.input?.currentWeaponSlot() ?? 1)
-        : null,
+      weaponId:
+        this.localProfile && classCapabilities(this.localClass).armed
+          ? weaponForSlot(this.localProfile.loadout, this.input?.currentWeaponSlot() ?? 1)
+          : null,
       pitch: this.cameraRig?.lookPitch ?? 0,
       reloading: this.latestLocalState?.reloading ?? false,
     };
+    if (this.localId !== null) this.renderedFeet.set(this.localId, character.position);
+    if (character.drifter && this.drifters && this.localId !== null) {
+      const extras = this.drifters.poseFor(this.localId, character.position, this.localFaction);
+      pose.stare = extras.stare;
+      pose.shimmer = extras.shimmer;
+    }
     view.update(delta, pose);
     if (this.localId !== null) {
       this.mascots?.dizzy(
@@ -1717,6 +1780,9 @@ export class GameClient {
       const heading = previous
         ? previous.heading + shortestAngle(previous.heading, player.heading) * t
         : player.heading;
+      this.renderedFeet.set(player.id, position);
+      const drifterExtras =
+        player.classId === 'drifter' ? this.drifters?.poseFor(player.id, position, player.faction) : undefined;
       remote.view.update(delta, {
         position,
         velocity,
@@ -1732,9 +1798,14 @@ export class GameClient {
         sprinting: player.sprinting,
         rolling: player.rolling,
         parachuteState: player.parachuteState,
-        weaponId: weaponForSlot(profile.loadout, player.weaponSlot),
+        // Drifters are unarmed: nothing in their hands.
+        weaponId: classCapabilities(player.classId).armed ? weaponForSlot(profile.loadout, player.weaponSlot) : null,
         reloading: player.reloading,
+        stare: drifterExtras?.stare ?? null,
+        shimmer: drifterExtras?.shimmer ?? 0,
       });
+      // A drifter glides without a sound: no steps, splashes or landings.
+      const silent = player.classId === 'drifter';
 
       const remoteSpeed = Math.hypot(velocity.x, velocity.z);
       const remoteForm = this.mascots?.formOf(this.profiles.get(player.id), player) ?? null;
@@ -1750,15 +1821,17 @@ export class GameClient {
           position,
         );
       }
-      if (player.swimming && !remote.wasSwimming) {
+      if (silent) {
+        // (nothing)
+      } else if (player.swimming && !remote.wasSwimming) {
         audio.playSplash(position, true);
       } else if (!player.swimming && remote.wasSwimming) {
         audio.playSplash(position);
       }
-      if (player.grounded && !remote.wasGrounded && !player.swimming) {
+      if (player.grounded && !remote.wasGrounded && !player.swimming && !silent) {
         audio.playLand(position);
       }
-      if (player.rolling || remoteForm) {
+      if (player.rolling || remoteForm || silent) {
         remote.stepDistance = 0;
       } else if (player.grounded && !player.swimming && remoteSpeed > 0.6) {
         remote.stepDistance += remoteSpeed * delta;
@@ -1790,10 +1863,79 @@ export class GameClient {
       if (now - remote.lastSeenAt > REMOTE_TIMEOUT_MS) {
         remote.view.dispose();
         this.remoteViews.delete(id);
+        this.renderedFeet.delete(id);
         this.mascots?.forget(id);
         this.mascotFx?.setDizzy(id, null);
       }
     }
+  }
+
+  /** Live scoreboard rows (Tab): every player in the latest snapshot with name and score. */
+  private publishScoreboard(): void {
+    const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
+    if (!latest) return;
+    const rows: ScoreboardRow[] = latest.players.map((player) => {
+      const profile = player.id === this.localId ? this.localProfile : this.profiles.get(player.id);
+      return {
+        id: player.id,
+        name: profile?.displayName ?? `#${player.id}`,
+        faction: player.faction,
+        classId: player.classId,
+        kills: player.kills,
+        deaths: player.deaths,
+        support: player.support,
+        alive: player.alive,
+        local: player.id === this.localId,
+      };
+    });
+    rows.sort((a, b) => b.kills - a.kills || b.support - a.support || a.deaths - b.deaths || a.id - b.id);
+    scoreboard.set(rows);
+  }
+
+  /** Aura ring, notes/cocktails, lullaby and healing gestures of every drifter. */
+  private updateDrifters(delta: number): void {
+    const drifters = this.drifters;
+    if (!drifters) return;
+    const inRound = this.currentPhase === 'playing' || this.currentPhase === 'paused' || this.currentPhase === 'deploying';
+    const latest = inRound ? this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot : undefined;
+    const camera = this.cameraRig?.camera;
+    drifters.update(delta, {
+      snapshot: latest,
+      positionOf: (id) => this.renderedFeet.get(id) ?? null,
+      viewFor: (id) => (id === this.localId ? this.localView : this.remoteViews.get(id)?.view ?? null),
+      localFaction: this.localFaction,
+      listener: camera ? { x: camera.position.x, y: camera.position.y, z: camera.position.z } : null,
+    });
+  }
+
+  /** Teammates the local drifter's aura supplies (server flags, nearest friendly drifter). */
+  private countAuraTargets(state: PlayerState | null): number {
+    if (!state || this.localId === null) return 0;
+    const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
+    if (!latest) return 0;
+    const drifters = latest.players.filter(
+      (player) => player.classId === 'drifter' && player.alive && player.faction === state.faction,
+    );
+    let count = 0;
+    for (const mate of latest.players) {
+      if (!mate.alive || mate.classId === 'drifter' || mate.faction !== state.faction) continue;
+      if (!mate.auraHealed && !mate.auraResupplied) continue;
+      let nearest: PlayerState | null = null;
+      let best = Number.POSITIVE_INFINITY;
+      for (const drifter of drifters) {
+        const distance = Math.hypot(
+          drifter.position.x - mate.position.x,
+          drifter.position.y - mate.position.y,
+          drifter.position.z - mate.position.z,
+        );
+        if (distance < best) {
+          best = distance;
+          nearest = drifter;
+        }
+      }
+      if (nearest?.id === this.localId) count += 1;
+    }
+    return count;
   }
 
   private updateAudio(delta: number): void {
@@ -1838,9 +1980,10 @@ export class GameClient {
     }
 
     const buttons = character.buttons;
+    const drifting = character.drifter !== null;
     const pressedJump = (buttons & InputButton.Jump) !== 0 && (this.lastAudioButtons & InputButton.Jump) === 0;
-    if (pressedJump && this.audioGrounded) audio.playJump();
-    if (!this.audioGrounded && character.grounded && !character.swimming) audio.playLand();
+    if (pressedJump && this.audioGrounded && !drifting) audio.playJump();
+    if (!this.audioGrounded && character.grounded && !character.swimming && !drifting) audio.playLand();
     if (character.swimming && !this.audioSwimming) {
       audio.playSplash(position, true);
       this.swimStrokeTimer = 0.7;
@@ -1872,8 +2015,9 @@ export class GameClient {
     } else {
       audio.setRollRumble(0);
     }
-    if (character.form) {
-      // Footsteps are replaced by the mascot foley above.
+    if (character.form || drifting) {
+      // Footsteps are replaced by the mascot foley above; the drifter glides silently.
+      this.stepDistance = 0;
     } else if (character.grounded && !character.swimming && !character.rolling && speed > 0.6) {
       this.stepDistance += speed * delta;
       const stride = character.sprinting ? 1.9 : character.crouched ? 2.9 : 2.4;
@@ -1985,9 +2129,14 @@ export class GameClient {
         cloaked: state?.cloaked ?? false,
         alive: state?.alive ?? true,
         zoneKey: zone.labelKey,
+        support: state?.support ?? 0,
+        auraHealed: state?.auraHealed ?? false,
+        auraResupplied: state?.auraResupplied ?? false,
+        auraTargets: this.localClass === 'drifter' ? this.countAuraTargets(state) : 0,
       });
       this.mascots?.publishHud(character, state, this.localFaction, weaponSlot);
     }
+    if (get(scoreboardOpen)) this.publishScoreboard();
 
     if (this.lastDamageAt > 0) {
       const flash = Math.max(0, 1 - (now - this.lastDamageAt) / 520);

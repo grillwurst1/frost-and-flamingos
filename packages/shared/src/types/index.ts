@@ -1,7 +1,12 @@
 export type Faction = 'alpine' | 'lagoon';
-export type ClassId = 'allrounder' | 'heavy' | 'infiltrator' | 'mascot';
+export type ClassId = 'allrounder' | 'heavy' | 'infiltrator' | 'mascot' | 'drifter';
 /** The mascot class has two physical forms, resolved from the player's faction. */
 export type MascotForm = 'cow' | 'coconut';
+/**
+ * The untouchable drifter class has one form per faction: the Peak Guard's
+ * Creepy Mountain Girl and the Lagoon League's Hot Beach Girl.
+ */
+export type DrifterForm = 'mountain_girl' | 'beach_girl';
 export type Locale = 'en' | 'de';
 
 export interface Vec2 {
@@ -262,6 +267,14 @@ export interface PlayerState {
   boosted: boolean;
   /** Standing in an enemy coconut-milk puddle: ice-like traction. */
   slippery: boolean;
+  /** Support points earned (drifter supply aura; 0 for everyone else so far). */
+  support: number;
+  /** A friendly drifter's aura is healing this player right now. */
+  auraHealed: boolean;
+  /** A friendly drifter's aura is refilling this player's reserve ammo right now. */
+  auraResupplied: boolean;
+  /** Drifter only: her aura is supplying at least one teammate right now. */
+  auraActive: boolean;
   /** Present only for the mascot class. */
   mascot: MascotWireState | null;
 }

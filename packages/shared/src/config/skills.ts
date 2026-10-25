@@ -210,12 +210,15 @@ export const SKILLS: Record<SkillId, SkillDefinition> = {
   },
 };
 
-export const CLASS_SKILLS: Record<ClassId, readonly [SkillId, SkillId, SkillId]> = {
+/** Q/E/T skills per class: three for the fighting classes, none for the drifter. */
+export const CLASS_SKILLS: Record<ClassId, readonly SkillId[]> = {
   allrounder: ['heal_snack', 'ram_sprint', 'battle_shout'],
   heavy: ['armor_plate', 'barrel_blast', 'ground_slam'],
   infiltrator: ['cloak', 'smoke_bomb', 'grapple_dash'],
   // Nominal (cow) entry; the real set depends on the form — see MASCOT_SKILLS.
   mascot: ['horn_charge', 'hoof_stomp', 'cowbell_clang'],
+  // The drifter walks and supplies (her aura is passive); she has no skills.
+  drifter: [],
 };
 
 /** Mascot slots 1–3 per form. */
@@ -225,16 +228,17 @@ export const MASCOT_SKILLS: Record<MascotForm, readonly [SkillId, SkillId, Skill
 };
 
 /**
- * Skills of a class. Mascots resolve their form from the faction; without a
- * faction the nominal (cow) set is returned.
+ * Skills of a class in slot order (empty for the drifter). Mascots resolve
+ * their form from the faction; without a faction the nominal (cow) set is
+ * returned.
  */
 export function skillsForClass(
   classId: ClassId,
   faction?: Faction,
-): readonly [SkillDefinition, SkillDefinition, SkillDefinition] {
+): readonly SkillDefinition[] {
   const ids =
     classId === 'mascot' && faction
       ? MASCOT_SKILLS[mascotFormForFaction(faction)]
       : CLASS_SKILLS[classId];
-  return [SKILLS[ids[0]], SKILLS[ids[1]], SKILLS[ids[2]]];
+  return ids.map((id) => SKILLS[id]);
 }
