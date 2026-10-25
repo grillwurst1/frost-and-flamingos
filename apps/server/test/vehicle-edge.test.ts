@@ -655,6 +655,51 @@ describe('vehicle edge cases', () => {
     room.stop();
   });
 
+  test('the 10 m tank road is free of props; the ones moved off it keep 1.5 m from its edge', () => {
+    const halfWidth = FjordLayout.TANK_ROAD_WIDTH / 2;
+    // Dense centre-line samples with their road height.
+    const samples: Vec3[] = [];
+    for (let index = 0; index + 1 < TANK_ROAD_POINTS.length; index += 1) {
+      const a = TANK_ROAD_POINTS[index];
+      const b = TANK_ROAD_POINTS[index + 1];
+      if (!a || !b) continue;
+      for (let k = 0; k < 8; k += 1) samples.push({ x: a.x + ((b.x - a.x) * k) / 8, y: a.y + ((b.y - a.y) * k) / 8, z: a.z + ((b.z - a.z) * k) / 8 });
+    }
+    const moved = new Set(['summit_crates_1', 'summit_crates_2', 'summit_snowman_0', 'summit_woodpile_0', 'alpine_crates_0', 'alpine_flag_0', 'silo_arch_north']);
+    // The road starts inside the alpine hangar and crosses the gorge on the
+    // stone arch; the coaster start deck (fixed by the coaster route) reaches
+    // over its east edge at the summit.
+    const exempt = new Set(['alpine_hangar', 'stone_arch', 'coaster_platform']);
+    const intrusions: string[] = [];
+    let movedMin = Number.POSITIVE_INFINITY;
+    let pylonMin = Number.POSITIVE_INFINITY;
+    for (const prop of FJORD_MAP.props) {
+      if (exempt.has(prop.id)) continue;
+      for (const collider of prop.colliders) {
+        const yaw = prop.rotationY + (collider.type === 'box' ? (collider.rotation?.y ?? 0) : 0);
+        const centre = vehicleLocalToWorld(prop.position, prop.rotationY, collider.offset);
+        const halfY = collider.type === 'box' ? collider.halfExtents.y : collider.type === 'sphere' ? collider.radius : collider.halfHeight;
+        let clearance = Number.POSITIVE_INFINITY;
+        for (const sample of samples) {
+          // Only colliders at road level (not bridges overhead or posts in the gorge below).
+          if (centre.y + halfY < sample.y - 0.5 || centre.y - halfY > sample.y + 4) continue;
+          const local = vehicleLocalToWorld({ x: 0, y: 0, z: 0 }, -yaw, { x: sample.x - centre.x, y: 0, z: sample.z - centre.z });
+          const distance =
+            collider.type === 'box'
+              ? Math.hypot(Math.max(0, Math.abs(local.x) - collider.halfExtents.x), Math.max(0, Math.abs(local.z) - collider.halfExtents.z))
+              : Math.hypot(local.x, local.z) - collider.radius;
+          clearance = Math.min(clearance, distance - halfWidth);
+        }
+        if (moved.has(prop.id)) movedMin = Math.min(movedMin, clearance);
+        if (prop.kind === 'tbar_pylon') pylonMin = Math.min(pylonMin, clearance);
+        const required = moved.has(prop.id) || prop.kind === 'tbar_pylon' ? 1.5 : 0;
+        if (clearance < required) intrusions.push(`${prop.id} ${round(clearance)}`);
+      }
+    }
+    report('tank road clearance', { intrusions, movedPropsMinClearance: round(movedMin), tbarMastsMinClearance: round(pylonMin) });
+    expect(intrusions).toEqual([]);
+  });
+
   test('the Fondue Crawler drives the whole serpentine tank road down and up again', async () => {
     const room = await createRoom();
     const slot = slotBySpawn('crawler_base');
@@ -662,31 +707,9 @@ describe('vehicle edge cases', () => {
     room.vehicles.devEnter(playerOf(room, driver.id) as never, slot.id, 0);
     const body = room.vehicles.vehicleBody(slot.id);
     if (!body) throw new Error('no crawler');
-    // A driver steers around props standing on the centre line (crate stacks
-    // at the summit, two T-bar pylons and the cheese silo by the arch); the
-    // stone arch itself is the road.
-    const blockers = FJORD_MAP.props.filter((prop) => prop.colliders.length > 0 && prop.kind !== 'stone_arch');
-    const avoided = new Set<string>();
-    const road = TANK_ROAD_POINTS.map((point, index) => {
-      const previous = TANK_ROAD_POINTS[Math.max(0, index - 1)] ?? point;
-      const next = TANK_ROAD_POINTS[Math.min(TANK_ROAD_POINTS.length - 1, index + 1)] ?? point;
-      const length = Math.hypot(next.x - previous.x, next.z - previous.z) || 1;
-      const normal = { x: (next.z - previous.z) / length, z: -(next.x - previous.x) / length };
-      let shifted = { ...point };
-      for (const prop of blockers) {
-        const dx = prop.position.x - point.x;
-        const dz = prop.position.z - point.z;
-        if (Math.hypot(dx, dz) > 6) continue;
-        const across = dx * normal.x + dz * normal.z;
-        const shift = 4.6 - Math.abs(across);
-        if (shift <= 0) continue;
-        const side = across >= 0 ? -1 : 1;
-        shifted = { x: shifted.x + normal.x * side * shift, y: shifted.y, z: shifted.z + normal.z * side * shift };
-        avoided.add(prop.id);
-      }
-      return shifted;
-    });
-    const results: Record<string, unknown> = { steeredAround: [...avoided] };
+    // The autopilot follows the centre line itself: nothing stands on the road.
+    const road = TANK_ROAD_POINTS;
+    const results: Record<string, unknown> = {};
     for (const direction of ['down', 'up'] as const) {
       const path = direction === 'down' ? road : [...road].reverse();
       const first = path[0];

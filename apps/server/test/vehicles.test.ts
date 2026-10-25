@@ -108,9 +108,8 @@ describe('vehicle framework (fondue crawler)', () => {
     expect(turned).toBeGreaterThan(2);
     // Up the serpentine tank road (it climbs from the gorge to the summit).
     const uphill = [...TANK_ROAD_POINTS].reverse();
-    // (The section past x 158 runs into a T-bar pylon standing in the road.)
     const from = uphill.findIndex((point) => point.x > 112 && point.z > 166 && point.z < 182);
-    const path = uphill.slice(Math.max(0, from), Math.max(0, from) + 13).filter((point) => point.x < 157);
+    const path = uphill.slice(Math.max(0, from), Math.max(0, from) + 13);
     const first = path[0];
     if (!first) throw new Error('no road');
     const next = path[1] ?? first;

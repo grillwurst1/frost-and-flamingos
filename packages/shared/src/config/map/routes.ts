@@ -187,6 +187,8 @@ const TBAR_CABLE_HEIGHT = 6.2;
 const TBAR_PYLON_SPACING = 26;
 /** Masts stand to the left of the track and reach over it with a crossarm. */
 export const TBAR_MAST_OFFSET = 2.8;
+/** Where the lift line crosses the tank road, masts keep 1.5 m clear of the road edge (+ mast radius). */
+const TBAR_MAST_ROAD_CLEARANCE = TANK_ROAD_WIDTH / 2 + 1.5 + 0.5;
 
 function buildTBar(): TBarRoute {
   const dx = TBAR_TOP.x - TBAR_BOTTOM.x;
@@ -203,8 +205,23 @@ function buildTBar(): TBarRoute {
   const pylonCount = Math.max(1, Math.round(horizontal / TBAR_PYLON_SPACING) - 1);
   const pylons: Vec3[] = [];
   const cablePoints: Vec3[] = [vec3(TBAR_BOTTOM.x, sampleMapHeight(TBAR_BOTTOM.x, TBAR_BOTTOM.z) + TBAR_CABLE_HEIGHT - 1, TBAR_BOTTOM.z)];
+  // Masts stand at TBAR_MAST_OFFSET to the left of the line (see structures.ts).
+  const yaw = Math.atan2(dx, dz);
+  const mastClear = (t: number): boolean =>
+    projectOnPolyline(
+      TBAR_BOTTOM.x + dx * t - Math.cos(yaw) * TBAR_MAST_OFFSET,
+      TBAR_BOTTOM.z + dz * t + Math.sin(yaw) * TBAR_MAST_OFFSET,
+      TANK_ROAD_POINTS,
+    ).distance >= TBAR_MAST_ROAD_CLEARANCE;
   for (let index = 1; index <= pylonCount; index += 1) {
-    const t = index / (pylonCount + 1);
+    // Evenly spaced, except that a mast never stands on the tank road: it
+    // slides along the lift line to the nearest clear spot.
+    const nominal = index / (pylonCount + 1);
+    let t = nominal;
+    for (let shift = 0; shift <= 0.15 && !mastClear(t); shift += 0.002) {
+      if (mastClear(nominal - shift)) t = nominal - shift;
+      else if (mastClear(nominal + shift)) t = nominal + shift;
+    }
     const x = TBAR_BOTTOM.x + dx * t;
     const z = TBAR_BOTTOM.z + dz * t;
     const top = vec3(x, sampleMapHeight(x, z) + TBAR_CABLE_HEIGHT, z);
