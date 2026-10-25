@@ -117,6 +117,9 @@ const HOLD_OFFSETS: Readonly<Record<HoldStyle, readonly [number, number, number]
   umbrella: [0.2, -0.12, 0.2],
 };
 
+/** Shoulder-anchored holds: the most the weapon moves for the support hand. */
+const MAX_SUPPORT_PULL = 0.08;
+
 const AXIS_X = new Vector3(1, 0, 0);
 const AXIS_Y = new Vector3(0, 1, 0);
 
@@ -208,9 +211,15 @@ export class GlbCharacterView implements AvatarView {
   private readonly armedModel: boolean;
   private readonly scale: number;
   private readonly shoulderHalf: number;
+  /** Bind-pose shoulder midpoint in Spine2's frame (shoulder-anchored holds). */
+  private readonly shoulderLocal: Vector3 | null;
+  /** Bind-pose right arm length (shoulder → elbow → wrist). */
+  private readonly armLength: number;
   private readonly bulk: number;
   private weapon: WeaponProp | null = null;
   private weaponId: WeaponId | null = null;
+  /** True once driven by updatePreview (wardrobe / menu turntable). */
+  private previewing = false;
   private effects: CharacterMaterialState = { battleDamage: 0, charred: 0, frozen: 0 };
   private yaw = 0;
   private disposed = false;
@@ -253,6 +262,15 @@ export class GlbCharacterView implements AvatarView {
     const leftArm = asset.bindPositions.get('LeftArm');
     const rightArm = asset.bindPositions.get('RightArm');
     this.shoulderHalf = leftArm && rightArm ? Math.max(0.1, Math.abs(leftArm.x - rightArm.x) / 2) : 0.2;
+    const spine2 = bindWorldTransform(asset, 'Spine2');
+    this.shoulderLocal =
+      spine2 && leftArm && rightArm
+        ? leftArm.add(rightArm).scaleInPlace(0.5).subtractInPlace(spine2.position).rotateByQuaternionToRef(Quaternion.Inverse(spine2.rotation), new Vector3())
+        : null;
+    const rightElbow = asset.bindPositions.get('RightForeArm');
+    const rightWrist = asset.bindPositions.get('RightHand');
+    this.armLength =
+      rightArm && rightElbow && rightWrist ? Vector3.Distance(rightArm, rightElbow) + Vector3.Distance(rightElbow, rightWrist) : 0.43;
 
     this.root = new TransformNode('glb-character-root', scene);
     this.tiltPivot = new TransformNode('glb-tilt-pivot', scene);
@@ -517,6 +535,15 @@ export class GlbCharacterView implements AvatarView {
     } else {
       this.recoil = 1;
     }
+    this.weapon?.fire?.();
+  }
+
+  /** World position of the held weapon's muzzle socket (shots, tracers), or null. */
+  muzzlePosition(): Vector3 | null {
+    const muzzle = this.weapon?.muzzle;
+    if (!muzzle || !this.weapon?.mesh.isEnabled()) return null;
+    muzzle.computeWorldMatrix(true);
+    return muzzle.getAbsolutePosition().clone();
   }
 
   /** Taunt/victory clip (T key); ignored when the model has none. */
@@ -525,6 +552,7 @@ export class GlbCharacterView implements AvatarView {
   }
 
   updatePreview(deltaSeconds: number, spin: number, weaponId?: WeaponId | null): void {
+    this.previewing = true;
     this.setYaw(spin, true);
     this.update(deltaSeconds, {
       position: { x: this.root.position.x, y: this.root.position.y, z: this.root.position.z },
@@ -685,6 +713,7 @@ export class GlbCharacterView implements AvatarView {
     this.armed = approach(this.armed, weaponVisible ? 1 : 0, dt * 6);
     this.setWeapon(this.armedModel ? pose.weaponId ?? null : null);
     if (this.weapon) this.weapon.mesh.setEnabled(this.armed > 0.3);
+    this.weapon?.animate?.(dt, { airborne: airborne && this.airTime > 0.35, preview: this.previewing });
 
     if (this.remotePitchTimer > 0) this.remotePitchTimer -= dt;
     const pitchInput = pose.pitch ?? (this.remotePitchTimer > 0 ? this.remotePitch : 0);
@@ -926,12 +955,27 @@ export class GlbCharacterView implements AvatarView {
     const chest = rig.position('Spine2');
     if (!chest) return;
     const hold = weapon.hold;
-    const offset = HOLD_OFFSETS[style];
+    const offset = hold.offset ?? HOLD_OFFSETS[style];
     const aim = Quaternion.RotationAxis(AXIS_X, -this.pitch * blend);
+    // Shoulder-anchored holds sit relative to the shoulder line and scale
+    // with the arm length, so every painted body (high-shouldered heavies,
+    // short-armed scouts) reaches the same grips.
+    // The shoulder point rides rigidly on Spine2 (bind pose), so clavicle
+    // animation in the clips does not move the weapon.
+    let anchor = chest;
+    let reachScale = 1;
+    let clearance = 0;
+    const spineRotation = rig.rotation('Spine2');
+    if (hold.anchor === 'shoulders' && this.shoulderLocal && spineRotation) {
+      anchor = chest.add(this.shoulderLocal.rotateByQuaternionToRef(spineRotation, new Vector3()));
+      reachScale = Math.min(1.25, Math.max(0.8, this.armLength / 0.43));
+      // Bulky bodies (barrel chests, beards, swim rings) push the weapon out.
+      clearance = (this.bulk - 1) * 0.37;
+    }
     const local = toArmature(
       offset[0] * (this.shoulderHalf / 0.2),
-      offset[1],
-      offset[2] - this.recoil * 0.05,
+      offset[1] * reachScale,
+      offset[2] * reachScale + clearance - this.recoil * 0.05,
     );
     let frame = aim;
     if (this.swing >= 0) {
@@ -941,8 +985,10 @@ export class GlbCharacterView implements AvatarView {
       frame = aim.multiply(Quaternion.RotationAxis(AXIS_X, arc * (1 - smoothstep(0.75, 1, t))));
       local.y += 0.12 * Math.sin(Math.PI * Math.min(1, t * 1.4));
     }
-    const grip = chest.add(local.rotateByQuaternionToRef(frame, new Vector3()));
-    const weaponRotation = frame.multiply(Quaternion.RotationAxis(AXIS_X, -hold.tilt));
+    const grip = anchor.add(local.rotateByQuaternionToRef(frame, new Vector3()));
+    const weaponRotation = frame
+      .multiply(Quaternion.RotationAxis(AXIS_Y, hold.yaw ?? 0))
+      .multiply(Quaternion.RotationAxis(AXIS_X, -hold.tilt));
     let support = this.supportPoint(hold, grip, weaponRotation);
     if (support) {
       // Short painted arms: pull the whole weapon towards the left shoulder
@@ -955,7 +1001,10 @@ export class GlbCharacterView implements AvatarView {
         const toShoulder = leftArm.subtract(support);
         const distance = toShoulder.length();
         if (distance > reach && distance > 1e-4) {
-          const shift = toShoulder.scale((distance - reach) / distance);
+          // Shoulder-anchored holds keep their place (pull a little at
+          // most); a hand that still falls short reaches out towards the grip.
+          const pull = Math.min(distance - reach, hold.anchor === 'shoulders' ? MAX_SUPPORT_PULL : Infinity);
+          const shift = toShoulder.scale(pull / distance);
           grip.addInPlace(shift);
           support = support.add(shift);
         }
@@ -1035,7 +1084,9 @@ export class GlbCharacterView implements AvatarView {
   /** Draw calls this view adds to the main pass (body, props, shadow disc). */
   drawCalls(): number {
     let count = 1 + 1 + this.attachments.length;
-    if (this.weapon?.mesh.isEnabled()) count += 1;
+    if (this.weapon?.mesh.isEnabled()) {
+      count += 1 + this.weapon.mesh.getChildMeshes(false).filter((child) => child.isEnabled()).length;
+    }
     if (this.canopyPivot.isEnabled()) count += 1;
     return count;
   }
@@ -1195,6 +1246,10 @@ class PendingPaintedView implements AvatarView {
 
   taunt(): void {
     this.current.taunt?.();
+  }
+
+  muzzlePosition(): Vector3 | null {
+    return this.current.muzzlePosition?.() ?? null;
   }
 
   get isPainted(): boolean {

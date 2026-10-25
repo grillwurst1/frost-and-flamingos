@@ -29,6 +29,7 @@ import {
   type ClassId,
   type Faction,
   type GameEvent,
+  type Loadout,
   type MascotWireState,
   type PlayerInput,
   type PlayerProfile,
@@ -330,6 +331,9 @@ export class GameClient {
   private previewSpin = true;
   private previewFacing: number | null = null;
   private previewEffect: WardrobeEffect = 'none';
+  /** Loadout the preview last saw, and the weapon it shows (the slot changed last). */
+  private previewLoadout: Loadout | null = null;
+  private previewWeapon: WeaponId | null = null;
   private wardrobeIsOpen = false;
   private lastSentProfileFingerprint: string | null = null;
   private profileSendTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1509,7 +1513,25 @@ export class GameClient {
     view.root.setEnabled(menuLike);
     if (!menuLike) return;
     if (this.previewSpin && this.previewFacing === null) this.previewYaw += delta * 0.55;
-    view.updatePreview(delta, this.previewYaw, getProfile().loadout.primary);
+    view.updatePreview(delta, this.previewYaw, this.previewWeaponFor(getProfile().loadout));
+  }
+
+  /**
+   * Weapon in the wardrobe / menu preview's hands: the loadout slot the
+   * player changed last, so a new pick is shown at once (the primary at
+   * first and after a class change swaps the whole loadout).
+   */
+  private previewWeaponFor(loadout: Loadout): WeaponId {
+    const previous = this.previewLoadout;
+    if (previous) {
+      const changed = (['primary', 'secondary', 'gimmick'] as const).filter((slot) => previous[slot] !== loadout[slot]);
+      if (changed.length === 1 && changed[0]) this.previewWeapon = loadout[changed[0]];
+      else if (changed.length > 1) this.previewWeapon = loadout.primary;
+    }
+    this.previewLoadout = { ...loadout };
+    const shown = this.previewWeapon;
+    if (shown !== loadout.primary && shown !== loadout.secondary && shown !== loadout.gimmick) this.previewWeapon = loadout.primary;
+    return this.previewWeapon ?? loadout.primary;
   }
 
   private updateRemoteViews(delta: number, now: number): void {

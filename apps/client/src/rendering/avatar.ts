@@ -1,3 +1,4 @@
+import type { Vector3 } from '@babylonjs/core/Maths/math';
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Scene } from '@babylonjs/core/scene';
@@ -36,6 +37,8 @@ export interface AvatarView {
   kick?(pitch?: number): void;
   /** Taunt / victory clip. */
   taunt?(): void;
+  /** World position of the held weapon's muzzle socket (flashes, tracers), or null. */
+  muzzlePosition?(): Vector3 | null;
   dispose(): void;
 }
 
