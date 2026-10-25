@@ -37,10 +37,17 @@
  *   7. move the images out of the GLB binary into sidecar files.
  * The heavy lifting runs through the glTF Transform CLI via `bunx`, so no
  * native image toolchain has to live in the workspace dependencies. Only the
- * CLI version is pinned: bunx resolves its @gltf-transform/core, extensions
- * and functions dependencies (^4.5.1) outside bun.lock and needs network
- * access on first use. The committed outputs were built with all four at
- * 4.5.1; a newer 4.x can change the bytes (not the content) of re-runs.
+ * CLI version is pinned: bunx resolves the CLI's dependency tree outside
+ * bun.lock (needs network access on first use), so these float within their
+ * semver ranges. The committed outputs were built with:
+ *   @gltf-transform/cli, core, extensions, functions   4.5.1
+ *   sharp 0.35.5 with @img/sharp-libvips-linux-x64 1.3.4
+ *     (libvips 8.18.7, libwebp 1.6.0)                   texture resize + WebP
+ *   keyframe-resample 0.1.0                              `resample`
+ *   meshoptimizer 1.2.0                                  (loaded by the CLI)
+ * Newer versions in those ranges can change the output bytes, including the
+ * WebP pixels (encoder changes) and the resampled keyframes, not only the
+ * container layout, and with them the manifest sizes.
  */
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
