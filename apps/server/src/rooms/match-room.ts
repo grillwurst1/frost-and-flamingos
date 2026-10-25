@@ -662,12 +662,20 @@ export class MatchRoom {
 
   /**
    * DEV-only vehicle probe (FF_DEV_TOOLS=1): `enter` seats the player in a
-   * vehicle (seat index `value`), `damage` hurts a vehicle by `value`.
+   * vehicle (seat index `value`), `damage` hurts a vehicle by `value`,
+   * `park` moves a vehicle (with its crew) onto the ground or water at x/z.
    */
-  devVehicle(playerId: number, action: string, vehicleId: number, value: number): { ok: boolean } {
+  devVehicle(
+    playerId: number,
+    action: string,
+    vehicleId: number,
+    value: number,
+    place: { x: number; z: number; yaw: number } | null = null,
+  ): { ok: boolean } {
     const player = this.players.get(playerId);
     if (action === 'enter') return { ok: !!player && player.alive && this.vehicles.devEnter(player, vehicleId, Math.max(0, Math.floor(value))) };
     if (action === 'damage') return { ok: this.vehicles.devDamage(vehicleId, null, value) };
+    if (action === 'park' && place) return { ok: this.vehicles.devPark(vehicleId, place.x, place.z, place.yaw) };
     return { ok: false };
   }
 

@@ -196,6 +196,8 @@ export class VehicleClient {
   private promptShown = false;
   private enginesOn = new Set<number>();
   private localId: number | null = null;
+  /** Set on boarding: the camera swings behind the hull on the next camera update. */
+  private faceForward = false;
   private lastCameraYaw = 0;
   /** Prediction correction of the driven vehicle (metres), for the debug HUD. */
   predictionError = 0;
@@ -297,6 +299,7 @@ export class VehicleClient {
     if (changed && seat) {
       const entry = this.entries.get(seat.vehicleId);
       this.localTurret = { yaw: entry?.latest.turretYaw ?? 0, pitch: entry?.latest.turretPitch ?? 0 };
+      if (previous?.vehicleId !== seat.vehicleId) this.faceForward = true;
     }
     if (changed && !seat) vehicleHud.set(null);
   }
@@ -599,6 +602,11 @@ export class VehicleClient {
     camera.setProfile(cameraProfileForVehicle(seat.kind));
     camera.setIgnoredCollider(entry.body.colliderHandle);
     camera.setWobble(0);
+    if (this.faceForward) {
+      // Boarding looks along the hull (and swings the turret forward).
+      camera.resetAngles(entry.render.yaw);
+      this.faceForward = false;
+    }
     // Drivers without a turret get the camera eased behind them while the mouse rests.
     if (seat.driver && !seat.gunner) camera.followHeading(delta, entry.render.yaw, entry.render.speed);
     const position = entry.render.position;
@@ -943,6 +951,7 @@ export class VehicleClient {
   /** DEV probe data. */
   debugInfo(): unknown {
     return {
+      localId: this.localId,
       seat: this.seat,
       predicted: this.predictedId,
       pending: this.pending.length,

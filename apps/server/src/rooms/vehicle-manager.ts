@@ -526,6 +526,18 @@ export class VehicleManager<P extends VehicleOccupant> {
     return true;
   }
 
+  /** Moves an active vehicle onto the ground (or the water) at x/z, facing `yaw` (DEV probe). */
+  devPark(vehicleId: number, x: number, z: number, yaw: number): boolean {
+    const record = this.byId.get(vehicleId);
+    const body = record?.body;
+    if (!record || !body || record.lifecycle !== 'active') return false;
+    const hit = this.physics.raycast({ x, y: 160, z }, { x: 0, y: -1, z: 0 }, 220, body.colliderHandle);
+    const y = record.definition.chassis === 'boat' ? 0 : (hit?.point.y ?? 0) + 0.04;
+    body.teleport({ x, y, z }, yaw);
+    this.placeOccupants();
+    return true;
+  }
+
   /** Applies damage to a vehicle (DEV probe and tests). */
   devDamage(vehicleId: number, attacker: P | null, amount: number): boolean {
     const record = this.byId.get(vehicleId);

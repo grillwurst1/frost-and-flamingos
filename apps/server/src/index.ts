@@ -84,7 +84,10 @@ const server = Bun.serve<SocketData>({
       const value = Number(url.searchParams.get('value') ?? 0);
       const action = url.searchParams.get('action') ?? '';
       if (!Number.isFinite(player) || !Number.isFinite(vehicle) || !Number.isFinite(value)) return json({ ok: false }, 400);
-      return json(room.devVehicle(player, action, vehicle, value));
+      const x = Number(url.searchParams.get('x'));
+      const z = Number(url.searchParams.get('z'));
+      const place = Number.isFinite(x) && Number.isFinite(z) ? { x, z, yaw: Number(url.searchParams.get('yaw') ?? 0) || 0 } : null;
+      return json(room.devVehicle(player, action, vehicle, value, place));
     }
 
     if (url.pathname === '/api/config') {
