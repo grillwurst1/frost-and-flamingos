@@ -3,6 +3,7 @@
   import { t } from '../state/locale';
   import AudioSettings from './AudioSettings.svelte';
   import ControlsList from './ControlsList.svelte';
+  import GraphicsSettings from './GraphicsSettings.svelte';
   import ComicText from './hud/ComicText.svelte';
 
   export let onResume: () => void;
@@ -11,6 +12,7 @@
 
   let showControls = false;
   let showAudio = false;
+  let showGraphics = false;
 
   $: connected = $connection.status === 'connected';
   $: statusLabelKey =
@@ -78,6 +80,18 @@
       </div>
       {#if showAudio}
         <AudioSettings />
+      {/if}
+
+      <div class="hairline panel-gap"></div>
+
+      <div class="panel-row">
+        <h3>{$t('graphics.title')}</h3>
+        <button class="btn-ghost" type="button" aria-expanded={showGraphics} on:click={() => (showGraphics = !showGraphics)}>
+          {showGraphics ? $t('common.close') : $t('menu.settings')}
+        </button>
+      </div>
+      {#if showGraphics}
+        <GraphicsSettings />
       {/if}
 
       <div class="panel-chips">

@@ -20,6 +20,41 @@ The painted tiles, stickers and crests are loaded optionally: if a file is missi
 its procedural SVG pictogram, CSS lettering or SVG crest instead. The id-to-file table lives in
 one place: `apps/client/src/components/icons/painted.ts` (`TILE_FILES`, `COMIC_STICKERS`).
 
+## Painted world art (panorama, clouds, detail textures)
+
+Derived for this project from the owner-supplied Gemini source sheets in `art-src/gemini/` (listed
+in `art-src/gemini/README.md`) and processed locally with PIL and numpy, without external
+services. Same status as the owner art above. Every file is optional: the look falls back to its
+procedural sky, clouds, detail tiles and water foam when one is missing (contract in
+`apps/client/src/rendering/art-assets.ts`).
+
+| File (under `apps/client/public/art/`) | Source (under `art-src/gemini/`) | Processing |
+| --- | --- | --- |
+| `sky/horizon-panorama.jpg` | `gemini-panorama-alps.webp`, `gemini-panorama-lagoon.webp`, `gemini-panorama-trans-a.webp`, `gemini-panorama-trans-b.webp` | 4096 × 1024 seamless 360° band: the four strips joined along min-cost seams, the sky repainted as one shared gradient with the cloud-sheet clouds re-scattered behind the peaks, then upscaled (Lanczos). Horizon at v = 0.717, u = 0 faces north. |
+| `clouds/cloud-01.png` | `gemini-clouds.webp`, cloud 1 (reading order) | Keyed off the magenta ground, despilled, upscaled to 1024 × 412. |
+| `clouds/cloud-02.png` | `gemini-clouds.webp`, cloud 2 | Keyed and despilled, upscaled to 1024 × 497. |
+| `clouds/cloud-03.png` | `gemini-clouds.webp`, cloud 3 | Keyed and despilled, upscaled to 1024 × 547. |
+| `clouds/cloud-04.png` | `gemini-clouds.webp`, cloud 4 | Keyed and despilled, upscaled to 1024 × 506. |
+| `clouds/cloud-05.png` | `gemini-clouds.webp`, cloud 5 | Keyed and despilled, upscaled to 1024 × 634. |
+| `clouds/cloud-06.png` | `gemini-clouds.webp`, cloud 6 | Keyed and despilled, upscaled to 1024 × 483. |
+| `clouds/cloud-07.png` | `gemini-clouds.webp`, cloud 7 | Keyed and despilled, upscaled to 1024 × 528. |
+| `clouds/cloud-08.png` | `gemini-clouds.webp`, clouds 5 and 2 | Composite of cloud 5 in front of a mirrored cloud 2, 1024 × 483. |
+| `tex/snow.jpg` | `gemini-tex-snow.webp` | 512 × 512 seamless grey luminance overlay (R = G = B, mean 128); normalised only. |
+| `tex/rock.jpg` | `gemini-tex-rock.webp` | Grey luminance overlay; normalised only. |
+| `tex/cobblestone.jpg` | `gemini-tex-cobble.webp` | Grey luminance overlay; the vertical wrap band re-quilted from the same sheet. |
+| `tex/wood_planks.jpg` | `gemini-tex-planks.webp` | Grey luminance overlay; resized to 512 px, the top/bottom wrap mismatch spread over 8 rows. |
+| `tex/shingles.jpg` | `gemini-tex-shingles.webp` | Grey luminance overlay; four whole shingle rows cut on the source's 512 px period. |
+| `tex/log_wall.jpg` | `gemini-tex-logwall.webp` | Grey luminance overlay; log sides only, a stray end cut patched out, 40 px blend along the grain. |
+| `tex/grass.jpg` | `gemini-ground-mixed.webp` | Grey luminance overlay; toroidal quilting of 96 px grass patches that avoids snow, mud, fronds and rocks. |
+| `tex/sand.jpg` | `gemini-ground-mixed.webp` | Grey luminance overlay; toroidal quilting of 160 px sand patches, ripples and pebbles kept. |
+| `tex/water_foam.png` | `gemini-panorama-lagoon.webp`, `gemini-panorama-trans-a.webp` (painted sea) | Alpha foam mask, not a colour tile: white crest streaks keyed off the painted sea, perspective undone and scattered seamlessly to about 10 % coverage. RGB is white, alpha is the foam. |
+
+Derived from the same sheets but not shipped in the client bundle until a package uses them, kept
+under `art-src/painted-world/`: `tex/<name>_color.jpg`, the full-colour seamless tiles the grey
+overlays were made from (colour references), and `decals/`, 16 cut-out ground and prop splats
+(`snow-patch-01`…`06`, `mud-patch-01`…`04`, `rock-01`, `rock-02` and `palm-frond-01` from
+`gemini-ground-mixed.webp`; `log-end-01`…`03` from `gemini-tex-logwall.webp`).
+
 ## Music
 
 The five music beds in `apps/client/public/audio/` were supplied by the project owner and are

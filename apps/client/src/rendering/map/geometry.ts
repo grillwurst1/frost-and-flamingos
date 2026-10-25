@@ -11,7 +11,7 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import type { Scene } from '@babylonjs/core/scene';
 import type { Material } from '@babylonjs/core/Materials/material';
-import { SURFACE_ATTRIBUTE, type SurfaceKind, surfaceId } from './surfaces';
+import { SURFACE_ATTRIBUTE, type SurfaceKind, surfaceId, surfaceToonAlpha } from './surfaces';
 
 export type RGB = readonly [number, number, number];
 export type V3 = readonly [number, number, number];
@@ -187,7 +187,7 @@ export class GeometryBatch {
     this.positions.push(x, y, z);
     this.normals.push(wx, wy, wz);
     const j = this.jitter > 0 ? 1 + (hash3(x * 0.71, y * 0.53, z * 0.67) - 0.5) * this.jitter : 1;
-    this.colors.push(Math.min(1, color[0] * j), Math.min(1, color[1] * j), Math.min(1, color[2] * j), 1);
+    this.colors.push(Math.min(1, color[0] * j), Math.min(1, color[1] * j), Math.min(1, color[2] * j), surfaceToonAlpha(surface));
     this.surfaces.push(surfaceId(surface));
     return index;
   }
