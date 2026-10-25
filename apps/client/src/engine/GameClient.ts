@@ -47,8 +47,10 @@ import { audio, type AmbienceKind } from '../audio/synth';
 import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
+import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
 import { MascotFx } from '../rendering/mascot-fx';
 import { DrifterFx } from '../rendering/drifter-fx';
+import { TracerFx } from '../rendering/tracer-fx';
 import {
   createShadowMaterial,
   createToonMaterial,
@@ -100,6 +102,7 @@ import {
   profile as profileStore,
   profileFingerprint,
 } from '../state/profile';
+import { setPaintedModels } from '../state/painted-models';
 import { CameraRig } from './camera-rig';
 import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
@@ -331,6 +334,7 @@ export class GameClient {
   private mascotFx: MascotFx | null = null;
   private mascots: MascotClient | null = null;
   private drifters: DrifterClient | null = null;
+  private tracers: TracerFx | null = null;
   /** Rendered feet per player id this frame (local prediction, remote interpolation). */
   private readonly renderedFeet = new Map<number, Vec3>();
   private previewKey: string | null = null;
@@ -395,9 +399,31 @@ export class GameClient {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     this.resizeTimer = setTimeout(() => {
       this.resizeTimer = null;
-      this.engine?.resize();
+      this.applyCanvasSize();
     }, RESIZE_SETTLE_MS);
   };
+  /** Exact device-pixel canvas size (fractional DPR), when the browser reports it. */
+  private devicePixelBox: { width: number; height: number } | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * At full device resolution (hardware scaling = 1 / DPR) the backing store
+   * takes the browser's exact device-pixel box, so fractional DPRs (1.25,
+   * 1.5) are not resampled; with a DPR cap Babylon's own sizing applies.
+   */
+  private applyCanvasSize(): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const box = this.devicePixelBox;
+    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    if (box && Math.abs(engine.getHardwareScalingLevel() * dpr - 1) < 0.001) {
+      if (engine.getRenderWidth() !== box.width || engine.getRenderHeight() !== box.height) {
+        engine.setSize(box.width, box.height);
+      }
+    } else {
+      engine.resize();
+    }
+  }
   private readonly handleFullscreenChange = (): void => {
     if (this.resizeTimer) {
       clearTimeout(this.resizeTimer);
@@ -491,6 +517,7 @@ export class GameClient {
           if (profile?.cosmetics.classId === 'drifter') return;
           if (profile && !this.mascots?.playTaunt(profile)) {
             audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
+            this.localView?.taunt?.();
           }
         },
         onPointerLockChange: (locked) => this.handlePointerLockChange(locked),
@@ -502,6 +529,19 @@ export class GameClient {
       });
       window.addEventListener('resize', this.handleResize);
       document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver((entries) => {
+          const size = entries[0]?.devicePixelContentBoxSize?.[0];
+          this.devicePixelBox = size ? { width: Math.round(size.inlineSize), height: Math.round(size.blockSize) } : null;
+          this.handleResize();
+        });
+        try {
+          this.resizeObserver.observe(this.canvas, { box: 'device-pixel-content-box' });
+        } catch {
+          // Safari: no device-pixel box; Babylon's own sizing stays in charge.
+          this.resizeObserver.observe(this.canvas);
+        }
+      }
 
       this.engine.runRenderLoop(() => this.frame());
       setLoadingStep('engine', 'done');
@@ -519,11 +559,19 @@ export class GameClient {
       this.physics = physics;
       this.toonMaterial = createToonMaterial(scene, 'fjord-toon-material');
       this.visuals = buildFjordFiesta(scene, this.toonMaterial);
+      if (import.meta.env.DEV) {
+        // Screenshot probe: hold the wardrobe preview at an angle to the camera.
+        (window as unknown as { __ffPreviewFacing?: (offset: number | null) => void }).__ffPreviewFacing = (offset) =>
+          this.setPreviewFacing(offset);
+      }
       this.mascotFx = new MascotFx(scene, (x, z, fromY) => {
         const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 6);
         return hit ? hit.point.y : fromY - 1.5;
       });
       this.mascots = new MascotClient(this.mascotFx);
+      this.tracers = new TracerFx(scene, (origin, direction, maxDistance) =>
+        this.physics?.raycast(origin, direction, maxDistance)?.distance ?? null,
+      );
       this.drifters = new DrifterClient(
         new DrifterFx(scene, (x, z, fromY) => {
           const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 12);
@@ -722,6 +770,8 @@ export class GameClient {
     if (import.meta.env.DEV) uninstallMapDevTools();
     window.removeEventListener('resize', this.handleResize);
     document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.input?.dispose();
     this.network?.disconnect();
     this.localView?.dispose();
@@ -731,6 +781,8 @@ export class GameClient {
     this.mascotFx?.dispose();
     this.drifters?.dispose();
     this.drifters = null;
+    this.tracers?.dispose();
+    this.tracers = null;
     audio.setRollRumble(0);
     this.physics?.dispose();
     this.look?.dispose();
@@ -751,6 +803,17 @@ export class GameClient {
 
   private handleWelcome(welcome: WelcomeMessage): void {
     if (this.disposed || !this.scene || !this.physics || !this.toonMaterial) return;
+    if (!this.booted) {
+      // Owner-painted GLB characters: the local player's model is prefetched
+      // once the resort answered (the handshake never waits on model
+      // decoding); every other model loads when its character first appears
+      // on screen. Views made before their model arrives show the procedural
+      // rig and swap in place.
+      const scene = this.scene;
+      void preloadPaintedModels(scene, getProfile()).then(() => {
+        if (!this.disposed) setPaintedModels(paintedModelsAvailable(scene));
+      });
+    }
     this.booted = true;
     if (this.bootTimeout) {
       clearTimeout(this.bootTimeout);
@@ -980,6 +1043,12 @@ export class GameClient {
         if (event.actorId === this.localId) return;
         const weaponId = WEAPON_TABLE.byCode[event.paramValue];
         if (weaponId) audio.playWeaponFire(weaponId, actor?.position);
+        if (weaponId && actor) {
+          const stats = classStatsFor(actor.classId, actor.faction);
+          const eye = { x: actor.position.x, y: actor.position.y + stats.height - stats.radius * 0.65, z: actor.position.z };
+          this.tracers?.shot(weaponId, eye, event.paramX / 100, event.paramZ / 100);
+        }
+        this.remoteViews.get(event.actorId)?.view.kick?.(event.paramZ / 100);
         return;
       }
       case 'COMIC_HIT': {
@@ -1257,6 +1326,7 @@ export class GameClient {
     this.updatePreviewView(delta);
     this.updateRemoteViews(delta, now);
     this.updateDrifters(delta);
+    this.tracers?.update(delta);
     this.mascotFx?.update(delta);
     this.updateAudio(delta);
     this.updateMaterials(now);
@@ -1367,6 +1437,13 @@ export class GameClient {
       weaponId: WEAPON_TABLE.code[weaponId],
     });
     audio.playWeaponFire(weaponId, undefined, true);
+    this.tracers?.shot(
+      weaponId,
+      { x: character.position.x, y: character.position.y + character.eyeHeight, z: character.position.z },
+      camera.lookYaw,
+      camera.lookPitch,
+    );
+    this.localView?.kick?.();
     if (stats.magazine > 0 && state && state.ammo <= 0) audio.playDryFire();
   }
 
@@ -1441,6 +1518,12 @@ export class GameClient {
       parachuteState: character.parachuteState,
       parachuteBlend: character.parachuteBlend,
       parachuteSway: character.parachuteSwayAngle,
+      weaponId:
+        this.localProfile && classCapabilities(this.localClass).armed
+          ? weaponForSlot(this.localProfile.loadout, this.input?.currentWeaponSlot() ?? 1)
+          : null,
+      pitch: this.cameraRig?.lookPitch ?? 0,
+      reloading: this.latestLocalState?.reloading ?? false,
     };
     if (this.localId !== null) this.renderedFeet.set(this.localId, character.position);
     if (character.drifter && this.drifters && this.localId !== null) {
@@ -1481,7 +1564,7 @@ export class GameClient {
     view.root.setEnabled(menuLike);
     if (!menuLike) return;
     if (this.previewSpin && this.previewFacing === null) this.previewYaw += delta * 0.55;
-    view.updatePreview(delta, this.previewYaw);
+    view.updatePreview(delta, this.previewYaw, getProfile().loadout.primary);
   }
 
   private updateRemoteViews(delta: number, now: number): void {
@@ -1569,6 +1652,9 @@ export class GameClient {
         sprinting: player.sprinting,
         rolling: player.rolling,
         parachuteState: player.parachuteState,
+        // Drifters are unarmed: nothing in their hands.
+        weaponId: classCapabilities(player.classId).armed ? weaponForSlot(profile.loadout, player.weaponSlot) : null,
+        reloading: player.reloading,
         stare: drifterExtras?.stare ?? null,
         shimmer: drifterExtras?.shimmer ?? 0,
       });

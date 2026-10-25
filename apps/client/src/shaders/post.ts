@@ -11,6 +11,21 @@
  *
  * Both passes exist in GLSL and WGSL; keep them equivalent. Post-process UVs
  * follow the Babylon convention (vUV.y = 0 at the bottom) on both APIs.
+ *
+ * Scene-alpha look mask (opaque materials write it into the scene target):
+ *   alpha 1    world: the full painterly look.
+ *   alpha 0    stylised character (painted GLB soldiers; procedural rigs and
+ *              mascots can opt in): the paint filter keeps 85 % of the
+ *              original detail, no sharpen, no normal-edge ink, outlines 25 %
+ *              thinner, paper grain reduced.
+ *   alpha 0.5  fully exempt ("photoreal"): no paint, sharpen, grain, ink or
+ *              colour grading, only the vignette. A pixel counts as exempt
+ *              only when it and its 4 neighbours read ≈ 0.5, so the
+ *              anti-aliased 0↔1 edge of a stylised character never does.
+ *              Exempt meshes should also call excludeFromInk() so the world
+ *              around them draws no depth outline.
+ * ffPaint passes the alpha through; ffComic writes alpha 1 so the canvas
+ * stays opaque.
  */
 
 export const PAINT_UNIFORMS = ['uTexel', 'uPaintParams'] as const;
@@ -28,6 +43,20 @@ uniform vec4 uPaintParams;
 // so it is summed directly and the +-1 neighbour spread (0.4) is applied once
 // after sampling: no runtime-indexed arrays, no per-tap trigonometry.
 const vec2 FF_HALF_STEP = vec2(0.98078528, 0.19509032);
+
+float ffExemptOf(float a) {
+  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
+}
+
+// x = stylised-character weight, y = exempt (photoreal) weight.
+vec2 ffLookMask(vec2 uv, float a0) {
+  float exempt = ffExemptOf(a0);
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a));
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a));
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a));
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a));
+  return vec2((1.0 - a0) * (1.0 - exempt), exempt);
+}
 
 vec2 ffStagger(vec2 d) {
   return vec2(d.x * FF_HALF_STEP.x - d.y * FF_HALF_STEP.y, d.x * FF_HALF_STEP.y + d.y * FF_HALF_STEP.x);
@@ -63,7 +92,10 @@ vec4 ffBlend(vec3 center, vec3 center2, vec3 s, vec3 q, vec3 sl, vec3 ql, vec3 s
 }
 
 void main(void) {
-  vec3 center = texture2D(textureSampler, vUV).rgb;
+  vec4 c0 = texture2D(textureSampler, vUV);
+  vec3 center = c0.rgb;
+  vec2 lookMask = ffLookMask(vUV, c0.a);
+  float charMask = lookMask.x;
   float rings = clamp(floor(uPaintParams.y), 1.0, 3.0);
   vec2 ringStep = uTexel * (uPaintParams.x / rings);
   vec3 s0; vec3 q0; vec3 s1; vec3 q1; vec3 s2; vec3 q2; vec3 s3; vec3 q3;
@@ -88,7 +120,7 @@ void main(void) {
   acc += ffBlend(center, c2, s6, q6, s5, q5, s7, q7, invWeight);
   acc += ffBlend(center, c2, s7, q7, s6, q6, s0, q0, invWeight);
   vec3 painted = acc.rgb / max(acc.a, 0.0001);
-  gl_FragColor = vec4(mix(center, painted, uPaintParams.w), 1.0);
+  gl_FragColor = vec4(mix(center, painted, uPaintParams.w * (1.0 - 0.85 * charMask) * (1.0 - lookMask.y)), c0.a);
 }
 `;
 
@@ -105,6 +137,20 @@ struct FFSectorSum {
   s : vec3f,
   q : vec3f,
 };
+
+fn ffExemptOf(a : f32) -> f32 {
+  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
+}
+
+fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
+  let texel = uniforms.uTexel;
+  var exempt = ffExemptOf(a0);
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a));
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a));
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a));
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a));
+  return vec2f((1.0 - a0) * (1.0 - exempt), exempt);
+}
 
 fn ffStagger(d : vec2f) -> vec2f {
   return vec2f(d.x * FF_HALF_STEP.x - d.y * FF_HALF_STEP.y, d.x * FF_HALF_STEP.y + d.y * FF_HALF_STEP.x);
@@ -146,7 +192,10 @@ fn ffBlend(center : vec3f, center2 : vec3f, k : FFSectorSum, l : FFSectorSum, r 
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
   let uv = input.vUV;
-  let center = ffTap(uv);
+  let c0 = textureSampleLevel(textureSampler, textureSamplerSampler, uv, 0.0);
+  let center = c0.rgb;
+  let lookMask = ffLookMask(uv, c0.a);
+  let charMask = lookMask.x;
   let rings = clamp(floor(uniforms.uPaintParams.y), 1.0, 3.0);
   let ringStep = uniforms.uTexel * (uniforms.uPaintParams.x / rings);
   let k0 = ffSector(uv, vec2f(1.0, 0.0), vec2f(0.92387953, 0.38268343), ringStep, rings);
@@ -168,7 +217,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   acc += ffBlend(center, c2, k6, k5, k7, invWeight);
   acc += ffBlend(center, c2, k7, k6, k0, invWeight);
   let painted = acc.rgb / max(acc.a, 0.0001);
-  fragmentOutputs.color = vec4f(mix(center, painted, uniforms.uPaintParams.w), 1.0);
+  fragmentOutputs.color = vec4f(mix(center, painted, uniforms.uPaintParams.w * (1.0 - 0.85 * charMask) * (1.0 - lookMask.y)), c0.a);
 }
 `;
 
@@ -218,6 +267,20 @@ float ffHash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+float ffExemptOf(float a) {
+  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
+}
+
+// x = stylised-character weight, y = exempt (photoreal) weight.
+vec2 ffLookMask(vec2 uv, float a0) {
+  float exempt = ffExemptOf(a0);
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a));
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a));
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a));
+  exempt = min(exempt, ffExemptOf(texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a));
+  return vec2((1.0 - a0) * (1.0 - exempt), exempt);
+}
+
 float ffNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
@@ -244,12 +307,16 @@ float ffNormalEdge(vec3 n0, vec3 n1) {
 }
 
 void main(void) {
-  vec3 color = texture2D(textureSampler, vUV).rgb;
+  vec4 c0 = texture2D(textureSampler, vUV);
+  vec3 color = c0.rgb;
+  vec2 lookMask = ffLookMask(vUV, c0.a);
+  float charMask = lookMask.x;
+  float exempt = lookMask.y;
   // uSharpen: x sharpen amount, y detailed edges (1 = 8 taps + wobble-aware near depth).
   if (uSharpen.x > 0.0) {
     vec3 around = texture2D(textureSampler, vUV + vec2(uTexel.x, 0.0)).rgb + texture2D(textureSampler, vUV - vec2(uTexel.x, 0.0)).rgb
       + texture2D(textureSampler, vUV + vec2(0.0, uTexel.y)).rgb + texture2D(textureSampler, vUV - vec2(0.0, uTexel.y)).rgb;
-    color = max(color + (color - around * 0.25) * uSharpen.x, vec3(0.0));
+    color = max(color + (color - around * 0.25) * uSharpen.x * (1.0 - charMask) * (1.0 - exempt), vec3(0.0));
   }
   vec2 pixel = vUV / uTexel;
   bool detailed = uSharpen.y > 0.5;
@@ -269,7 +336,7 @@ void main(void) {
     near = min(d0, min(min(ffDepth(uv + vec2(uTexel.x, 0.0)), ffDepth(uv - vec2(uTexel.x, 0.0))), min(ffDepth(uv + vec2(0.0, uTexel.y)), ffDepth(uv - vec2(0.0, uTexel.y)))));
   }
   float farMix = smoothstep(uInkFade.x, uInkFade.y, near);
-  float width = uInkParams.x * widthNoise * mix(1.0, uInkFade.z, farMix);
+  float width = uInkParams.x * widthNoise * mix(1.0, uInkFade.z, farMix) * mix(1.0, 0.75, charMask);
   vec2 ox = vec2(uTexel.x * width, 0.0);
   vec2 oy = vec2(0.0, uTexel.y * width);
   vec2 od1 = (ox + oy) * 0.7071;
@@ -284,6 +351,7 @@ void main(void) {
   }
   float depthEdge = smoothstep(uInkParams.y, uInkParams.y * 2.2, lap);
   float normalEdge = smoothstep(uInkParams.z, uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uInkFade.x * 0.7, uInkFade.y * 0.55, near));
+  normalEdge *= 1.0 - charMask;
 
   float ink = max(depthEdge, normalEdge) * mix(1.0, uInkFade.w, farMix);
   if (near < 50000.0 && uCamPos.y > uWaterLevel.x) {
@@ -291,14 +359,15 @@ void main(void) {
     float worldY = uCamPos.y + ray.y * near;
     ink *= 1.0 - smoothstep(0.05, 0.9, uWaterLevel.x - worldY) * 0.85;
   }
-  ink *= uInkColor.a;
+  ink *= uInkColor.a * (1.0 - exempt);
   color = mix(color, uInkColor.rgb, clamp(ink, 0.0, 1.0));
+  vec3 ungraded = color;
 
   // Paper grain and a faint canvas weave.
   if (uGradeExtra.y > 0.0) {
     float grain = ffNoise(pixel * 0.75) * 0.55 + ffNoise(pixel * 0.19 + 9.0) * 0.45;
     float weave = sin(pixel.x * 2.2) * sin(pixel.y * 2.2) * 0.5 + 0.5;
-    color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uGradeExtra.y;
+    color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uGradeExtra.y * (1.0 - 0.7 * charMask) * (1.0 - exempt);
   }
 
   // Grading towards the painted palette: exposure, saturation + vibrance
@@ -317,6 +386,7 @@ void main(void) {
   luma = clamp(dot(color, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);
   color += uShadowTone * (1.0 - luma) * (1.0 - luma) * uGradeExtra.z;
   color += uHighlightTone * luma * luma * uGradeExtra.w;
+  color = mix(color, ungraded, exempt);
 
   vec2 centered = vUV - 0.5;
   float vignette = smoothstep(0.32, 0.82, length(centered * vec2(1.0, 0.82)));
@@ -355,6 +425,20 @@ fn ffHash(p : vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+fn ffExemptOf(a : f32) -> f32 {
+  return 1.0 - smoothstep(0.08, 0.2, abs(a - 0.5));
+}
+
+fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
+  let texel = uniforms.uTexel;
+  var exempt = ffExemptOf(a0);
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a));
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a));
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a));
+  exempt = min(exempt, ffExemptOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a));
+  return vec2f((1.0 - a0) * (1.0 - exempt), exempt);
+}
+
 fn ffNoise(p : vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
@@ -383,14 +467,18 @@ fn ffNormalEdge(n0 : vec3f, n1 : vec3f) -> f32 {
 
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
-  var color = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV, 0.0).rgb;
+  let c0 = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV, 0.0);
+  var color = c0.rgb;
+  let lookMask = ffLookMask(input.vUV, c0.a);
+  let charMask = lookMask.x;
+  let exempt = lookMask.y;
   let texel = uniforms.uTexel;
   if (uniforms.uSharpen.x > 0.0) {
     let around = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(texel.x, 0.0), 0.0).rgb
       + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV - vec2f(texel.x, 0.0), 0.0).rgb
       + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(0.0, texel.y), 0.0).rgb
       + textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV - vec2f(0.0, texel.y), 0.0).rgb;
-    color = max(color + (color - around * 0.25) * uniforms.uSharpen.x, vec3f(0.0));
+    color = max(color + (color - around * 0.25) * uniforms.uSharpen.x * (1.0 - charMask) * (1.0 - exempt), vec3f(0.0));
   }
   let pixel = input.vUV / texel;
   let detailed = uniforms.uSharpen.y > 0.5;
@@ -409,7 +497,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     near = min(d0, min(min(ffDepth(uv + vec2f(texel.x, 0.0)), ffDepth(uv - vec2f(texel.x, 0.0))), min(ffDepth(uv + vec2f(0.0, texel.y)), ffDepth(uv - vec2f(0.0, texel.y)))));
   }
   let farMix = smoothstep(uniforms.uInkFade.x, uniforms.uInkFade.y, near);
-  let width = uniforms.uInkParams.x * widthNoise * mix(1.0, uniforms.uInkFade.z, farMix);
+  let width = uniforms.uInkParams.x * widthNoise * mix(1.0, uniforms.uInkFade.z, farMix) * mix(1.0, 0.75, charMask);
   let ox = vec2f(texel.x * width, 0.0);
   let oy = vec2f(0.0, texel.y * width);
   let od1 = (ox + oy) * 0.7071;
@@ -423,7 +511,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     nEdge = max(nEdge, max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2))));
   }
   let depthEdge = smoothstep(uniforms.uInkParams.y, uniforms.uInkParams.y * 2.2, lap);
-  let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.7, uniforms.uInkFade.y * 0.55, near));
+  let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.7, uniforms.uInkFade.y * 0.55, near)) * (1.0 - charMask);
 
   var ink = max(depthEdge, normalEdge) * mix(1.0, uniforms.uInkFade.w, farMix);
   if (near < 50000.0 && uniforms.uCamPos.y > uniforms.uWaterLevel.x) {
@@ -431,13 +519,14 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     let worldY = uniforms.uCamPos.y + ray.y * near;
     ink *= 1.0 - smoothstep(0.05, 0.9, uniforms.uWaterLevel.x - worldY) * 0.85;
   }
-  ink *= uniforms.uInkColor.a;
+  ink *= uniforms.uInkColor.a * (1.0 - exempt);
   color = mix(color, uniforms.uInkColor.rgb, clamp(ink, 0.0, 1.0));
+  let ungraded = color;
 
   if (uniforms.uGradeExtra.y > 0.0) {
     let grain = ffNoise(pixel * 0.75) * 0.55 + ffNoise(pixel * 0.19 + 9.0) * 0.45;
     let weave = sin(pixel.x * 2.2) * sin(pixel.y * 2.2) * 0.5 + 0.5;
-    color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uniforms.uGradeExtra.y;
+    color *= 1.0 + ((grain - 0.5) + (weave - 0.5) * 0.35) * uniforms.uGradeExtra.y * (1.0 - 0.7 * charMask) * (1.0 - exempt);
   }
 
   color *= uniforms.uGrade.x;
@@ -452,6 +541,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   luma = clamp(dot(color, vec3f(0.299, 0.587, 0.114)), 0.0, 1.0);
   color += uniforms.uShadowTone * (1.0 - luma) * (1.0 - luma) * uniforms.uGradeExtra.z;
   color += uniforms.uHighlightTone * luma * luma * uniforms.uGradeExtra.w;
+  color = mix(color, ungraded, exempt);
 
   let centered = input.vUV - 0.5;
   let vignette = smoothstep(0.32, 0.82, length(centered * vec2f(1.0, 0.82)));

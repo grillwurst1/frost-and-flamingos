@@ -10,6 +10,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@babylonjs/core": "^8.0.0",
+        "@babylonjs/loaders": "^8.56.2",
         "@dimforge/rapier3d-compat": "^0.19.0",
         "@fontsource/fredoka": "^5.3.0",
         "@fontsource/luckiest-guy": "^5.3.0",
@@ -52,6 +53,8 @@
   },
   "packages": {
     "@babylonjs/core": ["@babylonjs/core@8.56.2", "", {}, "sha512-UShs1pt8tSTLYOoITWclXPNrUZUpuHvB2Ur2L1D+uM8c9qaAYOi9gjkurOkQwIlbPGqwQHWImGEyiyix0mQ1dg=="],
+
+    "@babylonjs/loaders": ["@babylonjs/loaders@8.56.2", "", { "peerDependencies": { "@babylonjs/core": "^8.0.0", "babylonjs-gltf2interface": "^8.0.0" } }, "sha512-I2klIhTl4HLVVQEMsBpEh5YqbCCi1hA1oajRVCUcy+9Vfh0owzHEGau0GsVRlAOeYEBDNUrfOj0N6nFGTjNQ6g=="],
 
     "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.19.3", "", {}, "sha512-mMVdSj1PRTT108s9Swbu2GQOmHbn8kbJANRV5xfczL3s0T4vkgZAuoMRgvBzQcHanpKusbC0ZJj6z3mC3aj3vg=="],
 
@@ -230,6 +233,8 @@
     "aria-query": ["aria-query@5.3.1", "", {}, "sha512-Z/ZeOgVl7bcSYZ/u/rh0fOpvEpq//LZmdbkXyc7syVzjPAhfOa9ebsdTSjEBDU4vs5nC98Kfduj1uFo0qyET3g=="],
 
     "axobject-query": ["axobject-query@4.1.0", "", {}, "sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ=="],
+
+    "babylonjs-gltf2interface": ["babylonjs-gltf2interface@8.56.2", "", {}, "sha512-c2k14C9mPR0pnfksjBdC4uXEos3t2IAYxcMgn5tI1OSC3aDfr6JAq4kADM4gfN9cUo2qIiDdSg6geUVeU8vi6w=="],
 
     "bun-types": ["bun-types@1.4.4", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-yjrJh5oGX7mMPKGd19YXyIjmEuj4G4zNC30bs7PM9Az7NQ3ndF3j6hbeRdvJTRQEhJ/FYQwW0a2moweEi2hMxQ=="],
 

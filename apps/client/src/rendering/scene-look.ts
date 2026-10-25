@@ -16,6 +16,7 @@ import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh';
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
+import { FxaaPostProcess } from '@babylonjs/core/PostProcesses/fxaaPostProcess';
 import { PostProcess } from '@babylonjs/core/PostProcesses/postProcess';
 import { GeometryBufferRenderer } from '@babylonjs/core/Rendering/geometryBufferRenderer';
 import type { Scene } from '@babylonjs/core/scene';
@@ -50,8 +51,10 @@ import {
  *   g-buffer    GeometryBufferRenderer (view depth + view normals) of every
  *               solid mesh. Feeds the ink outlines and the water depth foam.
  *   post        ffPaint (generalized Kuwahara, high/medium) -> ffComic (ink,
- *               paper grain, grading, vignette; every tier). Scene MSAA lives
- *               on the first pass's render target; the swapchain has none.
+ *               paper grain, grading, vignette; every tier) -> FXAA (every
+ *               tier). Scene MSAA lives on the first pass's render target;
+ *               the swapchain has none. Scene alpha 0 marks character pixels
+ *               (see shaders/post.ts).
  *   sky/water   uniforms + optional painted panorama/cloud billboards.
  *
  * Quality tiers: high / medium / low via {@link SceneLook.setVisualQuality}.
@@ -283,6 +286,11 @@ export class SceneLook {
   private readonly detail: DetailTextureSet;
   private paintPass: PostProcess | null = null;
   private comicPass: PostProcess | null = null;
+  /**
+   * Final FXAA on every tier: the ink is drawn after the MSAA resolve from a
+   * single-sample g-buffer, so only a pass after ffComic smooths it.
+   */
+  private fxaaPass: FxaaPostProcess | null = null;
   private visuals: MapVisuals | null = null;
   private quality: VisualQuality = 'high';
   private weather = 0;
@@ -641,6 +649,7 @@ export class SceneLook {
       registerLookPostShaders();
       if (wantPaint) this.paintPass = this.createPaintPass();
       this.comicPass = this.createComicPass();
+      this.fxaaPass = new FxaaPostProcess('ff-fxaa', 1, this.camera, Constants.TEXTURE_BILINEAR_SAMPLINGMODE, this.scene.getEngine());
     }
     const comic = this.comicPass;
     if (!comic) return;
@@ -653,6 +662,8 @@ export class SceneLook {
   }
 
   private disposePostProcesses(): void {
+    this.fxaaPass?.dispose(this.camera);
+    this.fxaaPass = null;
     this.paintPass?.dispose(this.camera);
     this.paintPass = null;
     this.comicPass?.dispose(this.camera);

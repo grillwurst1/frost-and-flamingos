@@ -59,6 +59,7 @@
     profile,
   } from '../state/profile';
   import { wardrobeEffect, wardrobeSpin, type WardrobeEffect } from '../state/game';
+  import { paintedOutfit, wearPaintedOutfit } from '../state/painted-models';
   import { t } from '../state/locale';
   import {
     classRoleKey,
@@ -124,6 +125,11 @@
 
   function setEffect(effect: WardrobeEffect): void {
     wardrobeEffect.set(effect);
+    audio.playUi('equip');
+  }
+
+  function wearPainted(): void {
+    wearPaintedOutfit();
     audio.playUi('equip');
   }
 
@@ -323,6 +329,15 @@
         <span>{$t('wardrobe.slots')}</span>
         <small>{$t('wardrobe.slotsHint')}</small>
       </div>
+      {#if $paintedOutfit}
+        <div class="painted-note" data-state={$paintedOutfit}>
+          <span class="hud-chip">{$t($paintedOutfit === 'painted' ? 'wardrobe.paintedTitle' : 'wardrobe.customTitle')}</span>
+          <p class="field-hint">{$t($paintedOutfit === 'painted' ? 'wardrobe.paintedHint' : 'wardrobe.customHint')}</p>
+          {#if $paintedOutfit === 'custom'}
+            <button class="btn-ghost" type="button" on:click={wearPainted}>{$t('wardrobe.wearPainted')}</button>
+          {/if}
+        </div>
+      {/if}
 
       <SlotCarousel
         label={$t('wardrobe.headgear')}
@@ -464,3 +479,15 @@
     </aside>
   </div>
 </div>
+
+<style>
+  .painted-note {
+    display: grid;
+    gap: 0.35rem;
+    justify-items: start;
+    margin: 0.2rem 0 0.7rem;
+  }
+  .painted-note .field-hint {
+    margin: 0;
+  }
+</style>
