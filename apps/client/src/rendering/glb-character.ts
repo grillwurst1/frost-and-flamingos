@@ -209,7 +209,9 @@ export class GlbCharacterView implements AvatarView {
   private readonly shadow: Mesh;
   private readonly shadowMaterial: StandardMaterial;
   private readonly canopyPivot: TransformNode;
-  private readonly canopy: Mesh | null;
+  /** Parachute canopy, built on its first deployment. */
+  private canopy: Mesh | null = null;
+  private readonly canopyAlpine: boolean;
   private readonly weaponAnchor: TransformNode;
   private readonly rig: GlbRig;
   private readonly joints: TransformNode[] = [];
@@ -393,8 +395,7 @@ export class GlbCharacterView implements AvatarView {
     this.canopyPivot = new TransformNode('glb-canopy-pivot', scene);
     this.canopyPivot.parent = this.root;
     this.canopyPivot.position.y = 1.15;
-    this.canopy = buildCanopyProp(scene, profile.faction === 'alpine', this.propMaterial);
-    if (this.canopy) this.canopy.parent = this.canopyPivot;
+    this.canopyAlpine = profile.faction === 'alpine';
     this.canopyPivot.setEnabled(false);
     liveViews.add(this);
     installGlbDebugHandle();
@@ -1099,6 +1100,10 @@ export class GlbCharacterView implements AvatarView {
 
   private updateCanopy(deltaSeconds: number, blend: number, sway: number): void {
     const visible = blend > 0.01;
+    if (visible && !this.canopy) {
+      this.canopy = buildCanopyProp(this.scene, this.canopyAlpine, this.propMaterial);
+      if (this.canopy) this.canopy.parent = this.canopyPivot;
+    }
     this.canopyPivot.setEnabled(visible);
     if (!visible) return;
     const eased = blend * blend * (3 - 2 * blend);
@@ -1138,6 +1143,9 @@ export class GlbCharacterView implements AvatarView {
   }
 }
 
+/** Frame of the last stand-in swap (one GlbCharacterView construction per frame). */
+let lastSwapFrame = -1;
+
 /** Characters further away than this never trigger a painted-model download. */
 const LAZY_LOAD_DISTANCE = 220;
 /** Seconds between on-screen checks of a stand-in. */
@@ -1154,6 +1162,7 @@ class PendingPaintedView implements AvatarView {
   private painted = false;
   private disposed = false;
   private requested = false;
+  private loaded: { asset: PaintedModelAsset; textures: PaintedTextures } | null = null;
   private checkIn = 0;
   private effects: Partial<CharacterMaterialState> = {};
   private lastYaw = 0;
@@ -1215,24 +1224,44 @@ class PendingPaintedView implements AvatarView {
           return;
         }
         debugEvent(`loaded ${label} ${key} ${loaded ? 'ok' : 'unavailable'}`);
-        if (!loaded) return;
-        const previous = this.current;
-        const enabled = previous.root.isEnabled(false);
-        const position = previous.root.position;
-        const shadow = createShadowMaterial(this.scene, `${label}-painted`);
-        const next = new GlbCharacterView(this.scene, shadow, this.profile, loaded.asset, loaded.textures);
-        next.setPosition({ x: position.x, y: position.y, z: position.z });
-        next.setYaw(this.lastYaw, true);
-        next.setEffects(this.effects);
-        next.root.setEnabled(enabled);
-        previous.dispose();
-        this.current = next;
-        this.painted = true;
-        pendingViews.delete(this);
+        // Swapped from update(): at most one view per frame, never mid-death.
+        this.loaded = loaded;
       })
       .catch((error: unknown) => {
         console.warn('[frost-and-flamingos] painted view swap failed; keeping the procedural rig', error);
       });
+  }
+
+  /**
+   * Swaps to the painted view once it has loaded: one swap per rendered
+   * frame across all stand-ins (each construction clones a skeleton), and
+   * not while the character is dead or parachuting, so a corpse or a
+   * descending player keeps its pose instead of restarting it.
+   */
+  private trySwap(alive: boolean, steady: boolean): void {
+    const loaded = this.loaded;
+    if (!loaded || this.painted || this.disposed || !alive || !steady) return;
+    const frame = this.scene.getFrameId();
+    if (lastSwapFrame === frame) return;
+    lastSwapFrame = frame;
+    try {
+      const previous = this.current;
+      const enabled = previous.root.isEnabled(false);
+      const position = previous.root.position;
+      const shadow = createShadowMaterial(this.scene, `${this.label}-painted`);
+      const next = new GlbCharacterView(this.scene, shadow, this.profile, loaded.asset, loaded.textures);
+      next.setPosition({ x: position.x, y: position.y, z: position.z });
+      next.setYaw(this.lastYaw, true);
+      next.setEffects(this.effects);
+      next.root.setEnabled(enabled);
+      previous.dispose();
+      this.current = next;
+      this.painted = true;
+      pendingViews.delete(this);
+    } catch (error) {
+      this.loaded = null;
+      console.warn('[frost-and-flamingos] painted view swap failed; keeping the procedural rig', error);
+    }
   }
 
   private checkOnScreen(deltaSeconds: number): void {
@@ -1249,12 +1278,14 @@ class PendingPaintedView implements AvatarView {
 
   update(deltaSeconds: number, pose: AvatarPose): void {
     this.lastYaw = pose.yaw;
+    this.trySwap(pose.alive, (pose.parachuteBlend ?? 0) < 0.05);
     this.current.update(deltaSeconds, pose);
     this.checkOnScreen(deltaSeconds);
   }
 
   updatePreview(deltaSeconds: number, spin: number, weaponId?: WeaponId | null): void {
     this.lastYaw = spin;
+    this.trySwap(true, true);
     this.current.updatePreview(deltaSeconds, spin, weaponId);
     // The wardrobe / menu preview is always on screen.
     this.request();
