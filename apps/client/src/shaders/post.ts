@@ -281,8 +281,8 @@ float ffNormalEdge(vec3 n0, vec3 n1) {
   return 1.0 - dot(normalize(n0), normalize(n1));
 }
 
-// Stylised-character coverage of a scene-alpha value (photoreal 0.5 and the
-// world both read 0).
+// Stylised-character coverage of a scene-alpha value (the world reads 0; a
+// blend over a character, alpha = the blend's own alpha, mostly reads 0 too).
 float ffCharOf(float a) {
   return 1.0 - smoothstep(0.12, 0.3, a);
 }
