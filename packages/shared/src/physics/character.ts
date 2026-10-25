@@ -68,8 +68,10 @@ interface SurfaceProperties {
 export const CROUCH_HEIGHT_SCALE = 0.65;
 /** Drifter: the water floor holds this far above her hover height (capsule contact offset on slopes). */
 const DRIFTER_SHORE_MARGIN = 0.1;
-/** Drifter: downward press while walking on land, per m/s of walk speed (follows slopes up to ~50°). */
-const DRIFTER_GROUND_PRESS = 1.25;
+/** Drifter: the descent press never exceeds this many times her walk speed. */
+const DRIFTER_DESCENT_PRESS_CAP = 1.25;
+/** Drifter: feet within this of the terrain collider count as walking on the terrain (not on a prop). */
+const DRIFTER_ON_TERRAIN = 0.25;
 const CROUCH_SPEED_SCALE = 0.55;
 const STRAFE_SPEED_SCALE = 0.85;
 const BACKWARD_SPEED_SCALE = 0.7;
@@ -1053,7 +1055,7 @@ export class CharacterBody {
    * Feet height of the water surface she hovers on, or null where the
    * terrain collider under her is clearly dry land. It asks the collider's
    * own height (colliderHeightAt): sampleMapHeight splits each cell along
-   * the other diagonal and is up to ~1.9 m off on steep shore cells, where
+   * the other diagonal and is metres off on steep cells (up to ~3.7 m), where
    * she used to wade under the surface and then pop up. The floor is only
    * ever a minimum (the ground wins wherever it is higher), so holding it
    * DRIFTER_SHORE_MARGIN longer never lifts her above real ground.
@@ -1062,6 +1064,17 @@ export class CharacterBody {
     const floor = WATER_LEVEL + DRIFTER_TUNING.waterHoverHeight;
     if (colliderHeightAt(this.feet.x, this.feet.z) >= floor + DRIFTER_SHORE_MARGIN) return null;
     return floor;
+  }
+
+  /**
+   * How far the terrain collider falls over her next step (m), 0 when it is
+   * level or rising, or when she stands on something other than the terrain.
+   */
+  private drifterTerrainDrop(): number {
+    const here = colliderHeightAt(this.feet.x, this.feet.z);
+    if (this.feet.y - here > DRIFTER_ON_TERRAIN) return 0;
+    const ahead = colliderHeightAt(this.feet.x + this.linearVelocity.x * FIXED_DT, this.feet.z + this.linearVelocity.z * FIXED_DT);
+    return Math.max(0, here - ahead);
   }
 
   /**
@@ -1122,6 +1135,7 @@ export class CharacterBody {
       this.linearVelocity.z = moveTowards(this.linearVelocity.z, desiredZ, rate);
     }
 
+    const slopeDrop = hasMovement && this.isGrounded ? this.drifterTerrainDrop() : 0;
     if (waterFloor !== null && this.feet.y <= waterFloor) {
       // Back up onto the surface (only after something pushed her below it).
       this.linearVelocity.y = Math.min(tuning.waterRiseSpeed, (waterFloor - this.feet.y) / FIXED_DT);
@@ -1133,12 +1147,12 @@ export class CharacterBody {
         const room = (waterFloor - this.feet.y) / FIXED_DT;
         this.linearVelocity.y = Math.max(this.linearVelocity.y, room);
       }
-    } else if (hasMovement) {
-      // Walking on land: press into the ground so she follows a falling
-      // slope every tick. Without it the controller let her drift off steep
-      // banks and dropped her in ~0.25 m steps. Standing still adds no press,
-      // so she never slides down a steep slope.
-      this.linearVelocity.y = -tuning.walkSpeed * DRIFTER_GROUND_PRESS;
+    } else if (slopeDrop > 0.0005) {
+      // Walking down a falling bank: press exactly as far as the terrain
+      // drops ahead, so she follows it instead of drifting off and dropping
+      // in steps. Never on level or rising ground and never on props: a
+      // press there is projected along the slope and kills the autostep.
+      this.linearVelocity.y = -Math.min(tuning.walkSpeed * DRIFTER_DESCENT_PRESS_CAP, slopeDrop / FIXED_DT + 0.3);
     } else if (this.linearVelocity.y < 0) {
       this.linearVelocity.y = -1.5;
     }

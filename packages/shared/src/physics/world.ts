@@ -22,7 +22,7 @@ export const DRIFTER_COLLISION_GROUP = 0x00040001;
  * createTerrainCollider builds from FJORD_MAP.heights) at (x, z), using
  * Rapier's own triangulation: every cell splits along its (x0, z1)–(x1, z0)
  * diagonal. sampleMapHeight splits the other diagonal (like the rendered
- * mesh), so on steep cells the two differ by up to ~1.9 m. Anything that has
+ * mesh), so on steep cells the two differ by metres (up to ~3.7 m). Anything that has
  * to agree with where a body really stands (the drifter's water floor) asks
  * this instead. Pure and deterministic, so client and server get the same
  * value without a ray cast (matches a downward ray to ~1e-4 m).
