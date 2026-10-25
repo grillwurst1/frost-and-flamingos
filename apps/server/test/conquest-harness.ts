@@ -13,11 +13,12 @@ import type {
   Vec3,
   WorldSnapshot,
 } from '@frost-and-flamingos/shared';
-import { MatchRoom } from '../src/rooms/match-room';
+import { MatchRoom, type GameSocket } from '../src/rooms/match-room';
 import type { ClimateConquest } from '../src/rooms/conquest';
 
 export interface ConquestTestPlayer {
   id: number;
+  socket: GameSocket | null;
   isBot: boolean;
   profile: PlayerProfile;
   character: CharacterBody;
@@ -27,6 +28,9 @@ export interface ConquestTestPlayer {
   deaths: number;
   respawnAtTick: number;
   spawnProtectionUntil: number;
+  lastProfileUpdateAt: number;
+  pendingProfile: PlayerProfile | null;
+  bot: { targetId: number } | null;
 }
 
 export interface ConquestRoomInternals {
@@ -39,6 +43,8 @@ export interface ConquestRoomInternals {
   damagePlayer(target: ConquestTestPlayer, attacker: ConquestTestPlayer | null, damage: number, weaponId: null, headshot: boolean): void;
   killPlayer(target: ConquestTestPlayer, attacker: ConquestTestPlayer | null, weaponId: null, headshot: boolean): void;
   buildSnapshot(): WorldSnapshot;
+  projectiles: Array<{ ownerId: number; position: Vec3; velocity: Vec3; damage: number; splashRadius: number; weaponId: string; expiresAtTick: number }>;
+  selectBotTarget(player: ConquestTestPlayer): number;
   physics: { removeCharacter(character: CharacterBody): void };
 }
 
