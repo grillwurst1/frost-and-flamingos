@@ -46,6 +46,7 @@ import { audio, type AmbienceKind } from '../audio/synth';
 import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
+import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
 import { MascotFx } from '../rendering/mascot-fx';
 import {
   createShadowMaterial,
@@ -95,6 +96,7 @@ import {
   profile as profileStore,
   profileFingerprint,
 } from '../state/profile';
+import { setPaintedModels } from '../state/painted-models';
 import { CameraRig } from './camera-rig';
 import { InputController } from './input';
 import { cameraProfileFor, MascotClient } from './mascot-client';
@@ -473,6 +475,7 @@ export class GameClient {
           const profile = this.localProfile;
           if (profile && !this.mascots?.playTaunt(profile)) {
             audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
+            this.localView?.taunt?.();
           }
         },
         onPointerLockChange: (locked) => this.handlePointerLockChange(locked),
@@ -501,12 +504,22 @@ export class GameClient {
       this.physics = physics;
       this.toonMaterial = createToonMaterial(scene, 'fjord-toon-material');
       this.visuals = buildFjordFiesta(scene, this.toonMaterial);
+      if (import.meta.env.DEV) {
+        // Screenshot probe: hold the wardrobe preview at an angle to the camera.
+        (window as unknown as { __ffPreviewFacing?: (offset: number | null) => void }).__ffPreviewFacing = (offset) =>
+          this.setPreviewFacing(offset);
+      }
       this.mascotFx = new MascotFx(scene, (x, z, fromY) => {
         const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 6);
         return hit ? hit.point.y : fromY - 1.5;
       });
       this.mascots = new MascotClient(this.mascotFx);
       this.look?.attachMap(this.visuals);
+      // Owner-painted GLB characters download in the background; views made
+      // before they arrive show the procedural rig and swap in place.
+      void preloadPaintedModels(scene).then(() => {
+        if (!this.disposed) setPaintedModels(paintedModelsAvailable(scene));
+      });
       this.rebuildPreviewView(getProfile());
       setLoadingProgress(0.7);
       setLoadingStep('world', 'done');
@@ -941,6 +954,7 @@ export class GameClient {
         if (event.actorId === this.localId) return;
         const weaponId = WEAPON_TABLE.byCode[event.paramValue];
         if (weaponId) audio.playWeaponFire(weaponId, actor?.position);
+        this.remoteViews.get(event.actorId)?.view.kick?.(event.paramZ / 100);
         return;
       }
       case 'COMIC_HIT': {
@@ -1324,6 +1338,7 @@ export class GameClient {
       weaponId: WEAPON_TABLE.code[weaponId],
     });
     audio.playWeaponFire(weaponId, undefined, true);
+    this.localView?.kick?.();
     if (stats.magazine > 0 && state && state.ammo <= 0) audio.playDryFire();
   }
 
@@ -1393,6 +1408,11 @@ export class GameClient {
       parachuteState: character.parachuteState,
       parachuteBlend: character.parachuteBlend,
       parachuteSway: character.parachuteSwayAngle,
+      weaponId: this.localProfile
+        ? weaponForSlot(this.localProfile.loadout, this.input?.currentWeaponSlot() ?? 1)
+        : null,
+      pitch: this.cameraRig?.lookPitch ?? 0,
+      reloading: this.latestLocalState?.reloading ?? false,
     };
     view.update(delta, pose);
     if (this.localId !== null) {
@@ -1427,7 +1447,7 @@ export class GameClient {
     view.root.setEnabled(menuLike);
     if (!menuLike) return;
     if (this.previewSpin && this.previewFacing === null) this.previewYaw += delta * 0.55;
-    view.updatePreview(delta, this.previewYaw);
+    view.updatePreview(delta, this.previewYaw, getProfile().loadout.primary);
   }
 
   private updateRemoteViews(delta: number, now: number): void {
@@ -1512,6 +1532,8 @@ export class GameClient {
         sprinting: player.sprinting,
         rolling: player.rolling,
         parachuteState: player.parachuteState,
+        weaponId: weaponForSlot(profile.loadout, player.weaponSlot),
+        reloading: player.reloading,
       });
 
       const remoteSpeed = Math.hypot(velocity.x, velocity.z);
