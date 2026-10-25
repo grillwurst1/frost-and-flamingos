@@ -1,3 +1,5 @@
+import type { ConquestSnapshot } from './conquest.js';
+
 export type Faction = 'alpine' | 'lagoon';
 export type ClassId = 'allrounder' | 'heavy' | 'infiltrator' | 'mascot';
 /** The mascot class has two physical forms, resolved from the player's faction. */
@@ -309,6 +311,8 @@ export interface WorldSnapshot {
   turretStates: number;
   players: PlayerState[];
   vehicles: VehicleSnapshot[];
+  /** Protocol 7: towers, round phase and timer of the Climate Conquest round. */
+  conquest: ConquestSnapshot;
 }
 
 export interface MapStateSync {
@@ -356,6 +360,8 @@ export interface WelcomeMessage {
   profile: PlayerProfile;
   serverTick: number;
   spawn: Vec3;
+  /** Protocol 7: facing of the spawn pad (toward the next objective, across open ground). */
+  spawnYaw: number;
   protocolVersion: number;
 }
 
@@ -379,3 +385,4 @@ export interface PongPacket {
   serverTick: number;
 }
 export * from './map.js';
+export * from './conquest.js';

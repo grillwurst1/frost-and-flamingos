@@ -62,6 +62,11 @@ export const GameEventCode = {
   KILL_BLAST_LAUNCH: 4,
   KILL_ELEMENTAL: 5,
   PINBALL_BOING_HIT: 6,
+  /**
+   * Weather tower ownership change. paramX = tower index (0 A, 1 B, 2 C),
+   * paramZ = 1 captured / 2 neutralised, paramValue = faction code + 1 of the
+   * team that took it (or pulled its flag down).
+   */
   TURRET_CAPTURED: 7,
   PROP_EXPLODE: 8,
   ENV_STAGE_CHANGE: 9,
@@ -74,6 +79,7 @@ export const GameEventCode = {
   GONDOLA_BRAKE: 16,
   PARACHUTE_POPPED: 17,
   WEAPON_FIRED: 18,
+  /** actor = player; paramX = 1 when paramValue carries the spawn facing (see spawnYawToWire). */
   PLAYER_RESPAWNED: 19,
   SKILL_USED: 20,
   /** actor = mascot, target = victim, param = contact point (dm), value = damage (0 = friendly bump). */

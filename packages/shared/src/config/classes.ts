@@ -93,6 +93,26 @@ export const CLASS_STATS: Record<ClassId, ClassStats> = {
   mascot: MASCOT_FORM_STATS.cow,
 };
 
+/**
+ * What a class may do in a round. Gameplay code asks these flags instead of
+ * comparing class ids, so a later class can opt in or out explicitly.
+ */
+export interface ClassCapabilities {
+  /** Counts toward a weather tower's capture balance (read by the conquest code). */
+  readonly canCapture: boolean;
+}
+
+export const CLASS_CAPABILITIES: Readonly<Record<ClassId, ClassCapabilities>> = {
+  allrounder: { canCapture: true },
+  heavy: { canCapture: true },
+  infiltrator: { canCapture: true },
+  mascot: { canCapture: true },
+};
+
+export function classCapabilities(classId: ClassId): ClassCapabilities {
+  return CLASS_CAPABILITIES[classId];
+}
+
 /** Peak Guard brings the cow, the Lagoon League rolls in the coconut. */
 export function mascotFormForFaction(faction: Faction): MascotForm {
   return faction === 'lagoon' ? 'coconut' : 'cow';

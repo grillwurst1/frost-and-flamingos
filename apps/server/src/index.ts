@@ -74,6 +74,30 @@ const server = Bun.serve<SocketData>({
       return json(room.devTeleport(player, x, z, y !== undefined && Number.isFinite(y) ? y : undefined));
     }
 
+    if (url.pathname === '/api/dev/conquest' && process.env.FF_DEV_TOOLS === '1') {
+      // Local capture tooling only: stage tower owners or tickets (POST from loopback).
+      const address = bunServer.requestIP(request)?.address ?? '';
+      const loopback = address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+      if (request.method !== 'POST' || !loopback) return json({ ok: false }, 403);
+      const tower = url.searchParams.get('tower');
+      const owner = url.searchParams.get('owner');
+      const faction = url.searchParams.get('faction');
+      const tickets = url.searchParams.get('tickets');
+      const control = url.searchParams.get('control');
+      const towerId = tower === 'tower_a' || tower === 'tower_b' || tower === 'tower_c' ? tower : undefined;
+      const side = (value: string | null) => (value === 'alpine' || value === 'lagoon' ? value : undefined);
+      return json({
+        ok: true,
+        conquest: room.devConquest({
+          tower: towerId,
+          owner: owner === 'neutral' ? null : side(owner),
+          control: control === null ? undefined : Number(control),
+          faction: side(faction),
+          tickets: tickets === null ? undefined : Number(tickets),
+        }),
+      });
+    }
+
     if (url.pathname === '/api/config') {
       return json({
         protocolVersion: PROTOCOL_VERSION,

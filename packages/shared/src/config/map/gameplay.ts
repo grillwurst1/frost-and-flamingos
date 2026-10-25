@@ -82,10 +82,12 @@ const villagePads: Vec3[] = [
   vec3(14, VILLAGE_HEIGHT + 0.05, -38),
   vec3(-30, VILLAGE_HEIGHT + 0.05, -38),
 ];
+// Pads keep open sky and camera room: clear of the mountain cable-car station
+// (west of the porch) and of the porch eaves (audited by test/spawn.test.ts).
 const summitPads: Vec3[] = [
-  [0, 18],
+  [-6, 21],
   [-9, 17],
-  [9, 17],
+  [11, 15],
   [-19, 2],
   [19, 2],
   [0, -16],

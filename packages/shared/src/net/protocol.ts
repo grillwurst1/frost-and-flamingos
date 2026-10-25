@@ -49,6 +49,7 @@ import {
   PLAYER_STATUS_FLAG,
   type GameEventCodeValue,
 } from './opcodes.js';
+import { readConquestState, writeConquestState } from './conquest-codec.js';
 import { BinaryReader } from './reader.js';
 import { BinaryWriter } from './writer.js';
 
@@ -306,6 +307,8 @@ export function encodeWelcome(welcome: WelcomeMessage): ArrayBuffer {
     .writePosition(welcome.spawn)
     .writeUint8(welcome.protocolVersion);
   writeProfile(writer, welcome.profile);
+  // Protocol 7: spawn facing.
+  writer.writeAngle(welcome.spawnYaw);
   return writer.finish();
 }
 
@@ -318,7 +321,8 @@ export function decodeWelcome(source: ArrayBuffer | ArrayBufferView): WelcomeMes
     const spawn = reader.readPosition();
     const protocolVersion = reader.readUint8();
     const profile = readProfile(reader);
-    return { playerId, serverTick, spawn, protocolVersion, profile };
+    const spawnYaw = reader.readAngle();
+    return { playerId, serverTick, spawn, spawnYaw, protocolVersion, profile };
   });
 }
 
@@ -442,6 +446,9 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
       .writeUint16(Math.max(0, Math.min(65535, Math.round(vehicle.health))));
   }
 
+  // Protocol 7: Climate Conquest block (towers, round phase, timer).
+  writeConquestState(writer, snapshot.conquest);
+
   return writer.finish();
 }
 
@@ -535,6 +542,8 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       });
     }
 
+    const conquest = readConquestState(reader);
+
     return {
       serverTick,
       weatherBalance,
@@ -545,6 +554,7 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       turretStates,
       players,
       vehicles,
+      conquest,
     };
   });
 }

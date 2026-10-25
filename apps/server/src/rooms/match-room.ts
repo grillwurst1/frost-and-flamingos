@@ -18,6 +18,7 @@ import {
   PROTOCOL_VERSION,
   RESPAWN_DELAY_SECONDS,
   SKILLS,
+  SPAWN_PROTECTION_SECONDS,
   SNAPSHOT_INTERVAL,
   STATUS_BOOST_SCALE,
   STATUS_SLOW_SCALE,
@@ -31,8 +32,10 @@ import {
   encodeProfileMessage,
   encodeSnapshot,
   normalizeProfile,
-  randomSpawnForFaction,
   sampleMapHeight,
+  selectSpawn,
+  spawnYawToWire,
+  towerOwnerBits,
   sanitizeDisplayName,
   skillsForClass,
   weaponForSlot,
@@ -50,6 +53,7 @@ import {
   type ProfileMessage,
   type ServerHello,
   type SkillDefinition,
+  type TowerId,
   type Vec3,
   type WeaponId,
   type WeaponSlot,
@@ -72,6 +76,9 @@ import {
   type CombatTarget,
 } from './combat.js';
 import { mascotBotButtons, type MascotBotMemory } from './mascot-bot.js';
+import { ClimateConquest, countTowerPresence, type ConquestEvent, type ConquestStatus } from './conquest.js';
+import { ConquestBots } from './conquest-bots.js';
+import { SpawnFacingCache, spawnObjective } from './spawn-facing.js';
 
 export interface GameSocket {
   send(data: string | ArrayBuffer | Uint8Array): unknown;
@@ -253,6 +260,7 @@ export interface RoomStatus {
   mapId: string;
   tickets: { alpine: number; lagoon: number };
   weatherBalance: number;
+  conquest: ConquestStatus;
   mascots: {
     active: number;
     rams: number;
@@ -265,7 +273,9 @@ export interface RoomStatus {
 
 const PROFILE_UPDATE_COOLDOWN_MS = 120;
 const RESPAWN_DELAY_TICKS = RESPAWN_DELAY_SECONDS * PHYSICS_TICK_RATE;
-const SPAWN_PROTECTION_TICKS = 2 * PHYSICS_TICK_RATE;
+const SPAWN_PROTECTION_TICKS = SPAWN_PROTECTION_SECONDS * PHYSICS_TICK_RATE;
+/** Bots ignore rivals out of sight beyond this range and keep playing the objective. */
+const BOT_OBJECTIVE_CHASE_RANGE = 40;
 const LAG_HISTORY_TICKS = 2 * PHYSICS_TICK_RATE;
 const MAX_LAG_REWIND_TICKS = 30;
 const BOT_COUNT = 4;
@@ -362,14 +372,18 @@ export class MatchRoom {
   private lastFrameTime = 0;
   private accumulator = 0;
   private readonly startedAt = Date.now();
-  private ticketsAlpine = 50;
-  private ticketsLagoon = 50;
-  private weatherBalance = 0;
+  /** Climate Conquest: towers, tickets, weather balance and round flow. */
+  private readonly conquest = new ClimateConquest();
+  private readonly conquestBots = new ConquestBots();
+  private readonly spawnFacing: SpawnFacingCache;
+  /** Conquest state as of the last tick (bots read it without re-snapshotting). */
+  private conquestView = this.conquest.snapshot();
   private windAngle = 0.6;
   private windStrength = 0;
 
   private constructor(physics: PhysicsWorld) {
     this.physics = physics;
+    this.spawnFacing = new SpawnFacingCache(physics);
   }
 
   static async create(): Promise<MatchRoom> {
@@ -458,6 +472,7 @@ export class MatchRoom {
       if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
     }
     this.updateProjectiles();
+    this.stepConquest();
     this.recordLagHistory();
 
     if (this.physicsTick % SNAPSHOT_INTERVAL === 0) {
@@ -534,7 +549,7 @@ export class MatchRoom {
   private currentWind(): { angle: number; strength: number } {
     return {
       angle: this.windAngle + (this.physicsTick % 7200) * 0.00012,
-      strength: Math.min(1, Math.abs(this.weatherBalance)) * 0.65,
+      strength: Math.min(1, Math.abs(this.conquest.weatherBalance)) * 0.65,
     };
   }
 
@@ -542,16 +557,20 @@ export class MatchRoom {
    * Spawn point for a faction (the playtest arena when configured). Map spawns
    * skip pads another living player is standing on.
    */
-  private spawnFor(faction: Faction, selfId = 0): { position: Vec3 } {
+  private spawnFor(faction: Faction, selfId = 0): { position: Vec3; yaw: number } {
     if (!this.arena) {
-      return randomSpawnForFaction(faction, Math.random, (position) =>
+      // Pads around the towers the faction holds; the main base when it holds none.
+      const spawn = selectSpawn(faction, this.conquest.heldTowers(faction), Math.random, (position) =>
         this.isSpawnOccupied(position, selfId),
       );
+      const objective = spawnObjective(spawn.position, faction, this.conquest.snapshot().towers);
+      const yaw = this.spawnFacing.yawFor(spawn.id, spawn.position, objective.index, objective.point);
+      return { position: { ...spawn.position }, yaw };
     }
     const side = faction === 'alpine' ? -1 : 1;
     const x = this.arena.x + side * 9 + (Math.random() - 0.5) * 6;
     const z = this.arena.z + (Math.random() - 0.5) * 6;
-    return { position: { x, y: sampleMapHeight(x, z) + 0.4, z } };
+    return { position: { x, y: sampleMapHeight(x, z) + 0.4, z }, yaw: side < 0 ? Math.PI / 2 : -Math.PI / 2 };
   }
 
   private respawn(player: PlayerConnection): void {
@@ -582,7 +601,8 @@ export class MatchRoom {
     player.inputQueue.length = 0;
     player.fireQueue.length = 0;
     player.previousButtons = 0;
-    player.lastInput = idleInput(player.lastProcessedInput, 0, 0, 1);
+    player.lastInput = idleInput(player.lastProcessedInput, spawn.yaw, 0, 1);
+    this.conquestBots.forget(player.id);
     if (player.bot) {
       player.bot.targetId = 0;
       player.bot.nextThinkTick = this.physicsTick;
@@ -596,10 +616,92 @@ export class MatchRoom {
       eventType: 'PLAYER_RESPAWNED',
       actorId: player.id,
       targetId: 0,
-      paramX: 0,
+      paramX: 1,
       paramZ: 0,
-      paramValue: 0,
+      paramValue: spawnYawToWire(spawn.yaw),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Climate Conquest hooks (rules live in conquest.ts, bot objectives in conquest-bots.ts)
+  // ---------------------------------------------------------------------------
+
+  /** Capture zones, tickets, weather and round flow: once per physics tick, after combat. */
+  private stepConquest(): void {
+    const candidates = [...this.players.values()].map((player) => ({
+      faction: player.profile.faction,
+      classId: player.profile.cosmetics.classId,
+      alive: player.alive,
+      position: player.character.position,
+    }));
+    for (const event of this.conquest.step(countTowerPresence(candidates))) this.handleConquestEvent(event);
+    this.conquestView = this.conquest.snapshot();
+  }
+
+  private handleConquestEvent(event: ConquestEvent): void {
+    if (event.type === 'captured' || event.type === 'neutralised') {
+      this.broadcastEvent({
+        eventType: 'TURRET_CAPTURED',
+        actorId: 0,
+        targetId: 0,
+        paramX: event.index,
+        paramZ: event.type === 'captured' ? 1 : 2,
+        paramValue: event.faction === 'alpine' ? 1 : 2,
+      });
+      return;
+    }
+    if (event.type === 'round_reset') this.resetRound();
+  }
+
+  /**
+   * New round (the conquest state is already reset): everyone respawns at the
+   * round-start towers with a clean score; shots and puddles in flight vanish.
+   */
+  private resetRound(): void {
+    this.projectiles.length = 0;
+    this.puddles.length = 0;
+    this.conquestBots.reset();
+    for (const player of this.players.values()) {
+      player.kills = 0;
+      player.deaths = 0;
+      this.respawn(player);
+    }
+  }
+
+  /** Tower ownership query for map toys and vehicle spawns (`{ capture: TowerId }` triggers). */
+  isTowerHeldBy(tower: TowerId, faction: Faction): boolean {
+    return this.conquest.isTowerHeldBy(tower, faction);
+  }
+
+  /** Where a bot without a fight should walk: a hold waypoint of its target tower. */
+  private botObjectiveGoal(player: PlayerConnection): Vec3 | null {
+    const bots = [...this.players.values()]
+      .filter((other) => other.isBot && other.alive)
+      .map((other) => ({ id: other.id, faction: other.profile.faction, position: other.character.position }));
+    return this.conquestBots.goalFor(
+      { id: player.id, faction: player.profile.faction, position: player.character.position },
+      this.conquestView.towers,
+      bots,
+      this.physicsTick,
+      Math.random,
+    );
+  }
+
+  private botHoldingZone(player: PlayerConnection): boolean {
+    return this.conquestBots.isHolding(
+      { id: player.id, faction: player.profile.faction, position: player.character.position },
+      this.conquestView.towers,
+    );
+  }
+
+  /**
+   * DEV-only (FF_DEV_TOOLS=1): stage a tower (`owner` alpine | lagoon | neutral,
+   * optional control −1..1) or set a team's tickets (0 ends the round next tick).
+   */
+  devConquest(command: { tower?: TowerId; owner?: Faction | null; control?: number; faction?: Faction; tickets?: number }): ConquestStatus {
+    if (command.tower && command.owner !== undefined) this.conquest.devSetTower(command.tower, command.owner, command.control);
+    if (command.faction && command.tickets !== undefined) this.conquest.devSetTickets(command.faction, command.tickets);
+    return this.conquest.status();
   }
 
   /** True when another living player stands on (or right next to) a spawn pad. */
@@ -809,6 +911,8 @@ export class MatchRoom {
     headshot: boolean,
   ): void {
     if (!target.alive || baseDamage <= 0) return;
+    // The results intermission is a ceasefire.
+    if (!this.conquest.isLive) return;
     if (attacker && attacker.profile.faction === target.profile.faction) return;
     if (this.physicsTick < target.spawnProtectionUntil) return;
 
@@ -856,6 +960,7 @@ export class MatchRoom {
     target.fireQueue.length = 0;
     target.cloakUntilTick = 0;
     if (attacker && attacker.id !== target.id) attacker.kills += 1;
+    this.conquest.recordDeath(target.profile.faction);
 
     this.broadcastEvent({
       eventType: 'KILL_RAGDOLL',
@@ -1489,7 +1594,7 @@ export class MatchRoom {
         character,
         inputQueue: [],
         fireQueue: [],
-        lastInput: idleInput(0, Math.random() * Math.PI * 2, -0.05, 1),
+        lastInput: idleInput(0, spawn.yaw, -0.05, 1),
         lastProcessedInput: 0,
         previousButtons: 0,
         hp: classStatsFor(classId, entry.faction).maxHp,
@@ -1591,7 +1696,13 @@ export class MatchRoom {
         // Routed movement has its own stuck escalation (hop, sidestep, re-plan).
         bot.stuckTicks = 0;
         bot.detourUntilTick = 0;
-        routeTowards(route, feet, live.character.position, this.physicsTick);
+        // A rival out of sight and far away (or one outside the zone a bot is holding) is
+        // not worth leaving the objective for.
+        const objective =
+          !route.seesTarget && (this.botHoldingZone(player) || distance > BOT_OBJECTIVE_CHASE_RANGE)
+            ? this.botObjectiveGoal(player)
+            : null;
+        routeTowards(route, feet, objective ?? live.character.position, this.physicsTick);
         const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
         let chaseButtons = InputButton.Forward;
         if (steer.sprint) chaseButtons |= InputButton.Sprint;
@@ -1604,7 +1715,8 @@ export class MatchRoom {
       // Line of sight, refreshed every 12 ticks (firing re-checks it below).
       const visible = route.seesTarget;
       const detouring = this.physicsTick < bot.detourUntilTick;
-      const charging = distance > Math.max(9, weapon.range * 0.45);
+      // Holding a zone that is not secured yet: fight from inside it instead of charging out.
+      const charging = !this.botHoldingZone(player) && distance > Math.max(9, weapon.range * 0.45);
       if (detouring) {
         // Walk sideways around the prop that blocked the charge, hopping onto ledges.
         yaw += (bot.detourSide * Math.PI) / 2;
@@ -1686,9 +1798,11 @@ export class MatchRoom {
         bot.detourUntilTick = this.physicsTick + BOT_DETOUR_TICKS;
       }
     } else {
-      // Patrol the waypoint graph towards a tower or a random landmark.
+      // Play the objective: route to (and around) the bot's target tower.
       bot.stuckTicks = 0;
       bot.detourUntilTick = 0;
+      const goal = this.botObjectiveGoal(player);
+      if (goal) routeTowards(route, feet, goal, this.physicsTick);
       const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
       yaw = steer.yaw;
       bot.patrolYaw = yaw;
@@ -1749,7 +1863,11 @@ export class MatchRoom {
         );
       }
       if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
-        routeTowards(route, feet, target.character.position, this.physicsTick);
+        const objective =
+          !route.seesTarget && (this.botHoldingZone(player) || distance > BOT_OBJECTIVE_CHASE_RANGE)
+            ? this.botObjectiveGoal(player)
+            : null;
+        routeTowards(route, feet, objective ?? target.character.position, this.physicsTick);
         pursue = null;
       } else if (Math.hypot(dx, dz) > 6) {
         if (engagementBlocked(route, feet, this.physicsTick)) {
@@ -1764,6 +1882,10 @@ export class MatchRoom {
     let pivot = false;
     const swimming = player.character.swimming;
     if (!pursue) {
+      if (!target) {
+        const goal = this.botObjectiveGoal(player);
+        if (goal) routeTowards(route, feet, goal, this.physicsTick);
+      }
       const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
       bot.patrolYaw = steer.yaw;
       if (steer.jump) routeButtons |= InputButton.Jump;
@@ -1871,7 +1993,7 @@ export class MatchRoom {
       character,
       inputQueue: [],
       fireQueue: [],
-      lastInput: idleInput(0, 0, 0, 1),
+      lastInput: idleInput(0, spawn.yaw, 0, 1),
       lastProcessedInput: 0,
       previousButtons: 0,
       hp: classStatsFor(classId, faction).maxHp,
@@ -1915,6 +2037,7 @@ export class MatchRoom {
         profile,
         serverTick: this.snapshotTick,
         spawn: { ...spawn.position },
+        spawnYaw: spawn.yaw,
         protocolVersion: PROTOCOL_VERSION,
       },
       mapState: {
@@ -2087,16 +2210,18 @@ export class MatchRoom {
       });
     }
     const wind = this.currentWind();
+    const conquest = this.conquest.snapshot();
     return {
       serverTick: this.snapshotTick,
-      weatherBalance: this.weatherBalance,
+      weatherBalance: this.conquest.weatherBalance,
       windAngle: wind.angle,
       windStrength: wind.strength,
-      ticketsAlpine: this.ticketsAlpine,
-      ticketsLagoon: this.ticketsLagoon,
-      turretStates: 0,
+      ticketsAlpine: this.conquest.ticketsOf('alpine'),
+      ticketsLagoon: this.conquest.ticketsOf('lagoon'),
+      turretStates: towerOwnerBits(conquest.towers),
       players,
       vehicles: [],
+      conquest,
     };
   }
 
@@ -2136,8 +2261,9 @@ export class MatchRoom {
       uptimeSeconds: Math.floor((Date.now() - this.startedAt) / 1000),
       protocolVersion: PROTOCOL_VERSION,
       mapId: MAP_ID,
-      tickets: { alpine: this.ticketsAlpine, lagoon: this.ticketsLagoon },
-      weatherBalance: this.weatherBalance,
+      tickets: { alpine: this.conquest.ticketsOf('alpine'), lagoon: this.conquest.ticketsOf('lagoon') },
+      weatherBalance: this.conquest.weatherBalance,
+      conquest: this.conquest.status(),
       mascots: {
         active: [...this.players.values()].filter((player) => player.character.form !== null).length,
         rams: this.mascotStats.rams,
