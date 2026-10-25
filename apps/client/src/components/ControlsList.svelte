@@ -30,6 +30,11 @@
     { label: 'controls.reload', value: 'controls.reloadKey' },
     { label: 'controls.skills', value: 'controls.skillKey' },
     { label: 'controls.interact', value: 'controls.interactKey' },
+    { label: 'controls.vehicleEnter', value: 'controls.vehicleEnterKey' },
+    { label: 'controls.vehicleSeat', value: 'controls.vehicleSeatKey' },
+    { label: 'controls.vehicleHorn', value: 'controls.vehicleHornKey' },
+    { label: 'controls.vehicleTurbo', value: 'controls.vehicleTurboKey' },
+    { label: 'controls.vehicleDrift', value: 'controls.vehicleDriftKey' },
     ...SHARED_ROWS,
   ];
 

@@ -27,6 +27,7 @@ export class InputController {
   private crouchToggle = false;
   private crouchPulseUntil = 0;
   private weaponSlot: WeaponSlot = 1;
+  private vehicleMode = false;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement, handlers: InputHandlers) {
@@ -74,6 +75,17 @@ export class InputController {
     return this.weaponSlot;
   }
 
+  /**
+   * In a vehicle C is the seat switch: a tap sends a short Crouch pulse
+   * instead of toggling crouch (which is cleared on the way in and out).
+   */
+  setVehicleMode(on: boolean): void {
+    if (this.vehicleMode === on) return;
+    this.vehicleMode = on;
+    this.crouchToggle = false;
+    this.crouchPulseUntil = 0;
+  }
+
   buttons(): number {
     let mask = 0;
     if (this.pressed.has('KeyW') || this.pressed.has('ArrowUp')) mask |= InputButton.Forward;
@@ -99,6 +111,8 @@ export class InputController {
     if (this.pressed.has('KeyQ')) mask |= InputButton.Skill1;
     if (this.pressed.has('KeyE')) mask |= InputButton.Skill2;
     if (this.pressed.has('KeyT')) mask |= InputButton.Skill3OrTaunt;
+    // Vehicle horn (H) travels on the otherwise unused Heal bit.
+    if (this.pressed.has('KeyH')) mask |= InputButton.Heal;
     return mask;
   }
 
@@ -131,6 +145,10 @@ export class InputController {
     }
     if (event.code === 'KeyG' && !event.repeat) {
       this.handlers.onTaunt();
+      return;
+    }
+    if (event.code === 'KeyC' && !event.repeat && this.vehicleMode) {
+      this.crouchPulseUntil = performance.now() + 130;
       return;
     }
     if (event.code === 'KeyC' && !event.repeat) {

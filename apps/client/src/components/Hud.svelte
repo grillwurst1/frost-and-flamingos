@@ -11,11 +11,16 @@
   import KillFeed from './hud/KillFeed.svelte';
   import MascotHud from './MascotHud.svelte';
   import StatusBar from './hud/StatusBar.svelte';
+  import VehicleHud from './hud/VehicleHud.svelte';
   import WeaponDock from './hud/WeaponDock.svelte';
+  import { vehicleHud } from '../state/vehicle';
 
   $: player = $localPlayer;
   // Mascots carry no firearms: MascotHud shows their portrait, vitality and moves.
   $: isMascot = player?.classId === 'mascot';
+  // Riding a vehicle: drivers and gunners use the vehicle card instead of the weapon dock.
+  $: riding = $vehicleHud;
+  $: showDock = !riding || riding.handWeapons;
   $: dead = $deathState !== null;
   $: maxHp = Math.max(1, player?.maxHp ?? 100);
   $: lowHealth = !!player && player.alive && (player.hp / maxHp) * 100 <= 30;
@@ -58,7 +63,7 @@
       {#if $interactionPrompt.icon}
         <span class="prompt-tile"><Pictogram tile={$interactionPrompt.icon} painted /></span>
       {/if}
-      <kbd>F</kbd>
+      <kbd>{$t($interactionPrompt.keyLabel ?? 'controls.interactKey')}</kbd>
       <span>{$t($interactionPrompt.key, $interactionPrompt.params)}</span>
     </div>
   {/if}
@@ -66,9 +71,10 @@
   <StatusBar />
   {#if isMascot}
     <MascotHud />
-  {:else}
+  {:else if showDock}
     <WeaponDock />
   {/if}
+  <VehicleHud raised={!!riding && riding.handWeapons} />
 
   <div class="hud-controls-hint" aria-hidden="true">
     <span class="hint-title">{$t('hud.controlsHintTitle')}</span>

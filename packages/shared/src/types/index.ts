@@ -48,7 +48,21 @@ export type MascotWeaponId =
   | 'ground_pound'
   | 'milk_splash';
 
-export type WeaponId = MainWeaponId | GimmickWeaponId | MascotWeaponId;
+/**
+ * Vehicle weapons and roadkill. Like the mascot moves they never appear in a
+ * loadout; they name kills in the kill feed and the killer cam.
+ */
+export type VehicleWeaponId =
+  | 'fondue_cannon'
+  | 'coconut_mortar'
+  | 'harpoon_gun'
+  | 'dozer_ram'
+  | 'grille_ram'
+  | 'sidecar_ram'
+  | 'flamingo_boing'
+  | 'vehicle_blast';
+
+export type WeaponId = MainWeaponId | GimmickWeaponId | MascotWeaponId | VehicleWeaponId;
 
 export interface Loadout {
   primary: MainWeaponId;
@@ -293,10 +307,26 @@ export interface MascotWireState {
 
 export interface VehicleSnapshot {
   id: number;
+  /** VEHICLE_KIND_TABLE code. */
   type: number;
+  /** Base (ground contact under the hull centre). */
   position: Vec3;
   yaw: number;
   health: number;
+  velocity: Vec3;
+  yawRate: number;
+  /** Sidecar steering angle (rad). */
+  steer: number;
+  /** Turret yaw relative to the hull and barrel pitch (rad, + = up). */
+  turretYaw: number;
+  turretPitch: number;
+  /** VEHICLE_FLAG bits. */
+  flags: number;
+  boostTicks: number;
+  boostCooldownTicks: number;
+  weaponCooldownTicks: number;
+  /** Player id per seat (0 = free), in seat order. */
+  seats: number[];
 }
 
 export interface WorldSnapshot {
@@ -340,7 +370,11 @@ export type GameEventType =
   | 'SKILL_USED'
   | 'MASCOT_RAM'
   | 'MASCOT_IMPACT'
-  | 'MASCOT_PUDDLE';
+  | 'MASCOT_PUDDLE'
+  | 'VEHICLE_DAMAGED'
+  | 'VEHICLE_DESTROYED'
+  | 'VEHICLE_HORN'
+  | 'VEHICLE_SEAT';
 
 export interface GameEvent {
   eventType: GameEventType;

@@ -72,6 +72,7 @@ import {
   type CombatTarget,
 } from './combat.js';
 import { mascotBotButtons, type MascotBotMemory } from './mascot-bot.js';
+import { VehicleManager, type VehicleStatus } from './vehicle-manager.js';
 
 export interface GameSocket {
   send(data: string | ArrayBuffer | Uint8Array): unknown;
@@ -261,6 +262,7 @@ export interface RoomStatus {
     puddles: number;
     lastRam: MascotRamRecord | null;
   };
+  vehicles: VehicleStatus;
 }
 
 const PROFILE_UPDATE_COOLDOWN_MS = 120;
@@ -367,9 +369,22 @@ export class MatchRoom {
   private weatherBalance = 0;
   private windAngle = 0.6;
   private windStrength = 0;
+  /** Drivable vehicles (package 4V); see vehicle-manager.ts. */
+  readonly vehicles: VehicleManager<PlayerConnection>;
 
   private constructor(physics: PhysicsWorld) {
     this.physics = physics;
+    this.vehicles = new VehicleManager<PlayerConnection>(physics, {
+      physicsTick: () => this.physicsTick,
+      snapshotTick: () => this.snapshotTick,
+      players: () => this.players.values(),
+      player: (id) => this.players.get(id),
+      damagePlayer: (target, attacker, damage, weaponId, headshot) =>
+        this.damagePlayer(target, attacker, damage, weaponId, headshot),
+      explode: (owner, position, damage, radius) => this.explode(owner, position, damage, radius),
+      combatTargets: (owner, clientTick) => this.combatTargets(owner, clientTick),
+      broadcastEvent: (event) => this.broadcastEvent(event),
+    });
   }
 
   static async create(): Promise<MatchRoom> {
@@ -427,7 +442,7 @@ export class MatchRoom {
       }
 
       const input = player.isBot
-        ? this.botInput(player)
+        ? this.vehicles.botAdjust(player, this.botInput(player))
         : player.inputQueue.shift() ?? null;
       if (input) {
         this.applyInput(player, input, wind);
@@ -451,6 +466,7 @@ export class MatchRoom {
       }
     }
 
+    this.vehicles.step();
     this.physics.step();
     this.resolveMascotRams();
     // Out-of-world guard: anything that slips below the world respawns safely.
@@ -498,6 +514,19 @@ export class MatchRoom {
     player.lastInput = input;
     player.lastProcessedInput = input.sequence;
     const mascot = player.character.form !== null;
+
+    // Vehicles: seated players drive/aim instead of walking; E/F enters.
+    const seat = this.vehicles.handleInput(player, input, previousButtons, trackButtons);
+    if (seat !== 'none') {
+      if (seat === 'hands' && (input.buttons & InputButton.Reload) !== 0 && (previousButtons & InputButton.Reload) === 0) {
+        this.startReload(player);
+      }
+      if (seat === 'hands' && player.isBot && (input.buttons & InputButton.FirePrimary) !== 0) {
+        this.tryFire(player, this.snapshotTick);
+      }
+      if (trackButtons) player.previousButtons = input.buttons;
+      return;
+    }
 
     if (
       !mascot &&
@@ -631,6 +660,17 @@ export class MatchRoom {
     return { ok: true, position };
   }
 
+  /**
+   * DEV-only vehicle probe (FF_DEV_TOOLS=1): `enter` seats the player in a
+   * vehicle (seat index `value`), `damage` hurts a vehicle by `value`.
+   */
+  devVehicle(playerId: number, action: string, vehicleId: number, value: number): { ok: boolean } {
+    const player = this.players.get(playerId);
+    if (action === 'enter') return { ok: !!player && player.alive && this.vehicles.devEnter(player, vehicleId, Math.max(0, Math.floor(value))) };
+    if (action === 'damage') return { ok: this.vehicles.devDamage(vehicleId, null, value) };
+    return { ok: false };
+  }
+
   private eyePosition(player: PlayerConnection): Vec3 {
     const position = player.character.position;
     return {
@@ -743,6 +783,12 @@ export class MatchRoom {
     const maxDistance = Math.min(range, worldHit?.distance ?? range);
     const targets = this.combatTargets(player, player.isBot ? 0 : clientTick);
     const hit = raycastTargets(origin, direction, maxDistance, targets);
+    // Vehicle hulls stop bullets (the world ray already ends on their colliders).
+    const vehicleHit = this.vehicles.raycast(origin, normalizeDirection(direction), maxDistance + 0.3, this.vehicles.vehicleIdOf(player.id));
+    if (vehicleHit && (!hit || vehicleHit.distance < hit.distance)) {
+      this.vehicles.damageFromWeapon(vehicleHit.id, player, damage, weaponId);
+      return;
+    }
     if (!hit) return;
     const target = this.players.get(hit.id);
     if (!target) return;
@@ -755,6 +801,8 @@ export class MatchRoom {
     for (const other of this.players.values()) {
       if (other.id === player.id) continue;
       if (other.profile.faction === player.profile.faction) continue;
+      // Crews inside the armour are hit through their vehicle instead.
+      if (this.vehicles.isShielded(other.id)) continue;
       const classStats = classStatsFor(other.profile.cosmetics.classId, other.profile.faction);
       const state = sample?.players.get(other.id);
       targets.push({
@@ -1028,11 +1076,13 @@ export class MatchRoom {
       if (!other.alive) continue;
       if (other.id === owner.id) continue;
       if (other.profile.faction === owner.profile.faction) continue;
+      if (this.vehicles.isShielded(other.id)) continue;
       const distance = distance3(position, other.character.position);
       if (distance > radius) continue;
       const falloff = Math.max(0.3, 1 - (distance / radius) * 0.7);
       this.damagePlayer(other, owner, damage * falloff, null, false);
     }
+    this.vehicles.explode(owner, position, damage, radius);
     this.broadcastEvent({
       eventType: 'PROP_EXPLODE',
       actorId: owner.id,
@@ -1258,6 +1308,7 @@ export class MatchRoom {
       const rewind = rammer.isBot ? null : this.lagSampleAt(this.physicsTick - MASCOT_RAM_REWIND_TICKS);
       for (const victim of this.players.values()) {
         if (victim.id === rammer.id || !victim.alive) continue;
+        if (this.vehicles.isShielded(victim.id)) continue;
         if (this.physicsTick < (rammer.ramCooldowns.get(victim.id) ?? 0)) continue;
         const touched = this.ramTouch(rammer, form, victim, rewind);
         if (!touched) continue;
@@ -1836,7 +1887,8 @@ export class MatchRoom {
     direction: Vec3,
   ): boolean {
     const hit = this.physics.raycast(origin, direction, distance);
-    return hit === null || hit.distance >= distance - 0.6;
+    // A hull in front of a crewed target counts as a clear shot at the vehicle.
+    return hit === null || hit.distance >= distance - 0.6 || this.vehicles.isVehicleSurfaceNear(hit.point, target);
   }
 
   join(socket: GameSocket, hello: ServerHello): JoinResult | JoinError {
@@ -2096,7 +2148,7 @@ export class MatchRoom {
       ticketsLagoon: this.ticketsLagoon,
       turretStates: 0,
       players,
-      vehicles: [],
+      vehicles: this.vehicles.snapshot(),
     };
   }
 
@@ -2146,6 +2198,7 @@ export class MatchRoom {
         puddles: this.puddles.length,
         lastRam: this.mascotStats.lastRam,
       },
+      vehicles: this.vehicles.status(),
     };
   }
 }

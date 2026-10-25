@@ -190,6 +190,81 @@ function readMascotState(reader: BinaryReader): MascotWireState {
   };
 }
 
+/** Short motor counters as whole ticks (u16). */
+function ticksToWire(ticks: number): number {
+  return Math.max(0, Math.min(65535, Math.round(ticks)));
+}
+
+function milliToWire(value: number): number {
+  return Math.max(-32767, Math.min(32767, Math.round(value * 1000)));
+}
+
+/**
+ * Vehicle block (protocol 7, 38 B + 2 B per seat): id u16, kind u8, flags u8,
+ * base position, velocity, yaw u16, yaw rate i16 (mrad/s), steer i16 (mrad),
+ * turret yaw u16 (relative), turret pitch i16 (mrad), health u16, turbo,
+ * turbo cooldown and weapon cooldown u16 ticks, seat count u8 + seat
+ * occupant ids u16 (0 = free).
+ */
+function writeVehicleState(writer: BinaryWriter, vehicle: VehicleSnapshot): void {
+  writer
+    .writeUint16(vehicle.id)
+    .writeUint8(vehicle.type)
+    .writeUint8(vehicle.flags & 0xff)
+    .writePosition(vehicle.position)
+    .writeVelocity(vehicle.velocity)
+    .writeAngle(vehicle.yaw)
+    .writeInt16(milliToWire(vehicle.yawRate))
+    .writeInt16(milliToWire(vehicle.steer))
+    .writeAngle(vehicle.turretYaw)
+    .writeInt16(milliToWire(vehicle.turretPitch))
+    .writeUint16(Math.max(0, Math.min(65535, Math.round(vehicle.health))))
+    .writeUint16(ticksToWire(vehicle.boostTicks))
+    .writeUint16(ticksToWire(vehicle.boostCooldownTicks))
+    .writeUint16(ticksToWire(vehicle.weaponCooldownTicks))
+    .writeUint8(Math.min(8, vehicle.seats.length));
+  for (const occupant of vehicle.seats.slice(0, 8)) writer.writeUint16(occupant & 0xffff);
+}
+
+function readVehicleState(reader: BinaryReader): VehicleSnapshot {
+  const id = reader.readUint16();
+  const type = reader.readUint8();
+  const flags = reader.readUint8();
+  const position = reader.readPosition();
+  const velocity = reader.readVelocity();
+  const yaw = reader.readAngle();
+  const yawRate = reader.readInt16() / 1000;
+  const steer = reader.readInt16() / 1000;
+  const turretRaw = reader.readAngle();
+  const turretPitch = reader.readInt16() / 1000;
+  const health = reader.readUint16();
+  const boostTicks = reader.readUint16();
+  const boostCooldownTicks = reader.readUint16();
+  const weaponCooldownTicks = reader.readUint16();
+  const seatCount = reader.readUint8();
+  if (seatCount > 8) throw new RangeError('Too many vehicle seats.');
+  const seats: number[] = [];
+  for (let seat = 0; seat < seatCount; seat += 1) seats.push(reader.readUint16());
+  return {
+    id,
+    type,
+    flags,
+    position,
+    velocity,
+    yaw: yaw > Math.PI ? yaw - Math.PI * 2 : yaw,
+    yawRate,
+    steer,
+    // Wire angles are 0…2π; the motor keeps -π…π.
+    turretYaw: turretRaw > Math.PI ? turretRaw - Math.PI * 2 : turretRaw,
+    turretPitch,
+    health,
+    boostTicks,
+    boostCooldownTicks,
+    weaponCooldownTicks,
+    seats,
+  };
+}
+
 /**
  * Writes the appearance/loadout part of a profile. The display name and faction
  * travel with it because a profile is also a self-contained player record.
@@ -433,14 +508,7 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
   }
 
   writer.writeUint8(snapshot.vehicles.length & 0xff);
-  for (const vehicle of snapshot.vehicles) {
-    writer
-      .writeUint16(vehicle.id)
-      .writeUint8(vehicle.type)
-      .writePosition(vehicle.position)
-      .writeAngle(vehicle.yaw)
-      .writeUint16(Math.max(0, Math.min(65535, Math.round(vehicle.health))));
-  }
+  for (const vehicle of snapshot.vehicles) writeVehicleState(writer, vehicle);
 
   return writer.finish();
 }
@@ -525,15 +593,7 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
 
     const vehicleCount = reader.readUint8();
     const vehicles: VehicleSnapshot[] = [];
-    for (let index = 0; index < vehicleCount; index += 1) {
-      vehicles.push({
-        id: reader.readUint16(),
-        type: reader.readUint8(),
-        position: reader.readPosition(),
-        yaw: reader.readAngle(),
-        health: reader.readUint16(),
-      });
-    }
+    for (let index = 0; index < vehicleCount; index += 1) vehicles.push(readVehicleState(reader));
 
     return {
       serverTick,

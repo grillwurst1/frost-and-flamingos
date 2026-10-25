@@ -46,6 +46,7 @@ import type { BakedClip } from '../apps/client/src/rendering/glb/clips';
 import { readGlb, writeBakedAnimations, writeGlb, type GlbParts } from '../apps/client/src/rendering/glb/glb-binary';
 import { bakeClipLibrary, type BakeSource } from '../apps/client/src/rendering/glb/offline-bake';
 import { removeSmallIslands, type GlbJson } from './glb-islands';
+import { splitVehicle, VEHICLE_PART_SPECS } from './vehicle-parts';
 
 const ROOT = resolve(import.meta.dir, '..');
 const SOURCE_DIR = join(ROOT, 'art-src', 'meshy');
@@ -277,7 +278,14 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
   const outFile = join(OUTPUT_DIR, outName);
   const stem = join(workDir, outName.replace('.glb', ''));
 
-  const parts = readGlb(new Uint8Array(await Bun.file(file).arrayBuffer()));
+  let parts = readGlb(new Uint8Array(await Bun.file(file).arrayBuffer()));
+  if (VEHICLE_PART_SPECS[key]) {
+    // Static vehicles: re-oriented to game space and split into moving parts
+    // (hull, turret, barrel, wheels; see vehicle-parts.ts).
+    const split = splitVehicle(key, parts);
+    parts = split.parts;
+    console.log(`${name}: ${split.report.parts.map((part) => part.name).join(' ')}`);
+  }
   if (CLEAN_ISLANDS.has(key)) {
     const report = removeSmallIslands(parts.json as GlbJson, parts.bin);
     console.log(`${name}: removed ${report.removedIslands} stray islands (${report.removedTriangles} tris), kept ${report.keptTriangles}`);

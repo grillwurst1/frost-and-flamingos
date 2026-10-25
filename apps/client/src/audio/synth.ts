@@ -852,6 +852,125 @@ export class AudioEngine {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Vehicles (package 4V): engine loops on the vehicle bus, guns, horns, turbo
+  // ---------------------------------------------------------------------------
+
+  private readonly engines = new Map<number, VehicleEngineVoice>();
+
+  /**
+   * Continuous engine voice of one vehicle (positional). `load` 0-1 is the
+   * throttle/speed share; a null position stops the voice. Each kind has its
+   * own timbre: the crawler a slow diesel thump, the coconut tank a lighter
+   * chug, the sidecar a two-stroke buzz, the flamingo an outboard purr.
+   */
+  setVehicleEngine(id: number, kind: VehicleSoundKind, position: Vec3 | null, load: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.noiseBuffer) return;
+    let voice = this.engines.get(id);
+    if (!position) {
+      if (voice) {
+        voice.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.12);
+        const stopping = voice;
+        setTimeout(() => stopping.stop(), 600);
+        this.engines.delete(id);
+      }
+      return;
+    }
+    if (!voice) {
+      const destination = this.bus('vehicle');
+      if (!destination) return;
+      voice = createEngineVoice(ctx, destination, this.noiseBuffer, kind);
+      this.engines.set(id, voice);
+    }
+    const now = ctx.currentTime;
+    const tune = ENGINE_TUNING[kind];
+    const clamped = Math.max(0, Math.min(1, load));
+    voice.panner.positionX.setTargetAtTime(position.x, now, 0.05);
+    voice.panner.positionY.setTargetAtTime(position.y, now, 0.05);
+    voice.panner.positionZ.setTargetAtTime(position.z, now, 0.05);
+    voice.oscillator.frequency.setTargetAtTime(tune.idle + (tune.top - tune.idle) * clamped, now, 0.12);
+    voice.lfo.frequency.setTargetAtTime(tune.pulse * (0.7 + clamped * 0.9), now, 0.15);
+    voice.filter.frequency.setTargetAtTime(tune.bright * (0.6 + clamped * 0.8), now, 0.12);
+    voice.gain.gain.setTargetAtTime(tune.level * (0.55 + clamped * 0.45), now, 0.1);
+  }
+
+  /** Stops every engine voice (round end, menu). */
+  stopVehicleEngines(): void {
+    for (const id of [...this.engines.keys()]) this.setVehicleEngine(id, 'tank', null, 0);
+  }
+
+  /** Main gun: cheese-cannon BOOM, bamboo mortar THUMP-PLONK or the harpoon's thwip-clank. */
+  playVehicleGun(kind: VehicleSoundKind, position?: Vec3, local = false): void {
+    const panner = local ? undefined : this.panner(position, 8, 160);
+    const now = this.ctx?.currentTime ?? 0;
+    if (kind === 'coconut') {
+      if (!this.playRecipe('SFX_VEHICLE_COCONUT_TANK', { position: local ? undefined : position, volume: 1 })) {
+        this.tone({ frequency: 145, endFrequency: 36, duration: 0.2, gain: 0.3, type: 'sine', panner });
+      }
+      this.noise({ duration: 0.35, gain: 0.12, filter: 'lowpass', frequency: 900, endFrequency: 160, panner });
+      return;
+    }
+    if (kind === 'flamingo') {
+      this.noise({ duration: 0.07, gain: 0.12, filter: 'bandpass', frequency: 2400, q: 1.4, panner });
+      this.tone({ frequency: 880, endFrequency: 240, duration: 0.09, gain: 0.07, type: 'square', panner });
+      this.tone({ frequency: 1500, duration: 0.05, gain: 0.04, type: 'triangle', when: now + 0.05, panner });
+      return;
+    }
+    // Fondue Crawler: deep BOOM with a cheesy bloop on the tail.
+    this.tone({ frequency: 92, endFrequency: 30, duration: 0.7, gain: 0.34, type: 'sine', panner });
+    this.noise({ duration: 0.55, gain: 0.24, filter: 'lowpass', frequency: 1400, endFrequency: 140, panner });
+    this.tone({ frequency: 260, endFrequency: 430, duration: 0.12, gain: 0.07, type: 'sine', when: now + 0.28, panner });
+  }
+
+  /** Horn: the sidecar's klaxon, a deep alpine horn for the tanks, a squeaky toy for the flamingo. */
+  playVehicleHorn(kind: VehicleSoundKind, position?: Vec3): void {
+    if (kind === 'sidecar' && this.playRecipe('SFX_VEHICLE_SIDECAR_HORN', { position, volume: 0.95, bus: 'vehicle' })) return;
+    const panner = this.panner(position, 8, 140, 'vehicle');
+    const now = this.ctx?.currentTime ?? 0;
+    if (kind === 'flamingo') {
+      this.tone({ frequency: 980, endFrequency: 1350, duration: 0.18, gain: 0.12, type: 'square', panner, bus: 'vehicle' });
+      this.tone({ frequency: 1350, endFrequency: 820, duration: 0.2, gain: 0.1, type: 'square', when: now + 0.2, panner, bus: 'vehicle' });
+      return;
+    }
+    this.tone({ frequency: 196, duration: 0.42, gain: 0.16, type: 'sawtooth', attack: 0.03, panner, bus: 'vehicle' });
+    this.tone({ frequency: 247, duration: 0.42, gain: 0.12, type: 'sawtooth', attack: 0.03, panner, bus: 'vehicle' });
+    this.tone({ frequency: 196, duration: 0.5, gain: 0.16, type: 'sawtooth', attack: 0.03, when: now + 0.5, panner, bus: 'vehicle' });
+  }
+
+  /** Badi-Flamingo plug turbo: plug pop + high-pressure bubbling. */
+  playVehicleTurbo(position?: Vec3): void {
+    if (this.playRecipe('SFX_VEHICLE_POOL_FLAMINGO', { position, volume: 0.9, bus: 'vehicle' })) return;
+    const panner = this.panner(position, 6, 90, 'vehicle');
+    this.tone({ frequency: 240, endFrequency: 600, duration: 0.12, gain: 0.12, type: 'sine', panner, bus: 'vehicle' });
+    this.noise({ duration: 1.1, gain: 0.14, filter: 'bandpass', frequency: 550, q: 3, panner, bus: 'vehicle' });
+  }
+
+  /** Hatch clunk on getting in or out. */
+  playVehicleDoor(position?: Vec3): void {
+    const panner = this.panner(position, 4, 40);
+    const now = this.ctx?.currentTime ?? 0;
+    this.noise({ duration: 0.07, gain: 0.1, filter: 'lowpass', frequency: 900, panner });
+    this.tone({ frequency: 180, endFrequency: 110, duration: 0.12, gain: 0.08, type: 'square', panner });
+    this.tone({ frequency: 520, duration: 0.05, gain: 0.04, type: 'triangle', when: now + 0.06, panner });
+  }
+
+  /** A vehicle blowing up (the flamingo deflates with a farting whistle). */
+  playVehicleExplosion(kind: VehicleSoundKind, position?: Vec3): void {
+    const panner = this.panner(position, 10, 200);
+    const now = this.ctx?.currentTime ?? 0;
+    if (kind === 'flamingo') {
+      this.tone({ frequency: 1400, endFrequency: 180, duration: 2.6, gain: 0.12, type: 'sawtooth', panner });
+      this.noise({ duration: 2.4, gain: 0.08, filter: 'bandpass', frequency: 420, endFrequency: 180, q: 4, panner });
+      this.tone({ frequency: 90, endFrequency: 60, duration: 0.4, gain: 0.12, type: 'square', when: now + 0.05, panner });
+      return;
+    }
+    this.playExplosion(position);
+    this.tone({ frequency: 48, endFrequency: 22, duration: 1.1, gain: 0.3, type: 'sine', panner });
+    this.noise({ duration: 1.2, gain: 0.18, filter: 'lowpass', frequency: 600, endFrequency: 90, when: now + 0.05, panner });
+    this.tone({ frequency: 620, endFrequency: 300, duration: 0.25, gain: 0.05, type: 'triangle', when: now + 0.45, panner });
+  }
+
   private rollSource: AudioBufferSourceNode | null = null;
   private rollFilter: BiquadFilterNode | null = null;
   private rollGain: GainNode | null = null;
@@ -1452,3 +1571,94 @@ export class AudioEngine {
 }
 
 export const audio = new AudioEngine();
+
+/** Engine timbres per vehicle sound family. */
+export type VehicleSoundKind = 'tank' | 'coconut' | 'sidecar' | 'flamingo';
+
+interface EngineTuning {
+  idle: number;
+  top: number;
+  pulse: number;
+  bright: number;
+  level: number;
+  wave: OscillatorType;
+}
+
+const ENGINE_TUNING: Record<VehicleSoundKind, EngineTuning> = {
+  tank: { idle: 38, top: 72, pulse: 7, bright: 520, level: 0.16, wave: 'sawtooth' },
+  coconut: { idle: 46, top: 88, pulse: 9, bright: 640, level: 0.14, wave: 'sawtooth' },
+  sidecar: { idle: 62, top: 180, pulse: 22, bright: 1500, level: 0.11, wave: 'square' },
+  flamingo: { idle: 70, top: 150, pulse: 16, bright: 900, level: 0.09, wave: 'triangle' },
+};
+
+interface VehicleEngineVoice {
+  oscillator: OscillatorNode;
+  lfo: OscillatorNode;
+  noise: AudioBufferSourceNode;
+  filter: BiquadFilterNode;
+  gain: GainNode;
+  panner: PannerNode;
+  stop(): void;
+}
+
+/** Oscillator + filtered noise rumble, amplitude-pulsed like firing cylinders. */
+function createEngineVoice(ctx: AudioContext, destination: AudioNode, noiseBuffer: AudioBuffer, kind: VehicleSoundKind): VehicleEngineVoice {
+  const tune = ENGINE_TUNING[kind];
+  const panner = ctx.createPanner();
+  panner.panningModel = 'HRTF';
+  panner.distanceModel = 'inverse';
+  panner.refDistance = 5;
+  panner.maxDistance = 90;
+  panner.rolloffFactor = 1.2;
+  panner.connect(destination);
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  gain.connect(panner);
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = tune.bright;
+  filter.Q.value = 1.4;
+  filter.connect(gain);
+  const pulse = ctx.createGain();
+  pulse.gain.value = 0.55;
+  pulse.connect(filter);
+  const oscillator = ctx.createOscillator();
+  oscillator.type = tune.wave;
+  oscillator.frequency.value = tune.idle;
+  oscillator.connect(pulse);
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  noise.loop = true;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.value = kind === 'flamingo' ? 0.35 : 0.22;
+  noise.connect(noiseGain);
+  noiseGain.connect(pulse);
+  const lfo = ctx.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = tune.pulse;
+  const depth = ctx.createGain();
+  depth.gain.value = 0.42;
+  lfo.connect(depth);
+  depth.connect(pulse.gain);
+  oscillator.start();
+  noise.start();
+  lfo.start();
+  return {
+    oscillator,
+    lfo,
+    noise,
+    filter,
+    gain,
+    panner,
+    stop: () => {
+      try {
+        oscillator.stop();
+        noise.stop();
+        lfo.stop();
+      } catch {
+        // Already stopped.
+      }
+      panner.disconnect();
+    },
+  };
+}

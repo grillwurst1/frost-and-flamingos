@@ -121,6 +121,36 @@ const MASCOT_ICONS = {
     `<path d="M26 26 Q24 32 26 38" fill="none" stroke="${ICE}" stroke-width="2.6" stroke-linecap="round"/>`,
 } as const;
 
+
+// Vehicle weapons and roadkill (kill feed, killer cam).
+const CHEESE_WHEEL = c(32, 32, 20, 20, CHEESE) + c(32, 32, 7, 7, CHEESE_DARK) + c(22, 24, 3, 3, CHEESE_DARK) + c(42, 40, 3.4, 3, CHEESE_DARK);
+const TRACK = r(6, 40, 52, 14, 7, METAL_DARK) + c(16, 47, 4, 4, METAL) + c(32, 47, 4, 4, METAL) + c(48, 47, 4, 4, METAL);
+
+const VEHICLE_ICONS = {
+  fondue_cannon: CHEESE_WHEEL + line('M50 14 L58 8', '#FF6A1A', 3) + line('M52 22 L62 20', '#FF6A1A', 3),
+  coconut_mortar:
+    tilt(r(4, 28, 34, 9, 3, '#7FB24A') + `<path d="M14 28 V37 M26 28 V37" stroke="${INK}" stroke-width="2.4"/>`, -20) +
+    c(46, 22, 12, 12, COCONUT) +
+    c(43, 19, 2, 2.4, COCONUT_DARK, { 'stroke-width': 0 }),
+  harpoon_gun: tilt(line('M4 32 L50 32', METAL, 3.5) + p('M50 24 L62 32 L50 40 Z', METAL_LIGHT) + r(8, 28, 16, 9, 2, METAL_DARK)),
+  dozer_ram: TRACK + p('M6 40 L14 18 L30 18 L30 40 Z', '#E0343A') + p('M2 52 L10 30 L14 30 L10 56 Z', '#FF8A2A'),
+  grille_ram: TRACK + p('M10 40 L14 20 L50 20 L54 40 Z', '#5A6B2C') + `<path d="M18 22 V38 M28 22 V38 M38 22 V38 M46 22 V38" stroke="${WOOD}" stroke-width="2.6"/>`,
+  sidecar_ram:
+    c(16, 46, 10, 10, METAL_DARK) +
+    c(50, 46, 10, 10, METAL_DARK) +
+    p('M10 38 L24 24 L44 24 L56 38 Z', '#C8702A') +
+    c(56, 30, 4, 4, '#FFF3B0') +
+    line('M2 20 H10', WHITE, 2) +
+    line('M0 30 H8', WHITE, 2),
+  flamingo_boing:
+    c(30, 40, 24, 14, '#FF6FB5') +
+    p('M44 32 Q52 10 40 8 Q30 8 34 20', '#FF6FB5') +
+    c(40, 12, 2.4, 2.4, INK, { 'stroke-width': 0 }) +
+    p('M30 12 L22 16 L30 18 Z', INK) +
+    spark(10, 14, 5, '#FFE14D'),
+  vehicle_blast: p('M32 4 L38 20 L56 14 L46 30 L60 40 L42 42 L44 60 L32 48 L20 60 L22 42 L4 40 L18 30 L8 14 L26 20 Z', '#FF8A2A') + c(32, 34, 8, 8, '#FFE14D'),
+} as const;
+
 const WEAPON_ICONS: Record<WeaponId, string> = {
   smg: tilt(
     p('M15 27 L5 30 L5 37 L15 35 Z', WOOD) +
@@ -249,6 +279,7 @@ const WEAPON_ICONS: Record<WeaponId, string> = {
   cow_ram: MASCOT_SPEED + MASCOT_HORNS,
   coconut_ram: MASCOT_SPEED + MASCOT_COCONUT,
   ...MASCOT_ICONS,
+  ...VEHICLE_ICONS,
 };
 
 const SKILL_ICONS: Record<SkillId, string> = {
