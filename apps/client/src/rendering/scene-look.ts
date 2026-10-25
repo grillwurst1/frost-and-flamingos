@@ -22,6 +22,7 @@ import { GeometryBufferRenderer } from '@babylonjs/core/Rendering/geometryBuffer
 import type { Scene } from '@babylonjs/core/scene';
 import type { Nullable } from '@babylonjs/core/types';
 import { WATER_LEVEL } from '@frost-and-flamingos/shared';
+import { phase } from '../state/game';
 import {
   COMIC_SAMPLERS,
   COMIC_UNIFORMS,
@@ -291,6 +292,9 @@ export class SceneLook {
   private readonly neutral: WeatherPreset = clonePreset(WEATHER_NEUTRAL);
   private cameraOverride: { position: Vector3; target: Vector3 } | null = null;
   private disposed = false;
+  /** True while the opaque loading screen covers the canvas. */
+  private booting = true;
+  private readonly unsubscribePhase: () => void;
   private readonly tmpForward = new Vector3();
   private readonly tmpRight = new Vector3();
   private readonly tmpUp = new Vector3();
@@ -347,6 +351,13 @@ export class SceneLook {
 
     this.setVisualQuality(this.readStoredQuality(), false);
     this.setWeatherLook(0);
+    // While the loading screen hides the canvas, skip the shadow map, g-buffer
+    // and post passes: slow machines need every millisecond to finish booting.
+    this.unsubscribePhase = phase.subscribe((next) => {
+      this.booting = next === 'booting';
+      scene.renderTargetsEnabled = !this.booting;
+      scene.postProcessesEnabled = !this.booting;
+    });
     void this.loadPaintedSky();
     this.installDevHandle();
   }
@@ -480,6 +491,9 @@ export class SceneLook {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.unsubscribePhase();
+    this.scene.renderTargetsEnabled = true;
+    this.scene.postProcessesEnabled = true;
     this.paintPass?.dispose(this.camera);
     this.comicPass?.dispose(this.camera);
     this.shadowGenerator?.dispose();
@@ -861,6 +875,7 @@ export class SceneLook {
       stats: () => ({
         quality: this.quality,
         weather: this.weather,
+        booting: this.booting,
         webgpu: this.webgpu,
         frameId: this.scene.getEngine().frameId,
         drawCalls: this.scene.getEngine()._drawCalls.current,
