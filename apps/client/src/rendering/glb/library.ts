@@ -257,6 +257,14 @@ function bindWorldRotations(asset: PaintedModelAsset): Map<string, Quaternion> {
   return world;
 }
 
+/** Bind-pose transform of one joint in armature space (for bone attachments). */
+export function bindWorldTransform(asset: PaintedModelAsset, joint: string): { rotation: Quaternion; position: Vector3 } | null {
+  const position = asset.bindPositions.get(joint);
+  if (!position) return null;
+  const rotation = bindWorldRotations(asset).get(joint) ?? Quaternion.Identity();
+  return { rotation, position: position.clone() };
+}
+
 function depthOf(asset: PaintedModelAsset, name: string): number {
   let depth = 0;
   for (let parent = asset.jointParents.get(name) ?? null; parent; parent = asset.jointParents.get(parent) ?? null) depth += 1;

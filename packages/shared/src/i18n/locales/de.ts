@@ -125,6 +125,13 @@ export const de: TranslationDictionary = {
     voicePreview: 'Stimme anhören',
     slots: 'Kosmetik-Slots',
     slotsHint: 'Jedes Teil ist an deiner Figur und bei allen anderen Spielern sichtbar.',
+    paintedTitle: 'Gemaltes Modell',
+    paintedHint:
+      'Du trägst den handgemalten 3D-Soldaten. Oberteil, Hose und Schuhe (und Statur, Hautton und Haare) gehören zum Gemälde; Kopfbedeckung, Gesicht, Rücken und Hände kommen obendrauf. Wähle ein anderes Oberteil, eine andere Hose oder andere Schuhe für ein freies Outfit.',
+    customTitle: 'Freies Outfit',
+    customHint:
+      'Du hast Oberteil, Hose oder Schuhe geändert, darum steht der Baukasten-Urlauber statt des gemalten Soldaten bereit.',
+    wearPainted: 'Gemaltes Outfit anziehen',
     headgear: 'Kopfbedeckung',
     face: 'Gesicht',
     torso: 'Oberkörper',

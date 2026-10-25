@@ -10,6 +10,7 @@ import type { StandardMaterial } from '@babylonjs/core/Materials/standardMateria
 import type { Scene } from '@babylonjs/core/scene';
 import {
   CLASS_STATS,
+  HAIR_COLORS,
   ParachuteState,
   WEAPON_STATS,
   type PlayerProfile,
@@ -26,7 +27,15 @@ import {
   wearsNative,
   type ClipRole,
 } from './glb/catalog';
-import { BAKE_FPS, jointName, paintedModelLibrary, type BakedClip, type PaintedModelAsset } from './glb/library';
+import {
+  BAKE_FPS,
+  bindWorldTransform,
+  jointName,
+  paintedModelLibrary,
+  type BakedClip,
+  type PaintedModelAsset,
+} from './glb/library';
+import { buildBackAttachment, buildHandAttachment, buildHeadAttachment, HEAD_UNIT } from './glb/cosmetics';
 import { createGlbMaterial, updateGlbMaterial } from './glb/material';
 import { buildCanopyProp, buildWeaponProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
 import { GlbRig, type RigJoint } from './glb/rig';
@@ -170,6 +179,7 @@ export class GlbCharacterView implements AvatarView {
   private readonly hipsAccumulator = new Vector3();
   private readonly bindings = new Map<ClipRole, ClipBinding>();
   private readonly weapons = new Map<WeaponId, WeaponProp | null>();
+  private readonly attachments: Mesh[] = [];
   private readonly stats;
   private readonly scale: number;
   private readonly shoulderHalf: number;
@@ -297,10 +307,7 @@ export class GlbCharacterView implements AvatarView {
       if (backpedal) backpedal.reverse = true;
     }
 
-    // Painted headgear comes off when a different item is worn on top.
-    if (asset.hatSplit && !wearsNative(profile, spec, 'headgear') && profile.cosmetics.headgear !== 'head_none') {
-      mesh.subMeshes.splice(1);
-    }
+    this.attachCosmetics(profile, nodes);
 
     this.weaponAnchor = new TransformNode('glb-weapon-anchor', scene);
     this.weaponAnchor.parent = this.armature;
@@ -334,6 +341,7 @@ export class GlbCharacterView implements AvatarView {
     }
     return {
       model: this.asset.spec.key,
+      view: this.shadowMaterial.name,
       enabled: this.root.isEnabled(false),
       position: this.root.position.asArray().map((value) => Math.round(value * 100) / 100),
       weapon: this.weaponId,
@@ -352,6 +360,76 @@ export class GlbCharacterView implements AvatarView {
         armatureRot: this.armature.rotationQuaternion?.asArray().map((value) => Math.round(value * 1000) / 1000),
       },
     };
+  }
+
+  /**
+   * Headgear/face/back/hands items that differ from the painting go on bones.
+   * The painted headgear comes off when another item (or a hair cap for "no
+   * headgear") replaces it; painted beards and hair always stay.
+   */
+  private attachCosmetics(profile: PlayerProfile, nodes: ReadonlyMap<string, TransformNode>): void {
+    const spec = this.asset.spec;
+    const cosmetics = profile.cosmetics;
+    const hairHex = HAIR_COLORS[cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
+    const removableHat = this.asset.hatSplit !== null;
+    let headgear: string | null = null;
+    if (!wearsNative(profile, spec, 'headgear')) {
+      if (cosmetics.headgear !== 'head_none') headgear = cosmetics.headgear;
+      else if (removableHat) headgear = 'hair_cap';
+      if (headgear && removableHat) this.bodyMesh.subMeshes.splice(1);
+    }
+    const face = !wearsNative(profile, spec, 'face') && cosmetics.face !== 'face_none' ? cosmetics.face : null;
+    const head = buildHeadAttachment(this.scene, headgear, face, hairHex, this.propMaterial);
+    if (head) this.attach(head, nodes, 'Head', new Vector3(0, spec.head.y, spec.head.z), spec.head.radius / HEAD_UNIT, true);
+
+    if (!wearsNative(profile, spec, 'back') && cosmetics.back !== 'back_none') {
+      const back = buildBackAttachment(this.scene, cosmetics.back, this.propMaterial);
+      const chest = this.asset.bindPositions.get('Spine2');
+      if (back && chest) {
+        this.attach(back, nodes, 'Spine2', new Vector3(chest.x, chest.y, chest.z + spec.backZ), 0.9, true);
+        back.scaling.x *= spec.bulk;
+      }
+    }
+    if (!wearsNative(profile, spec, 'hands') && cosmetics.hands !== 'hands_bare') {
+      for (const side of ['Left', 'Right'] as const) {
+        const item = buildHandAttachment(this.scene, cosmetics.hands, side === 'Right', this.propMaterial);
+        if (item) this.attach(item, nodes, `${side}Hand`, null, spec.bulk > 1.1 ? 1.2 : 1, false);
+      }
+    }
+  }
+
+  /**
+   * Parents an attachment to a joint. With `upright`, the item keeps the
+   * armature's upright/forward orientation at `at` (bind pose); otherwise it
+   * sits in the joint's own space (hands: +Y along the fingers).
+   */
+  private attach(
+    mesh: Mesh,
+    nodes: ReadonlyMap<string, TransformNode>,
+    joint: string,
+    at: Vector3 | null,
+    scale: number,
+    upright: boolean,
+  ): void {
+    const node = nodes.get(joint);
+    const bind = bindWorldTransform(this.asset, joint);
+    if (!node || !bind) {
+      mesh.dispose();
+      return;
+    }
+    mesh.parent = node;
+    mesh.isPickable = false;
+    mesh.scaling.setAll(scale);
+    if (upright) {
+      const inverse = Quaternion.Inverse(bind.rotation);
+      const offset = (at ?? bind.position).subtract(bind.position);
+      mesh.position.copyFrom(offset.rotateByQuaternionToRef(inverse, new Vector3()));
+      mesh.rotationQuaternion = inverse;
+    } else {
+      mesh.position.setAll(0);
+      mesh.rotationQuaternion = Quaternion.Identity();
+    }
+    this.attachments.push(mesh);
   }
 
   private bind(role: ClipRole, clip: BakedClip, isUpper: (name: string) => boolean, ordered: readonly string[]): void {
@@ -889,7 +967,7 @@ export class GlbCharacterView implements AvatarView {
 
   /** Draw calls this view adds to the main pass (body, props, shadow disc). */
   drawCalls(): number {
-    let count = 1 + 1;
+    let count = 1 + 1 + this.attachments.length;
     if (this.weapon?.mesh.isEnabled()) count += 1;
     if (this.canopyPivot.isEnabled()) count += 1;
     return count;
@@ -926,25 +1004,31 @@ class PendingPaintedView implements AvatarView {
     private readonly profile: PlayerProfile,
   ) {
     this.current = new CharacterView(scene, shadowMaterial, profile);
+    const shadowName = shadowMaterial.name;
     const library = paintedModelLibrary(scene);
-    void library.settled().then(() => {
-      if (this.disposed) return;
-      const key = paintedModelSpec(profile)?.key;
-      const asset = key ? library.get(key) : null;
-      if (!asset) return;
-      const previous = this.current;
-      const enabled = previous.root.isEnabled(false);
-      const position = previous.root.position;
-      const shadow = createShadowMaterial(scene, `glb-shadow-${profile.displayName}-${Math.random().toString(36).slice(2, 8)}`);
-      const next = new GlbCharacterView(scene, shadow, profile, asset);
-      next.setPosition({ x: position.x, y: position.y, z: position.z });
-      next.setYaw(this.lastYaw, true);
-      next.setEffects(this.effects);
-      next.root.setEnabled(enabled);
-      previous.dispose();
-      this.current = next;
-      this.painted = true;
-    });
+    void library
+      .settled()
+      .then(() => {
+        if (this.disposed) return;
+        const key = paintedModelSpec(profile)?.key;
+        const asset = key ? library.get(key) : null;
+        if (!asset) return;
+        const previous = this.current;
+        const enabled = previous.root.isEnabled(false);
+        const position = previous.root.position;
+        const shadow = createShadowMaterial(scene, `${shadowName}-painted`);
+        const next = new GlbCharacterView(scene, shadow, profile, asset);
+        next.setPosition({ x: position.x, y: position.y, z: position.z });
+        next.setYaw(this.lastYaw, true);
+        next.setEffects(this.effects);
+        next.root.setEnabled(enabled);
+        previous.dispose();
+        this.current = next;
+        this.painted = true;
+      })
+      .catch((error: unknown) => {
+        console.warn('[frost-and-flamingos] painted view swap failed; keeping the procedural rig', error);
+      });
   }
 
   get root(): TransformNode {
