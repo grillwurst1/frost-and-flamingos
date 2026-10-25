@@ -8,3 +8,4 @@ Free-plan Meshy output is licensed CC BY 4.0 — attribution is in `CREDITS.md`.
 | File | Character | Animations |
 | --- | --- | --- |
 | `meshy-alpine-allrounder.glb` | Peak Guard allrounder (lederhosen, feathered hat) | Running, Walking, Attack, Casual_Walk |
+| `meshy-alpine-heavy.glb` | Peak Guard heavy (pot helmet, Nordic fur sweater) | Running, Walking, Hop_with_Arms_Raised, Lean_Forward_Sprint, Swim_Forward, Walk_Backward_inplace |
