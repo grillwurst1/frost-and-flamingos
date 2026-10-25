@@ -568,12 +568,17 @@ export class GameClient {
       this.mascots = new MascotClient(this.mascotFx);
       this.vehicles = new VehicleClient(scene, physics, this.mascotFx, this.input);
       this.vehicles.factionOf = (id) => this.profiles.get(id)?.faction ?? null;
-      // Visual vehicle shots end at a remote avatar they pass (direct hits).
-      this.vehicles.avatarHit = (origin, direction, maxDistance) => {
+      // Visual vehicle shots end at a living enemy avatar they pass (direct
+      // hits), the local one included; friends and corpses let them through.
+      this.vehicles.avatarHit = (origin, direction, maxDistance, shooterFaction) => {
         let best: { along: number; point: Vec3 } | null = null;
-        for (const remote of this.remoteViews.values()) {
-          const root = remote.view.root;
+        const players = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot.players ?? [];
+        const candidates: Array<{ id: number; root: AvatarView['root'] }> = [...this.remoteViews.entries()].map(([id, remote]) => ({ id, root: remote.view.root }));
+        if (this.localView && this.localId !== null) candidates.push({ id: this.localId, root: this.localView.root });
+        for (const { id, root } of candidates) {
           if (!root.isEnabled()) continue;
+          if (shooterFaction && this.profiles.get(id)?.faction === shooterFaction) continue;
+          if (players.find((player) => player.id === id)?.alive === false) continue;
           const feet = root.getAbsolutePosition();
           const centre = { x: feet.x, y: feet.y + 0.9, z: feet.z };
           const along = (centre.x - origin.x) * direction.x + (centre.y - origin.y) * direction.y + (centre.z - origin.z) * direction.z;

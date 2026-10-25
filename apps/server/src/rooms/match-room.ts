@@ -549,7 +549,7 @@ export class MatchRoom {
     player.lastProcessedInput = input.sequence;
     const mascot = player.character.form !== null;
 
-    // Vehicles: seated players drive/aim instead of walking; E/F enters.
+    // Vehicles: seated players drive/aim instead of walking; F enters and exits.
     const seat = this.vehicles.handleInput(player, input, previousButtons, trackButtons);
     if (seat !== 'none') {
       if (seat === 'hands' && (input.buttons & InputButton.Reload) !== 0 && (previousButtons & InputButton.Reload) === 0) {

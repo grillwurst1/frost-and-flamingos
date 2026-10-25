@@ -24,6 +24,7 @@ import {
   exitCandidates,
   mayEnterVehicle,
   rayVehicleHull,
+  sampleMapHeight,
   vehicleLocalToWorld,
   vehicleSlotActive,
   vehicleTicks,
@@ -150,6 +151,8 @@ const SPAWN_CLEAR_RETRY_TICKS = PHYSICS_TICK_RATE;
 const RAM_DRIVER_GRACE_TICKS = Math.round(PHYSICS_TICK_RATE * 2.5);
 /** Feet this close below the roof (or higher) count as standing on the hull. */
 const ROOF_TOLERANCE = 0.25;
+/** A pushed-out player never lands on terrain more than this above their feet. */
+const PUSH_OUT_MAX_RISE = 0.6;
 /** Feet of a swimmer floating at the surface (the character motor's float depth). */
 const EXIT_SWIM_FEET_Y = WATER_LEVEL - 1.1;
 
@@ -271,7 +274,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   /**
    * Called from MatchRoom.applyInput for every input. Seated players hand
    * their input to the vehicle ('seated'; 'hands' = may still reload and
-   * fire their own weapon). On foot, an E/F press next to a vehicle enters it.
+   * fire their own weapon). On foot, an F press next to a vehicle enters it.
    */
   handleInput(player: P, input: PlayerInput, previousButtons: number, trackButtons: boolean): SeatResult {
     if (!player.alive) return 'none';
@@ -359,10 +362,11 @@ export class VehicleManager<P extends VehicleOccupant> {
    */
   isVehicleSurfaceNear(point: Vec3, target: Vec3, targetId: number, reach = 4): boolean {
     const riding = this.seatOf.get(targetId)?.vehicleId ?? 0;
+    const character = this.hooks.player(targetId)?.character;
     for (const record of this.records) {
       if (record.lifecycle !== 'active' || !record.body) continue;
       const body = record.body;
-      if (record.slot.id !== riding && !this.onRoof(record, target)) continue;
+      if (record.slot.id !== riding && !(character && this.onRoof(record, character.position, character.stats.radius))) continue;
       if (distanceToVehicle(record.definition, body.position, body.yaw, point) > 0.4) continue;
       if (distanceToVehicle(record.definition, body.position, body.yaw, target) <= reach) return true;
     }
@@ -787,6 +791,10 @@ export class VehicleManager<P extends VehicleOccupant> {
     for (let step = 1; step < count; step += 1) {
       const index = (from + step) % count;
       if ((record.seats[index] ?? 1) !== 0) continue;
+      if (from === 0) {
+        record.lastDriverId = player.id;
+        record.driverLeftTick = this.hooks.physicsTick();
+      }
       record.seats[from] = 0;
       record.seatBodies[from] = null;
       record.seats[index] = player.id;
@@ -1093,23 +1101,24 @@ export class VehicleManager<P extends VehicleOccupant> {
     }
   }
 
-  /** Feet on (or just above) the roof, inside the hull footprint. */
-  private onRoof(record: VehicleRecord, feet: Vec3): boolean {
+  /** Feet on (or just above) the roof: over the hull footprint, out to the capsule radius past its rim. */
+  private onRoof(record: VehicleRecord, feet: Vec3, capsuleRadius: number): boolean {
     const body = record.body;
     if (!body) return false;
     const half = record.definition.halfExtents;
     if (feet.y < body.position.y + half.y * 2 - ROOF_TOLERANCE || feet.y > body.position.y + half.y * 2 + 1) return false;
     const local = vehicleWorldToLocal(body.position, body.yaw, feet);
-    return Math.abs(local.x) <= half.x + 0.1 && Math.abs(local.z) <= half.z + 0.1;
+    return Math.abs(local.x) <= half.x + capsuleRadius && Math.abs(local.z) <= half.z + capsuleRadius;
   }
 
   /**
-   * Side (hull-local unit axis) a contact is pushed out through: the nearest
-   * side whose outside spot is free, else the roof. `teleport` is set when
-   * the capsule already sits inside the hull box, where walking cannot free it.
+   * Where a player caught inside a hull box goes: just outside the nearest
+   * side whose spot is free of props, hulls and terrain (not under a bank),
+   * else onto the roof.
    */
-  private pushOutSide(record: VehicleRecord, player: P, local: Vec3, radius: number): { side: { x: number; z: number }; teleport: Vec3 | null } {
+  private freeSpotOutside(record: VehicleRecord, player: P, local: Vec3, radius: number): Vec3 | null {
     const body = record.body;
+    if (!body) return null;
     const half = record.definition.halfExtents;
     const sides = [
       { x: 1, z: 0, over: half.x + radius - local.x },
@@ -1117,14 +1126,22 @@ export class VehicleManager<P extends VehicleOccupant> {
       { x: 0, z: 1, over: half.z + radius - local.z },
       { x: 0, z: -1, over: half.z + radius + local.z },
     ].sort((a, b) => a.over - b.over);
-    const nearest = sides[0] ?? { x: 0, z: 1, over: 0 };
-    if (!body) return { side: nearest, teleport: null };
-    const inside = Math.abs(local.x) < half.x && Math.abs(local.z) < half.z;
     const height = player.character.standHeight;
     const capsuleRadius = player.character.stats.radius;
     const shape = new RAPIER.Capsule(Math.max(0.05, height / 2 - capsuleRadius), capsuleRadius);
-    const free = (spot: Vec3): boolean =>
-      this.physics.world.intersectionWithShape(
+    const feetY = body.position.y + Math.max(0, local.y);
+    for (const side of sides) {
+      const target = {
+        x: side.x !== 0 ? side.x * (half.x + radius + 0.05) : local.x,
+        y: 0,
+        z: side.z !== 0 ? side.z * (half.z + radius + 0.05) : local.z,
+      };
+      const spot = vehicleLocalToWorld(body.position, body.yaw, target);
+      // Terrain: stand on it, but never inside a bank higher than a step.
+      const ground = sampleMapHeight(spot.x, spot.z);
+      if (ground > feetY + PUSH_OUT_MAX_RISE) continue;
+      spot.y = Math.max(feetY, ground + 0.02);
+      const blocked = this.physics.world.intersectionWithShape(
         { x: spot.x, y: spot.y + height / 2 + 0.05, z: spot.z },
         { x: 0, y: 0, z: 0, w: 1 },
         shape,
@@ -1132,20 +1149,15 @@ export class VehicleManager<P extends VehicleOccupant> {
         undefined,
         undefined,
         undefined,
-        // Terrain is no trap (the motor walks slopes); props and hulls are.
-        (collider) => !this.physics.isPlayerCollider(collider.handle) && !this.physics.isTerrainCollider(collider.handle),
-      ) === null;
-    for (const side of sides) {
-      const target = {
-        x: side.x !== 0 ? side.x * (half.x + radius + 0.05) : local.x,
-        y: Math.max(0, local.y),
-        z: side.z !== 0 ? side.z * (half.z + radius + 0.05) : local.z,
-      };
-      const spot = vehicleLocalToWorld(body.position, body.yaw, target);
-      if (free(spot)) return { side, teleport: inside || side !== nearest ? spot : null };
+        (collider) => !this.physics.isPlayerCollider(collider.handle),
+      );
+      if (!blocked) return spot;
     }
-    const roof = vehicleLocalToWorld(body.position, body.yaw, { x: Math.max(-half.x, Math.min(half.x, local.x)), y: half.y * 2 + 0.05, z: Math.max(-half.z, Math.min(half.z, local.z)) });
-    return { side: nearest, teleport: roof };
+    return vehicleLocalToWorld(body.position, body.yaw, {
+      x: Math.max(-half.x, Math.min(half.x, local.x)),
+      y: half.y * 2 + 0.05,
+      z: Math.max(-half.z, Math.min(half.z, local.z)),
+    });
   }
 
   /**
@@ -1165,8 +1177,9 @@ export class VehicleManager<P extends VehicleOccupant> {
     // they bail out; a hull without either only shoves.
     const seatedDriver = record.seats[0] ?? 0;
     const graceDriver = !seatedDriver && tick - record.driverLeftTick <= RAM_DRIVER_GRACE_TICKS ? record.lastDriverId : 0;
-    const driverId = seatedDriver || graceDriver;
-    const driver = driverId ? this.hooks.player(driverId) : undefined;
+    // Credit needs a driver who is still in the match (a disconnected one gives none).
+    const driver = this.hooks.player(seatedDriver || graceDriver);
+    const driverId = driver?.id ?? 0;
     const team = this.vehicleTeam(record);
     const half = definition.halfExtents;
     for (const player of this.hooks.players()) {
@@ -1175,30 +1188,39 @@ export class VehicleManager<P extends VehicleOccupant> {
       if (!collidesWithVehicles(player.character.collider)) continue;
       const feet = player.character.position;
       if (feet.y > position.y + half.y * 2 + 0.3 || feet.y + player.character.standHeight < position.y - 0.2) continue;
-      // Roof riders stand on the hull: no ram, no shove.
-      if (this.onRoof(record, feet)) continue;
+      // Roof riders stand on the hull (rim included): no ram, no shove.
+      if (this.onRoof(record, feet, player.character.stats.radius)) continue;
       const local = vehicleWorldToLocal(position, body.yaw, feet);
       const radius = player.character.stats.radius + PLAYER_RADIUS_PAD * 0.3;
       if (Math.abs(local.x) > half.x + radius || Math.abs(local.z) > half.z + radius) continue;
       const cooldown = record.ramCooldowns.get(player.id) ?? 0;
-      if (tick < cooldown) continue;
-      // Push out through the nearest free side of the hull (a player pinned
-      // against another hull or a wall goes out another way, or onto the roof).
-      const exit = this.pushOutSide(record, player, local, radius);
+      const insideBox = Math.abs(local.x) < half.x && Math.abs(local.z) < half.z;
+      if (tick < cooldown && !insideBox) continue;
+      // The contact side (nearest face) decides the ram: damage normal,
+      // closing speed and impact.
+      const overX = half.x + radius - Math.abs(local.x);
+      const overZ = half.z + radius - Math.abs(local.z);
+      const sideLocal = overX < overZ ? { x: Math.sign(local.x) || 1, z: 0 } : { x: 0, z: Math.sign(local.z) || 1 };
       const cos = Math.cos(body.yaw);
       const sin = Math.sin(body.yaw);
-      const nx = exit.side.x * cos + exit.side.z * sin;
-      const nz = -exit.side.x * sin + exit.side.z * cos;
+      const nx = sideLocal.x * cos + sideLocal.z * sin;
+      const nz = -sideLocal.x * sin + sideLocal.z * cos;
       const closing = velocity.x * nx + velocity.z * nz;
       const impact = Math.min(moved, Math.max(0, closing));
       const enemy = !!team && player.profile.faction !== team;
       record.ramCooldowns.set(player.id, tick + RAM_VICTIM_COOLDOWN_TICKS);
-      if (exit.teleport) {
-        // Pinned inside the hull: put them straight onto the free spot.
-        player.character.teleport(exit.teleport);
-        player.character.restore(exit.teleport, { x: nx * 2, y: 0, z: nz * 2 }, false, 0);
+      const rams = tick >= cooldown && enemy && !!driver && impact >= ram.minSpeed && tick >= player.spawnProtectionUntil;
+      // Only a capsule caught inside the hull box is moved out (to a free
+      // spot, at once); anyone merely touching it gets the plain shove below.
+      if (!rams && insideBox) {
+        const spot = this.freeSpotOutside(record, player, local, radius);
+        if (spot) {
+          player.character.teleport(spot);
+          player.character.restore(spot, { x: 0, y: 0, z: 0 }, false, 0);
+          continue;
+        }
       }
-      if (enemy && driverId && impact >= ram.minSpeed && tick >= player.spawnProtectionUntil) {
+      if (rams) {
         const strength = Math.min(1, Math.max(0, (impact - ram.minSpeed) / Math.max(0.1, ram.fullSpeed - ram.minSpeed)));
         const damage = ram.minDamage + (ram.maxDamage - ram.minDamage) * strength;
         const carry = 0.6;

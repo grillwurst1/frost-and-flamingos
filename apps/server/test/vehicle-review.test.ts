@@ -82,21 +82,24 @@ describe('vehicle review fixes', () => {
     placePlayer(room, friend.id, { x: between.x, y: sampleMapHeight(between.x, between.z) + 0.05, z: between.z });
     let insideTicks = 0;
     run(room, 60 * 6, (tick) => {
-      // Creep: tap W so the hull stays below 1.5 m/s.
-      sendInput(room, driver, Math.abs(body.forwardSpeed) < 1.2 && tick % 3 === 0 ? W : 0, body.yaw);
+      // Creep: W while slower than 1.3 m/s, so the hull really pins the friend.
+      void tick;
+      sendInput(room, driver, body.forwardSpeed < 1.3 ? W : 0, body.yaw);
       sendInput(room, friend, 0);
       const feet = feetOf(room, friend.id);
       const onRoof = feet.y > body.position.y + VEHICLES.fondue_crawler.halfExtents.y * 2 - 0.3;
       if (!onRoof && distanceToHull(body.definition, body.position, body.yaw, feet) === 0) insideTicks += 1;
     });
-    const feet = feetOf(room, friend.id);
-    // The friend can walk away afterwards.
-    const before = { ...feet };
-    run(room, 90, () => {
-      sendInput(room, driver, 0, body.yaw);
-      sendInput(room, friend, W, body.yaw + Math.PI / 2);
-    });
-    const walked = Math.hypot(feetOf(room, friend.id).x - before.x, feetOf(room, friend.id).z - before.z);
+    // The friend can walk away afterwards (some way out is open).
+    let walked = 0;
+    for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const before = { ...feetOf(room, friend.id) };
+      run(room, 45, () => {
+        sendInput(room, driver, 0, body.yaw);
+        sendInput(room, friend, W, yaw);
+      });
+      walked = Math.max(walked, Math.hypot(feetOf(room, friend.id).x - before.x, feetOf(room, friend.id).z - before.z));
+    }
     report('pinned friend', { insideTicks, walkedAfter: Math.round(walked * 100) / 100 });
     expect(insideTicks).toBeLessThan(5);
     expect(walked).toBeGreaterThan(2);

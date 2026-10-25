@@ -82,6 +82,8 @@ interface VisualShot {
   age: number;
   ignoreCollider: number | undefined;
   spin: number;
+  /** Faction of the shooter: the visual shot passes friends, like the server shell. */
+  faction: Faction | null;
 }
 
 interface VehicleEntry {
@@ -209,7 +211,7 @@ export class VehicleClient {
    * Hook: first avatar a shot segment passes (origin, unit direction, max
    * distance), as its hit point, or null. Set by GameClient.
    */
-  avatarHit: ((origin: Vec3, direction: Vec3, maxDistance: number) => Vec3 | null) | null = null;
+  avatarHit: ((origin: Vec3, direction: Vec3, maxDistance: number, shooterFaction: Faction | null) => Vec3 | null) | null = null;
   /** Set on boarding: the camera swings behind the hull on the next camera update. */
   private faceForward = false;
   private lastCameraYaw = 0;
@@ -700,7 +702,7 @@ export class VehicleClient {
         if (!entry || (event.actorId === this.localId && entry.id === this.predictedId)) return true;
         const weaponId = WEAPON_TABLE.byCode[event.paramValue];
         const muzzle = entry.view.muzzleWorld();
-        if (weaponId && muzzle) this.shotFx(entry, muzzle, event.paramX / 1000, event.paramZ / 1000, event.actorId === this.localId);
+        if (weaponId && muzzle) this.shotFx(entry, muzzle, event.paramX / 1000, event.paramZ / 1000, event.actorId === this.localId, this.factionOf?.(event.actorId) ?? this.crewFaction(entry));
         return true;
       }
       case 'FLAMINGO_BOOST': {
@@ -783,10 +785,10 @@ export class VehicleClient {
 
   /** The local driver-gunner's predicted shot. */
   private localShot(entry: VehicleEntry, origin: Vec3, yaw: number, pitch: number): void {
-    this.shotFx(entry, origin, yaw, pitch, true);
+    this.shotFx(entry, origin, yaw, pitch, true, this.factionOf?.(this.localId ?? 0) ?? this.crewFaction(entry));
   }
 
-  private shotFx(entry: VehicleEntry, origin: Vec3, yaw: number, pitch: number, local: boolean): void {
+  private shotFx(entry: VehicleEntry, origin: Vec3, yaw: number, pitch: number, local: boolean, faction: Faction | null): void {
     const weapon = entry.definition.weapon;
     if (!weapon) return;
     const direction = { x: Math.sin(yaw) * Math.cos(pitch), y: Math.sin(pitch), z: Math.cos(yaw) * Math.cos(pitch) };
@@ -809,6 +811,7 @@ export class VehicleClient {
       age: 0,
       ignoreCollider: entry.body.colliderHandle,
       spin: 0,
+      faction,
     });
   }
 
@@ -878,7 +881,7 @@ export class VehicleClient {
         shot.ignoreCollider,
       );
       // Avatars are not in the physics queries: a direct hit ends the shot at them.
-      const avatar = this.avatarHit?.(shot.position, direction, world ? world.distance : length + shot.weapon.radius) ?? null;
+      const avatar = this.avatarHit?.(shot.position, direction, world ? world.distance : length + shot.weapon.radius, shot.faction) ?? null;
       const hit = avatar ?? (world ? world.point : null);
       if (hit || shot.age > shot.weapon.lifetimeSeconds || shot.position.y < -12) {
         const at = hit ?? { x: shot.position.x, y: shot.position.y, z: shot.position.z };

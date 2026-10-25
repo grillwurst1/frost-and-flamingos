@@ -457,8 +457,17 @@ export class VehicleBody {
     const maxReverse = definition.maxReverseSpeed * traction.speed;
     // A boat that has just nosed onto the beach, with water still under its
     // middle, can rudder and back off (no forward thrust onto the sand).
-    const shallows = chassis === 'boat' && !this.isAfloat && sampleMapHeight(this.base.x, this.base.z) < WATER_LEVEL;
-    const driving = chassis === 'boat' ? this.isAfloat || (shallows && throttle < 0) : this.isGrounded;
+    const centreGround = chassis === 'boat' ? sampleMapHeight(this.base.x, this.base.z) : 0;
+    const shallows = chassis === 'boat' && !this.isAfloat && centreGround < WATER_LEVEL;
+    // In the shallows only thrust toward deeper water works (bow or stern
+    // end, whichever lies lower than the middle of the hull).
+    let shallowThrust = false;
+    if (shallows && throttle !== 0) {
+      const end = this.definition.halfExtents.z * throttle;
+      const endGround = sampleMapHeight(this.base.x + Math.sin(this.heading) * end, this.base.z + Math.cos(this.heading) * end);
+      shallowThrust = endGround < centreGround;
+    }
+    const driving = chassis === 'boat' ? this.isAfloat || shallowThrust : this.isGrounded;
     const speedAlong = this.linear.x * Math.sin(this.heading) + this.linear.z * Math.cos(this.heading);
 
     // Steering first: the hull turns, its momentum lags behind (side slip),
@@ -527,14 +536,22 @@ export class VehicleBody {
     let vz = nextCos * forward - nextSin * lateral;
 
     // Land vehicles: deep water ahead of the bow is a wall while the tracks
-    // or wheels are on the ground (steep banks included; a jump still flies).
+    // or wheels are on the ground (steep banks included; a jump still flies),
+    // unless something solid holds the bow up there (a pier, deck or bridge).
     const planar = Math.hypot(vx, vz);
     if (chassis !== 'boat' && this.isGrounded && planar > 1e-3) {
       const reach = definition.halfExtents.z + planar * dt * 6;
-      const groundAhead = sampleMapHeight(this.base.x + (vx / planar) * reach, this.base.z + (vz / planar) * reach);
-      if (groundAhead < WATER_LEVEL - definition.fordDepth && groundAhead < this.base.y - 0.05) {
-        vx = 0;
-        vz = 0;
+      const bowX = this.base.x + (vx / planar) * reach;
+      const bowZ = this.base.z + (vz / planar) * reach;
+      const floor = WATER_LEVEL - definition.fordDepth;
+      if (sampleMapHeight(bowX, bowZ) < floor) {
+        const drop = definition.stepHeight + 1.5;
+        const support = this.physics.raycast({ x: bowX, y: this.base.y + definition.stepHeight, z: bowZ }, { x: 0, y: -1, z: 0 }, drop, this.collider.handle);
+        const supported = support !== null && support.point.y >= floor;
+        if (!supported) {
+          vx = 0;
+          vz = 0;
+        }
       }
     }
 
@@ -672,8 +689,10 @@ export class VehicleBody {
     if (steepness > Math.tan(this.definition.maxSlope)) {
       const into = (x * gx + z * gz) / steepness;
       if (into > 0) {
-        x -= (into * gx) / steepness;
-        z -= (into * gz) / steepness;
+        // Rocky shores bounce the rubber hull back like any wall.
+        const bounce = into > BOAT_BOUNCE_MIN_SPEED ? 1 + BOAT_RESTITUTION : 1;
+        x -= (bounce * into * gx) / steepness;
+        z -= (bounce * into * gz) / steepness;
       }
       return { x, z };
     }
