@@ -469,7 +469,8 @@ export function buildVegetation(
       const x = gx + (hash3(gx, gz, 1) - 0.5) * CELL;
       const z = gz + (hash3(gz, gx, 2) - 0.5) * CELL;
       const busy = busyAt(x, z);
-      const keep = 0.15 + busy * 0.42;
+      // Painting-dense where players walk and look, still lively in the backcountry.
+      const keep = 0.24 + busy * 0.46;
       const roll = hash3(x * 0.37, z * 0.41, 3);
       if (roll > keep) continue;
       if (!isClutterFree(x, z)) continue;

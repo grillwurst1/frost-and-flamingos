@@ -70,3 +70,18 @@ export async function loadArtImage(path: string): Promise<HTMLImageElement | nul
     image.src = artUrl(path);
   });
 }
+
+/**
+ * Loads an image that a manifest lists (so it is expected to exist) without
+ * the HEAD probe; resolves null when it is missing or not decodable.
+ */
+export function loadListedArtImage(path: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.decoding = 'async';
+    image.onload = () => resolve(image.naturalWidth > 0 ? image : null);
+    image.onerror = () => resolve(null);
+    image.src = artUrl(path);
+  });
+}

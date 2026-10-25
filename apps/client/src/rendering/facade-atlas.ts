@@ -1,7 +1,7 @@
 import { Constants } from '@babylonjs/core/Engines/constants';
 import { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture';
 import type { Scene } from '@babylonjs/core/scene';
-import { artUrl, loadArtImage } from './art-assets';
+import { artUrl, loadListedArtImage } from './art-assets';
 import { packImages, type PackInput } from './atlas-pack';
 
 /**
@@ -157,7 +157,7 @@ export async function loadFacadeAtlas(scene: Scene): Promise<FacadeAtlas | null>
   const buildings = manifest?.buildings ?? {};
   const files = [...new Set(Object.values(sets).flatMap((set) => filesOf(set)))];
   if (files.length === 0) return null;
-  const images = await Promise.all(files.map(async (file) => ({ file, image: await loadArtImage(`facades/${file}`) })));
+  const images = await Promise.all(files.map(async (file) => ({ file, image: await loadListedArtImage(`facades/${file}`) })));
   const inputs: PackInput<string>[] = [];
   const sizes = new Map<string, { w: number; h: number }>();
   for (const { file, image } of images) {

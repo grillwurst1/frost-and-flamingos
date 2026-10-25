@@ -1,7 +1,7 @@
 import { Constants } from '@babylonjs/core/Engines/constants';
 import { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture';
 import type { Scene } from '@babylonjs/core/scene';
-import { artUrl, loadArtImage } from './art-assets';
+import { artUrl, loadListedArtImage } from './art-assets';
 import { packImages, type PackInput } from './atlas-pack';
 
 /**
@@ -114,7 +114,7 @@ export async function loadSpriteAtlas(scene: Scene): Promise<SpriteAtlas | null>
   const manifest = await fetchManifest();
   if (!manifest || manifest.length === 0) return null;
   const loaded = await Promise.all(
-    manifest.map(async (entry) => ({ entry, image: await loadArtImage(`sprites/${entry.file}`) })),
+    manifest.map(async (entry) => ({ entry, image: await loadListedArtImage(`sprites/${entry.file}`) })),
   );
   const inputs: PackInput<string>[] = [];
   const specs = new Map<string, { entry: SpriteManifestEntry; w: number; h: number }>();

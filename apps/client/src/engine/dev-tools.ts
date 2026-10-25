@@ -21,6 +21,8 @@ export interface MapDevHost {
   visuals(): MapVisuals | null;
   frameDrawCalls(): number;
   setCameraOverride(override: DevCameraOverride | null): void;
+  /** Painted-art boot steps in ms (reported by stats() as `boot_<step>`). */
+  bootTimings?(): Record<string, number>;
 }
 
 export interface MapDevTools {
@@ -92,6 +94,7 @@ export function installMapDevTools(host: MapDevHost): void {
         destructibleMeshes: visuals?.destructibleMeshes.size ?? 0,
         destructibleSprites: visuals?.destructibleSprites.size ?? 0,
         fps: Math.round(host.engine()?.getFps() ?? 0),
+        ...Object.fromEntries(Object.entries(host.bootTimings?.() ?? {}).map(([step, ms]) => [`boot_${step}`, ms])),
       };
     },
   };
