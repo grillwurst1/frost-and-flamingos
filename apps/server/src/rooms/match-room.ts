@@ -291,7 +291,8 @@ const SPAWN_PROTECTION_TICKS = SPAWN_PROTECTION_SECONDS * PHYSICS_TICK_RATE;
  * sniper went 55 kills / 16 deaths in a 25-minute soak and decided rounds.
  */
 const BOT_PRECISION_DAMAGE = 45;
-const BOT_PRECISION_AIM_ERROR = 0.045;
+/** Total aim error (rad); FF_BOT_PRECISION_AIM overrides it for balance probes. */
+const BOT_PRECISION_AIM_ERROR = Number(process.env.FF_BOT_PRECISION_AIM ?? 0.045);
 /** Bots ignore rivals out of sight beyond this range and keep playing the objective. */
 const BOT_OBJECTIVE_CHASE_RANGE = 40;
 const LAG_HISTORY_TICKS = 2 * PHYSICS_TICK_RATE;
