@@ -64,6 +64,8 @@ export interface ConnectionState {
   ticketsLagoon: number;
   weatherBalance: number;
   towerStates: number;
+  /** Capture progress per tower A, B, C in 0..1. The HUD shows a ring only while 0 < value < 1. */
+  towerProgress: [number, number, number];
 }
 
 export interface HudState {
@@ -115,6 +117,7 @@ export const connection = writable<ConnectionState>({
   ticketsLagoon: 50,
   weatherBalance: 0,
   towerStates: 0,
+  towerProgress: [0, 0, 0],
 });
 export const localPlayer = writable<LocalPlayerView | null>(null);
 export const hud = writable<HudState>({
@@ -152,6 +155,9 @@ export interface KillFeedEntry {
   weaponId: WeaponId | null;
   headshot: boolean;
   at: number;
+  /** Optional teams of the two parties; the HUD infers them from the local player when absent. */
+  killerFaction?: Faction;
+  victimFaction?: Faction;
 }
 
 export interface HitMarkerState {
@@ -174,17 +180,25 @@ export interface DeathState {
   stage: DeathStage;
   respawnSeconds: number;
   at: number;
+  /** Optional team of the killer; the HUD assumes the opposite team when absent. */
+  killerFaction?: Faction;
 }
 
 export interface ComicPopState {
   id: number;
   textKey: TranslationKey;
   at: number;
+  /** Horizontal layout seed in -1..1 so overlapping pops fan out. */
+  offset: number;
+  /** Slight comic tilt in degrees. */
+  tilt: number;
 }
 
 export interface InteractionPromptState {
   key: TranslationKey;
   params?: TranslationParams;
+  /** Optional painted tile id from the HUD's `TILE_FILES` map, e.g. `wrench` for repairs. */
+  icon?: string;
 }
 
 export const killFeed = writable<KillFeedEntry[]>([]);
@@ -192,11 +206,15 @@ export const hitMarker = writable<HitMarkerState | null>(null);
 export const damageFlash = writable(0);
 export const deathState = writable<DeathState | null>(null);
 export const comicPop = writable<ComicPopState | null>(null);
+/** Up to three simultaneous comic popups, newest last. `comicPop` always mirrors the newest. */
+export const comicPops = writable<ComicPopState[]>([]);
 export const interactionPrompt = writable<InteractionPromptState | null>(null);
 
 let killFeedId = 0;
 let hitMarkerId = 0;
 let comicPopId = 0;
+/** Horizontal lanes so back-to-back popups fan out instead of stacking. */
+const COMIC_POP_LANES = [-1.05, 1.05, 0] as const;
 
 export function pushKillFeed(entry: Omit<KillFeedEntry, 'id'>): void {
   killFeedId += 1;
@@ -218,6 +236,7 @@ export function clearCombatUi(): void {
   damageFlash.set(0);
   deathState.set(null);
   comicPop.set(null);
+  comicPops.set([]);
   interactionPrompt.set(null);
 }
 
@@ -226,6 +245,10 @@ export function expireCombatUi(now: number): void {
   pruneKillFeed(now);
   hitMarker.update((marker) => (marker && now - marker.at < 420 ? marker : null));
   comicPop.update((pop) => (pop && now - pop.at < 1900 ? pop : null));
+  comicPops.update((pops) => {
+    const live = pops.filter((pop) => now - pop.at < 1900);
+    return live.length === pops.length ? pops : live;
+  });
 }
 
 /** Keep the killer-cam countdown in sync with the authoritative respawn. */
@@ -242,9 +265,50 @@ export function setInteractionPrompt(prompt: InteractionPromptState | null): voi
   interactionPrompt.set(prompt);
 }
 
+/** Ids of the comic words in the dictionary (`comic.<id>.text` / `comic.<id>.sprite`). */
+export type ComicWord =
+  | 'boing'
+  | 'pling'
+  | 'boom'
+  | 'bang'
+  | 'tock_tock'
+  | 'honk_honk'
+  | 'aaaargh'
+  | 'mooo'
+  | 'splash'
+  | 'ponk'
+  | 'plosh'
+  | 'bouch';
+
+const lastPopAt = new Map<string, number>();
+const POP_DEDUPE_MS = 700;
+
+/**
+ * Show a comic onomatopoeia popup by word id. Intended mapping for gameplay events:
+ * hit/headshot PLING, launch/knockback BOING, explosion BOOM, gunshot kill BANG, repair
+ * TOCK TOCK, horn HONK, fall into the gorge AAAARGH, cow ram MOOO, water entry SPLASH,
+ * coconut bonk PONK, mud/puddle PLOSH, melee hit BOUCH.
+ */
+export function showComicWord(word: ComicWord): void {
+  showComicPop(`comic.${word}.text` as TranslationKey);
+}
+
 export function showComicPop(textKey: TranslationKey): void {
+  const nowMs = performance.now();
+  const last = lastPopAt.get(textKey);
+  // The same word twice within a moment is one popup (several systems may report one event).
+  if (last !== undefined && nowMs - last < POP_DEDUPE_MS) return;
+  lastPopAt.set(textKey, nowMs);
   comicPopId += 1;
-  comicPop.set({ id: comicPopId, textKey, at: performance.now() });
+  const pop: ComicPopState = {
+    id: comicPopId,
+    textKey,
+    at: performance.now(),
+    offset: (COMIC_POP_LANES[comicPopId % COMIC_POP_LANES.length] ?? 0) + (Math.random() - 0.5) * 0.2,
+    tilt: (Math.random() - 0.5) * 16,
+  };
+  comicPop.set(pop);
+  comicPops.update((pops) => [...pops.slice(-2), pop]);
 }
 
 let toastId = 0;

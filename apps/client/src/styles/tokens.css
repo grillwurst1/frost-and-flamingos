@@ -1,0 +1,450 @@
+/* ── Design tokens, base reset and shared comic surfaces ──────────────────
+   The whole 2D layer is sized in rem. The root font size follows the viewport
+   (16px at 1280 x 720, 24px at 1920 x 1080, 32px at 2560 x 1440), so every panel
+   keeps the same proportions as the painted reference art on any screen.       */
+
+@theme {
+  --font-display: 'Luckiest Guy', 'Fredoka', 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif;
+  --font-body: 'Fredoka', 'Nunito', 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif;
+  --font-mono: 'SFMono-Regular', 'Cascadia Code', 'Roboto Mono', ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Ink and paper */
+  --ink: #1b1410;
+  --ink-soft: #3a2a20;
+  --cream: #fff3d4;
+  --cream-2: #f9e3b0;
+  --paper: #fff1cf;
+  --paper-2: #f6dfa9;
+  --paper-edge: #d8b36c;
+
+  /* Wood and brass */
+  --wood: #8b5a2b;
+  --wood-dark: #5a3618;
+  --wood-light: #b9803f;
+  --brass: #e8b030;
+  --brass-light: #ffe28a;
+  --brass-dark: #a8751a;
+
+  /* Team and signal colours (see ART.md palette) */
+  --blue: #2f7fd8;
+  --blue-light: #6db8ff;
+  --blue-dark: #1b4f94;
+  --coral: #f0508c;
+  --coral-light: #ff8db4;
+  --coral-dark: #b02c63;
+  --flamingo: #ff6fb5;
+  --red: #d8282e;
+  --red-dark: #8f1a24;
+  --green: #5fcb3a;
+  --green-dark: #2d8a22;
+  --cheese: #ffd23f;
+  --cheese-dark: #f0a91c;
+  --orange: #ff8a1f;
+  --teal: #1fb5c9;
+  --navy: #20254a;
+  --sky: #3e8fe0;
+
+  --u: clamp(0.5px, min(0.078125vw, 0.138889vh), 2px);
+  --safe-top: max(0.9rem, env(safe-area-inset-top));
+  --safe-bottom: max(0.9rem, env(safe-area-inset-bottom));
+
+  --outline: 0.17rem;
+  --radius: 0.8rem;
+  --shadow-hard: 0 0.22rem 0 rgba(27, 20, 16, 0.55);
+  --shadow-soft: 0 0.6rem 1.6rem rgba(10, 18, 40, 0.35);
+
+  /* Legacy aliases still referenced by other components. */
+  --ui-text: var(--ink);
+  --ui-muted: #6e5a46;
+  --ui-accent: var(--brass-dark);
+  --ui-coral: var(--coral);
+  --ui-lagoon: var(--teal);
+  --ui-glacier: var(--blue-light);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: clamp(12px, calc(16 * var(--u)), 32px);
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #16315c;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+
+::selection {
+  background: var(--cheese);
+  color: var(--ink);
+}
+
+.game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-wrap: balance;
+}
+
+/* ── Paper panels ──────────────────────────────────────────────────────── */
+
+.paper {
+  position: relative;
+  border: 0.2rem solid var(--ink);
+  border-radius: 1.1rem;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.55), transparent 38%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 0.22rem rgba(255, 255, 255, 0.5),
+    inset 0 -0.5rem 0 rgba(168, 117, 26, 0.12),
+    0 0.35rem 0 var(--ink),
+    0 1rem 2.4rem rgba(8, 14, 40, 0.4);
+  color: var(--ink);
+}
+
+/* Wooden rail along the top of a panel. */
+.paper-rail {
+  height: 0.9rem;
+  margin: -0.2rem -0.2rem 0.9rem;
+  border: 0.2rem solid var(--ink);
+  border-radius: 1rem 1rem 0 0;
+  background:
+    repeating-linear-gradient(95deg, rgba(0, 0, 0, 0) 0 1.1rem, rgba(0, 0, 0, 0.1) 1.1rem 1.2rem),
+    linear-gradient(180deg, var(--wood-light), var(--wood) 55%, var(--wood-dark));
+  box-shadow: inset 0 0.16rem 0 rgba(255, 255, 255, 0.28);
+}
+
+.paper-rail::after {
+  display: block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin: 0.12rem auto 0;
+  border: 0.1rem solid var(--ink);
+  border-radius: 50%;
+  background: var(--brass);
+  content: '';
+}
+
+.overlay-scrim {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(18, 40, 84, 0.2), rgba(8, 18, 44, 0.62) 80%);
+}
+
+.hairline {
+  height: 0.16rem;
+  border-radius: 99px;
+  background: repeating-linear-gradient(90deg, var(--paper-edge) 0 0.5rem, transparent 0.5rem 0.85rem);
+  opacity: 0.85;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--wood);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 0.1rem solid var(--ink);
+  border-radius: 50%;
+  background: var(--brass);
+  content: '';
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.btn-primary,
+.btn-ghost {
+  --btn-top: #ffe27a;
+  --btn-bottom: #f6ab2a;
+  --btn-ledge: #a8650f;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.55rem 1.3rem 0.7rem;
+  border: 0.19rem solid var(--ink);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, var(--btn-top) 0%, var(--btn-bottom) 100%);
+  box-shadow:
+    inset 0 0.16rem 0 rgba(255, 255, 255, 0.65),
+    inset 0 -0.2rem 0 rgba(0, 0, 0, 0.14),
+    0 0.28rem 0 var(--btn-ledge),
+    0 0.28rem 0 0.19rem var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  transition:
+    transform 140ms cubic-bezier(0.3, 1.6, 0.5, 1),
+    box-shadow 120ms ease,
+    filter 120ms ease;
+}
+
+.btn-primary {
+  min-height: 3.6rem;
+  padding: 0.6rem 2rem 0.78rem;
+  font-size: 1.7rem;
+}
+
+.btn-ghost {
+  --btn-top: #fff7e0;
+  --btn-bottom: #f1d79a;
+  --btn-ledge: #b89049;
+  min-height: 2.6rem;
+  padding: 0.4rem 1rem 0.55rem;
+  font-size: 0.92rem;
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-ghost:hover:not(:disabled) {
+  animation: btn-bounce 420ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  filter: brightness(1.06);
+  transform: translateY(-0.12rem);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-ghost:active:not(:disabled) {
+  animation: none;
+  box-shadow:
+    inset 0 0.16rem 0 rgba(255, 255, 255, 0.4),
+    inset 0 -0.1rem 0 rgba(0, 0, 0, 0.14),
+    0 0.08rem 0 var(--btn-ledge),
+    0 0.08rem 0 0.19rem var(--ink);
+  transform: translateY(0.2rem);
+}
+
+.btn-ghost[aria-pressed='true'],
+.btn-ghost[aria-expanded='true'] {
+  --btn-top: #8fd6ff;
+  --btn-bottom: #3f9be8;
+  --btn-ledge: #1b5c9e;
+  color: var(--ink);
+}
+
+.btn-primary:disabled,
+.btn-ghost:disabled {
+  --btn-top: #d9d2c2;
+  --btn-bottom: #b3aa97;
+  --btn-ledge: #7e7566;
+  cursor: not-allowed;
+  filter: saturate(0.5);
+  opacity: 0.85;
+}
+
+.btn-play-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  filter: drop-shadow(0 0.1rem 0 rgba(255, 255, 255, 0.5));
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 0.17rem solid var(--ink);
+  border-radius: 0.8rem;
+  background: linear-gradient(180deg, #ff8d86, var(--red));
+  box-shadow:
+    inset 0 0.14rem 0 rgba(255, 255, 255, 0.5),
+    0 0.2rem 0 var(--red-dark),
+    0 0.2rem 0 0.17rem var(--ink);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.icon-btn svg {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+  filter: drop-shadow(0 0.1rem 0 var(--ink));
+}
+
+.icon-btn:hover {
+  transform: translateY(-0.08rem) rotate(-4deg) scale(1.06);
+}
+
+.icon-btn:active {
+  transform: translateY(0.14rem);
+}
+
+@keyframes btn-bounce {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  35% {
+    transform: translateY(-0.2rem) scale(0.97, 1.05);
+  }
+  65% {
+    transform: translateY(0) scale(1.04, 0.95);
+  }
+  100% {
+    transform: translateY(-0.12rem) scale(1, 1);
+  }
+}
+
+/* ── Chips and status dot ──────────────────────────────────────────────── */
+
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.22rem 0.65rem 0.28rem;
+  border: 0.14rem solid var(--ink);
+  border-radius: 99px;
+  background: linear-gradient(180deg, #fffaf0, var(--cream-2));
+  box-shadow: 0 0.14rem 0 rgba(27, 20, 16, 0.5);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hud-label {
+  color: var(--wood);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hud-value {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 0.12rem solid var(--ink);
+  border-radius: 50%;
+  background: #b3aa97;
+}
+
+.status-dot[data-state='connected'] {
+  background: #5fe05a;
+  box-shadow: 0 0 0.5rem rgba(95, 224, 90, 0.9);
+}
+
+.status-dot[data-state='connecting'],
+.status-dot[data-state='reconnecting'] {
+  background: var(--cheese);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.status-dot[data-state='offline'] {
+  background: var(--red);
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+kbd {
+  display: inline-grid;
+  min-width: 1.5rem;
+  min-height: 1.45rem;
+  place-items: center;
+  padding: 0 0.4rem 0.08rem;
+  border: 0.13rem solid var(--ink);
+  border-radius: 0.4rem;
+  background: linear-gradient(180deg, #fffaf0, var(--cream-2));
+  box-shadow: 0 0.14rem 0 rgba(27, 20, 16, 0.55);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

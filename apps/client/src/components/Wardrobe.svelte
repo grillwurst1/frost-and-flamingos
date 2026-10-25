@@ -70,6 +70,8 @@
     weaponNameKey,
     weaponRoleKey,
   } from '../state/labels';
+  import ComicText from './hud/ComicText.svelte';
+  import Crest from './icons/Crest.svelte';
   import SlotCarousel from './SlotCarousel.svelte';
 
   export let onClose: () => void;
@@ -135,7 +137,7 @@
     <section class="wardrobe-stage" aria-label={$t('wardrobe.preview')}>
       <div class="wardrobe-stage-copy">
         <span class="eyebrow">{$t('wardrobe.eyebrow')}</span>
-        <h1 class="cover-title wardrobe-title">{$t('wardrobe.title')}</h1>
+        <h1 class="wardrobe-title"><ComicText text={$t('wardrobe.title')} variant="gold" /></h1>
         <p class="wardrobe-stage-lead">{$t('wardrobe.subtitle')}</p>
         <div class="wardrobe-stage-badges">
           <span class="hud-chip">{$t('wardrobe.saved')}</span>
@@ -147,13 +149,16 @@
       </div>
     </section>
 
-    <aside class="wardrobe-panel glass-strong">
+    <aside class="wardrobe-panel paper">
+      <div class="paper-rail"></div>
       <header class="wardrobe-panel-header">
         <div>
           <span class="eyebrow">{$t('wardrobe.identity')}</span>
-          <h2>{$t('wardrobe.title')}</h2>
+          <h2 class="display">{$t('wardrobe.title')}</h2>
         </div>
-        <button class="icon-btn" type="button" aria-label={$t('wardrobe.close')} on:click={close}>×</button>
+        <button class="icon-btn" type="button" aria-label={$t('wardrobe.close')} on:click={close}>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 3.2 L12.8 12.8 M12.8 3.2 L3.2 12.8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" /></svg>
+        </button>
       </header>
 
       <label class="field-label" for="wardrobe-name">{$t('wardrobe.displayName')}</label>
@@ -180,8 +185,9 @@
             style={`--faction:${FACTION_THEME[faction].secondaryHex};--faction-accent:${FACTION_THEME[faction].accentHex}`}
             on:click={() => chooseFaction(faction)}
           >
+            <span class="faction-crest"><Crest {faction} /></span>
             <strong>{$t(factionShortKey(faction))}</strong>
-            <span>{$t(factionMottoKey(faction))}</span>
+            <span class="faction-motto">{$t(factionMottoKey(faction))}</span>
           </button>
         {/each}
       </div>

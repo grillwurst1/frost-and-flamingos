@@ -11,6 +11,8 @@
       "dependencies": {
         "@babylonjs/core": "^8.0.0",
         "@dimforge/rapier3d-compat": "^0.19.0",
+        "@fontsource/fredoka": "^5.3.0",
+        "@fontsource/luckiest-guy": "^5.3.0",
         "@frost-and-flamingos/shared": "workspace:*",
         "svelte": "^5.0.0",
       },
@@ -104,6 +106,10 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.28.2", "", { "os": "win32", "cpu": "ia32" }, "sha512-YmJbfTlvU7Sdn9BB+4PRES4oB6pxgS37MAONj+hBr/cpXS1aBPKXxNnDbu+QCWPj0o9dgyxeq79g6c5P8KeuYA=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.28.2", "", { "os": "win32", "cpu": "x64" }, "sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g=="],
+
+    "@fontsource/fredoka": ["@fontsource/fredoka@5.3.0", "", {}, "sha512-s2IhjQ50wDnKkkaKmjhtL0rxQg6ITsVusiipM3m7zUwVZZbbCKsscNDkngwp28xVzfIt7neWrkgU1qKqyTycQg=="],
+
+    "@fontsource/luckiest-guy": ["@fontsource/luckiest-guy@5.3.0", "", {}, "sha512-wCtuVkExxmKeW0FngmKVTcCK9T0elvjoP4/ZZaINqsUjlk9CB17Rr9FQ6pIDlN4nzouDMGSuqYvge3VoKqslPA=="],
 
     "@frost-and-flamingos/client": ["@frost-and-flamingos/client@workspace:apps/client"],
 

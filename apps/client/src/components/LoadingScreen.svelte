@@ -1,8 +1,12 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
   import type { TranslationKey } from '@frost-and-flamingos/shared';
   import { loading, localPlayer } from '../state/game';
   import { factionClassNameKey, factionNameKey } from '../state/labels';
   import { t } from '../state/locale';
+  import CoverLogo from './CoverLogo.svelte';
+  import Crest from './icons/Crest.svelte';
+  import { sceneUrl } from './icons/painted';
 
   export let mode: 'boot' | 'deploy' = 'boot';
 
@@ -17,12 +21,38 @@
     { id: 'network', labelKey: 'loading.network' },
   ];
 
-  const tips: TranslationKey[] = [
+  const TIPS: TranslationKey[] = [
     'loading.tipWardrobe',
     'loading.tipMovement',
     'loading.tipParachute',
     'loading.tipMultiplayer',
+    'loading.tipHeadshot',
+    'loading.tipSkills',
+    'loading.tipGimmick',
+    'loading.tipWater',
+    'loading.tipKillcam',
+    'loading.tipTaunt',
+    'loading.tipCheese',
+    'loading.tipReload',
   ];
+
+  const SCENE_COUNT = 8;
+  const TIP_SECONDS = 5.5;
+
+  // One painted backdrop and a random first tip per load.
+  const scene = 1 + Math.floor(Math.random() * SCENE_COUNT);
+  let tipIndex = Math.floor(Math.random() * TIPS.length);
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  onMount(() => {
+    timer = setInterval(() => {
+      tipIndex = (tipIndex + 1 + Math.floor(Math.random() * (TIPS.length - 1))) % TIPS.length;
+    }, TIP_SECONDS * 1000);
+  });
+
+  onDestroy(() => {
+    if (timer) clearInterval(timer);
+  });
 
   $: deploying = mode === 'deploy';
   $: player = $localPlayer;
@@ -33,145 +63,101 @@
       : $loading.renderer === 'webgl2'
         ? $t('hud.webgl2')
         : $t('common.loading');
-  $: titleParts = $t('meta.title').split('&');
-  $: frostWord = titleParts[0]?.trim() ?? $t('meta.title');
-  $: flamingoWord = titleParts[1]?.trim() ?? '';
+  $: tip = TIPS[tipIndex] ?? TIPS[0] ?? 'loading.tipWardrobe';
 </script>
 
-<div class="loading-screen loading-cover">
-  <div class="cover-split" aria-hidden="true">
-    <div class="cover-alpine"></div>
-    <div class="cover-lagoon"></div>
-    <div class="cover-seam"></div>
-    <div class="cover-sun"></div>
-    <div class="cover-peaks"></div>
-    <div class="cover-waves"></div>
+<div class="loading-screen">
+  <div class="loading-art" style={`background-image:url(${sceneUrl(scene)})`} aria-hidden="true"></div>
+  <div class="loading-shade" aria-hidden="true"></div>
+
+  <div class="loading-brand">
+    <CoverLogo />
   </div>
-  <div class="cover-grain" aria-hidden="true"></div>
 
-  <div class="loading-shell">
-    <section class="loading-brand">
-      <div class="cover-topline">
-        <span class="cover-season">{$t('meta.season')}</span>
-        <span class="hud-chip">{$t('meta.badge')}</span>
+  <div class="loading-versus" aria-hidden="true">
+    <div class="versus-side">
+      <Crest faction="alpine" />
+      <span>{$t('loading.coverAlpine')}</span>
+    </div>
+    <b>{$t('hud.versus')}</b>
+    <div class="versus-side">
+      <Crest faction="lagoon" />
+      <span>{$t('loading.coverLagoon')}</span>
+    </div>
+  </div>
+
+  <div class="loading-bottom">
+    <div class="loading-head">
+      <svg class="taler" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="46" fill="#f4b72e" stroke="#1b1410" stroke-width="5" />
+        <circle cx="50" cy="50" r="38" fill="#ffd96e" stroke="#a8751a" stroke-width="3" />
+        <circle cx="50" cy="50" r="33" fill="none" stroke="#1b1410" stroke-width="2" stroke-dasharray="3 3.4" />
+        <path d="M27 66 L27 40 L39 53 L50 33 L61 53 L73 40 L73 66 Z" fill="#f4b72e" stroke="#1b1410" stroke-width="4" stroke-linejoin="round" />
+        <rect x="27" y="62" width="46" height="9" rx="3" fill="#e0952a" stroke="#1b1410" stroke-width="4" />
+        <circle cx="27" cy="38" r="4.4" fill="#ff5a7a" stroke="#1b1410" stroke-width="2.6" />
+        <circle cx="50" cy="31" r="4.8" fill="#6bd7ff" stroke="#1b1410" stroke-width="2.6" />
+        <circle cx="73" cy="38" r="4.4" fill="#ff5a7a" stroke="#1b1410" stroke-width="2.6" />
+        <path d="M22 36 A32 32 0 0 1 44 18" fill="none" stroke="#fff6c8" stroke-width="4" stroke-linecap="round" opacity="0.85" />
+      </svg>
+      <div class="loading-headline">
+        <h2 class="display">{$t(deploying ? 'loading.deployTitle' : 'loading.title')}</h2>
+        <span class="loading-sub">{$t(deploying ? 'loading.deployEyebrow' : 'loading.subtitle')}</span>
       </div>
+      <span class="loading-percent mono">{deploying ? '' : `${progressPercent}%`}</span>
+    </div>
 
-      <h1 class="cover-title loading-title">
-        <span class="cover-title-frost">{frostWord}</span>
-        {#if flamingoWord}<span class="cover-title-amp">&amp;</span>{/if}
-        {#if flamingoWord}<span class="cover-title-flamingo">{flamingoWord}</span>{/if}
-      </h1>
-      <p class="cover-subtitle">{$t('meta.subtitle')}</p>
-      <p class="cover-tagline">{$t('meta.tagline')}</p>
-
-      <div class="loading-factions">
-        <span class="loading-faction loading-faction-alpine">
-          <strong>{$t('loading.coverAlpine')}</strong>
-          <span>{$t('factions.alpine.motto')}</span>
-        </span>
-        <span class="loading-faction loading-faction-lagoon">
-          <strong>{$t('loading.coverLagoon')}</strong>
-          <span>{$t('factions.lagoon.motto')}</span>
-        </span>
+    {#if deploying}
+      <div class="stripe-bar is-indeterminate" role="progressbar" aria-label={$t('loading.deployTitle')}>
+        <div class="stripe-fill"></div>
       </div>
-    </section>
-
-    <section class="loading-card glass-strong">
-      <header class="loading-card-head">
-        <div>
-          <span class="eyebrow">{$t(deploying ? 'loading.deployEyebrow' : 'loading.title')}</span>
-          <h2>{$t(deploying ? 'loading.deployTitle' : 'loading.subtitle')}</h2>
-        </div>
-        <span class="hud-chip mono">{deploying ? $t('world.mapName') : rendererLabel}</span>
-      </header>
-
-      {#if deploying}
-        <div class="loading-deploy">
-          <div class="loading-deploy-row">
-            <span class="hud-label">{$t('loading.deployDestination')}</span>
-            <strong>{$t('world.mapName')}</strong>
-          </div>
-          {#if player}
-            <div class="loading-deploy-row">
-              <span class="hud-label">{$t('loading.deployAssignment')}</span>
-              <strong>
-                {$t(factionNameKey(player.faction))} · {$t(factionClassNameKey(player.faction, player.classId))}
-              </strong>
-            </div>
-          {/if}
-          <div class="loading-deploy-bar" role="progressbar" aria-label={$t('loading.deployTitle')}>
-            <div class="loading-deploy-bar-fill"></div>
-          </div>
-          <p class="loading-deploy-status">{$t('loading.deployStatus')}</p>
-          <p class="loading-deploy-hint">{$t('loading.deployHint')}</p>
-        </div>
-      {:else}
-      <div class="loading-steps">
+      <div class="loading-chips">
+        <span class="loading-chip"><b>{$t('loading.deployDestination')}</b> {$t('world.mapName')}</span>
+        {#if player}
+          <span class="loading-chip">
+            <b>{$t('loading.deployAssignment')}</b>
+            {$t(factionNameKey(player.faction))} · {$t(factionClassNameKey(player.faction, player.classId))}
+          </span>
+        {/if}
+        <span class="loading-chip is-live">{$t('loading.deployStatus')}</span>
+      </div>
+    {:else}
+      <div
+        class="stripe-bar"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={progressPercent}
+        aria-label={$loading.progress >= 1 ? $t('loading.ready') : $t('loading.enter')}
+      >
+        <div class="stripe-fill" style={`width:${progressPercent}%`}></div>
+      </div>
+      <div class="loading-chips">
         {#each steps as step (step.id)}
-          <div
-            class="loading-step"
+          <span
+            class="loading-chip"
             data-active={$loading[step.id] === 'active'}
             data-done={$loading[step.id] === 'done'}
             data-failed={$loading[step.id] === 'failed'}
           >
-            <span class="loading-step-icon" aria-hidden="true">
-              {$loading[step.id] === 'done'
-                ? '✓'
-                : $loading[step.id] === 'failed'
-                  ? '!'
-                  : $loading[step.id] === 'active'
-                    ? '•'
-                    : '·'}
-            </span>
-            <span>{$t(step.labelKey)}</span>
-            <span class="loading-step-state mono">
-              {$loading[step.id] === 'done'
-                ? $t('common.done')
-                : $loading[step.id] === 'failed'
-                  ? $t('common.retry')
-                  : $loading[step.id] === 'active'
-                    ? $t('common.loading')
-                    : ''}
-            </span>
-          </div>
+            <i class="step-icon" aria-hidden="true">
+              {#if $loading[step.id] === 'done'}
+                <svg viewBox="0 0 16 16"><path d="M3 8.5 L6.6 12 L13 4.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              {:else if $loading[step.id] === 'failed'}
+                <svg viewBox="0 0 16 16"><path d="M8 3 V9 M8 12.3 V12.6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" /></svg>
+              {/if}
+            </i>
+            {$t(step.labelKey)}
+          </span>
         {/each}
+        <span class="loading-chip is-renderer">{rendererLabel}</span>
       </div>
+    {/if}
 
-      <div class="loading-progress">
-        <div class="loading-progress-meta">
-          <span>{$loading.progress >= 1 ? $t('loading.ready') : $t('loading.enter')}</span>
-          <span class="mono">{progressPercent}%</span>
-        </div>
-        <div
-          class="loading-bar"
-          role="progressbar"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-valuenow={progressPercent}
-        >
-          <div class="loading-bar-fill" style={`width: ${progressPercent}%`}></div>
-        </div>
-      </div>
-
-      <div class="hairline"></div>
-
-      <div class="loading-tips">
-        <span class="hud-label">{$t('loading.tipsTitle')}</span>
-        <ul>
-          {#each tips as tip (tip)}
-            <li>{$t(tip)}</li>
-          {/each}
-        </ul>
-      </div>
-
-      <p class="loading-slow">{$t('loading.slow')}</p>
-      {/if}
-    </section>
+    <aside class="loading-tip paper">
+      <span class="tip-label">{$t('loading.tipsTitle')}</span>
+      {#key tip}
+        <p>{$t(deploying ? 'loading.deployHint' : tip)}</p>
+      {/key}
+    </aside>
   </div>
-
-  <footer class="loading-footer">
-    <span>{$t('meta.studio')}</span>
-    <span class="mono">{$t('common.version', { version: 'M2' })}</span>
-    <span>{$t('meta.cleanRoom')}</span>
-  </footer>
 </div>

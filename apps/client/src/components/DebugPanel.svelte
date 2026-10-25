@@ -23,10 +23,10 @@
           : $t('common.offline');
 </script>
 
-<aside class="debug-panel glass" aria-label={$t('debug.title')}>
+<aside class="debug-panel paper" aria-label={$t('debug.title')}>
   <header>
     <span>{$t('debug.title')}</span>
-    <span class="text-glacier-200/45">{$t('debug.closeHint')}</span>
+    <span class="debug-hint">{$t('debug.closeHint')}</span>
   </header>
 
   <div class="debug-row"><span>{$t('debug.serverLink')}</span><strong>{statusLabel}</strong></div>
