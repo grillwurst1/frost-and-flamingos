@@ -41,6 +41,50 @@ export interface BakedClip {
   retargetedFrom: string | null;
   /** Time (s) with the highest hips: the apex of a jump. */
   apexTime: number;
+  /**
+   * Normalised phase (0..1) of the left foot's lowest point (its contact),
+   * so locomotion cycles can share one phase in step. 0 when unknown.
+   */
+  contactPhase?: number;
+}
+
+/**
+ * Phase of the left foot's lowest point over a looping clip, by forward
+ * kinematics of Hips → LeftUpLeg → LeftLeg → LeftFoot in armature space.
+ */
+export function leftFootContactPhase(clip: BakedClip, rig: RigInfo): number {
+  const chain = ['Hips', 'LeftUpLeg', 'LeftLeg', 'LeftFoot'];
+  const index = new Map<string, number>();
+  clip.bones.forEach((bone, i) => index.set(bone, i));
+  const local = new Quaternion();
+  let lowest = Infinity;
+  let lowestFrame = 0;
+  for (let frame = 0; frame < clip.frames; frame += 1) {
+    let rotation = Quaternion.Identity();
+    let position = Vector3.Zero();
+    for (const joint of chain) {
+      const bind = rig.bindPose.get(joint);
+      if (!bind) return 0;
+      let offset = bind.position;
+      if (joint === 'Hips' && clip.hips) {
+        offset = new Vector3(clip.hips[frame * 3] ?? 0, clip.hips[frame * 3 + 1] ?? 0, clip.hips[frame * 3 + 2] ?? 0);
+      }
+      position = position.add(offset.rotateByQuaternionToRef(rotation, new Vector3()));
+      const bone = index.get(joint);
+      if (bone === undefined) {
+        local.copyFrom(bind.rotation);
+      } else {
+        const o = (frame * clip.bones.length + bone) * 4;
+        local.set(clip.rotations[o] ?? 0, clip.rotations[o + 1] ?? 0, clip.rotations[o + 2] ?? 0, clip.rotations[o + 3] ?? 1);
+      }
+      rotation = rotation.multiply(local);
+    }
+    if (position.y < lowest) {
+      lowest = position.y;
+      lowestFrame = frame;
+    }
+  }
+  return clip.frames > 1 ? lowestFrame / (clip.frames - 1) : 0;
 }
 
 /** Bind pose and hierarchy of a Mixamo skeleton, by normalised joint name. */
