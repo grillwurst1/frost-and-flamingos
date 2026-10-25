@@ -94,7 +94,7 @@ export const CRITTER_STATS: Readonly<Record<CritterSpecies, CritterSpeciesStats>
   hen: {
     perHalf: 3,
     height: 0.46,
-    walkSpeed: 0.95,
+    walkSpeed: 0.7,
     fleeSpeed: 4.4,
     walkTurnRate: 4.2,
     fleeTurnRate: 11,
@@ -104,8 +104,9 @@ export const CRITTER_STATS: Readonly<Record<CritterSpecies, CritterSpeciesStats>
     hopSpeed: 3.4,
     gravity: -16,
     hopInterval: [0.45, 0.95],
-    body: { up: 0.21, forward: -0.02, radius: 0.17 },
-    head: { up: 0.37, forward: 0.12, radius: 0.075 },
+    // Matched to the painted model (body centred on the feet position, head front-top).
+    body: { up: 0.23, forward: -0.02, radius: 0.17 },
+    head: { up: 0.41, forward: 0.19, radius: 0.08 },
     clearance: 0.22,
     fleeRadius: 4,
     gunfireRadius: 13,

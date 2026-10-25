@@ -160,6 +160,8 @@ export class CritterClient {
     if (!track.view && now >= track.retryAt) {
       track.view = this.viewFactory(state.species, state.id);
       if (!track.view) track.retryAt = now + VIEW_RETRY_MS;
+      // A view made for a critter that is currently dead starts hidden.
+      else track.view.setVisible(track.visible);
     }
     return track;
   }
@@ -284,6 +286,12 @@ export class CritterClient {
       audio.playHitMarker(false, false);
       showComicPop('comic.bok.text');
     }
+  }
+
+  /** Last rendered (interpolated) position of a living critter, or null. */
+  renderedPosition(id: number): Vec3 | null {
+    const track = this.tracks.get(id);
+    return track && track.visible ? track.lastPosition : null;
   }
 
   /** DEV probe data. */
