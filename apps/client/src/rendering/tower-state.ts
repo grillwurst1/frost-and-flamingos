@@ -201,7 +201,9 @@ class TowerFlag {
     poleBatch.cylinder(0.16, 0.13, 0.12, 10, P.gold, 'metal', { y: 0 });
     this.pole = poleBatch.toMesh(scene, `${visual.id}-flag-pole`, material);
     if (this.pole) {
+      // Batched meshes come frozen with fixed bounds; this one moves with its tower node.
       this.pole.unfreezeWorldMatrix();
+      this.pole.doNotSyncBoundingInfo = false;
       this.pole.parent = this.root;
     }
 
@@ -215,6 +217,7 @@ class TowerFlag {
       const mesh = batch.toMesh(scene, `${visual.id}-flag-${style}`, material);
       if (!mesh) continue;
       mesh.unfreezeWorldMatrix();
+      mesh.doNotSyncBoundingInfo = false;
       mesh.parent = this.clothPivot;
       mesh.setEnabled(false);
       this.cloths[style] = mesh;
