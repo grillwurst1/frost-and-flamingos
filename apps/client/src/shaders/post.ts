@@ -23,10 +23,11 @@
  *              none), 1.25× the world's outline width, on every tier.
  *   alpha 0.75 painted sprite (billboard vegetation/clutter, shaders/sprite.ts):
  *              the world look, but no screen-space ink (the painting carries
- *              its own outline). Counts only where no 4-neighbour is
- *              character-dark, so a character's 0<->1 AA edge never does.
- *              A blend over a character that happens to leave ~0.75 only
- *              loses the ink on those pixels, a harmless failure.
+ *              its own outline). Counts only where every 4-neighbour reads
+ *              >= ~0.7, so a character's 0<->1 AA edge and partially covered
+ *              MSAA pixels at thin character parts never do. A blend over a
+ *              character that happens to leave ~0.75 only loses the ink on
+ *              those pixels, a harmless failure.
  *   There is deliberately no "fully exempt" level: blended surfaces over a
  *   character (water, smoke) leave alpha = their own alpha there, so any
  *   in-band value can be produced by accident. A photoreal exemption needs
@@ -59,10 +60,11 @@ vec3 ffLookMask(vec2 uv, float a0) {
   float aL = texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a;
   float aU = texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a;
   float aD = texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a;
-  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
-  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
   float sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
-    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
   return vec3((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
@@ -154,10 +156,11 @@ fn ffLookMask(uv : vec2f, a0 : f32) -> vec3f {
   let aL = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a;
   let aU = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a;
   let aD = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a;
-  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
-  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
   let sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
-    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
   return vec3f((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
@@ -284,10 +287,11 @@ vec3 ffLookMask(vec2 uv, float a0) {
   float aL = texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a;
   float aU = texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a;
   float aD = texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a;
-  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
-  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
   float sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
-    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
   return vec3((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
@@ -471,10 +475,11 @@ fn ffLookMask(uv : vec2f, a0 : f32) -> vec3f {
   let aL = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a;
   let aU = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a;
   let aD = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a;
-  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
-  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
   let sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
-    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
   return vec3f((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
