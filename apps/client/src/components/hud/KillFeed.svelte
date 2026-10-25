@@ -41,6 +41,32 @@
 <aside class="kill-feed" aria-label={$t('combat.killFeed')}>
   {#each rows as row (row.entry.id)}
     {@const entry = row.entry}
+    {#if entry.critter}
+      <div class="kill-ribbon is-critter" class:is-mine={entry.killerId === localId}>
+        {#if row.killerSide}
+          <span class="kill-crest"><Crest faction={row.killerSide} /></span>
+        {/if}
+        {#if entry.weaponId}
+          <span class="kill-weapon" title={weaponName(entry.weaponId)}><Pictogram weapon={entry.weaponId} /></span>
+        {/if}
+        <span class="kill-critter-line">
+          {entry.killerName
+            ? $t(`critters.killFeed.${entry.critter}`, { name: entry.killerName })
+            : $t('critters.killFeed.henAnonymous')}
+        </span>
+        <span class="kill-hen" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <path class="hen-tail" d="M5.5 15.5 C3 11 4.5 7.5 7.5 6.5 C8.5 9.5 9.5 11 11.5 12.5 Z" />
+            <path class="hen-body" d="M7 14 C7 21.5 11.5 26 18 26 C24 26 27 22.5 27 18.5 C27 15.5 25.5 13.5 24 12.5 L22.5 7.5 C21.5 5 17.5 5 16.5 8 C16 10 16.5 12.5 15.5 14 C13 15.5 9.5 15 7 14 Z" />
+            <path class="hen-wing" d="M12 17.5 C14.5 21.5 18.5 22.5 21.5 20.5 C18.5 20 16 18.5 14.5 16.5 Z" />
+            <path class="hen-comb" d="M17.5 6.5 C17 4 18.5 3 19.5 4.2 C20 2.8 22 3 22 4.8 C23.3 4.4 24 5.8 23 7 Z" />
+            <path class="hen-beak" d="M24.2 9 L28 10.3 L24.4 11.6 Z" />
+            <circle class="hen-eye" cx="21.6" cy="9.4" r="1.05" />
+            <path class="hen-legs" d="M15.5 26 L14.5 29.5 M19.5 26 L20.5 29.5" />
+          </svg>
+        </span>
+      </div>
+    {:else}
     <div
       class="kill-ribbon"
       class:is-mine={entry.killerId === localId}
@@ -65,5 +91,6 @@
         <span class="kill-crest"><Crest faction={row.victimSide} /></span>
       {/if}
     </div>
+    {/if}
   {/each}
 </aside>
