@@ -14,7 +14,8 @@
     "stop": "lsof -ti:5173,3000,4173 | xargs kill -9 2>/dev/null || true",
     "clean": "rm -rf apps/client/dist apps/server/dist packages/shared/dist apps/client/.vite apps/server/.vite .vite node_modules/.vite apps/server/data/memory-store.json",
     "clean:all": "bun run clean && rm -rf node_modules apps/*/node_modules packages/*/node_modules bun.lock",
-    "preview": "bun run --cwd apps/client preview"
+    "preview": "bun run --cwd apps/client preview",
+    "test": "bun run --cwd apps/server test"
   },
   "engines": {
     "bun": ">=1.2.0"

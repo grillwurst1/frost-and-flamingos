@@ -852,6 +852,95 @@ export class AudioEngine {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Ambient critters (hens). All procedural, all positional.
+  // ---------------------------------------------------------------------------
+
+  /** One short throaty "bok": a dropping tone through a nasal formant. */
+  private henBok(panner: PannerNode | undefined, when: number, pitch: number, gain: number, length = 0.075): void {
+    const base = 410 * pitch * (0.94 + Math.random() * 0.12);
+    this.formantTone({
+      frequency: base,
+      endFrequency: base * 0.72,
+      duration: length,
+      gain,
+      formant: 1250 * pitch,
+      formantEnd: 900 * pitch,
+      q: 5,
+      type: 'sawtooth',
+      when,
+      panner,
+      bus: 'voice',
+    });
+  }
+
+  /** Soft idle clucking: two to four quiet "bok"s, sparse and positional. */
+  playHenCluck(position?: Vec3, pitch = 1): void {
+    const ctx = this.ctx;
+    if (!ctx || !position) return;
+    const panner = this.panner(position, 1.4, 24, 'voice');
+    const now = ctx.currentTime + 0.01;
+    const count = 2 + Math.floor(Math.random() * 3);
+    let when = now;
+    for (let index = 0; index < count; index += 1) {
+      // The last bok of a phrase is the long, rising "bo-OK".
+      const last = index === count - 1 && Math.random() < 0.5;
+      this.henBok(panner, when, last ? pitch * 1.18 : pitch, last ? 0.07 : 0.05, last ? 0.16 : 0.075);
+      when += 0.13 + Math.random() * 0.07;
+    }
+  }
+
+  /** Startled flutter: a squawk burst plus wing-flap whooshes. */
+  playHenPanic(position?: Vec3, pitch = 1): void {
+    const ctx = this.ctx;
+    if (!ctx || !position) return;
+    const panner = this.panner(position, 2, 32, 'voice');
+    const now = ctx.currentTime + 0.01;
+    for (let index = 0; index < 3; index += 1) {
+      this.henBok(panner, now + index * 0.085, pitch * (1.25 + index * 0.12), 0.09, 0.07);
+    }
+    this.formantTone({
+      frequency: 760 * pitch,
+      endFrequency: 1040 * pitch,
+      duration: 0.28,
+      gain: 0.1,
+      formant: 1700 * pitch,
+      formantEnd: 1300 * pitch,
+      q: 4,
+      vibrato: 18,
+      when: now + 0.26,
+      panner,
+      bus: 'voice',
+    });
+    for (let flap = 0; flap < 4; flap += 1) {
+      this.noise({ duration: 0.07, gain: 0.05, filter: 'bandpass', frequency: 900, endFrequency: 420, q: 0.9, when: now + flap * 0.09, panner });
+    }
+  }
+
+  /** The bagged hen: a loud "BA-GAAAWK!" and a feathery poof. */
+  playHenSquawk(position?: Vec3, pitch = 1): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const panner = this.panner(position, 3, 55, 'voice');
+    const now = ctx.currentTime + 0.01;
+    this.henBok(panner, now, pitch * 1.3, 0.16, 0.09);
+    this.formantTone({
+      frequency: 640 * pitch,
+      endFrequency: 380 * pitch,
+      duration: 0.52,
+      gain: 0.2,
+      formant: 1900 * pitch,
+      formantEnd: 1000 * pitch,
+      q: 3.5,
+      vibrato: 26,
+      when: now + 0.11,
+      panner,
+      bus: 'voice',
+    });
+    this.noise({ duration: 0.32, gain: 0.12, filter: 'highpass', frequency: 2600, endFrequency: 900, q: 0.6, when: now + 0.02, panner });
+    this.noise({ duration: 0.12, gain: 0.14, filter: 'lowpass', frequency: 520, endFrequency: 160, q: 0.7, when: now, panner });
+  }
+
   private rollSource: AudioBufferSourceNode | null = null;
   private rollFilter: BiquadFilterNode | null = null;
   private rollGain: GainNode | null = null;

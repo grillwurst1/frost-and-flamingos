@@ -55,6 +55,15 @@ export const MASCOT_FLAG = {
 } as const;
 export const MASCOT_JUMPS_SHIFT = 4;
 
+/** Critter state byte: bits 0–3 carry the behaviour code. */
+export const CRITTER_FLAG = {
+  Alive: 1 << 4,
+  /** Set for the lagoon half, clear for the alpine half. */
+  LagoonHalf: 1 << 5,
+  Airborne: 1 << 6,
+} as const;
+export const CRITTER_BEHAVIOUR_MASK = 0x0f;
+
 export const GameEventCode = {
   COMIC_HIT: 1,
   KILL_RAGDOLL: 2,
@@ -82,6 +91,12 @@ export const GameEventCode = {
   MASCOT_IMPACT: 22,
   /** Coconut-milk puddle. param = centre (dm), value = lifetime in deciseconds. */
   MASCOT_PUDDLE: 23,
+  /**
+   * Critters use 32+ (clear of the player event range). actor = killer (0 =
+   * none), target = critter id, param = position (dm), value = species code
+   * (low byte) | WEAPON_TABLE code + 1 (high byte, 0 = no weapon).
+   */
+  CRITTER_KILLED: 32,
 } as const;
 
 export type GameEventCodeValue = (typeof GameEventCode)[keyof typeof GameEventCode];

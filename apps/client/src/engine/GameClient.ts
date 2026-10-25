@@ -45,6 +45,7 @@ import { audio, type AmbienceKind } from '../audio/synth';
 import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
+import { CritterFx } from '../rendering/critter-fx';
 import { MascotFx } from '../rendering/mascot-fx';
 import {
   createShadowMaterial,
@@ -97,6 +98,7 @@ import {
 import { CameraRig } from './camera-rig';
 import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
+import { CritterClient } from './critter-client';
 import { cameraProfileFor, MascotClient } from './mascot-client';
 
 const INTERPOLATION_DELAY_MS = 110;
@@ -323,6 +325,7 @@ export class GameClient {
   private previewView: AvatarView | null = null;
   private mascotFx: MascotFx | null = null;
   private mascots: MascotClient | null = null;
+  private critters: CritterClient | null = null;
   private previewKey: string | null = null;
   private previewYaw = 0.35;
   private previewSpin = true;
@@ -502,11 +505,21 @@ export class GameClient {
       this.physics = physics;
       this.toonMaterial = createToonMaterial(scene, 'fjord-toon-material');
       this.visuals = buildFjordFiesta(scene, this.toonMaterial);
-      this.mascotFx = new MascotFx(scene, (x, z, fromY) => {
+      const groundProbe = (x: number, z: number, fromY: number): number => {
         const hit = this.physics?.raycast({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }, 6);
         return hit ? hit.point.y : fromY - 1.5;
-      });
+      };
+      this.mascotFx = new MascotFx(scene, groundProbe);
       this.mascots = new MascotClient(this.mascotFx);
+      this.critters = new CritterClient({
+        fx: new CritterFx(scene, groundProbe),
+        mascotFx: this.mascotFx,
+        viewFactory: () => null,
+      });
+      if (import.meta.env.DEV) {
+        (window as unknown as { __ffCritters?: () => Record<string, unknown> }).__ffCritters = () =>
+          this.critters?.debugInfo() ?? {};
+      }
       this.look?.attachMap(this.visuals);
       if (import.meta.env.DEV) {
         installMapDevTools({
@@ -706,6 +719,7 @@ export class GameClient {
     for (const remote of this.remoteViews.values()) remote.view.dispose();
     this.remoteViews.clear();
     this.mascotFx?.dispose();
+    this.critters?.dispose();
     audio.setRollRumble(0);
     this.physics?.dispose();
     this.look?.dispose();
@@ -742,6 +756,7 @@ export class GameClient {
     this.latestLocalState = null;
     this.profiles.clear();
     this.clearRemoteViews();
+    this.critters?.reset();
     this.deathKillerId = 0;
     this.deathKillerName = '';
     this.deathAt = 0;
@@ -1038,6 +1053,11 @@ export class GameClient {
         audio.playSkill(event.paramX, actor?.position);
         return;
       }
+      case 'CRITTER_KILLED': {
+        if (event.actorId === this.localId) this.lastCombatAt = now;
+        this.critters?.handleKill(event, { localId: this.localId, profiles: this.profiles });
+        return;
+      }
       case 'PROP_EXPLODE': {
         audio.playExplosion({
           x: event.paramX,
@@ -1055,7 +1075,9 @@ export class GameClient {
     if (this.disposed) return;
     this.snapshotCount += 1;
     this.lastSnapshotTick = snapshot.serverTick;
-    this.snapshotHistory.push({ snapshot, receivedAt: performance.now() });
+    const receivedAt = performance.now();
+    this.snapshotHistory.push({ snapshot, receivedAt });
+    this.critters?.onSnapshot(snapshot.critters, receivedAt);
     if (this.snapshotHistory.length > SNAPSHOT_HISTORY) this.snapshotHistory.shift();
     updateConnection({
       playersOnline: snapshot.players.length,
@@ -1231,6 +1253,8 @@ export class GameClient {
     this.updateLocalView(delta);
     this.updatePreviewView(delta);
     this.updateRemoteViews(delta, now);
+    const listener = this.cameraRig?.camera.position;
+    this.critters?.update(delta, now, listener ? { x: listener.x, y: listener.y, z: listener.z } : null);
     this.mascotFx?.update(delta);
     this.updateAudio(delta);
     this.updateMaterials(now);
