@@ -234,6 +234,8 @@ export class GlbCharacterView implements AvatarView {
   private readonly shoulderHalf: number;
   /** Bind-pose shoulder midpoint in Spine2's frame (shoulder-anchored holds). */
   private readonly shoulderLocal: Vector3 | null;
+  /** Bind-pose chest front surface point in Spine2's frame (hero holds stay in front of it). */
+  private readonly frontLocal: Vector3 | null;
   /** Bind-pose right arm length (shoulder → elbow → wrist). */
   private readonly armLength: number;
   private readonly bulk: number;
@@ -296,6 +298,10 @@ export class GlbCharacterView implements AvatarView {
     this.shoulderLocal =
       spine2 && leftArm && rightArm
         ? leftArm.add(rightArm).scaleInPlace(0.5).subtractInPlace(spine2.position).rotateByQuaternionToRef(Quaternion.Inverse(spine2.rotation), new Vector3())
+        : null;
+    this.frontLocal =
+      spine2 && asset.torso
+        ? new Vector3(0, 0, asset.torso.front - asset.torso.chestZ).rotateByQuaternionToRef(Quaternion.Inverse(spine2.rotation), new Vector3())
         : null;
     const rightElbow = asset.bindPositions.get('RightForeArm');
     const rightWrist = asset.bindPositions.get('RightHand');
@@ -1029,6 +1035,12 @@ export class GlbCharacterView implements AvatarView {
     let reachScale = 1;
     let clearance = 0;
     const spineRotation = rig.rotation('Spine2');
+    if (hold.anchor === 'shoulders') {
+      // Protract the right clavicle too: clips that roll the shoulders back
+      // (the heavies' idles) would leave the grip out of the arm's reach.
+      rig.rotateWorld('RightShoulder', Quaternion.RotationAxis(AXIS_Y, 0.3 * armed));
+      rig.refresh();
+    }
     if (hold.anchor === 'shoulders' && this.shoulderLocal && spineRotation) {
       anchor = chest.add(this.shoulderLocal.rotateByQuaternionToRef(spineRotation, new Vector3()));
       reachScale = Math.min(1.25, Math.max(0.8, this.armLength / 0.43));
@@ -1090,7 +1102,31 @@ export class GlbCharacterView implements AvatarView {
     const rightArm = rig.position('RightArm');
     const rightFore = rig.position('RightForeArm');
     const rightHand = rig.position('RightHand');
-    if (rightArm && rightFore && rightHand) {
+    if (rightArm && rightFore && rightHand && tucked) {
+      // Hero holds never put the grip inside the body: in front of the torso
+      // across its width, and when the arm is too short (heavies' bellies)
+      // the grip slides sideways and up towards the right shoulder line,
+      // never back into the chest. If even that is out of reach, the hand
+      // falls short of the grip rather than the weapon sinking in.
+      const reach = 0.92 * (Vector3.Distance(rightArm, rightFore) + Vector3.Distance(rightFore, rightHand));
+      const front = this.frontLocal && spineRotation ? chest.add(this.frontLocal.rotateByQuaternionToRef(spineRotation, new Vector3())) : null;
+      const keepOut = (): void => {
+        if (front && Math.abs(grip.x - chest.x) < this.shoulderHalf) grip.z = Math.max(grip.z, front.z + 0.02);
+      };
+      keepOut();
+      for (let step = 0; step < 8 && Vector3.Distance(grip, rightArm) > reach; step += 1) {
+        grip.x += (rightArm.x - grip.x) * 0.3;
+        grip.y += (rightArm.y - 0.1 - grip.y) * 0.3;
+        keepOut();
+      }
+      // Still too far (an outstretched pistol): pull straight in, but not into the chest.
+      const toGrip = grip.subtract(rightArm);
+      const distance = toGrip.length();
+      if (distance > reach && distance > 1e-4) {
+        grip.copyFrom(rightArm.add(toGrip.scale(reach / distance)));
+        keepOut();
+      }
+    } else if (rightArm && rightFore && rightHand) {
       const reach = 0.92 * (Vector3.Distance(rightArm, rightFore) + Vector3.Distance(rightFore, rightHand));
       const toGrip = grip.subtract(rightArm);
       const distance = toGrip.length();
@@ -1106,11 +1142,11 @@ export class GlbCharacterView implements AvatarView {
     const leftWrist = rig.position('LeftHand');
     if (support && tucked && leftArm && leftFore && leftWrist) {
       // Still out of reach (short arms, big bellies): slide the support hand
-      // back along the weapon towards the right hand (at most 60 %), so it
+      // back along the weapon towards the right hand (at most 80 %), so it
       // stays on the gun instead of hovering in front of it.
       const reach = 0.92 * (Vector3.Distance(leftArm, leftFore) + Vector3.Distance(leftFore, leftWrist));
       const back = grip.subtract(support).scaleInPlace(0.1);
-      for (let step = 0; step < 6 && Vector3.Distance(leftArm, support) > reach; step += 1) support.addInPlace(back);
+      for (let step = 0; step < 8 && Vector3.Distance(leftArm, support) > reach; step += 1) support.addInPlace(back);
     }
     this.weaponAnchor.position.copyFrom(grip);
     this.weaponAnchor.rotationQuaternion?.copyFrom(weaponRotation);
