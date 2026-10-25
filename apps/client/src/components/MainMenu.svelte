@@ -19,7 +19,10 @@
   onMount(() => probeMenuKeyart());
 
   // The painted key art (no lettering) is preferred; the supplied cover poster is the fallback.
-  $: keyart = $menuKeyart === 'ok';
+  // While the probe is still running the key-art layout is kept (art fading in), so the menu
+  // never flashes the poster composition and then jumps.
+  $: keyart = $menuKeyart !== 'missing';
+  $: keyartReady = $menuKeyart === 'ok';
   $: connected = $connection.status === 'connected';
   $: statusLabelKey =
     $connection.status === 'connected'
@@ -38,7 +41,7 @@
 <div class="menu-screen" class:has-keyart={keyart}>
   <div class="menu-backdrop" aria-hidden="true">
     {#if keyart}
-      <img class="menu-keyart" src={MENU_KEYART_URL} alt="" draggable="false" />
+      <img class="menu-keyart" class:is-loading={!keyartReady} src={MENU_KEYART_URL} alt="" draggable="false" />
     {:else}
       <div class="menu-blur" style={`background-image:url(${COVER_URL})`}></div>
     {/if}
@@ -81,9 +84,9 @@
           </button>
         </div>
       </div>
-      <p class="menu-hint">{$t(connected ? 'menu.playHint' : 'menu.waitingForServer')}</p>
-
-      {#if !connected}
+      {#if connected}
+        <p class="menu-hint">{$t('menu.playHint')}</p>
+      {:else}
         <div class="menu-offline paper">
           <p>{$t('menu.serverOfflineHint')}</p>
           <button class="btn-ghost" type="button" on:click={reconnect}>

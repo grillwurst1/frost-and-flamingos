@@ -26,6 +26,11 @@
   height: 100%;
   object-fit: cover;
   object-position: 70% 50%;
+  transition: opacity 360ms ease;
+}
+
+.menu-keyart.is-loading {
+  opacity: 0;
 }
 
 .menu-blur {
@@ -47,6 +52,7 @@
 .menu-layout {
   position: absolute;
   inset: 0;
+  overflow-y: auto;
   display: grid;
   align-items: center;
   gap: clamp(1.5rem, 4vw, 3.5rem);
@@ -204,13 +210,20 @@
 
 .menu-offline {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.7rem 0.9rem 0.8rem;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.55rem 0.7rem 0.6rem 0.9rem;
+}
+
+.menu-offline .btn-ghost {
+  flex: none;
 }
 
 .menu-offline p {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   font-size: 0.8rem;
   font-weight: 600;

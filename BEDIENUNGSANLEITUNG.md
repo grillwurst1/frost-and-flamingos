@@ -116,14 +116,18 @@ Jetzt im Browser öffnen:
 **<http://localhost:5173>**
 
 Der erste Start kann einige Sekunden dauern, weil Shader kompiliert und die Karte aufgebaut
-wird. Der Ladebildschirm zeigt drei Schritte:
+wird. Der Ladebildschirm zeigt eines der gemalten Resort-Motive, den Spieltitel, das Duell
+Alpen gegen Strand, einen gestreiften Ladebalken und wechselnde Tipps. Er zeigt drei Schritte:
 
 1. **Renderer starten** (WebGPU oder WebGL2),
 2. **Fjord Fiesta aufbauen** (Terrain, Props, Wasser),
 3. **Rezeption anrufen** (Verbindung zum autoritativen Server).
 
-Wenn oben im Menü **VERBUNDEN** steht, ist alles bereit. Steht dort **OFFLINE**, läuft der
-Server nicht oder Port 3000 ist blockiert (siehe Abschnitt 13).
+Das Hauptmenü liegt über dem gemalten Titelbild des Resorts: links stehen Logo,
+**„Jetzt spielen“**, Garderobe, Einstellungen und die Profilkarten (Klasse, Fraktion, Stimme).
+Wenn in der Statuspille unten **VERBUNDEN** steht, ist alles bereit. Steht dort **OFFLINE**,
+läuft der Server nicht oder Port 3000 ist blockiert (siehe Abschnitt 13); eine Hinweiskarte mit
+**„Neu verbinden“** erscheint dann direkt unter den Knöpfen.
 
 Optionaler Server-Test im Browser:
 
@@ -250,25 +254,37 @@ wartet bei Bedarf kurz, bis der Runden-Track dekodiert ist.
 
 ## 10. HUD und Telemetrie
 
-Während des Spiels zeigt das HUD:
+Das HUD ist im Comic-Stil der Referenzbilder gestaltet:
 
-- Fraktion, Klasse und Vitalität,
-- Urlaubstickets beider Seiten,
-- Verbindungsstatus, Ping, Spielerzahl und FPS,
-- aktuellen Kartenbereich (z. B. „Lagunen-Hafen“ oder „Gipfelalm“),
-- den aktiven Renderer (WebGPU/WebGL2),
-- die aktuelle Musik und deren BPM.
+- **Statusleiste unten in der Mitte:** Herz und grüne Vitalitätsleiste (sie leert sich vom
+  Herz zur Mitte hin, ein gelber Streifen zeigt den Schild), die Urlaubstickets beider Seiten
+  in einem blauen (Alpen) und einem roten (Strand) Kästchen mit „VS“ dazwischen – ein kleiner
+  Pfeil markiert die eigene Seite – und rechts die rote Klimaleiste mit Schneeflocke bzw.
+  Sonne am Ende (je voller, desto sonniger).
+- **Uhr oben in der Mitte:** Messinguhr mit Klimazeiger und den Turm-Abzeichen A, B und C.
+- **Oben links:** Wappen, Klasse, aktueller Kartenbereich (z. B. „Lagunen-Hafen“) sowie
+  Abschüsse und Tode.
+- **Oben rechts:** Kill-Feed als Comic-Bänder mit Wappen und Waffe.
+- **Unten rechts:** Waffendock mit gemalten Kacheln für die Slots 1–3, Munition, Nachladen
+  und die Fähigkeiten Q / E / T mit Abklingzeit.
+- **Mitte:** Fadenkreuz, Treffermarker und Comic-Wörter wie BOING!, PLING!, PENG! oder PLATSCH!
+  bei Treffern, Kopftreffern, Abschüssen und Wasser.
+- **Nach dem Tod:** rotes Banner mit dem Namen des Gegners, Live-Killer-Cam und eine
+  Wiedereinstiegsuhr.
 
-`F1` öffnet die Netzwerk- und Engine-Telemetrie: Server-Tick, Snapshots, Position,
-Geschwindigkeit, unbestätigte Eingaben, Vorhersage-Korrektur, Draw Calls und aktive Meshes.
+`F1` öffnet die Netzwerk- und Engine-Telemetrie: Verbindung, Renderer (WebGPU/WebGL2), FPS,
+Server-Tick, Ping, Spielerzahl, Position, Geschwindigkeit, unbestätigte Eingaben,
+Vorhersage-Korrektur, Draw Calls, aktive Meshes sowie die aktuelle Musik und deren BPM.
 Sie ist für Playtests und Fehlersuche gedacht, nicht für den normalen Spielbetrieb.
+Der aktive Renderer steht außerdem auf dem Ladebildschirm.
 
 ---
 
 ## 11. Sprache
 
-Oben rechts im Fenster steht der Umschalter **EN | DE**. Die Umschaltung wirkt sofort auf
-Menü, Ladebildschirm, Einsatzbildschirm, HUD, Pause, Garderobe, Fehlermeldungen und
+Oben rechts im Fenster steht der Umschalter **EN | DE** – im Menü, auf dem Ladebildschirm und
+in der Pause (während des Spiels gehört die Ecke dem Kill-Feed). Die Umschaltung wirkt sofort
+auf Menü, Ladebildschirm, Einsatzbildschirm, HUD, Pause, Garderobe, Fehlermeldungen und
 Telemetrie. Die Auswahl wird im Browser gespeichert und beim nächsten Öffnen wiederhergestellt.
 
 ---
@@ -280,7 +296,7 @@ Telemetrie. Die Auswahl wird im Browser gespeichert und beim nächsten Öffnen w
 - **„Hauptmenü“** beendet die Runde und kehrt zum Menü zurück.
 - Im Pausenmenü lassen sich Garderobe, Audio-Einstellungen und das Feldhandbuch öffnen.
 - Der Sprache-Schalter ist in der Garderobe ausgeblendet, damit er den Schließen-Button
-  nicht überdeckt.
+  nicht überdeckt. Wird die Garderobe aus der Pause geöffnet, ist auch das HUD ausgeblendet.
 
 ---
 
@@ -347,7 +363,15 @@ Weitere Dokumente:
 
 ## 15. Lizenz und Assets
 
-Dieses Projekt ist ein Original-Clean-Room-Projekt. Es enthält keine Battlefield/EA-Assets,
-Namen, Karten, Sounds oder kopierten Kompositionen. Charaktere, Props, Waffen, Fahrzeuge,
-Effekte und UI-Grafik werden prozedural erzeugt. Externe Audio-Dateien sind ausschließlich
-die vom Projektinhaber gelieferten Musikstücke.
+Dieses Projekt ist ein Original-Clean-Room-Projekt. Es enthält keine Battlefield/EA- oder
+sonstigen Fremd-Assets, Namen, Karten, Sounds oder kopierten Kompositionen. Charaktere, Props,
+Waffen, Fahrzeuge und Effekte werden prozedural erzeugt. Die einzigen externen Dateien stammen
+vom Projektinhaber:
+
+- die fünf Musikstücke in `apps/client/public/audio/`,
+- KI-generierte 2D-UI-Grafik in `apps/client/public/art/` (Titelbild, Ladebildschirm-Motive,
+  gemalte Waffen- und Fähigkeitskacheln, Comic-Wörter, Fraktionswappen); fehlt eine Datei,
+  zeichnet das Spiel stattdessen SVG-Symbole bzw. CSS-Schrift,
+- sowie die eingebundenen Schriften Luckiest Guy (Apache 2.0) und Fredoka (SIL OFL 1.1).
+
+Die vollständige Liste steht in [`CREDITS.md`](CREDITS.md).

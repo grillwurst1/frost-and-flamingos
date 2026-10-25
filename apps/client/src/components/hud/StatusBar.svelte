@@ -2,7 +2,6 @@
   import { ParachuteState } from '@frost-and-flamingos/shared';
   import { connection, damageFlash, localPlayer } from '../../state/game';
   import { t } from '../../state/locale';
-  import Crest from '../icons/Crest.svelte';
 
   $: player = $localPlayer;
   $: faction = player?.faction ?? 'alpine';
@@ -13,11 +12,18 @@
   $: lowHealth = !!player && player.alive && healthPercent <= 30;
   $: hit = Math.max(0, Math.min(1, $damageFlash));
   $: balance = Math.max(-1, Math.min(1, $connection.weatherBalance));
-  // The climate bar grows from the centre towards whichever side is winning.
-  $: climateLeft = balance < 0 ? 50 + balance * 50 : 50;
-  $: climateWidth = Math.abs(balance) * 50;
-  $: climateMarker = 50 + balance * 50;
+  // Like the painted strip, the climate bar fills out from the Beach badge: empty at full
+  // frost, half at a balanced climate, full when the sun has won.
+  $: climateWidth = (balance + 1) * 50;
+  $: climatePercent = Math.abs(Math.round(balance * 100));
+  $: climateValue =
+    climatePercent === 0
+      ? `${$t('hud.climateFrost')} = ${$t('hud.climateSun')}`
+      : `${$t(balance < 0 ? 'hud.climateFrost' : 'hud.climateSun')} ${climatePercent}%`;
+  $: climateText = $t('hud.climateTitle', { value: climateValue });
   $: sunny = balance > 0.12;
+  $: alpsLabel = `${$t('hud.ticketsAlps')}: ${$connection.ticketsAlpine}`;
+  $: beachLabel = `${$t('hud.ticketsBeach')}: ${$connection.ticketsLagoon}`;
   $: parachuteOpen =
     player?.parachuteState === ParachuteState.Intact ||
     player?.parachuteState === ParachuteState.Tattered;
@@ -59,21 +65,30 @@
       {#if shieldPercent > 0}
         <div class="sb-shield" style={`width:${shieldPercent}%`} title={$t('combat.shield')}></div>
       {/if}
-      <span class="sb-hp-text">{Math.round(hp)}</span>
       <span class="sb-shine"></span>
     </div>
 
-    <!-- Tickets: Alps vs Beach. The player's own side is lifted and glows. -->
-    <div class="sb-ticket is-alps" class:is-mine={faction === 'alpine'}>
-      <span class="sb-ticket-crest" aria-hidden="true"><Crest faction="alpine" /></span>
-      <span class="sb-ticket-label">{$t('hud.ticketsAlps')}</span>
+    <!-- Tickets: Alps vs Beach, two plain badges. A small caret marks the player's side. -->
+    <div
+      class="sb-ticket is-alps"
+      class:is-mine={faction === 'alpine'}
+      class:is-long={$connection.ticketsAlpine >= 100}
+      role="group"
+      title={$t('hud.ticketsAlps')}
+      aria-label={alpsLabel}
+    >
       <strong>{$connection.ticketsAlpine}</strong>
       {#if faction === 'alpine'}<i class="sb-you" title={$t('hud.yourTeam')}></i>{/if}
     </div>
     <span class="sb-vs">{$t('hud.versus')}</span>
-    <div class="sb-ticket is-beach" class:is-mine={faction === 'lagoon'}>
-      <span class="sb-ticket-crest" aria-hidden="true"><Crest faction="lagoon" /></span>
-      <span class="sb-ticket-label">{$t('hud.ticketsBeach')}</span>
+    <div
+      class="sb-ticket is-beach"
+      class:is-mine={faction === 'lagoon'}
+      class:is-long={$connection.ticketsLagoon >= 100}
+      role="group"
+      title={$t('hud.ticketsBeach')}
+      aria-label={beachLabel}
+    >
       <strong>{$connection.ticketsLagoon}</strong>
       {#if faction === 'lagoon'}<i class="sb-you" title={$t('hud.yourTeam')}></i>{/if}
     </div>
@@ -82,19 +97,14 @@
     <div
       class="sb-bar sb-climate"
       role="meter"
-      title={$t('hud.climateTitle', { value: `${Math.round(balance * 100)}%` })}
+      title={climateText}
       aria-label={$t('combat.climate')}
       aria-valuemin="-100"
       aria-valuemax="100"
       aria-valuenow={Math.round(balance * 100)}
+      aria-valuetext={climateText}
     >
-      <div
-        class="sb-fill sb-fill-climate"
-        class:is-sun={balance > 0}
-        style={`left:${climateLeft}%;width:${climateWidth}%`}
-      ></div>
-      <span class="sb-climate-mid"></span>
-      <span class="sb-climate-knob" style={`left:${climateMarker}%`}></span>
+      <div class="sb-fill sb-fill-climate" style={`left:0;width:${climateWidth}%`}></div>
       <span class="sb-shine"></span>
     </div>
     <div class="sb-star" class:is-sun={sunny} aria-hidden="true">

@@ -131,6 +131,8 @@ canvas {
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1;
+  /* Luckiest Guy ships distinct lowercase glyphs; display lettering is all capitals. */
+  text-transform: uppercase;
   text-wrap: balance;
 }
 

@@ -3,7 +3,7 @@
   import type { TranslationKey } from '@frost-and-flamingos/shared';
   import { comicPops } from '../../state/game';
   import { t } from '../../state/locale';
-  import { paintedSprites, probeSprite, spriteUrl } from '../icons/painted';
+  import { COMIC_STICKERS, paintedSprites, probeSprite, spriteUrl } from '../icons/painted';
   import ComicText from './ComicText.svelte';
 
   type Variant = 'rainbow' | 'fire' | 'boom' | 'tock' | 'honk' | 'aaargh' | 'gold' | 'red' | 'ice' | 'cream';
@@ -33,11 +33,9 @@
 
   const WORD_KEY = /^comic\.([a-z_]+)\.text$/;
 
-  /** Words that exist as painted stickers; preloaded as soon as the HUD mounts. */
-  const SPRITES = Object.keys(VARIANTS);
-
+  // Preloaded at boot; probing again is a no-op and keeps this component self-contained.
   onMount(() => {
-    for (const name of SPRITES) probeSprite(name);
+    for (const name of COMIC_STICKERS) probeSprite(name);
   });
 
   function lookFor(key: TranslationKey): PopLook | null {

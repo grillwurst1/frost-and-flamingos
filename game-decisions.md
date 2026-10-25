@@ -79,10 +79,10 @@ These are hard rules, not preferences:
 1. **No Battlefield/EA assets, names, maps, logos, sounds or imitations.** The game may be inspired by the *feeling* of large-scale vehicle sandbox shooters, but every name, model, sound, map and character is original.
 2. **No external 3D models.** No `.glb`, `.gltf` or downloaded meshes. Characters, weapons, vehicles, props and the map are built procedurally with Babylon.js mesh builders or generated vertex data.
 3. **No external heightmap images.** Terrain comes from a deterministic mathematical height function shared by client and server.
-4. **No external audio files except the supplied music beds.** All ambience and SFX are synthesised at runtime with the Web Audio API. The only external audio is the project owner's supplied music in `apps/client/public/audio/` (menu, gameplay intensity beds and round/death bed).
-5. **No stock UI art.** Icons, panels, badges and decorative elements are CSS, SVG or procedural canvas.
+4. **No external audio files except the supplied music beds.** All ambience and SFX are synthesised at runtime with the Web Audio API. The only external audio is the project owner's supplied music in `apps/client/public/audio/` (menu, gameplay intensity beds and round/death bed). Besides audio, the only external files are the owner-supplied 2D UI art in `apps/client/public/art/` (rule 5) and the bundled Luckiest Guy / Fredoka fonts.
+5. **No stock or third-party UI art.** Panels, badges and decorative elements are CSS, SVG or procedural canvas. The exception is owner-supplied, AI-generated 2D art in `apps/client/public/art/` (menu key art and cover, loading scenes, painted weapon/skill tiles, comic popup stickers, faction crests), which is permitted UI art. Every such file is optional: the HUD falls back to procedural SVG pictograms, CSS lettering and SVG crests when it is missing. [`CREDITS.md`](CREDITS.md) lists each file.
 6. **No real brands.** The in-game currency is **Alpen-Taler / Resort Crowns**, not a real currency. The “VIP” pass and “Armory Rental” are fictional meta systems.
-7. **The attached reference images are art-direction inspiration only.** They are never traced, copied or shipped.
+7. **The attached reference images are art-direction inspiration only.** They are never traced or copied into the 3D game, and the `PHOTO-*.jpg` references in the repository root are not shipped. Owner-supplied art that the owner explicitly hands over as UI art (rule 5) is shipped under `apps/client/public/art/`; the loading/error scene paintings are cropped so the HUD painted into them never appears on screen.
 
 ---
 

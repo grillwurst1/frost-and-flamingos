@@ -10,6 +10,13 @@
   initial-value: 0deg;
 }
 
+/* Hit intensity (0..1) driving the heart, bar outline and flash; registered so it eases. */
+@property --hit {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
 .hud-root {
   position: fixed;
   inset: 0;
@@ -17,6 +24,11 @@
   overflow: hidden;
   pointer-events: none;
   font-family: var(--font-body);
+}
+
+/* Wardrobe opened from the pause menu: the HUD stays mounted but must not show through. */
+.hud-root.is-covered {
+  visibility: hidden;
 }
 
 .pictogram {
@@ -49,6 +61,8 @@
 }
 
 .hud-vignette-damage {
+  /* The damage flash is sampled by the HUD tick; ease between samples. */
+  transition: opacity 200ms linear;
   background: radial-gradient(
     ellipse at 50% 50%,
     transparent 42%,
@@ -102,7 +116,9 @@
   width: min(28.5rem, calc(100vw - 48rem));
   min-width: 22rem;
   transform: translateX(-50%);
-  transition: opacity 300ms ease;
+  transition:
+    opacity 300ms ease,
+    --hit 200ms linear;
 }
 
 .status-bar {
@@ -184,7 +200,7 @@
 .sb-bar {
   position: relative;
   flex: 1 1 0;
-  height: 1.28rem;
+  height: 1.55rem;
   overflow: hidden;
   border: 0.18rem solid var(--ink);
   border-radius: 99px;
@@ -211,9 +227,18 @@
   left: 0;
 }
 
+/* Vitality grows out of the Alps badge, as in the painted strip: damage empties it
+   from the heart end towards the centre. */
+.sb-hp > .sb-fill,
+.sb-hp > .sb-ghost,
+.sb-hp > .sb-shield {
+  right: 0;
+  left: auto;
+}
+
 .sb-fill-hp {
   background: linear-gradient(180deg, #a9f56f 0%, #62cf3a 45%, #35961f 100%);
-  border-right: 0.12rem solid rgba(27, 20, 16, 0.65);
+  border-left: 0.12rem solid rgba(27, 20, 16, 0.65);
   transition: width 180ms ease-out;
 }
 
@@ -234,20 +259,6 @@
   background: linear-gradient(180deg, #fff9c2, var(--cheese));
   box-shadow: 0 0 0 0.1rem var(--ink);
   max-width: 100%;
-}
-
-.sb-hp-text {
-  position: absolute;
-  top: 50%;
-  right: 0.85rem;
-  color: #fff;
-  font-family: var(--font-display);
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  -webkit-text-stroke: 0.2em var(--ink);
-  paint-order: stroke fill;
-  transform: translateY(-50%);
 }
 
 .sb-shine {
@@ -286,38 +297,33 @@
 }
 
 .sb-ticket.is-beach {
-  background: linear-gradient(180deg, #ff93b8 0%, #ee4a56 55%, #b92a45 100%);
-}
-
-.sb-ticket-label {
-  margin-top: 0.02rem;
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 0.5rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  text-shadow: 0 0.06rem 0 rgba(27, 20, 16, 0.7);
-  text-transform: uppercase;
+  background: linear-gradient(180deg, #ff7a84 0%, #e23d4e 55%, #b3243a 100%);
 }
 
 .sb-ticket strong {
-  margin-top: 0.06rem;
+  margin-top: 0;
   color: #fff;
-  font-size: 1.5rem;
+  font-size: 2.3rem;
   line-height: 1;
+  letter-spacing: -0.02em;
   text-shadow: 0 0.1rem 0 var(--ink);
-  -webkit-text-stroke: 0.16em var(--ink);
+  -webkit-text-stroke: 0.14em var(--ink);
+  /* Luckiest Guy sits high in its em box; nudge the numerals onto the optical centre. */
+  translate: 0 0.08em;
 }
 
+.sb-ticket.is-long strong {
+  font-size: 1.75rem;
+}
+
+/* Own side: the same badge with a thin white inner rim and the small caret below. */
 .sb-ticket.is-mine {
   z-index: 3;
   box-shadow:
     inset 0 0.2rem 0 rgba(255, 255, 255, 0.5),
     inset 0 -0.22rem 0 rgba(0, 0, 0, 0.22),
-    0 0 0 0.2rem var(--cheese),
-    0 0 0 0.38rem var(--ink),
-    0 0 1.1rem rgba(255, 210, 63, 0.75);
-  transform: translateY(-0.18rem) scale(1.05);
+    0 0.2rem 0 rgba(27, 20, 16, 0.55),
+    inset 0 0 0 0.12rem #fff;
 }
 
 .sb-you {
@@ -344,37 +350,9 @@
 }
 
 .sb-fill-climate {
-  background: linear-gradient(180deg, #b4e4ff 0%, #4aa6f0 55%, #2a6fc2 100%);
-  transition:
-    left 500ms cubic-bezier(0.3, 1.2, 0.5, 1),
-    width 500ms cubic-bezier(0.3, 1.2, 0.5, 1);
-}
-
-.sb-fill-climate.is-sun {
-  background: linear-gradient(180deg, #ffd6a0 0%, #ff8d4a 40%, #f0508c 100%);
-}
-
-.sb-climate-mid {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 0.14rem;
-  background: rgba(255, 255, 255, 0.65);
-  transform: translateX(-50%);
-}
-
-.sb-climate-knob {
-  position: absolute;
-  top: 50%;
-  width: 0.72rem;
-  height: 0.72rem;
-  border: 0.14rem solid var(--ink);
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0.08rem 0 rgba(27, 20, 16, 0.5);
-  transform: translate(-50%, -50%);
-  transition: left 500ms cubic-bezier(0.3, 1.2, 0.5, 1);
+  background: linear-gradient(180deg, #ff8d86 0%, #e8353f 50%, #a8202a 100%);
+  border-right: 0.12rem solid rgba(27, 20, 16, 0.65);
+  transition: width 500ms cubic-bezier(0.3, 1.2, 0.5, 1);
 }
 
 .sb-star {
@@ -558,6 +536,7 @@
   font-weight: 400;
   letter-spacing: 0.03em;
   line-height: 1.05;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -1197,6 +1176,8 @@
   align-items: center;
   justify-content: center;
   gap: 0 0.28em;
+  /* Luckiest Guy has real lowercase glyphs; comic lettering is always capitals. */
+  text-transform: uppercase;
   --g1: #fff27a;
   --g2: #ff8a1f;
 }
@@ -1318,9 +1299,10 @@
 .comic-sprite {
   display: block;
   width: auto;
-  max-width: 26rem;
-  height: 9.6rem;
-  filter: drop-shadow(0 0.4rem 0 rgba(27, 20, 16, 0.32));
+  max-width: 24rem;
+  height: 8.6rem;
+  /* The stickers are cut to their ink outline; a short hard shadow lifts them off snow. */
+  filter: drop-shadow(0 0.22rem 0 rgba(27, 20, 16, 0.3));
   pointer-events: none;
   animation: comic-life 1.9s cubic-bezier(0.3, 1.2, 0.5, 1) both;
 }
@@ -1425,12 +1407,13 @@
   }
 }
 
+/* `translate` composes with each letter's own `transform` and stays on the compositor. */
 @keyframes letter-wobble {
   from {
-    margin-top: 0;
+    translate: 0 0;
   }
   to {
-    margin-top: -0.04em;
+    translate: 0 -0.04em;
   }
 }
 
@@ -1440,6 +1423,20 @@
   }
   to {
     transform: scale(1.18) rotate(12deg);
+  }
+}
+
+/* Reduced motion collapses every animation to its last keyframe, which for these is
+   `opacity: 0`. Show them still instead; the HUD removes them after their lifetime. */
+@media (prefers-reduced-motion: reduce) {
+  .hit-marker,
+  .comic-pops .comic-text,
+  .comic-sprite,
+  .comic-sub,
+  .comic-star,
+  .comic-letter {
+    animation: none !important;
+    opacity: 1;
   }
 }
 
@@ -1453,7 +1450,8 @@
 .hud-root.is-dead .status-wrap,
 .hud-root.is-dead .dock,
 .hud-root.is-dead .hud-controls-hint,
-.hud-root.is-dead .clock-wrap {
+.hud-root.is-dead .clock-wrap,
+.hud-root.is-dead .identity-chip {
   opacity: 0;
   visibility: hidden;
   transition:
@@ -1765,32 +1763,6 @@
   width: 2.6rem;
   height: 2.6rem;
   margin: -0.35rem 0;
-}
-
-.sb-ticket-crest {
-  position: absolute;
-  top: -1.7rem;
-  z-index: 5;
-  width: 2.2rem;
-  height: 2.2rem;
-  filter: drop-shadow(0 0.14rem 0 rgba(27, 20, 16, 0.5));
-  pointer-events: none;
-}
-
-.sb-ticket-crest .crest {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-}
-
-.sb-ticket.is-alps .sb-ticket-crest {
-  left: -1.25rem;
-  transform: rotate(-8deg);
-}
-
-.sb-ticket.is-beach .sb-ticket-crest {
-  right: -1.25rem;
-  transform: rotate(8deg);
 }
 
 .kill-crest {

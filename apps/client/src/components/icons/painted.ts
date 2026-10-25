@@ -76,6 +76,25 @@ export function sceneUrl(index: number): string {
   return `${BASE}art/scene-${String(index).padStart(2, '0')}.jpg`;
 }
 
+/**
+ * Popup words that exist as painted stickers in `art/comic/<name>.png`. A language picks a
+ * sticker through its `comic.<id>.sprite` entry (empty means CSS lettering).
+ */
+export const COMIC_STICKERS = [
+  'boing',
+  'pling',
+  'boom',
+  'bang',
+  'tock_tock',
+  'honk_honk',
+  'aaaargh',
+  'mooo',
+  'splash',
+  'ponk',
+  'plosh',
+  'bouch',
+] as const;
+
 /** Painted comic sticker for a popup word, e.g. `boom` -> `art/comic/boom.png`. */
 export function spriteUrl(name: string): string {
   return `${BASE}art/comic/${name}.png`;
@@ -122,4 +141,15 @@ export function probeMenuKeyart(): void {
   if (keyartProbed) return;
   keyartProbed = true;
   probe(MENU_KEYART_URL, (state) => menuKeyart.set(state));
+}
+
+/**
+ * Start probing every optional painted file once at boot (key art, slot and skill tiles,
+ * crests, comic stickers), so menus and the HUD dock already know what exists by the time
+ * they first draw and never swap layouts or tiles in front of the player.
+ */
+export function preloadPaintedArt(): void {
+  probeMenuKeyart();
+  for (const id of Object.keys(TILE_FILES)) probeTile(id);
+  for (const name of COMIC_STICKERS) probeSprite(name);
 }

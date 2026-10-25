@@ -66,7 +66,8 @@
 
 <canvas bind:this={canvas} class="game-canvas" aria-label={$t('meta.title')}></canvas>
 
-{#if !$wardrobeOpen}
+<!-- Menu, loading and pause only: during play the top-right corner belongs to the kill feed. -->
+{#if !$wardrobeOpen && $phase !== 'playing'}
   <div class="lang-dock">
     <LanguageSwitcher />
   </div>
