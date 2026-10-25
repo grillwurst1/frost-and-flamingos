@@ -1024,6 +1024,13 @@ export class GlbCharacterView implements AvatarView {
           const shift = toShoulder.scale(pull / distance);
           grip.addInPlace(shift);
           support = support.add(shift);
+          if (hold.anchor === 'shoulders') {
+            // Still out of reach (short arms, big bellies): slide the support
+            // hand back along the weapon towards the right hand, so it stays
+            // on the gun instead of hovering in front of it.
+            const back = grip.subtract(support).scaleInPlace(0.1);
+            for (let step = 0; step < 6 && Vector3.Distance(leftArm, support) > reach; step += 1) support.addInPlace(back);
+          }
         }
       }
     }
