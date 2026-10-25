@@ -132,6 +132,9 @@ export interface BotRoute {
   chaseUntilTick: number;
   engageCheckTick: number;
   engageCheckPosition: Vec3;
+  /** Swim watchdog: the route node a swimming bot is heading for, and since when. */
+  swimNode: number;
+  swimSinceTick: number;
 }
 
 export function createBotRoute(): BotRoute {
@@ -149,6 +152,8 @@ export function createBotRoute(): BotRoute {
     chaseUntilTick: 0,
     engageCheckTick: 0,
     engageCheckPosition: { x: 0, y: 0, z: 0 },
+    swimNode: -1,
+    swimSinceTick: 0,
   };
 }
 
@@ -258,4 +263,148 @@ export function steerAlongRoute(route: BotRoute, position: Vec3, tick: number, r
     jump,
     sprint: horizontal(target, position) > 14,
   };
+}
+
+/** Open water this far back from a stair toe lets a slow-turning swimmer line up with the stair. */
+const SWIM_EXIT_STAGING = 5;
+/** Pure-pursuit carrot distance along the stair axis. */
+const SWIM_EXIT_LOOKAHEAD = 4;
+/** Off-axis distance that counts as on the stair's lane (the flight is 2.2 m wide). */
+const SWIM_EXIT_LANE = 1.2;
+/** Off-axis distance that clears the flight and its toe for a cow-sized swimmer. */
+const SWIM_EXIT_CLEAR = 3;
+/**
+ * A swimmer on the lane closer than this to the top node (horizontally) is
+ * not on the flight but under its high end or the deck (the top node sits
+ * 2.5 m in from the deck edge; the flight underside clears a swimming cow
+ * only in its last half metre).
+ */
+const SWIM_EXIT_HEAD = 3;
+/** Beyond this distance from the toe (along or across the axis) no line-up is needed yet. */
+const SWIM_EXIT_RANGE = 20;
+/** A swimmer heading for the same node this long gives up on it and re-plans. */
+const SWIM_GIVE_UP_TICKS = 20 * 60;
+/** ...or this long when the node is a deck overhead with no stair down to the water. */
+const SWIM_OVERHEAD_TICKS = 3 * 60;
+
+/**
+ * Heading for a body leaving the water by a stair (its route is at a swim
+ * exit, or at the stair top above it). A body that turns slowly (the cow)
+ * cannot pivot onto a narrow flight at its toe the way a vacationer does: it
+ * overshoots and loops beside the stair or drifts under the deck. Instead it
+ * swims round the flight to open water off the toe and is led onto the stair
+ * axis with a pure-pursuit carrot, so it reaches the toe lined up. In stair
+ * coordinates (along the axis from the water node to the top node, across
+ * it):
+ * - well off the toe: pursue the axis (or first fall back onto its line);
+ * - on the lane at the toe or on the flight: pursue the axis up the flight;
+ * - beside the flight, or swimming under its high end or the deck: slide
+ *   sideways clear of it, then swim round to the toe side.
+ * Advances the route past the toe once the body is on the stair lane.
+ * Returns null when no swim exit is involved.
+ */
+export function swimExitYaw(route: BotRoute, position: Vec3, swimming: boolean): number | null {
+  const current = route.nodes[route.index];
+  if (current === undefined) return null;
+  let toe: number | undefined;
+  let top: number | undefined;
+  if (isWaterNode(current)) {
+    const next = route.nodes[route.index + 1];
+    if (next === undefined || !(adjacency[current] ?? []).includes(next)) return null;
+    toe = current;
+    top = next;
+  } else {
+    if (nodePosition(current).y - position.y <= ARRIVAL_BELOW) return null;
+    toe = (adjacency[current] ?? []).find(isWaterNode);
+    top = current;
+  }
+  if (toe === undefined) return null;
+  const water = nodePosition(toe);
+  const stairTop = nodePosition(top);
+  const length = horizontal(stairTop, water);
+  if (length < 0.01) return null;
+  const ux = (stairTop.x - water.x) / length;
+  const uz = (stairTop.z - water.z) / length;
+  // Right-hand normal of the axis.
+  const nx = uz;
+  const nz = -ux;
+  const rx = position.x - water.x;
+  const rz = position.z - water.z;
+  const along = rx * ux + rz * uz;
+  const across = rx * nx + rz * nz;
+  // Far out, just swim for the node; the line-up only matters near the flight.
+  if (along < -SWIM_EXIT_RANGE || Math.abs(across) > SWIM_EXIT_RANGE) return null;
+  const offAxis = Math.abs(across);
+  const side = across >= 0 ? 1 : -1;
+  const inLane = offAxis <= SWIM_EXIT_LANE;
+  // On the lane at the toe: the swim exit is reached, climb for the top.
+  if (toe === current && inLane && along > -0.5) route.index += 1;
+  let aimAlong: number;
+  let aimAcross = 0;
+  if (along <= -SWIM_EXIT_STAGING + 2) {
+    const inCone = offAxis <= SWIM_EXIT_LANE + (-along - (SWIM_EXIT_STAGING - 2)) * 0.8;
+    aimAlong = inCone ? along + SWIM_EXIT_LOOKAHEAD : -SWIM_EXIT_STAGING - offAxis * 0.5;
+  } else if (inLane && (along <= length - SWIM_EXIT_HEAD || !swimming)) {
+    aimAlong = along + SWIM_EXIT_LOOKAHEAD;
+  } else if (offAxis < SWIM_EXIT_CLEAR) {
+    aimAlong = along;
+    aimAcross = side * (SWIM_EXIT_CLEAR + 1.5);
+  } else {
+    aimAlong = -SWIM_EXIT_STAGING;
+    aimAcross = side * SWIM_EXIT_CLEAR;
+  }
+  const aimX = water.x + ux * aimAlong + nx * aimAcross;
+  const aimZ = water.z + uz * aimAlong + nz * aimAcross;
+  return Math.atan2(aimX - position.x, aimZ - position.z);
+}
+
+/** Closest node a swimmer can reach from the water: a swim exit or ground-level shore, never a deck. */
+function nearestSwimNode(position: Vec3, avoid: number): number {
+  let best = -1;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  nav.nodes.forEach((node, index) => {
+    if (index === avoid || (elevated[index] && !isWaterNode(index))) return;
+    const distance = horizontal(node.position, position) + Math.abs(node.position.y - position.y);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = index;
+    }
+  });
+  return best >= 0 ? best : nearestNode(position, avoid);
+}
+
+/**
+ * Backstop for swimmers. A swimmer whose route node is a deck or pier above
+ * it with no stair down to the water (it swam under a pier mid-route) gives
+ * up on it after 3 s; any other node after 20 s without reaching it. It then
+ * re-plans from the closest node it can swim to (a stair foot or a beach).
+ * Returns true when it re-planned. Call every bot tick; it resets on land.
+ */
+export function swimWatchdog(
+  route: BotRoute,
+  position: Vec3,
+  swimming: boolean,
+  tick: number,
+  random: () => number,
+): boolean {
+  const node = swimming ? (route.nodes[route.index] ?? -1) : -1;
+  if (node < 0 || node !== route.swimNode) {
+    route.swimNode = node;
+    route.swimSinceTick = tick;
+    return false;
+  }
+  const overhead =
+    elevated[node] === true &&
+    nodePosition(node).y - position.y > ARRIVAL_BELOW &&
+    !(adjacency[node] ?? []).some(isWaterNode);
+  if (tick - route.swimSinceTick < (overhead ? SWIM_OVERHEAD_TICKS : SWIM_GIVE_UP_TICKS)) return false;
+  route.goalNode = route.goalNode >= 0 && route.goalNode !== node ? route.goalNode : chooseGoal(random);
+  route.nodes = planRoute(nearestSwimNode(position, node), route.goalNode);
+  route.index = 0;
+  route.stuckStrikes = 0;
+  route.checkTick = tick;
+  route.checkPosition = { ...position };
+  route.swimNode = route.nodes[0] ?? -1;
+  route.swimSinceTick = tick;
+  return true;
 }

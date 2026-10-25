@@ -191,7 +191,7 @@ export class MascotView {
       this.squash.velocity -= Math.min(5, impact * 0.32);
       if (impact > 9) this.squashTimer = Math.max(this.squashTimer, 0.35);
       if (impact > 6 && this.fx) {
-        this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z)), pose.position, 8, 2.6, 0.38);
+        this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y)), pose.position, 8, 2.6, 0.38);
       }
     }
     if (pose.grounded) this.fallSpeed = 0;
@@ -406,7 +406,7 @@ export class MascotView {
     this.puffTimer -= dt;
     if (this.fx && pose.grounded && !swimming && this.puffTimer <= 0 && (galloping || skidding || boosting) && speed > 5) {
       this.puffTimer = skidding ? 0.05 : 0.09;
-      const kind = puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z));
+      const kind = puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y));
       const side = Math.random() < 0.5 ? -1 : 1;
       const back = skidding ? 0.2 : -0.6;
       this.fx.puff(
@@ -422,7 +422,7 @@ export class MascotView {
       );
     }
     if (this.slam > 0.28 && this.fx) {
-      this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z)), pose.position, 14, 4.5, 0.5);
+      this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y)), pose.position, 14, 4.5, 0.5);
     }
   }
 
@@ -542,7 +542,7 @@ export class MascotView {
         }, 0.3, 0.5);
       } else if (pose.grounded && speed > 5) {
         this.puffTimer = boosting ? 0.04 : 0.07;
-        const kind = puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z));
+        const kind = puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y));
         this.fx.puff(
           kind,
           {

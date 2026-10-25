@@ -14,6 +14,7 @@ import {
   MAX_INPUT_BACKLOG,
   MAX_PLAYERS,
   PHYSICS_TICK_RATE,
+  WATER_LEVEL,
   PROTOCOL_VERSION,
   RESPAWN_DELAY_SECONDS,
   SKILLS,
@@ -55,7 +56,15 @@ import {
   type WelcomeMessage,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
-import { createBotRoute, engagementBlocked, routeTowards, steerAlongRoute, type BotRoute } from './bot-nav.js';
+import {
+  createBotRoute,
+  engagementBlocked,
+  routeTowards,
+  steerAlongRoute,
+  swimExitYaw,
+  swimWatchdog,
+  type BotRoute,
+} from './bot-nav.js';
 import {
   normalizeDirection,
   raycastTargets,
@@ -110,6 +119,8 @@ interface BotState {
 const BOT_STUCK_TICKS = PHYSICS_TICK_RATE;
 const BOT_STUCK_SPEED = 0.6;
 const BOT_DETOUR_TICKS = Math.round(PHYSICS_TICK_RATE * 1.2);
+/** Heading error (rad) above which a cow lining up with a swim exit pivots instead of swimming on. */
+const MASCOT_EXIT_PIVOT = 0.9;
 
 interface PlayerConnection {
   id: number;
@@ -1750,12 +1761,32 @@ export class MatchRoom {
       }
     }
     let routeButtons = 0;
+    let pivot = false;
+    const swimming = player.character.swimming;
     if (!pursue) {
       const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
       bot.patrolYaw = steer.yaw;
       if (steer.jump) routeButtons |= InputButton.Jump;
       // Long legs of an out-of-sight chase at a gallop (the coconut ignores it).
       if (steer.sprint && target) routeButtons |= InputButton.Sprint;
+      if (swimWatchdog(route, feet, swimming, this.physicsTick, Math.random)) {
+        // Gave up on that exit: back out and head for the next one.
+        if (player.character.form === 'cow') {
+          bot.mascot.steerBias = Math.random() < 0.5 ? -1 : 1;
+          bot.mascot.reverseUntilTick = this.physicsTick + PHYSICS_TICK_RATE;
+        }
+      } else if ((swimming || feet.y < WATER_LEVEL) && player.character.form === 'cow') {
+        // Swimming or wading, the cow turns too slowly to pivot onto a stair at its toe: line it up.
+        const exitYaw = swimExitYaw(route, feet, swimming);
+        if (exitYaw !== null) {
+          bot.patrolYaw = exitYaw;
+          // Far off the stair heading: pivot on the spot instead of looping wide.
+          const error = exitYaw - player.character.heading;
+          pivot = Math.abs(Math.atan2(Math.sin(error), Math.cos(error))) > MASCOT_EXIT_PIVOT;
+        }
+      }
+    } else {
+      swimWatchdog(route, feet, false, this.physicsTick, Math.random);
     }
     const command = mascotBotButtons(
       player.character,
@@ -1765,9 +1796,11 @@ export class MatchRoom {
       bot.patrolYaw,
       this.physicsTick,
     );
+    let buttons = command.buttons | routeButtons;
+    if (pivot) buttons &= ~(InputButton.Forward | InputButton.Sprint);
     return {
       sequence: player.lastProcessedInput + 1,
-      buttons: command.buttons | routeButtons,
+      buttons,
       yaw: command.yaw,
       pitch: 0,
       weaponSlot: 1,

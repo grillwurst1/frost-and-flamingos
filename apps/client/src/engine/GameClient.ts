@@ -1417,7 +1417,7 @@ export class GameClient {
         if (remote.stepDistance >= stride) {
           remote.stepDistance = 0;
           audio.playFootstep(
-            surfaceTagAt(position.x, position.z),
+            surfaceTagAt(position.x, position.z, position.y),
             position,
             player.sprinting,
             this.profiles.get(player.id)?.cosmetics.feet === 'feet_dive_flippers',
