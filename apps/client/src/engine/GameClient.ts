@@ -555,6 +555,23 @@ export class GameClient {
       this.mascots = new MascotClient(this.mascotFx);
       this.vehicles = new VehicleClient(scene, physics, this.mascotFx, this.input);
       this.vehicles.factionOf = (id) => this.profiles.get(id)?.faction ?? null;
+      // Visual vehicle shots end at a remote avatar they pass (direct hits).
+      this.vehicles.avatarHit = (origin, direction, maxDistance) => {
+        let best: { along: number; point: Vec3 } | null = null;
+        for (const remote of this.remoteViews.values()) {
+          const root = remote.view.root;
+          if (!root.isEnabled()) continue;
+          const feet = root.getAbsolutePosition();
+          const centre = { x: feet.x, y: feet.y + 0.9, z: feet.z };
+          const along = (centre.x - origin.x) * direction.x + (centre.y - origin.y) * direction.y + (centre.z - origin.z) * direction.z;
+          if (along < 0 || along > maxDistance || (best && along >= best.along)) continue;
+          const point = { x: origin.x + direction.x * along, y: origin.y + direction.y * along, z: origin.z + direction.z * along };
+          // A standing body: about 0.55 m wide, 1.8 m tall.
+          if (Math.hypot(point.x - centre.x, (point.y - centre.y) * 0.6, point.z - centre.z) > 0.55) continue;
+          best = { along, point };
+        }
+        return best?.point ?? null;
+      };
       if (import.meta.env.DEV) {
         (window as unknown as { __ffVehicles?: () => unknown }).__ffVehicles = () => this.vehicles?.debugInfo() ?? null;
       }
@@ -809,6 +826,7 @@ export class GameClient {
     this.latestLocalState = null;
     this.profiles.clear();
     this.clearRemoteViews();
+    this.vehicles?.clear();
     this.deathKillerId = 0;
     this.deathKillerName = '';
     this.deathAt = 0;
@@ -1316,9 +1334,10 @@ export class GameClient {
       const character = this.localCharacter;
       const onFoot =
         this.currentPhase === 'playing' && character && !this.vehicles.localSeat
-          ? { position: character.position, faction: this.localFaction, alive: this.latestLocalState?.alive ?? true }
+          ? { position: character.position, faction: this.localFaction, alive: this.latestLocalState?.alive ?? true, mascot: character.form !== null }
           : null;
-      this.vehicles.update(delta, now, this.snapshotHistory, this.cameraRig.camera.position, onFoot);
+      const audible = this.currentPhase === 'playing' || this.currentPhase === 'deploying' || this.currentPhase === 'paused';
+      this.vehicles.update(delta, now, this.snapshotHistory, this.cameraRig.camera.position, onFoot, audible);
     }
     this.mascotFx?.update(delta);
     this.updateAudio(delta);

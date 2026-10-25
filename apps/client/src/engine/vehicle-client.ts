@@ -141,6 +141,15 @@ function soundKind(kind: DrivableVehicleKind): VehicleSoundKind {
   return 'tank';
 }
 
+/** What the prompt needs about the local character on foot. */
+export interface OnFootState {
+  position: Vec3;
+  faction: Faction;
+  alive: boolean;
+  /** Mascot form: may not board (the server refuses it too). */
+  mascot: boolean;
+}
+
 export function cameraProfileForVehicle(kind: DrivableVehicleKind): CameraProfile {
   if (kind === 'badi_flamingo') return BOAT_CAMERA;
   if (kind === 'sidecar') return SIDECAR_CAMERA;
@@ -196,6 +205,11 @@ export class VehicleClient {
   private promptShown = false;
   private enginesOn = new Set<number>();
   private localId: number | null = null;
+  /**
+   * Hook: first avatar a shot segment passes (origin, unit direction, max
+   * distance), as its hit point, or null. Set by GameClient.
+   */
+  avatarHit: ((origin: Vec3, direction: Vec3, maxDistance: number) => Vec3 | null) | null = null;
   /** Set on boarding: the camera swings behind the hull on the next camera update. */
   private faceForward = false;
   private lastCameraYaw = 0;
@@ -413,7 +427,7 @@ export class VehicleClient {
   // -------------------------------------------------------------------------
 
   /** Hook: every frame (views, FX, audio, prompt). */
-  update(delta: number, now: number, history: readonly SnapshotEntry[], cameraPosition: Vector3, onFoot: { position: Vec3; faction: Faction; alive: boolean } | null): void {
+  update(delta: number, now: number, history: readonly SnapshotEntry[], cameraPosition: Vector3, onFoot: OnFootState | null, audible = true): void {
     const renderTime = now - INTERPOLATION_DELAY_MS;
     let older: SnapshotEntry | undefined;
     let newer: SnapshotEntry | undefined;
@@ -430,21 +444,23 @@ export class VehicleClient {
     const t = span > 0 && older ? Math.min(1, Math.max(0, (renderTime - older.receivedAt) / span)) : 1;
 
     for (const entry of this.entries.values()) {
+      const a = older?.snapshot.vehicles.find((vehicle) => vehicle.id === entry.id);
+      const b = newer?.snapshot.vehicles.find((vehicle) => vehicle.id === entry.id) ?? entry.latest;
+      const from = a ?? b;
       if (entry.id === this.predictedId) {
         const body = entry.body;
+        // A pilot predicts the hull; the turret belongs to the (remote) gunner.
+        const ownTurret = this.seat?.gunner === true;
         entry.render = {
           position: body.position,
           yaw: body.yaw,
           forwardSpeed: body.forwardSpeed,
-          turretYaw: body.turretYaw,
-          turretPitch: body.turretPitch,
+          turretYaw: ownTurret ? body.turretYaw : from.turretYaw + shortestAngle(from.turretYaw, b.turretYaw) * t,
+          turretPitch: ownTurret ? body.turretPitch : lerp(from.turretPitch, b.turretPitch, t),
           steer: body.state.steer,
           speed: body.speed,
         };
       } else {
-        const a = older?.snapshot.vehicles.find((vehicle) => vehicle.id === entry.id);
-        const b = newer?.snapshot.vehicles.find((vehicle) => vehicle.id === entry.id) ?? entry.latest;
-        const from = a ?? b;
         const forward = b.velocity.x * Math.sin(b.yaw) + b.velocity.z * Math.cos(b.yaw);
         entry.render = {
           position: {
@@ -485,7 +501,13 @@ export class VehicleClient {
       this.motionFx(entry, delta);
     }
     this.updateShots(delta, cameraPosition);
-    this.updateEngines(cameraPosition);
+    if (audible) {
+      this.updateEngines(cameraPosition);
+    } else if (this.enginesOn.size > 0) {
+      // Menu: no engine drones, even while the old seat is still in the snapshots.
+      audio.stopVehicleEngines();
+      this.enginesOn = new Set();
+    }
     this.updatePrompt(onFoot);
   }
 
@@ -552,9 +574,10 @@ export class VehicleClient {
   }
 
   /** "Board the …" prompt while on foot next to a free, allowed seat. */
-  private updatePrompt(onFoot: { position: Vec3; faction: Faction; alive: boolean } | null): void {
+  private updatePrompt(onFoot: OnFootState | null): void {
     let key: TranslationKey | null = null;
-    if (onFoot && onFoot.alive && !this.seat) {
+    // Same rule as the server seat gate: alive, on foot, not in mascot form.
+    if (onFoot && onFoot.alive && !onFoot.mascot && !this.seat) {
       let best = Number.POSITIVE_INFINITY;
       for (const entry of this.entries.values()) {
         if (entry.wreck) continue;
@@ -848,14 +871,17 @@ export class VehicleClient {
       const step = shot.velocity.scale(delta);
       const length = step.length();
       const direction = length > 1e-6 ? step.scale(1 / length) : new Vector3(0, -1, 0);
-      const hit = this.physics.raycast(
+      const world = this.physics.raycast(
         { x: shot.position.x, y: shot.position.y, z: shot.position.z },
         { x: direction.x, y: direction.y, z: direction.z },
         length + shot.weapon.radius,
         shot.ignoreCollider,
       );
+      // Avatars are not in the physics queries: a direct hit ends the shot at them.
+      const avatar = this.avatarHit?.(shot.position, direction, world ? world.distance : length + shot.weapon.radius) ?? null;
+      const hit = avatar ?? (world ? world.point : null);
       if (hit || shot.age > shot.weapon.lifetimeSeconds || shot.position.y < -12) {
-        const at = hit ? hit.point : { x: shot.position.x, y: shot.position.y, z: shot.position.z };
+        const at = hit ?? { x: shot.position.x, y: shot.position.y, z: shot.position.z };
         this.impactFx(shot.weapon, at);
         shot.mesh.dispose();
         this.shots.splice(index, 1);
