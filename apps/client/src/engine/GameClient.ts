@@ -18,6 +18,7 @@ import {
   WEAPON_STATS,
   WEAPON_TABLE,
   classStatsFor,
+  wireToSpawnYaw,
   createDefaultProfile,
   mascotFormOf,
   profileAppearanceKey,
@@ -98,6 +99,7 @@ import { CameraRig } from './camera-rig';
 import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
 import { cameraProfileFor, MascotClient } from './mascot-client';
+import { ConquestClient } from './conquest-client';
 
 const INTERPOLATION_DELAY_MS = 110;
 const SNAPSHOT_HISTORY = 40;
@@ -323,6 +325,10 @@ export class GameClient {
   private previewView: AvatarView | null = null;
   private mascotFx: MascotFx | null = null;
   private mascots: MascotClient | null = null;
+  /** Climate Conquest HUD state, tower visuals and stings. */
+  private conquestClient: ConquestClient | null = null;
+  /** Spawn facing announced by the last local PLAYER_RESPAWNED (applied with the respawn snap). */
+  private pendingRespawnYaw: number | null = null;
   private previewKey: string | null = null;
   private previewYaw = 0.35;
   private previewSpin = true;
@@ -507,6 +513,10 @@ export class GameClient {
         return hit ? hit.point.y : fromY - 1.5;
       });
       this.mascots = new MascotClient(this.mascotFx);
+      this.conquestClient = new ConquestClient(scene, this.visuals, this.toonMaterial, (x, z, top, depth) => {
+        const hit = this.physics?.raycast({ x, y: top, z }, { x: 0, y: -1, z: 0 }, depth);
+        return hit && hit.distance > 0.01 ? hit.point.y : null;
+      });
       this.look?.attachMap(this.visuals);
       if (import.meta.env.DEV) {
         installMapDevTools({
@@ -673,6 +683,7 @@ export class GameClient {
     }
     audio.setRoundCue(null);
     clearCombatUi();
+    this.conquestClient?.clearUi();
     this.deathKillerId = 0;
     this.deathKillerName = '';
     this.deathAt = 0;
@@ -706,6 +717,7 @@ export class GameClient {
     for (const remote of this.remoteViews.values()) remote.view.dispose();
     this.remoteViews.clear();
     this.mascotFx?.dispose();
+    this.conquestClient?.dispose();
     audio.setRollRumble(0);
     this.physics?.dispose();
     this.look?.dispose();
@@ -757,9 +769,9 @@ export class GameClient {
     this.localCharacter?.restore(welcome.spawn, { x: 0, y: 0, z: 0 }, false, 0);
     this.ensureLocalView(welcome.profile);
     this.localView?.setPosition(welcome.spawn);
-    this.localView?.setYaw(0, true);
+    this.localView?.setYaw(welcome.spawnYaw, true);
 
-    this.cameraRig?.resetAngles(0);
+    this.cameraRig?.resetAngles(welcome.spawnYaw);
     this.cameraRig?.snapToPlayer(toVector3(welcome.spawn));
     this.lastFrameAt = performance.now();
     this.accumulator = 0;
@@ -1022,8 +1034,14 @@ export class GameClient {
         }
         return;
       }
+      case 'TURRET_CAPTURED': {
+        this.conquestClient?.onTowerEvent(event, this.localFaction);
+        return;
+      }
       case 'PLAYER_RESPAWNED': {
+        this.conquestClient?.onRespawn(event.actorId, event.actorId === this.localId);
         if (event.actorId !== this.localId) return;
+        this.pendingRespawnYaw = event.paramX === 1 ? wireToSpawnYaw(event.paramValue) : null;
         this.deathKillerId = 0;
         this.deathKillerName = '';
         this.deathAt = 0;
@@ -1066,6 +1084,7 @@ export class GameClient {
       weatherBalance: snapshot.weatherBalance,
       towerStates: snapshot.turretStates,
     });
+    this.conquestClient?.onSnapshot(snapshot, { id: this.localId, faction: this.localFaction, classId: this.localClass });
     if (Math.abs(snapshot.weatherBalance - this.appliedWeatherLook) > WEATHER_LOOK_EPSILON) {
       this.appliedWeatherLook = snapshot.weatherBalance;
       this.look?.setWeatherLook(snapshot.weatherBalance);
@@ -1119,6 +1138,12 @@ export class GameClient {
     }
     if (authoritative.alive && this.pendingRespawnSnap) {
       this.pendingRespawnSnap = false;
+      if (this.pendingRespawnYaw !== null) {
+        // Look the way the pad faces: toward the next objective across open ground.
+        this.cameraRig?.resetAngles(this.pendingRespawnYaw);
+        this.localView?.setYaw(this.pendingRespawnYaw, true);
+        this.pendingRespawnYaw = null;
+      }
       this.cameraRig?.snapToPlayer(toVector3(authoritative.position));
     }
     this.reconcile(authoritative);
@@ -1232,6 +1257,7 @@ export class GameClient {
     this.updatePreviewView(delta);
     this.updateRemoteViews(delta, now);
     this.mascotFx?.update(delta);
+    this.conquestClient?.update(delta, this.localCharacter?.position ?? null, this.latestLocalState?.alive ?? false);
     this.updateAudio(delta);
     this.updateMaterials(now);
     this.updateHud(now);

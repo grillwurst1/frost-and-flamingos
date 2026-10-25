@@ -768,6 +768,50 @@ export class AudioEngine {
     lfo.stop(when + 0.65);
   }
 
+  /**
+   * Weather tower changed hands: the tower's cuckoo pops, then a short brass
+   * motif rising for the listener's team (or falling when the rivals took it).
+   */
+  playTowerCapture(friendly: boolean, neutralised: boolean, position?: Vec3): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    this.playRecipe('SFX_CUCKOO_CLOCK_POP', { position, volume: 0.85 });
+    const start = ctx.currentTime + 0.5;
+    const notes = friendly ? [523.25, 659.25, 783.99] : [587.33, 493.88, 392];
+    const steps = neutralised ? notes.slice(0, 2) : notes;
+    steps.forEach((frequency, index) => {
+      const when = start + index * 0.13;
+      this.tone({ frequency, duration: 0.2, gain: 0.07, type: 'sawtooth', when, attack: 0.012 });
+      this.tone({ frequency: frequency / 2, duration: 0.22, gain: 0.05, type: 'triangle', when, attack: 0.01 });
+    });
+  }
+
+  /** Round over: a short fanfare for the winners, a slide-trombone wah for the losers, a shrug for a draw. */
+  playRoundEnd(result: 'victory' | 'defeat' | 'draw'): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const start = ctx.currentTime + 0.05;
+    if (result === 'victory') {
+      [392, 523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+        const when = start + index * 0.12;
+        const last = index === 4;
+        this.tone({ frequency, duration: last ? 0.7 : 0.16, gain: 0.08, type: 'sawtooth', when, attack: 0.015 });
+        this.tone({ frequency: frequency * 0.5, duration: last ? 0.7 : 0.16, gain: 0.05, type: 'triangle', when });
+      });
+      this.noise({ duration: 0.5, gain: 0.05, filter: 'highpass', frequency: 5200, when: start + 0.48 });
+      return;
+    }
+    if (result === 'defeat') {
+      [311.13, 293.66, 277.18].forEach((frequency, index) => {
+        this.tone({ frequency, duration: 0.3, gain: 0.07, type: 'sawtooth', when: start + index * 0.32, attack: 0.03 });
+      });
+      this.tone({ frequency: 261.63, endFrequency: 196, duration: 0.9, gain: 0.07, type: 'sawtooth', when: start + 0.96, attack: 0.03 });
+      return;
+    }
+    this.tone({ frequency: 440, endFrequency: 415.3, duration: 0.35, gain: 0.06, type: 'triangle', when: start });
+    this.tone({ frequency: 440, endFrequency: 466.16, duration: 0.35, gain: 0.06, type: 'triangle', when: start + 0.38 });
+  }
+
   /** A ram hit: thump + form-specific punchline. */
   playMascotRam(form: 'cow' | 'coconut', position?: Vec3, friendly = false, pitch = 1): void {
     const panner = this.panner(position, 6, 80);

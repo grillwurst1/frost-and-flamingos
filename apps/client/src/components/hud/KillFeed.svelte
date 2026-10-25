@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { weaponSlotForId } from '@frost-and-flamingos/shared';
+  import { CONQUEST_TOWERS, TOWER_LETTERS, weaponSlotForId } from '@frost-and-flamingos/shared';
   import type { Faction, WeaponId } from '@frost-and-flamingos/shared';
+  import { objectiveFeed, type ObjectiveFeedEntry } from '../../state/conquest';
   import { killFeed, localPlayer } from '../../state/game';
   import { t } from '../../state/locale';
   import { weaponNameKeyForSlot } from '../../state/labels';
@@ -36,10 +37,41 @@
     killerSide: resolveSide(entry.killerFaction, entry.killerId, entry.victimId, localId, localFaction),
     victimSide: resolveSide(entry.victimFaction, entry.victimId, entry.killerId, localId, localFaction),
   }));
+
+  type FeedRow =
+    | { type: 'kill'; key: string; at: number; row: (typeof rows)[number] }
+    | { type: 'objective'; key: string; at: number; entry: ObjectiveFeedEntry };
+
+  // Kill ribbons and tower lines in one chronological column (newest at the bottom).
+  $: feed = [
+    ...rows.map((row): FeedRow => ({ type: 'kill', key: `k${row.entry.id}`, at: row.entry.at, row })),
+    ...$objectiveFeed.map((entry): FeedRow => ({ type: 'objective', key: `o${entry.id}`, at: entry.at, entry })),
+  ]
+    .sort((a, b) => a.at - b.at)
+    .slice(-7);
+
+  function objectiveText(entry: ObjectiveFeedEntry): string {
+    const tower = CONQUEST_TOWERS[entry.towerIndex];
+    return $t(`conquest.feed.${entry.kind}`, {
+      team: $t(`factions.${entry.faction}.short`),
+      tower: tower ? $t(tower.labelKey) : '',
+    });
+  }
 </script>
 
 <aside class="kill-feed" aria-label={$t('combat.killFeed')}>
-  {#each rows as row (row.entry.id)}
+  {#each feed as item (item.key)}
+    {#if item.type === 'objective'}
+      {@const tower = CONQUEST_TOWERS[item.entry.towerIndex]}
+      <div class="kill-ribbon is-objective" class:is-mine={item.entry.faction === localFaction}>
+        <span class="kill-crest"><Crest faction={item.entry.faction} /></span>
+        <span class="feed-objective">{objectiveText(item.entry)}</span>
+        {#if tower}
+          <span class={`feed-tower is-${item.entry.kind === 'captured' ? item.entry.faction : 'neutral'}`}>{TOWER_LETTERS[tower.id]}</span>
+        {/if}
+      </div>
+    {:else}
+    {@const row = item.row}
     {@const entry = row.entry}
     <div
       class="kill-ribbon"
@@ -65,5 +97,6 @@
         <span class="kill-crest"><Crest faction={row.victimSide} /></span>
       {/if}
     </div>
+    {/if}
   {/each}
 </aside>

@@ -94,6 +94,8 @@ export interface TowerVisual {
   mesh: Mesh | null;
   /** Team-held dressing, toggleable per faction (null when none is built yet). */
   dressing: { alpine: Mesh | null; lagoon: Mesh | null };
+  /** The tower's spawn plates in each owner's look (toggle with ownership; home look enabled at build). */
+  pads: { alpine: Mesh | null; lagoon: Mesh | null; neutral: Mesh | null };
   /** Named attach points (`dome_top`, `gallery_ring`, `roof_ridge`, `fountain_basin`, ...). */
   attach: Map<string, TransformNode>;
 }
@@ -411,7 +413,7 @@ function makeTowerVisual(scene: Scene, id: TowerId): TowerVisual {
     node.metadata = { radius: point.radius ?? 0 };
     attach.set(point.id, node);
   }
-  return { id, root, mesh: null, dressing: { alpine: null, lagoon: null }, attach };
+  return { id, root, mesh: null, dressing: { alpine: null, lagoon: null }, pads: { alpine: null, lagoon: null, neutral: null }, attach };
 }
 
 /**
@@ -511,16 +513,26 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     dressingBatches.set('tower_c:alpine', cannon);
   }
 
-  // Spawn pads (tower pads drawn once per position in the home colour, base pads in faction colour).
+  // Spawn plates: base pads static in their faction's look; tower pads in one
+  // batch per owner look so they follow the tower's ownership at runtime.
   const drawnPads = new Set<string>();
+  const padBatches = new Map<string, GeometryBatch>();
   for (const spawn of FJORD_MAP.spawns) {
     const key = `${spawn.position.x.toFixed(1)}_${spawn.position.z.toFixed(1)}`;
     if (drawnPads.has(key)) continue;
     drawnPads.add(key);
-    const batch = chunks.at(spawn.position.x, spawn.position.z);
-    const tower = FJORD_MAP.towers.find((candidate) => candidate.id === spawn.source);
-    const faction = spawn.source === 'base' ? spawn.faction : (tower?.homeFaction ?? spawn.faction);
-    batch.at(spawn.position.x, spawn.position.y - 0.05, spawn.position.z, 0, () => drawSpawnPad(batch, faction));
+    const facing = spawn.rotationY;
+    if (spawn.source === 'base') {
+      const batch = chunks.at(spawn.position.x, spawn.position.z);
+      batch.at(spawn.position.x, spawn.position.y - 0.05, spawn.position.z, facing, () => drawSpawnPad(batch, spawn.faction));
+      continue;
+    }
+    for (const style of ['alpine', 'lagoon', 'neutral'] as const) {
+      const padKey = `${spawn.source}:${style}`;
+      const batch = padBatches.get(padKey) ?? new GeometryBatch();
+      padBatches.set(padKey, batch);
+      batch.at(spawn.position.x, spawn.position.y - 0.05, spawn.position.z, facing, () => drawSpawnPad(batch, style));
+    }
   }
 
   // Long route geometry: bridge cables, cable-car rope, T-bar rope, coaster trough.
@@ -571,6 +583,15 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     const visual = towers.get(towerId);
     const mesh = register(batch.toMesh(scene, `${towerId}-dressing-${faction}`, material), destructibleList);
     if (visual && mesh) visual.dressing[faction] = mesh;
+  }
+  for (const [key, batch] of padBatches) {
+    const [towerId, style] = key.split(':') as [TowerId, 'alpine' | 'lagoon' | 'neutral'];
+    const visual = towers.get(towerId);
+    const mesh = register(batch.toMesh(scene, `${towerId}-pads-${style}`, material), staticMeshes);
+    if (!visual || !mesh) continue;
+    visual.pads[style] = mesh;
+    const home = FJORD_MAP.towers.find((tower) => tower.id === towerId)?.homeFaction ?? 'neutral';
+    mesh.setEnabled(style === home);
   }
   staticMeshes.push(...buildPosters(scene, FJORD_MAP.props));
   for (const handle of brakeHandles) {

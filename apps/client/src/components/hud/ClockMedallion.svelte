@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { conquest } from '../../state/conquest';
   import { connection } from '../../state/game';
   import { t } from '../../state/locale';
 
@@ -28,12 +29,20 @@
   $: balance = Math.max(-1, Math.min(1, $connection.weatherBalance));
   // The single hand swings from the snowflake (left) to the sun (right).
   $: needleAngle = balance * 62;
-  $: owners = [0, 1, 2].map((index) => ($connection.towerStates >> (index * 2)) & 3);
+  $: owners = $conquest.synced
+    ? $conquest.towers.map((tower) => (tower.owner === 'alpine' ? 1 : tower.owner === 'lagoon' ? 2 : 0))
+    : [0, 1, 2].map((index) => ($connection.towerStates >> (index * 2)) & 3);
   // Capture progress per tower, clamped to 0..1; the ring only shows while a capture is under way.
   $: progresses = [0, 1, 2].map((index) => {
     const value = $connection.towerProgress[index] ?? 0;
     return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
   });
+  // The ring fills in the colour of the side the control leans to (Peak Guard blue, Lagoon pink).
+  $: ringColors = $conquest.towers.map((tower) => (tower.control < 0 ? '#8fd0ff' : '#ffb0cc'));
+  $: contested = $conquest.towers.map((tower) => tower.contested);
+  $: pushed = $conquest.towers.map((tower) => tower.pushing !== null);
+  $: clockSeconds = Math.max(0, Math.ceil($conquest.secondsLeft));
+  $: roundClock = `${Math.floor(clockSeconds / 60)}:${String(clockSeconds % 60).padStart(2, '0')}`;
 
   function ownerClass(owner: number): string {
     if (owner === 1) return 'is-alpine';
@@ -110,6 +119,8 @@
       {@const progress = progresses[index] ?? 0}
       <div
         class={`tower-badge ${ownerClass(owner)}`}
+        class:is-contested={contested[index] ?? false}
+        class:is-pushed={pushed[index] ?? false}
         title={$t('hud.towerTitle', { letter: tower.letter, name: $t(tower.nameKey), owner: ownerLabel(owner) })}
       >
         <i class="tower-cord" aria-hidden="true"></i>
@@ -126,6 +137,7 @@
               stroke-linecap="round"
               stroke-dasharray={`${RING_LENGTH * progress} ${RING_LENGTH}`}
               transform="rotate(-90 20 20)"
+              style={`stroke:${ringColors[index] ?? '#ffffff'}`}
             />
           {/if}
         </svg>
@@ -133,4 +145,7 @@
       </div>
     {/each}
   </div>
+  {#if $conquest.synced && $conquest.phase === 'live'}
+    <span class="round-clock" class:is-late={clockSeconds <= 60} title={$t('conquest.round.timeLeft')}>{roundClock}</span>
+  {/if}
 </div>

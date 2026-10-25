@@ -1,6 +1,8 @@
 <script lang="ts">
   import { connection, damageFlash, deathState, interactionPrompt, localPlayer, wardrobeOpen } from '../state/game';
   import { t } from '../state/locale';
+  import { conquest } from '../state/conquest';
+  import CaptureBar from './hud/CaptureBar.svelte';
   import ClockMedallion from './hud/ClockMedallion.svelte';
   import ComicEvents from './hud/ComicEvents.svelte';
   import ComicPops from './hud/ComicPops.svelte';
@@ -12,6 +14,7 @@
   import MascotHud from './MascotHud.svelte';
   import StatusBar from './hud/StatusBar.svelte';
   import WeaponDock from './hud/WeaponDock.svelte';
+  import RoundResults from './hud/RoundResults.svelte';
 
   $: player = $localPlayer;
   // Mascots carry no firearms: MascotHud shows their portrait, vitality and moves.
@@ -20,6 +23,8 @@
   $: maxHp = Math.max(1, player?.maxHp ?? 100);
   $: lowHealth = !!player && player.alive && (player.hp / maxHp) * 100 <= 30;
   $: offline = $connection.status !== 'connected';
+  // The round results own the screen during the intermission (no killer-cam banner on top).
+  $: roundOver = $conquest.synced && $conquest.phase === 'ended';
   $: connectionLabel =
     $connection.status === 'reconnecting'
       ? $t('hud.reconnecting')
@@ -37,6 +42,7 @@
   <div class="hud-vignette hud-vignette-death" class:is-active={dead} aria-hidden="true"></div>
 
   <ClockMedallion />
+  <CaptureBar />
   <IdentityChip />
   <KillFeed />
 
@@ -82,5 +88,8 @@
     {/if}
   </div>
 
-  <DeathScreen />
+  {#if !roundOver}
+    <DeathScreen />
+  {/if}
+  <RoundResults />
 </div>
