@@ -49,6 +49,7 @@ import { CritterFx } from '../rendering/critter-fx';
 import { createCritterViewFactory } from '../rendering/critters/hen-view';
 import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-character';
 import { WardrobeStage } from '../rendering/glb/wardrobe-stage';
+import { interpolateRemote } from './remote-interp';
 import { MascotFx } from '../rendering/mascot-fx';
 import {
   createShadowMaterial,
@@ -1695,45 +1696,28 @@ export class GameClient {
       }
       remote.lastSeenAt = now;
 
+      // Interpolate between the two snapshots that bracket the render time
+      // (the latest one runs ~110 ms ahead of what is drawn).
       const previous = olderEntry.snapshot.players.find((entry) => entry.id === player.id);
-      let position = player.position;
-      let velocity = player.velocity;
-      if (previous) {
-        position = {
-          x: lerp(previous.position.x, player.position.x, t),
-          y: lerp(previous.position.y, player.position.y, t),
-          z: lerp(previous.position.z, player.position.z, t),
-        };
-        const sampleTime = Math.max(0.001, span / 1000);
-        velocity = {
-          x: (player.position.x - previous.position.x) / sampleTime,
-          y: (player.position.y - previous.position.y) / sampleTime,
-          z: (player.position.z - previous.position.z) / sampleTime,
-        };
-      }
-      const yaw = previous
-        ? previous.yaw + shortestAngle(previous.yaw, player.yaw) * t
-        : player.yaw;
-      const heading = previous
-        ? previous.heading + shortestAngle(previous.heading, player.heading) * t
-        : player.heading;
+      const newer = newerEntry.snapshot.players.find((entry) => entry.id === player.id) ?? player;
+      const { position, velocity, yaw, heading } = interpolateRemote(previous, newer, t, span);
       remote.view.update(delta, {
         position,
         velocity,
         yaw,
         heading,
-        mascot: player.mascot ? { ...player.mascot, heading } : null,
-        launchSeconds: player.launchSeconds,
-        dazed: player.dazed,
-        grounded: player.grounded,
-        alive: player.alive,
-        crouched: player.crouched,
-        swimming: player.swimming,
-        sprinting: player.sprinting,
-        rolling: player.rolling,
-        parachuteState: player.parachuteState,
-        weaponId: weaponForSlot(profile.loadout, player.weaponSlot),
-        reloading: player.reloading,
+        mascot: newer.mascot ? { ...newer.mascot, heading } : null,
+        launchSeconds: newer.launchSeconds,
+        dazed: newer.dazed,
+        grounded: newer.grounded,
+        alive: newer.alive,
+        crouched: newer.crouched,
+        swimming: newer.swimming,
+        sprinting: newer.sprinting,
+        rolling: newer.rolling,
+        parachuteState: newer.parachuteState,
+        weaponId: weaponForSlot(profile.loadout, newer.weaponSlot),
+        reloading: newer.reloading,
       });
 
       const remoteSpeed = Math.hypot(velocity.x, velocity.z);
