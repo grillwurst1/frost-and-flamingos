@@ -36,7 +36,7 @@ import {
 } from './mascot-coconut';
 import { buildCowRig } from './mascot-cow';
 import { puffKindForSurface, type MascotFx } from './mascot-fx';
-import { createMascotMaterial, updateMascotMaterial } from './mascot-material';
+import { createMascotMaterial, mascotLidState, updateMascotMaterial } from './mascot-material';
 import { buildMeshyCow, buildMeshyShell, type CowClipLayer, type MeshyShell } from './mascot-meshy';
 import { mascotModels } from './mascot-models';
 import { clamp, damp, saturate, shortestAngle, Spring } from './mascot-motion';
@@ -125,9 +125,13 @@ export function coconutShellChoice(): CoconutShellChoice {
   return value === 'meshy' || value === 'painted' || value === 'vertex' ? value : DEFAULT_COCONUT_SHELL;
 }
 
-/** The Meshy cow walks with its authored clip; `?cowWalk=procedural` uses the solver walk. */
+/**
+ * Meshy's walk clip is a crouched, dog-like stalk on this rig (the Hips drop by
+ * about 15 % of the height, knees bent), so the solver walk on this skeleton is
+ * the default; `?cowWalk=clip` plays the phase-locked clip instead.
+ */
 function clipWalkEnabled(): boolean {
-  return queryOverride('cowWalk') !== 'procedural';
+  return queryOverride('cowWalk') === 'clip';
 }
 
 /** `?mascotModels=off` keeps the procedural mascots (fallback testing). */
@@ -286,6 +290,13 @@ export class MascotView {
   /** Current gait cadence in cycles per second (dev probes / strips). */
   get gaitCadence(): number {
     return this.cowAnimator?.cadence ?? 0;
+  }
+
+  /** Shader-lid state of the Meshy cow (for dev probes). */
+  get lidProbe(): readonly number[] | null {
+    const material = this.cowBody?.mesh.material;
+    // The WeakMap lookup is safe for any material; only FF_LIDS materials are in it.
+    return material ? mascotLidState(material as ShaderMaterial) ?? null : null;
   }
 
   /** Measured walk-clip gait and whether it drives the walk (for dev probes). */

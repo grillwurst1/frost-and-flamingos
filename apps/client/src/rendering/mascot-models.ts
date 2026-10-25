@@ -65,15 +65,33 @@ export interface MascotModelAsset {
 
 interface ManifestEntry {
   file: string;
-  rig?: { headYaw?: number; eyes?: MascotEye[]; lidColor?: [number, number, number] };
+  rig?: { headYaw: number; eyes: MascotEye[]; lidColor: [number, number, number] | null };
 }
 
 const BASE = `${import.meta.env.BASE_URL}models/mascots/`;
 
-function validEyes(eyes: MascotEye[] | undefined): MascotEye[] {
-  if (!Array.isArray(eyes) || eyes.length !== 2) return [];
-  const finite = (values: readonly number[]): boolean => values.length === 3 && values.every(Number.isFinite);
-  return eyes.every((eye) => finite(eye.centre) && finite(eye.axis) && eye.radius > 0) ? eyes : [];
+function vec3(value: unknown): [number, number, number] | null {
+  if (!Array.isArray(value) || value.length !== 3) return null;
+  const [x, y, z] = value as unknown[];
+  return typeof x === 'number' && typeof y === 'number' && typeof z === 'number' && [x, y, z].every(Number.isFinite)
+    ? [x, y, z]
+    : null;
+}
+
+/** Two well-formed eye discs from the manifest, or none. */
+function parseEyes(value: unknown): MascotEye[] {
+  if (!Array.isArray(value) || value.length !== 2) return [];
+  const eyes: MascotEye[] = [];
+  for (const item of value as unknown[]) {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as { centre?: unknown; radius?: unknown; axis?: unknown; inner?: unknown };
+    const centre = vec3(record.centre);
+    const axis = vec3(record.axis);
+    const radius = typeof record.radius === 'number' && record.radius > 0 ? record.radius : 0;
+    if (!centre || !axis || radius <= 0) return [];
+    eyes.push({ centre, axis, radius, inner: record.inner === -1 ? -1 : 1 });
+  }
+  return eyes;
 }
 export const BAKE_FPS = 30;
 
@@ -146,8 +164,15 @@ class MascotModelLibrary {
           const file = (value as { file?: unknown }).file;
           if (typeof file !== 'string' || !/^[a-z0-9-]+\.glb$/.test(file)) continue;
           const rig = (value as { rig?: unknown }).rig;
-          const headYaw = rig && typeof rig === 'object' ? (rig as { headYaw?: unknown }).headYaw : undefined;
-          result.set(key, { file, rig: { headYaw: typeof headYaw === 'number' ? headYaw : 0 } });
+          const fields = rig && typeof rig === 'object' ? (rig as { headYaw?: unknown; eyes?: unknown; lidColor?: unknown }) : {};
+          result.set(key, {
+            file,
+            rig: {
+              headYaw: typeof fields.headYaw === 'number' ? fields.headYaw : 0,
+              eyes: parseEyes(fields.eyes),
+              lidColor: vec3(fields.lidColor),
+            },
+          });
         }
       } catch {
         // Offline or malformed manifest: the procedural mascots stay.
@@ -201,7 +226,7 @@ class MascotModelLibrary {
           key === 'cow'
             ? {
                 headYaw: spec.rig?.headYaw ?? 0,
-                eyes: validEyes(spec.rig?.eyes),
+                eyes: spec.rig?.eyes ?? [],
                 lidColor: spec.rig?.lidColor ?? [0.16, 0.16, 0.165],
               }
             : null,

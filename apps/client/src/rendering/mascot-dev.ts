@@ -222,6 +222,7 @@ export function installMascotDevHandle(scene: Scene, fx: MascotFx | null): void 
         rig: puppet.view.rigKind,
         cadence: puppet.view.gaitCadence,
         clipWalk: puppet.view.clipWalk,
+        lids: puppet.view.lidProbe,
         drawCalls: meshes.reduce((sum, mesh) => sum + (mesh.subMeshes?.length ?? 1), 0),
         meshes: meshes.map((mesh) => `${mesh.name}:${mesh.getTotalVertices()}`),
       };

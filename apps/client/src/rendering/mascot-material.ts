@@ -129,6 +129,12 @@ export function setMascotLids(material: ShaderMaterial, closeA: number, closeB: 
   if (state) state.set(closeA, closeB, tilt, 0);
 }
 
+/** Dev probe: the lid state of a FF_LIDS material (undefined without lids). */
+export function mascotLidState(material: ShaderMaterial): readonly number[] | undefined {
+  const state = lidStates.get(material);
+  return state ? [state.x, state.y, state.z] : undefined;
+}
+
 export function updateMascotMaterial(
   material: ShaderMaterial,
   cameraPosition: Vector3,
