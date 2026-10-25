@@ -114,14 +114,14 @@ uniform vec4 uEyeAxisB;
 uniform vec4 uLids;
 uniform vec3 uLidColor;
 
-vec2 ffLid(vec3 p, vec4 eye, vec4 axis, float close, float tilt) {
+vec2 ffLid(vec3 p, vec4 eye, vec4 axis, float shut, float tilt) {
   vec3 d = p - eye.xyz;
   float r = eye.w;
   if (dot(d, d) > r * r * 1.17 || dot(d, axis.xyz) < -r * 0.6) return vec2(0.0);
-  float edge = r * (1.15 - 2.3 * close) - tilt * d.x * axis.w;
-  float line = d.y - edge;
-  float lash = (1.0 - smoothstep(r * 0.05, r * 0.11, abs(line))) * step(0.02, close + abs(tilt));
-  return vec2(step(0.0, line), lash);
+  float lidEdge = r * (1.15 - 2.3 * shut) - tilt * d.x * axis.w;
+  float lidLine = d.y - lidEdge;
+  float lash = (1.0 - smoothstep(r * 0.05, r * 0.11, abs(lidLine))) * step(0.02, shut + abs(tilt));
+  return vec2(step(0.0, lidLine), lash);
 }
 #endif
 
@@ -285,14 +285,14 @@ varying vColor : vec4f;
 #ifdef FF_LIDS
 varying vBind : vec3f;
 
-fn ffLid(p : vec3f, eye : vec4f, axis : vec4f, close : f32, tilt : f32) -> vec2f {
+fn ffLid(p : vec3f, eye : vec4f, axis : vec4f, shut : f32, tilt : f32) -> vec2f {
   let d = p - eye.xyz;
   let r = eye.w;
   if (dot(d, d) > r * r * 1.17 || dot(d, axis.xyz) < -r * 0.6) { return vec2f(0.0); }
-  let edge = r * (1.15 - 2.3 * close) - tilt * d.x * axis.w;
-  let line = d.y - edge;
-  let lash = (1.0 - smoothstep(r * 0.05, r * 0.11, abs(line))) * step(0.02, close + abs(tilt));
-  return vec2f(step(0.0, line), lash);
+  let lidEdge = r * (1.15 - 2.3 * shut) - tilt * d.x * axis.w;
+  let lidLine = d.y - lidEdge;
+  let lash = (1.0 - smoothstep(r * 0.05, r * 0.11, abs(lidLine))) * step(0.02, shut + abs(tilt));
+  return vec2f(step(0.0, lidLine), lash);
 }
 #endif
 
