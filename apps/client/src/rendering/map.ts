@@ -31,6 +31,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import { createSkyMaterial, createWaterMaterial } from './materials';
 import { drawBuilding } from './map/buildings';
+import { BRAKE_LEVER_HINGE, drawBrakeLeverBase, drawBrakeLeverHandle, drawBuildingExtras, drawBuildingSurroundings } from './map/extras';
 import { Affine, GeometryBatch, hash3 } from './map/geometry';
 import {
   drawBillboardFrame,
@@ -108,6 +109,13 @@ export interface MapVisuals {
   towers: Map<TowerId, TowerVisual>;
   /** Static meshes of the map (chunks, routes, clutter) for diagnostics. */
   staticMeshes: Mesh[];
+  /**
+   * Cable-car emergency brake handles by station id (`valley`, `mid`,
+   * `mountain`), meshes named `cable-brake-lever-<id>`. Each sits at its hinge
+   * (blueprint `brakeLever` minus the handle height) facing the station yaw;
+   * pull it by rotating around local X (world matrix is frozen — unfreeze first).
+   */
+  brakeLevers: Map<string, Mesh>;
   vertexCount: number;
 }
 
@@ -179,7 +187,7 @@ function drawProp(batch: GeometryBatch, prop: MapProp): boolean {
     case 'rock': {
       const snow = snowAmount(prop.position.x, prop.position.z) > 0.4;
       const sandy = terrainSurfaceTagAt(prop.position.x, prop.position.z) === 'sand';
-      drawRock(batch, prop.scale, prop.variant, snow ? 'snow' : sandy ? 'bare' : 'moss', seed);
+      drawRock(batch, prop.scale, prop.variant, snow ? 'snow' : sandy ? 'beach' : prop.position.y > 30 ? 'bare' : 'moss', seed);
       return true;
     }
     case 'chalet':
@@ -190,6 +198,7 @@ function drawProp(batch: GeometryBatch, prop: MapProp): boolean {
     case 'bamboo_garage':
       if (!prop.building) return false;
       drawBuilding(batch, prop.building, { variant: prop.variant, seed, snowy: snowAmount(prop.position.x, prop.position.z) > 0.3 });
+      drawBuildingExtras(batch, prop);
       return true;
     case 'summit_dairy':
       if (!prop.building) return false;
@@ -472,6 +481,23 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
       batch = chunks.at(prop.position.x, prop.position.z);
     }
     drawPropAt(batch, prop);
+    if (prop.building) {
+      const chunk = chunks.at(prop.position.x, prop.position.z);
+      chunk.at(prop.position.x, prop.position.y, prop.position.z, prop.rotationY, () => drawBuildingSurroundings(chunk, prop));
+    }
+  }
+
+  // Cable-car emergency brakes: static pedestal in the chunk, handle as its own mesh.
+  const brakeLevers = new Map<string, Mesh>();
+  const brakeHandles: { id: string; batch: GeometryBatch; x: number; y: number; z: number; yaw: number }[] = [];
+  for (const station of FJORD_MAP.routes.cableCar.stations) {
+    const yaw = FJORD_MAP.props.find((prop) => prop.id === `cable_station_${station.id}`)?.rotationY ?? 0;
+    const lever = station.brakeLever;
+    const chunk = chunks.at(lever.x, lever.z);
+    chunk.at(lever.x, station.platform.y, lever.z, yaw, () => drawBrakeLeverBase(chunk));
+    const handle = new GeometryBatch();
+    drawBrakeLeverHandle(handle);
+    brakeHandles.push({ id: station.id, batch: handle, x: lever.x, y: station.platform.y + BRAKE_LEVER_HINGE, z: lever.z, yaw });
   }
 
   // Tower C team dressing: the brass roof snow cannon on the clock-house ridge.
@@ -544,6 +570,16 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     if (visual && mesh) visual.dressing[faction] = mesh;
   }
   staticMeshes.push(...buildPosters(scene, FJORD_MAP.props));
+  for (const handle of brakeHandles) {
+    const mesh = register(handle.batch.toMesh(scene, `cable-brake-lever-${handle.id}`, material), staticMeshes);
+    if (!mesh) continue;
+    mesh.unfreezeWorldMatrix();
+    mesh.doNotSyncBoundingInfo = false;
+    mesh.position.set(handle.x, handle.y, handle.z);
+    mesh.rotation.y = handle.yaw;
+    mesh.freezeWorldMatrix();
+    brakeLevers.set(handle.id, mesh);
+  }
 
   return {
     waterMaterial,
@@ -555,6 +591,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     destructibleMeshes,
     towers,
     staticMeshes,
+    brakeLevers,
     vertexCount,
   };
 }

@@ -17,7 +17,9 @@ import type {
   TBarRoute,
 } from '../../types/map.js';
 import {
+  CABLE_BRAKE_LEVERS_LOCAL,
   CABLE_CAR_STATIONS,
+  CABLE_STATION_YAWS,
   COASTAL_RAMP_POINTS,
   COASTAL_RAMP_WIDTH,
   COASTER_CONTROL,
@@ -34,7 +36,7 @@ import {
   VILLAGE_LANE_WIDTH,
   WATER_RUNWAY,
 } from './layout.js';
-import { catmullRom, clamp, lerp, makeRoute, projectOnPolyline, vec3 } from './math.js';
+import { catmullRom, clamp, lerp, localToWorld, makeRoute, projectOnPolyline, vec3 } from './math.js';
 import { sampleMapHeight } from './terrain.js';
 
 function road(id: string, points: readonly Vec3[], width: number): RoadRoute {
@@ -148,25 +150,21 @@ function buildCableCar(): CableCarRoute {
       id: 'valley',
       labelKey: 'world.stations.valley',
       platform: { ...CABLE_CAR_STATIONS.valley },
-      brakeLever: vec3(CABLE_CAR_STATIONS.valley.x - 3.2, CABLE_CAR_STATIONS.valley.y + 1.1, CABLE_CAR_STATIONS.valley.z + 1.5),
+      brakeLever: localToWorld(CABLE_CAR_STATIONS.valley, CABLE_STATION_YAWS.valley, CABLE_BRAKE_LEVERS_LOCAL.valley),
       pathDistance: 0,
     },
     {
       id: 'mid',
       labelKey: 'world.stations.mid',
       platform: { ...CABLE_CAR_STATIONS.mid },
-      brakeLever: vec3(CABLE_CAR_STATIONS.mid.x + 2.4, CABLE_CAR_STATIONS.mid.y + 1.1, CABLE_CAR_STATIONS.mid.z - 2.4),
+      brakeLever: localToWorld(CABLE_CAR_STATIONS.mid, CABLE_STATION_YAWS.mid, CABLE_BRAKE_LEVERS_LOCAL.mid),
       pathDistance: stationDistance(CABLE_CAR_STATIONS.mid),
     },
     {
       id: 'mountain',
       labelKey: 'world.stations.mountain',
       platform: { ...CABLE_CAR_STATIONS.mountain },
-      brakeLever: vec3(
-        CABLE_CAR_STATIONS.mountain.x + 2.6,
-        CABLE_CAR_STATIONS.mountain.y + 1.1,
-        CABLE_CAR_STATIONS.mountain.z - 2.2,
-      ),
+      brakeLever: localToWorld(CABLE_CAR_STATIONS.mountain, CABLE_STATION_YAWS.mountain, CABLE_BRAKE_LEVERS_LOCAL.mountain),
       pathDistance: gondolaPath.length,
     },
   ];
@@ -298,6 +296,9 @@ function buildCoaster(): CoasterRoute {
     if (point.y - ground < 1.4) continue;
     pillars.push({ top: { ...point }, ground });
   }
+  // A last timber bent right under the jump-ramp lip.
+  const lip = track.points[Math.max(0, track.points.length - 2)];
+  if (lip) pillars.push({ top: { ...lip }, ground: sampleMapHeight(lip.x, lip.z) });
   return {
     track,
     bank,

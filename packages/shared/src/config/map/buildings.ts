@@ -625,7 +625,7 @@ export function hangarLayout(): BuildingLayout {
     floors: [{ elevation: 0.2, height: 8.6, openings: [door('front', 0, 19, 7.6), door('back', -8, 1.6, 2.5)] }],
     stairs: [],
     stairwells: [],
-    roof: { kind: 'barrel', pitch: 0, overhang: 0.8, snow: true },
+    roof: { kind: 'gable', pitch: (24 * Math.PI) / 180, overhang: 0.9, snow: true },
   };
 }
 

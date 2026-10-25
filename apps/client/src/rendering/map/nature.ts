@@ -11,11 +11,15 @@ function rand(seed: number, salt: number): number {
   return hash3(seed * 1.137, salt * 7.31, seed * 0.173 + salt);
 }
 
-/** Layered fir: drooping star-shaped tiers with snow sitting on every tier. */
+/**
+ * Layered fir: drooping star-shaped tiers with snow sitting on every tier.
+ * Small variant-3 trees are the stubby young firs from the tree sheet.
+ */
 export function drawFir(batch: GeometryBatch, scale: number, variant: number, snowy: number, seed: number): void {
-  const tiers = 4 + (variant % 3 === 0 ? 1 : 0);
-  const height = (8.6 + variant * 0.5) * scale;
-  const trunkHeight = 1.9 * scale;
+  const young = variant === 3 && scale < 1.05;
+  const tiers = young ? 3 : 4 + (variant % 3 === 0 ? 1 : 0);
+  const height = (young ? 5.4 : 8.6 + variant * 0.5) * scale;
+  const trunkHeight = (young ? 1.1 : 1.9) * scale;
   const segments = 7;
   batch.lathe(
     [
@@ -31,7 +35,7 @@ export function drawFir(batch: GeometryBatch, scale: number, variant: number, sn
   const green = mix(P.firDark, P.fir, (variant % 4) / 4);
   for (let tier = 0; tier < tiers; tier += 1) {
     const t = tier / tiers;
-    const radius = (2.7 - t * 1.9) * scale * (0.92 + rand(seed, tier) * 0.16);
+    const radius = (young ? 2.1 - t * 1.3 : 2.7 - t * 1.9) * scale * (0.92 + rand(seed, tier) * 0.16);
     const y0 = trunkHeight + tier * tierGap;
     const tierHeight = tierGap * 1.75;
     const lip = 0.45 * scale;
@@ -74,12 +78,16 @@ export function drawFir(batch: GeometryBatch, scale: number, variant: number, sn
   }
 }
 
-/** Curved palm trunk made of bulging ring segments, drooping split fronds and coconuts. */
+/**
+ * Curved palm trunk made of bulging ring segments, drooping split fronds and
+ * coconuts. Variant 3 is the short, bushy palm from the tree sheet.
+ */
 export function drawPalm(batch: GeometryBatch, scale: number, variant: number, seed: number, leanYaw?: number): void {
-  const height = (6.6 + variant * 0.9) * scale;
-  const lean = (0.22 + rand(seed, 1) * 0.28) * (variant === 2 ? 1.4 : 1);
+  const short = variant === 3;
+  const height = (short ? 3.4 : 6.6 + variant * 0.9) * scale;
+  const lean = short ? 0.1 + rand(seed, 1) * 0.12 : (0.22 + rand(seed, 1) * 0.28) * (variant === 2 ? 1.4 : 1);
   const leanDirection = leanYaw ?? rand(seed, 2) * Math.PI * 2;
-  const rings = 7;
+  const rings = short ? 5 : 7;
   const spine: V3[] = [];
   for (let index = 0; index <= rings; index += 1) {
     const t = index / rings;
@@ -90,7 +98,7 @@ export function drawPalm(batch: GeometryBatch, scale: number, variant: number, s
     const a = spine[index] as V3;
     const b = spine[index + 1] as V3;
     const t = index / rings;
-    const radius = (0.36 - t * 0.12) * scale;
+    const radius = (short ? 0.42 - t * 0.1 : 0.36 - t * 0.12) * scale;
     const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
     batch.with(Affine.alongSegment(a, b), () => {
       batch.lathe(
@@ -108,10 +116,10 @@ export function drawPalm(batch: GeometryBatch, scale: number, variant: number, s
   }
   const crown = spine[rings] as V3;
   batch.blob(crown[0], crown[1] - 0.1, crown[2], 0.5 * scale, 0.42 * scale, 0.5 * scale, P.palmTrunkDark, 'wood', { segments: 6, rings: 4 });
-  const fronds = 7 + (variant % 2);
+  const fronds = short ? 9 : 7 + (variant % 2);
   for (let frond = 0; frond < fronds; frond += 1) {
     const yaw = (frond / fronds) * Math.PI * 2 + rand(seed, frond + 5) * 0.5;
-    const length = (3.8 + rand(seed, frond + 20) * 1.4) * scale;
+    const length = (short ? 3.0 + rand(seed, frond + 20) * 0.9 : 3.8 + rand(seed, frond + 20) * 1.4) * scale;
     const rise = 0.55 + rand(seed, frond + 30) * 0.35;
     const segments = 4;
     const left: V3[] = [];
@@ -155,11 +163,11 @@ export function drawPalm(batch: GeometryBatch, scale: number, variant: number, s
   }
 }
 
-/** Faceted boulder with a snow, moss or sand-washed top. */
-export function drawRock(batch: GeometryBatch, scale: number, variant: number, top: 'snow' | 'moss' | 'bare', seed: number): void {
+/** Faceted boulder: snow-capped grey, mossy, bare, or the warm beige beach rock. */
+export function drawRock(batch: GeometryBatch, scale: number, variant: number, top: 'snow' | 'moss' | 'bare' | 'beach', seed: number): void {
   const stretch = 1 + (variant % 3) * 0.18;
-  const base = variant === 4 ? P.rockWarm : P.rock;
-  const topColor = top === 'snow' ? P.snow : top === 'moss' ? P.grassShade : P.rockLight;
+  const base = top === 'beach' ? P.rockBeach : variant === 4 ? P.rockWarm : P.rock;
+  const topColor = top === 'snow' ? P.snow : top === 'moss' ? P.grassShade : top === 'beach' ? P.rockBeachLight : P.rockLight;
   batch.blob(
     0,
     0.55 * scale,

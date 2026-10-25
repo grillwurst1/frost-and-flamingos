@@ -7,7 +7,7 @@
  */
 import { SNOWLINE_Y } from '../../constants.js';
 import type { Vec2, Vec3 } from '../../types/index.js';
-import { catmullRom, resampleLinear, vec3 } from './math.js';
+import { catmullRom, resampleLinear, vec3, yawTowards } from './math.js';
 
 export const TOWER_A_POSITION: Vec3 = vec3(-190, 2, -185);
 export const TOWER_B_POSITION: Vec3 = vec3(0, 18, 0);
@@ -255,6 +255,20 @@ export const CABLE_CAR_STATIONS = {
   valley: vec3(-110, 8, -95),
   mid: vec3(45, 28, 50),
   mountain: vec3(195, 58, 210),
+} as const;
+
+/** Station yaw (local +Z): valley and mountain face along the line, the mid support stands across it. */
+export const CABLE_STATION_YAWS = {
+  valley: yawTowards(CABLE_CAR_STATIONS.valley, CABLE_CAR_STATIONS.mid),
+  mid: yawTowards(CABLE_CAR_STATIONS.valley, CABLE_CAR_STATIONS.mountain) + Math.PI / 2,
+  mountain: yawTowards(CABLE_CAR_STATIONS.mid, CABLE_CAR_STATIONS.mountain),
+} as const;
+
+/** Emergency brake levers in station-local space (x, handle height above the platform, z). */
+export const CABLE_BRAKE_LEVERS_LOCAL = {
+  valley: vec3(-3.6, 1.1, -1.4),
+  mid: vec3(-2.8, 1.1, -2.2),
+  mountain: vec3(-3.0, 1.1, 1.4),
 } as const;
 
 /** T-bar ski lift from the northeast village edge up to just below Tower C. */

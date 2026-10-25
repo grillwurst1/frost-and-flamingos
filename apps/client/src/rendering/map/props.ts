@@ -512,9 +512,40 @@ function drawBuoy(batch: GeometryBatch, variant: number): void {
   batch.lathe([[0.45, -0.3], [0.5, 0.1], [0.35, 0.5], [0.05, 0.8]], 8, (ring) => (ring % 2 === 0 ? (variant === 0 ? P.alpineRed : P.yellow) : P.white), 'plain', { capBottom: true });
 }
 
+/** Orange pennant flag on a white pole in a little snow mound (glacier runway edge). */
 function drawRunwayMarker(batch: GeometryBatch, variant: number): void {
-  batch.log([0, -0.2, 0], [0, 1.6, 0], 0.05, P.alpineRed, 'wood', { segments: 4 });
-  batch.extrude([[0, 0], [0.7, -0.2], [0, -0.4]], 0.03, variant === 0 ? P.alpineRed : P.peakBlue, 'cloth');
+  batch.blob(0, 0, 0, 0.42, 0.2, 0.42, P.snow, 'snow', { segments: 6, rings: 3, flatBottom: true });
+  batch.log([0, -0.2, 0], [0, 2.3, 0], 0.045, P.white, 'wood', { segments: 4 });
+  batch.blob(0, 2.32, 0, 0.07, 0.07, 0.07, P.orange, 'plain', { segments: 4, rings: 2 });
+  const rows: V3[][] = [];
+  for (let index = 0; index <= 4; index += 1) {
+    const t = index / 4;
+    const wave = Math.sin(t * 3.2 + variant * 1.3) * 0.09;
+    rows.push([
+      [0.05 + t * 0.95, 2.25 - t * 0.27, wave],
+      [0.05 + t * 0.95, 1.7 + t * 0.27, wave],
+    ]);
+  }
+  batch.sheet(rows, (t) => (t > 0.7 ? P.white : P.orange), 'cloth');
+}
+
+/** Painted steel fuel drum (blue or red) with rolling hoops and a stencil plate. */
+function drawFuelDrum(batch: GeometryBatch, color: RGB): void {
+  batch.lathe(
+    [
+      [0.4, 0],
+      [0.43, 0.05],
+      [0.43, 1.2],
+      [0.4, 1.25],
+    ],
+    10,
+    color,
+    'metal',
+    { capTop: true },
+  );
+  for (const y of [0.42, 0.84]) batch.with(Affine.translation(0, y, 0), () => batch.lathe([[0.45, -0.035], [0.45, 0.035]], 10, shade(color, 0.72), 'metal'));
+  batch.box(0, 0.63, 0.42, 0.34, 0.2, 0.03, P.white, 'plain', 0);
+  batch.with(Affine.translation(0.2, 1.25, 0.1), () => batch.lathe([[0.06, 0], [0.06, 0.07]], 6, P.metalDark, 'metal', { capTop: true }));
 }
 
 function drawMooring(batch: GeometryBatch): void {
@@ -552,7 +583,8 @@ export function drawSmallProp(batch: GeometryBatch, prop: MapProp): boolean {
       drawCrateStack(batch, prop);
       return true;
     case 'barrel':
-      drawBarrel(batch, seed, prop.variant >= 3 ? P.alpineRed : undefined);
+      if (prop.id.startsWith('alpine_fuel_')) drawFuelDrum(batch, prop.variant % 2 === 0 ? P.alpineRed : P.peakBlue);
+      else drawBarrel(batch, seed, prop.variant >= 3 ? P.alpineRed : undefined);
       return true;
     case 'bench':
       drawBench(batch, prop.variant);

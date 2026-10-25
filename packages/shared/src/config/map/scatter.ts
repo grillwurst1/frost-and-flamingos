@@ -228,7 +228,8 @@ export function generateScatter(grid: OccupancyGrid): PropSeed[] {
       z,
       rotationY: random() * Math.PI * 2,
       scale,
-      variant: Math.floor(random() * 3),
+      // Variant 3 is the short, bushy palm from the tree sheet.
+      variant: Math.floor(random() * 4),
       colliders: [cylinderCollider(0.34 * scale, 1.6 * scale, 0, 1.6 * scale, 0)],
     });
   }

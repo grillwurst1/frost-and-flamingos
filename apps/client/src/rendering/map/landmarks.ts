@@ -720,68 +720,70 @@ export function drawCableStation(batch: GeometryBatch, prop: MapProp): void {
   const rise = prop.dimensions?.y ?? 0.5;
   const w = prop.dimensions?.x ?? 8;
   const d = prop.dimensions?.z ?? 8;
-  if (prop.variant === 1) {
-    // Mid-support tower: legs, braces, deck, stairs, roof and bullwheel.
-    for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        batch.log([sx * 3.2, -0.3, sz * 2.6], [sx * 3.0, rise, sz * 2.4], 0.34, P.log, 'wood', { segments: 7 });
-        batch.box(sx * 3.2, 0.3, sz * 2.6, 1.1, 0.6, 1.1, P.cobble, 'stone', 0.1);
-      }
-      for (const y of [rise * 0.3, rise * 0.65]) {
-        batch.log([sx * 3.1, y - 2, -2.5], [sx * 3.1, y + 1.5, 2.5], 0.12, P.logDark, 'wood', { segments: 5 });
-        batch.log([-3.1, y - 2, sx * 2.5], [3.1, y + 1.5, sx * 2.5], 0.12, P.logDark, 'wood', { segments: 5 });
-      }
-    }
-    for (let index = 0; index < 16; index += 1) plank(batch, -3.6 + (index + 0.5) * 0.45, rise - 0.1, 0, 6, 0.45, index, false);
-    // Stairs
-    for (const [x, z0, z1, y0, y1] of [
-      [5.2, -6.8, 1.2, 0, rise / 2],
-      [4.2, 3.6, -2.6, rise / 2, rise],
-    ] as const) {
-      const steps = Math.round((y1 - y0) / 0.28);
-      for (let step = 0; step < steps; step += 1) {
-        const t = (step + 0.5) / steps;
-        batch.box(x, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t, 1.6, 0.12, Math.abs(z1 - z0) / steps + 0.05, P.plankLight, 'wood', 0.02);
-      }
-      batch.log([x + 0.85, y0, z0], [x + 0.85, y1 + 1.1, z1], 0.06, P.logDark, 'wood', { segments: 4 });
-    }
-    batch.box(5.2, rise / 2 - 0.15, 2.4, 2.4, 0.3, 2.4, P.plank, 'wood', 0.04);
-    drawStationRoof(batch, 4.6, 3.6, rise + 3.4);
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) batch.log([sx * 3.4, rise, sz * 2.8], [sx * 3.4, rise + 3.4, sz * 2.8], 0.12, P.logDark, 'wood', { segments: 5 });
-    drawBullwheel(batch, rise + 2.8, 2.2);
-    batch.box(2.4, rise + 0.6, -2.4, 0.2, 1.2, 0.2, P.alpineRed, 'metal', 0.03);
-    return;
-  }
-  // Valley / mountain station: deck, posts, roof, bullwheel house.
-  for (let index = 0; index < Math.round(w / 0.45); index += 1) plank(batch, -w / 2 + (index + 0.5) * 0.45, rise - 0.08, 0, d, 0.45, index, false);
-  if (rise > 0.6) {
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) batch.log([sx * (w / 2 - 0.3), -0.3, sz * (d / 2 - 0.3)], [sx * (w / 2 - 0.3), rise, sz * (d / 2 - 0.3)], 0.25, P.log, 'wood', { segments: 6 });
-    const steps = Math.round(rise / 0.28);
-    for (let step = 0; step < steps; step += 1) {
-      const t = (step + 0.5) / steps;
-      batch.box(5.6, rise * t, -4.6 + 6.2 * t, 1.8, 0.12, 6.2 / steps + 0.05, P.plankLight, 'wood', 0.02);
-    }
-  } else {
-    batch.box(0, rise / 2 - 0.1, 0, w, rise + 0.2, d, P.cobble, 'stone', 0.08);
-  }
-  for (const sx of [-1, 1]) batch.log([sx * (w / 2 - 0.4), rise, d / 2 - 0.4], [sx * (w / 2 - 0.4), rise + 5.2, d / 2 - 0.4], 0.16, P.logDark, 'wood', { segments: 5 });
-  // Back house with the drive bullwheel
-  batch.box(0, rise + 1.6, -d / 2 + 0.6, w, 3.2, 1.2, P.log, 'wood', 0.06);
-  batch.box(0, rise + 3.0, -d / 2 + 1.2, w * 0.4, 0.8, 0.2, P.alpineRed, 'plain', 0.04);
-  drawStationRoof(batch, w / 2 + 0.6, d / 2 + 0.6, rise + 5.4);
-  drawBullwheel(batch, rise + 4.4, 2.6);
-  batch.box(-w / 2 + 1, rise + 0.6, d / 2 - 1.2, 0.2, 1.2, 0.2, P.alpineRed, 'metal', 0.03);
+  if (prop.variant === 1) drawMidSupport(batch, rise);
+  else if (prop.variant === 2) drawMountainStation(batch, w, d, rise);
+  else drawValleyStation(batch, w, d, rise);
 }
 
-function drawStationRoof(batch: GeometryBatch, halfW: number, halfD: number, y: number): void {
+/** Vertical boards with uneven tones and ragged bottoms on a wall facing ±Z. */
+function boardFacade(batch: GeometryBatch, x0: number, x1: number, y0: number, y1: number, z: number, color: RGB, seed: number): void {
+  const count = Math.max(1, Math.round((x1 - x0) / 0.42));
+  const step = (x1 - x0) / count;
+  for (let index = 0; index < count; index += 1) {
+    const tone = mix(color, shade(color, 1.18), hash3(seed, index, 3));
+    const drop = hash3(seed, index, 9) * 0.08;
+    batch.box(x0 + (index + 0.5) * step, (y0 + y1) / 2 - drop / 2, z, step - 0.04, y1 - y0 + drop, 0.08, tone, 'wood', 0);
+  }
+}
+
+/** Horizontal logs with irregular overhanging ends on a wall facing ±Z. */
+function logFacade(batch: GeometryBatch, x0: number, x1: number, y0: number, y1: number, z: number, color: RGB, seed: number): void {
+  const logs = Math.max(2, Math.round((y1 - y0) / 0.34));
+  const step = (y1 - y0) / logs;
+  for (let index = 0; index < logs; index += 1) {
+    const y = y0 + (index + 0.5) * step;
+    const left = 0.22 + hash3(seed, index, 1) * 0.2;
+    const right = 0.22 + hash3(seed, index, 4) * 0.2;
+    batch.log([x0 - left, y, z], [x1 + right, y, z], step * 0.56, mix(color, shade(color, 1.15), hash3(seed, index, 2)), 'wood', { segments: 6, endColor: P.logEnd });
+  }
+}
+
+/** Framed, glowing window with sill, mullion and optional shutters (`facing` = ±1 along Z). */
+function stationWindow(batch: GeometryBatch, x: number, y: number, z: number, facing: number, width: number, height: number, shutter?: RGB): void {
+  batch.box(x, y, z + facing * 0.06, width + 0.24, height + 0.24, 0.08, P.trim, 'wood', 0);
+  batch.box(x, y, z + facing * 0.1, width, height, 0.04, P.windowGlow, 'plain', 0);
+  batch.box(x, y, z + facing * 0.13, 0.07, height, 0.04, P.trim, 'wood', 0);
+  batch.box(x, y - height / 2 - 0.12, z + facing * 0.18, width + 0.4, 0.12, 0.3, P.trim, 'wood', 0);
+  if (!shutter) return;
+  for (const side of [-1, 1]) batch.box(x + side * (width / 2 + 0.32), y, z + facing * 0.1, 0.46, height + 0.1, 0.06, shutter, 'wood', 0);
+  // Flower box under the sill
+  batch.box(x, y - height / 2 - 0.34, z + facing * 0.26, width + 0.2, 0.28, 0.3, P.alpineRedDark, 'wood', 0);
+  for (let flower = 0; flower < 4; flower += 1) {
+    const fx = x - width / 2 + 0.1 + flower * ((width - 0.2) / 3);
+    batch.blob(fx, y - height / 2 - 0.12, z + facing * 0.28, 0.13, 0.11, 0.11, flower % 2 === 0 ? P.flowerRed : P.flowerPink, 'foliage', { segments: 4, rings: 2 });
+  }
+}
+
+/** Blank station name board (titles are rendered in-engine from i18n). */
+function stationSign(batch: GeometryBatch, y: number, z: number, facing: number): void {
+  batch.box(0, y, z, 3.6, 0.82, 0.1, P.alpineRed, 'wood', 0);
+  batch.box(0, y, z + facing * 0.06, 3.3, 0.6, 0.04, P.cream, 'wood', 0);
+}
+
+/** Gable roof with its ridge along local Z (eaves at x = ±halfW). */
+function drawStationRoof(batch: GeometryBatch, halfW: number, halfD: number, eaveY: number, pitch: number, color: RGB, snow: boolean, z = 0): void {
+  const run = halfW / Math.cos(pitch);
+  const ridgeY = eaveY + halfW * Math.tan(pitch);
   for (const sign of [1, -1]) {
-    batch.with(Affine.translation(0, y + 1.4, 0).rotateZ(-sign * 0.45), () => {
-      batch.box(sign * (halfW * 0.55), 0, 0, halfW * 1.15, 0.22, halfD * 2.1, P.alpineRed, 'shingle', 0.06);
-      batch.box(sign * (halfW * 0.55), 0.22, 0, halfW * 1.15, 0.24, halfD * 2.12, P.snow, 'snow', 0.1);
+    batch.with(Affine.translation(0, ridgeY, z).rotateZ(-sign * pitch), () => {
+      batch.box((sign * run) / 2, 0, 0, run, 0.22, halfD * 2, color, 'shingle', 0.06);
+      if (snow) batch.box((sign * run) / 2, 0.2, 0, run * 0.97, 0.24, halfD * 2 + 0.06, P.snow, 'snow', 0.1);
     });
   }
+  batch.box(0, ridgeY + (snow ? 0.32 : 0.12), z, 0.34, 0.22, halfD * 2 + 0.12, snow ? P.snow : shade(color, 0.78), snow ? 'snow' : 'wood', 0.04);
 }
 
+/** Bullwheel lying flat at the cable height. */
 function drawBullwheel(batch: GeometryBatch, y: number, radius: number): void {
   batch.with(Affine.translation(0, y, 0), () => {
     batch.lathe([[radius, -0.12], [radius + 0.12, 0], [radius, 0.12]], 18, P.metalDark, 'metal');
@@ -791,6 +793,279 @@ function drawBullwheel(batch: GeometryBatch, y: number, radius: number): void {
       batch.log([0, 0, 0], [Math.sin(a) * radius, 0, Math.cos(a) * radius], 0.06, P.metal, 'metal', { segments: 4 });
     }
   });
+}
+
+/**
+ * Valley station on the beach cliff: stone base and deck, a two-storey timber
+ * station house at the back, an open canopy over the boarding deck and the
+ * horizontal bullwheel on its steel frame with machinery cabinets.
+ */
+function drawValleyStation(batch: GeometryBatch, w: number, d: number, rise: number): void {
+  const halfW = w / 2;
+  const halfD = d / 2;
+  batch.box(0, (rise - 0.8) / 2, 0, w + 0.3, rise + 0.6, d + 0.3, P.cobble, 'stone', 0.14);
+  batch.box(0, rise - 0.2, 0, w + 0.5, 0.18, d + 0.5, P.cobbleDark, 'stone', 0.04);
+  for (let index = 0; index < Math.round(w / 0.45); index += 1) plank(batch, -halfW + (index + 0.5) * 0.45, rise - 0.08, 0, d, 0.45, index, false);
+
+  // Station house (collider: x ±4.5, z −5…−2, 5.6 m tall).
+  const zf = -2;
+  const zb = -halfD;
+  const zc = (zf + zb) / 2;
+  const depth = zf - zb;
+  const top = rise + 5.6;
+  batch.box(0, rise + 2.8, zc, w - 0.3, 5.6, depth - 0.3, P.logDark, 'wood', 0);
+  for (const [z, facing] of [
+    [zf, 1],
+    [zb, -1],
+  ] as const) {
+    boardFacade(batch, -halfW, halfW, rise, rise + 2.75, z, P.plankGrey, 11 + facing);
+    logFacade(batch, -halfW + 0.2, halfW - 0.2, rise + 2.95, top, z, P.log, 21 + facing);
+  }
+  for (const side of [-1, 1]) {
+    batch.box(side * (halfW - 0.1), rise + 2.8, zc, 0.2, 5.6, depth, mix(P.plankGrey, P.log, 0.4), 'wood', 0);
+    for (const z of [zf, zb]) batch.box(side * (halfW - 0.05), rise + 2.8, z, 0.32, 5.7, 0.32, P.logDark, 'wood', 0);
+  }
+  batch.box(0, rise + 2.85, zc, w + 0.3, 0.24, depth + 0.3, P.logDark, 'wood', 0);
+  batch.box(-2.6, rise + 1.1, zf + 0.08, 1.2, 2.2, 0.1, P.logDark, 'wood', 0);
+  batch.box(-2.6, rise + 2.3, zf + 0.12, 1.5, 0.18, 0.12, P.trim, 'wood', 0);
+  stationWindow(batch, 0.3, rise + 1.6, zf, 1, 1.2, 0.9);
+  for (const x of [-2.6, 0, 2.6]) stationWindow(batch, x, rise + 4.25, zf, 1, 0.9, 0.9, P.shutterRed);
+  for (const x of [-2, 2]) stationWindow(batch, x, rise + 4.25, zb, -1, 0.9, 0.9, P.shutterRed);
+  // House roof: gable with the ridge along X.
+  const pitch = 0.55;
+  const run = (depth / 2 + 0.8) / Math.cos(pitch);
+  const ridgeY = top + (depth / 2) * Math.tan(pitch) + 0.15;
+  for (const sign of [1, -1]) {
+    batch.with(Affine.translation(0, ridgeY, zc).rotateX(sign * pitch), () => {
+      batch.box(0, 0, (sign * run) / 2, w + 1.0, 0.22, run, P.shingleRed, 'shingle', 0.06);
+    });
+  }
+  batch.box(0, ridgeY + 0.12, zc, w + 1.1, 0.2, 0.32, P.logDark, 'wood', 0);
+  for (const side of [-1, 1]) {
+    batch.orientedPolygon(
+      [
+        [side * (halfW - 0.02), top, zb],
+        [side * (halfW - 0.02), top, zf],
+        [side * (halfW - 0.02), ridgeY - 0.1, zc],
+      ],
+      [side, 0, 0],
+      P.plankLight,
+      'wood',
+    );
+  }
+  batch.with(Affine.translation(0, ridgeY + 0.1, zc + 0.6), () => batch.box(1.8, 0.6, 0, 0.6, 1.2, 0.6, P.cobble, 'stone', 0.06));
+
+  // Open canopy over the boarding deck on two front posts (colliders at x ±4.1, z 4.4).
+  for (const side of [-1, 1]) {
+    batch.log([side * 4.1, rise, 4.4], [side * 4.1, rise + 5.2, 4.4], 0.22, P.logDark, 'wood', { segments: 6, endColor: P.logEnd });
+    batch.log([side * 4.1, rise + 5.1, zf], [side * 4.1, rise + 5.1, halfD + 0.6], 0.14, P.log, 'wood', { segments: 5, endColor: P.logEnd });
+    batch.log([side * 4.1, rise + 4.1, 4.4], [side * 4.1, rise + 5.05, 3.4], 0.07, P.log, 'wood', { segments: 4 });
+  }
+  const canopyFront = halfD + 0.6;
+  drawStationRoof(batch, halfW + 0.5, (canopyFront - zf) / 2, rise + 5.2, 0.3, P.alpineRed, false, (canopyFront + zf) / 2);
+  stationSign(batch, rise + 5.8, canopyFront - 0.1, 1);
+
+  // Bullwheel frame and machinery cabinets.
+  for (const side of [-1, 1]) {
+    batch.log([side * 3.3, rise, 0.4], [side * 3.0, rise + 4.95, 0], 0.12, P.steel, 'metal', { segments: 5 });
+    batch.log([side * 3.3, rise, -0.4], [side * 3.0, rise + 4.95, 0], 0.08, P.steel, 'metal', { segments: 4 });
+  }
+  batch.box(0, rise + 4.95, 0, 6.4, 0.3, 0.42, P.metalDark, 'metal', 0.04);
+  batch.box(0, rise + 4.7, 0, 0.35, 0.5, 0.35, P.metal, 'metal', 0.04);
+  drawBullwheel(batch, rise + 4.4, 1.9);
+  for (const [x, color] of [
+    [2.3, P.metal],
+    [3.4, P.steel],
+  ] as const) {
+    batch.box(x, rise + 0.85, zf + 0.42, 0.9, 1.7, 0.6, color, 'metal', 0.05);
+    batch.with(Affine.translation(x - 0.15, rise + 1.3, zf + 0.73).rotateX(Math.PI / 2), () => batch.lathe([[0.15, 0], [0.15, 0.03]], 8, P.white, 'plain', { capTop: true }));
+    batch.box(x + 0.22, rise + 0.85, zf + 0.73, 0.14, 0.14, 0.05, P.alpineRed, 'plain', 0);
+    batch.box(x, rise + 0.4, zf + 0.73, 0.5, 0.06, 0.04, P.yellow, 'plain', 0);
+  }
+}
+
+/**
+ * Mid support: steel lattice tower on concrete footings carrying the boarding
+ * deck, switchback stairs, and two lattice masts with a cross-arm and the
+ * sheave train the rope runs over.
+ */
+function drawMidSupport(batch: GeometryBatch, rise: number): void {
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      batch.box(sx * 3.4, 0.3, sz * 2.8, 1.4, 0.9, 1.4, P.cobble, 'stone', 0.1);
+      batch.log([sx * 3.4, 0.6, sz * 2.8], [sx * 3.2, rise - 0.2, sz * 2.6], 0.2, P.steel, 'metal', { segments: 5 });
+    }
+  }
+  const levels = Math.max(3, Math.round(rise / 2.6));
+  for (let level = 0; level < levels; level += 1) {
+    const t0 = level / levels;
+    const t1 = (level + 1) / levels;
+    const y0 = 0.6 + t0 * (rise - 0.8);
+    const y1 = 0.6 + t1 * (rise - 0.8);
+    const x0 = 3.4 - 0.2 * t0;
+    const x1 = 3.4 - 0.2 * t1;
+    const z0 = 2.8 - 0.2 * t0;
+    const z1 = 2.8 - 0.2 * t1;
+    for (const s of [-1, 1]) {
+      batch.log([-x0, y0, s * z0], [x1, y1, s * z1], 0.06, P.metal, 'metal', { segments: 4, capEnds: false });
+      batch.log([x0, y0, s * z0], [-x1, y1, s * z1], 0.06, P.metal, 'metal', { segments: 4, capEnds: false });
+      batch.log([s * x0, y0, -z0], [s * x1, y1, z1], 0.06, P.metal, 'metal', { segments: 4, capEnds: false });
+      batch.log([s * x0, y0, z0], [s * x1, y1, -z1], 0.06, P.metal, 'metal', { segments: 4, capEnds: false });
+      batch.box(0, y1, s * z1, x1 * 2, 0.12, 0.12, P.steel, 'metal', 0);
+      batch.box(s * x1, y1, 0, 0.12, 0.12, z1 * 2, P.steel, 'metal', 0);
+    }
+  }
+  // Deck with a steel rim and side rails (the ±X edges stay open for the gondola).
+  for (let index = 0; index < 16; index += 1) plank(batch, -3.6 + (index + 0.5) * 0.45, rise - 0.1, 0, 6, 0.45, index, false);
+  batch.box(0, rise - 0.32, 0, 7.4, 0.26, 6.2, P.metalDark, 'metal', 0.04);
+  for (const s of [-1, 1]) {
+    for (let post = 0; post <= 8; post += 1) batch.box(-3.5 + post * 0.875, rise + 0.5, s * 2.92, 0.08, 1.0, 0.08, P.steel, 'metal', 0);
+    batch.box(0, rise + 1.0, s * 2.92, 7.1, 0.08, 0.1, P.alpineRed, 'metal', 0);
+    batch.box(0, rise + 0.5, s * 2.92, 7.1, 0.06, 0.06, P.steel, 'metal', 0);
+  }
+  // Switchback stairs on the outside of the tower.
+  for (const [x, z0, z1, y0, y1] of [
+    [5.2, -6.8, 1.2, 0, rise / 2],
+    [4.2, 3.6, -2.6, rise / 2, rise],
+  ] as const) {
+    const steps = Math.round((y1 - y0) / 0.28);
+    for (let step = 0; step < steps; step += 1) {
+      const t = (step + 0.5) / steps;
+      batch.box(x, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t, 1.6, 0.12, Math.abs(z1 - z0) / steps + 0.05, P.plankLight, 'wood', 0.02);
+    }
+    for (const side of [-1, 1]) batch.log([x + side * 0.82, y0 - 0.2, z0], [x + side * 0.82, y1 - 0.2, z1], 0.08, P.metalDark, 'metal', { segments: 4 });
+    batch.log([x + 0.85, y0 + 1.0, z0], [x + 0.85, y1 + 1.0, z1], 0.05, P.alpineRed, 'metal', { segments: 4 });
+  }
+  batch.box(5.2, rise / 2 - 0.15, 2.4, 2.4, 0.3, 2.4, P.plank, 'wood', 0.04);
+  batch.log([5.2, 0, 2.4], [5.2, rise / 2 - 0.3, 2.4], 0.14, P.steel, 'metal', { segments: 5 });
+  batch.log([5.2, 0, -6.6], [5.2, 0.4, -6.6], 0.14, P.steel, 'metal', { segments: 5 });
+
+  // Two lattice masts carrying the cross-arm and the sheave train above the deck.
+  const mastTop = rise + 5.6;
+  for (const s of [-1, 1]) {
+    const z = s * 2.75;
+    for (const sx of [-1, 1]) batch.log([sx * 0.6, rise, z], [sx * 0.25, mastTop, z], 0.09, P.steel, 'metal', { segments: 4 });
+    for (let level = 0; level < 4; level += 1) {
+      const ya = rise + (level / 4) * 5.6;
+      const yb = rise + ((level + 1) / 4) * 5.6;
+      const xa = 0.6 - 0.35 * (level / 4);
+      const xb = 0.6 - 0.35 * ((level + 1) / 4);
+      batch.log([level % 2 === 0 ? -xa : xa, ya, z], [level % 2 === 0 ? xb : -xb, yb, z], 0.04, P.metal, 'metal', { segments: 4, capEnds: false });
+    }
+  }
+  batch.box(0, mastTop, 0, 0.5, 0.42, 6.6, P.alpineRed, 'metal', 0.06);
+  batch.box(0, rise + 5.1, 0, 0.16, 0.9, 0.16, P.metalDark, 'metal', 0);
+  batch.box(0, rise + 4.7, 0, 3.2, 0.18, 0.22, P.metalDark, 'metal', 0);
+  for (let sheave = 0; sheave < 4; sheave += 1) {
+    batch.with(Affine.translation(-1.2 + sheave * 0.8, rise + 4.55, 0).rotateX(Math.PI / 2), () => {
+      batch.lathe([[0.26, -0.07], [0.26, 0.07]], 8, P.metal, 'metal', { capTop: true, capBottom: true });
+    });
+  }
+}
+
+/**
+ * Mountain station: carved snowy chalet at the back of a covered docking
+ * balcony on a log trestle, carved railings, icicles and the bullwheel under
+ * the ridge.
+ */
+function drawMountainStation(batch: GeometryBatch, w: number, d: number, rise: number): void {
+  const halfW = w / 2;
+  const halfD = d / 2;
+  for (const sx of [-1, 1]) {
+    for (const z of [-halfD + 0.3, 0, halfD - 0.3]) {
+      batch.log([sx * (halfW - 0.3), -0.3, z], [sx * (halfW - 0.3), rise - 0.3, z], 0.24, P.log, 'wood', { segments: 6, endColor: P.logEnd });
+    }
+    batch.log([sx * (halfW - 0.3), 0.2, -halfD + 0.3], [sx * (halfW - 0.3), rise - 0.45, 0], 0.09, P.logDark, 'wood', { segments: 4 });
+    batch.log([sx * (halfW - 0.3), 0.2, halfD - 0.3], [sx * (halfW - 0.3), rise - 0.45, 0], 0.09, P.logDark, 'wood', { segments: 4 });
+  }
+  batch.box(0, rise - 0.32, 0, w + 0.1, 0.26, d + 0.1, P.logDark, 'wood', 0.04);
+  const count = Math.round(w / 0.45);
+  for (let index = 0; index < count; index += 1) plank(batch, -halfW + (index + 0.5) * (w / count), rise - 0.08, 0, d, w / count, index, false);
+  // Stairs on the +X side (collider ramp from z −4.6 to 1.6) and the landing.
+  const steps = Math.round(rise / 0.28);
+  for (let step = 0; step < steps; step += 1) {
+    const t = (step + 0.5) / steps;
+    batch.box(5.6, rise * t, -4.6 + 6.2 * t, 1.8, 0.12, 6.2 / steps + 0.05, P.plankLight, 'wood', 0.02);
+  }
+  batch.box(5.2, rise - 0.15, 0.6, 2.8, 0.3, 2.8, P.plank, 'wood', 0.04);
+  for (const [x, z] of [
+    [6.5, -0.7],
+    [6.5, 1.9],
+  ] as const) batch.log([x, -0.3, z], [x, rise + 1.0, z], 0.12, P.log, 'wood', { segments: 5, endColor: P.logEnd });
+  batch.log([6.5, rise + 1.0, -0.7], [6.5, rise + 1.0, 1.9], 0.07, P.logDark, 'wood', { segments: 4 });
+  batch.log([6.5, 1.0, -4.6], [6.5, rise + 1.0, 1.6], 0.06, P.logDark, 'wood', { segments: 4 });
+
+  // Carved station chalet (collider: x ±4, z 2.1…4.5, 5.4 m tall).
+  const zf = 2.1;
+  const zb = halfD;
+  const zc = (zf + zb) / 2;
+  const top = rise + 5.4;
+  batch.box(0, rise + 2.7, zc, w - 0.3, 5.4, zb - zf - 0.2, P.logDark, 'wood', 0);
+  logFacade(batch, -halfW + 0.2, halfW - 0.2, rise, rise + 2.7, zf, P.log, 31);
+  boardFacade(batch, -halfW, halfW, rise + 2.85, top, zf - 0.02, P.logLight, 33);
+  batch.box(0, rise + 2.8, zf - 0.08, w + 0.3, 0.22, 0.22, P.logDark, 'wood', 0);
+  for (let scallop = 0; scallop < 14; scallop += 1) {
+    const x = -halfW + 0.3 + scallop * ((w - 0.6) / 13);
+    batch.with(Affine.translation(x, rise + 2.66, zf - 0.14), () =>
+      batch.extrude(
+        [
+          [-0.26, 0],
+          [0.26, 0],
+          [0.18, -0.16],
+          [0, -0.24],
+          [-0.18, -0.16],
+        ],
+        0.06,
+        P.trim,
+        'wood',
+      ),
+    );
+  }
+  batch.box(1.6, rise + 1.1, zf - 0.08, 1.2, 2.2, 0.1, P.logDark, 'wood', 0);
+  batch.box(1.6, rise + 2.3, zf - 0.12, 1.5, 0.18, 0.12, P.trim, 'wood', 0);
+  stationWindow(batch, -1.6, rise + 1.6, zf, -1, 1.1, 0.9, P.shutterRed);
+  for (const x of [-2.2, 0, 2.2]) stationWindow(batch, x, rise + 4.1, zf, -1, 0.8, 0.85, P.shutterRed);
+  for (const side of [-1, 1]) batch.box(side * (halfW - 0.1), rise + 2.7, zc, 0.22, 5.4, zb - zf, P.log, 'wood', 0);
+
+  // Covered docking balcony: carved posts, railings and a big snowy roof.
+  for (const side of [-1, 1]) {
+    for (const z of [-halfD + 0.4, -1.0]) {
+      batch.log([side * (halfW - 0.35), rise, z], [side * (halfW - 0.35), top, z], 0.17, P.log, 'wood', { segments: 6, endColor: P.logEnd });
+      batch.log([side * (halfW - 0.35), top - 0.9, z], [side * (halfW - 0.35), top - 0.1, z + 0.9], 0.07, P.logDark, 'wood', { segments: 4 });
+    }
+    batch.log([side * (halfW - 0.35), top, -halfD - 0.6], [side * (halfW - 0.35), top, zb], 0.15, P.logDark, 'wood', { segments: 5, endColor: P.logEnd });
+    const railEnd = side < 0 ? zf : -0.8;
+    for (let baluster = 0; baluster < 14; baluster += 1) {
+      const z = -halfD + 0.4 + baluster * ((railEnd + halfD - 0.4) / 13);
+      batch.box(side * (halfW - 0.2), rise + 0.5, z, 0.06, 1.0, 0.16, baluster % 2 === 0 ? P.plankLight : P.plank, 'wood', 0);
+    }
+    batch.box(side * (halfW - 0.2), rise + 1.02, (railEnd - halfD + 0.4) / 2, 0.12, 0.1, railEnd + halfD - 0.4, P.logDark, 'wood', 0);
+  }
+  drawStationRoof(batch, halfW + 0.6, halfD + 0.7, top, 0.52, P.shingleDark, true, -0.25);
+  drawIcicleRow(batch, [-(halfW + 0.6), top - 0.12, -halfD - 0.9], [-(halfW + 0.6), top - 0.12, halfD + 0.4], 0.5);
+  drawIcicleRow(batch, [halfW + 0.6, top - 0.12, -halfD - 0.9], [halfW + 0.6, top - 0.12, halfD + 0.4], 0.5);
+  // Carved barge boards and the blank sign on the open front gable.
+  const ridgeY = top + (halfW + 0.6) * Math.tan(0.52);
+  for (const side of [-1, 1]) {
+    batch.log([0, ridgeY - 0.15, -halfD - 0.9], [side * (halfW + 0.6), top - 0.15, -halfD - 0.9], 0.1, P.trim, 'wood', { segments: 4 });
+  }
+  batch.with(Affine.translation(0, ridgeY - 0.9, -halfD - 0.85), () => batch.extrude(heartShape(0.42), 0.08, P.alpineRed, 'wood'));
+  stationSign(batch, top + 0.45, -halfD - 0.8, -1);
+  // Bullwheel hanging from the ridge beam at the rope height.
+  batch.box(0, ridgeY - 0.5, 0, 0.3, 0.3, d, P.logDark, 'wood', 0);
+  batch.box(0, rise + 5.0, 0, 0.3, ridgeY - rise - 5.3, 0.3, P.metalDark, 'metal', 0);
+  drawBullwheel(batch, rise + 4.4, 1.8);
+}
+
+function heartShape(size: number): [number, number][] {
+  const points: [number, number][] = [];
+  for (let index = 0; index < 14; index += 1) {
+    const t = (index / 14) * Math.PI * 2;
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    points.push([(x / 17) * size, (y / 17) * size]);
+  }
+  return points.reverse();
 }
 
 export function drawCablePylon(batch: GeometryBatch, prop: MapProp): void {
@@ -832,11 +1107,52 @@ export function drawTBarPylon(batch: GeometryBatch, prop: MapProp): void {
   batch.with(Affine.translation(reach, height - 0.55, 0).rotateZ(Math.PI / 2), () => batch.lathe([[0.25, -0.1], [0.25, 0.1]], 8, P.metalDark, 'metal', { capTop: true, capBottom: true }));
 }
 
+/**
+ * T-bar stations: a small snowy plank shed (collider at x −3.4, z ∓1.5), the
+ * drive bullwheel on a concrete block at the bottom and the return wheel on a
+ * timber A-frame trestle at the top.
+ */
 export function drawTBarStation(batch: GeometryBatch, variant: number): void {
-  batch.box(-3.4, 1.6, variant === 0 ? -1.5 : 1.5, 4.0, 3.2, 4.0, P.log, 'wood', 0.08);
-  drawStationRoof(batch, 2.4, 2.4, 2.4);
-  batch.log([0, 0, 0], [0, 5.4, 0], 0.3, P.steel, 'metal', { segments: 7 });
-  batch.with(Affine.translation(0, 5.2, 0), () => drawBullwheel(batch, 0, 1.6));
+  const shedZ = variant === 0 ? -1.5 : 1.5;
+  batch.with(Affine.translation(-3.4, 0, shedZ), () => {
+    batch.box(0, 0.15, 0, 4.4, 0.3, 4.4, P.cobble, 'stone', 0.06);
+    batch.box(0, 1.65, 0, 3.9, 2.7, 3.9, P.plankGrey, 'wood', 0);
+    boardFacade(batch, -2.0, 2.0, 0.3, 3.0, 1.98, P.plankGrey, 41 + variant);
+    boardFacade(batch, -2.0, 2.0, 0.3, 3.0, -1.98, P.plankGrey, 43 + variant);
+    batch.box(0.6, 1.3, 2.06, 1.0, 2.0, 0.08, P.logDark, 'wood', 0);
+    batch.box(0.6, 2.38, 2.1, 1.2, 0.14, 0.1, P.trim, 'wood', 0);
+    stationWindow(batch, -1.0, 1.9, 1.98, 1, 0.7, 0.6, P.shutterGreen);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) batch.box(sx * 1.95, 1.65, sz * 1.95, 0.24, 2.8, 0.24, P.logDark, 'wood', 0);
+    drawStationRoof(batch, 2.5, 2.5, 3.0, 0.62, P.shingleDark, true);
+    drawIcicleRow(batch, [-2.5, 2.9, -2.4], [-2.5, 2.9, 2.4], variant + 3);
+    drawIcicleRow(batch, [2.5, 2.9, -2.4], [2.5, 2.9, 2.4], variant + 5);
+    // Firewood stacked against the side wall.
+    for (let row = 0; row < 3; row += 1) {
+      for (let index = 0; index < 4 - (row % 2); index += 1) {
+        const z = -1.4 + index * 0.62 + (row % 2) * 0.31;
+        batch.log([2.0, 0.42 + row * 0.34, z], [2.9, 0.42 + row * 0.34, z], 0.16, mix(P.log, P.logLight, hash3(row, index, variant)), 'wood', { segments: 6, endColor: P.logEnd });
+      }
+    }
+  });
+  if (variant === 0) {
+    // Drive bullwheel on its concrete block (collider 1.6 × 1.2 × 1.6).
+    batch.box(0, 0.6, 0, 1.6, 1.2, 1.6, mix(P.cobble, P.white, 0.25), 'stone', 0.1);
+    batch.box(0, 1.5, -0.3, 1.0, 0.6, 0.8, P.alpineRed, 'metal', 0.06);
+    batch.lathe([[0.28, 1.2], [0.2, 5.0]], 7, P.steel, 'metal');
+    batch.box(0, 4.95, 0, 0.6, 0.3, 0.6, P.metalDark, 'metal', 0.04);
+    drawBullwheel(batch, 5.2, 1.6);
+    return;
+  }
+  // Return wheel on a timber A-frame trestle (legs at x ±1).
+  for (const sx of [-1, 1]) {
+    batch.log([sx * 1.0, -0.3, -1.3], [sx * 0.45, 5.0, 0], 0.15, P.log, 'wood', { segments: 5, endColor: P.logEnd });
+    batch.log([sx * 1.0, -0.3, 1.3], [sx * 0.45, 5.0, 0], 0.15, P.log, 'wood', { segments: 5, endColor: P.logEnd });
+    batch.log([sx * 1.0, 0, 0], [sx * 0.45, 5.0, 0], 0.18, P.log, 'wood', { segments: 5, endColor: P.logEnd });
+    batch.log([sx * 0.85, 1.6, -0.9], [sx * 0.85, 1.6, 0.9], 0.08, P.logDark, 'wood', { segments: 4 });
+  }
+  batch.log([-0.8, 2.6, 0], [0.8, 2.6, 0], 0.09, P.logDark, 'wood', { segments: 4 });
+  batch.box(0, 5.0, 0, 1.4, 0.3, 0.5, P.logDark, 'wood', 0);
+  drawBullwheel(batch, 5.2, 1.6);
 }
 
 /** Turquoise-silver coaster trough swept along the shared route with banking. */
@@ -908,38 +1224,116 @@ export function drawCoasterTrack(batch: GeometryBatch): void {
       batch.triangle(oa[k] as number, oa[k + 1] as number, ob[k + 1] as number);
     }
   }
+  const lip = coaster.rampEnd;
   for (const pillar of coaster.pillars) {
     const h = pillar.top.y - 0.4 - pillar.ground;
     if (h < 0.4) continue;
+    if (Math.hypot(pillar.top.x - lip.x, pillar.top.z - lip.z) < 18) {
+      // Timber trestle under the jump ramp, braced across the track.
+      let nearest = 0;
+      let best = Infinity;
+      points.forEach((point, index) => {
+        const distance = Math.hypot(point.x - pillar.top.x, point.z - pillar.top.z);
+        if (distance < best) {
+          best = distance;
+          nearest = index;
+        }
+      });
+      const before = points[Math.max(0, nearest - 1)] ?? pillar.top;
+      const after = points[Math.min(points.length - 1, nearest + 1)] ?? pillar.top;
+      const tx = after.x - before.x;
+      const tz = after.z - before.z;
+      const tl = Math.hypot(tx, tz) || 1;
+      drawRampBent(batch, pillar.top.x, pillar.top.y, pillar.top.z, pillar.ground, tz / tl, -tx / tl);
+      continue;
+    }
     batch.log([pillar.top.x, pillar.ground - 0.3, pillar.top.z], [pillar.top.x, pillar.top.y - 0.35, pillar.top.z], 0.22, P.steel, 'metal', { segments: 6 });
     batch.box(pillar.top.x, pillar.top.y - 0.45, pillar.top.z, 2.6, 0.2, 0.3, P.metalDark, 'metal', 0.04);
     batch.box(pillar.top.x, pillar.ground + 0.2, pillar.top.z, 1.0, 0.4, 1.0, P.cobble, 'stone', 0.08);
   }
 }
 
+/**
+ * Coaster start: an open timber roof on log posts over a raised wooden deck on
+ * a log trestle, railings, stairs at a walkable 34° and four waiting bobs.
+ */
 export function drawCoasterPlatform(batch: GeometryBatch, prop: MapProp): void {
   const rise = prop.dimensions?.y ?? 1.5;
+  for (const x of [-6.7, -3.4, -0.1]) {
+    for (const z of [-3.8, -1, 1.8]) batch.log([x, -0.3, z], [x, rise - 0.3, z], 0.2, P.log, 'wood', { segments: 6, endColor: P.logEnd });
+  }
+  for (const z of [-3.8, 1.8]) {
+    batch.log([-6.7, 0.3, z], [-0.1, rise - 0.6, z], 0.08, P.logDark, 'wood', { segments: 4 });
+    batch.log([-0.1, 0.3, z], [-6.7, rise - 0.6, z], 0.08, P.logDark, 'wood', { segments: 4 });
+  }
+  for (const x of [-6.7, -0.1]) {
+    batch.log([x, 0.3, -3.8], [x, rise - 0.6, 1.8], 0.08, P.logDark, 'wood', { segments: 4 });
+    batch.log([x, 0.3, 1.8], [x, rise - 0.6, -3.8], 0.08, P.logDark, 'wood', { segments: 4 });
+  }
+  batch.box(-3.4, rise - 0.3, -1, 7.1, 0.26, 6.1, P.logDark, 'wood', 0.04);
   for (let index = 0; index < 15; index += 1) plank(batch, -3.4 + (-3.5 + (index + 0.5) * (7 / 15)), rise - 0.08, -1, 6, 7 / 15, index, false);
-  batch.box(-3.4, rise / 2 - 0.1, -1, 7, Math.max(0.2, rise - 0.15), 6, P.log, 'wood', 0.06);
-  const steps = Math.max(2, Math.round(rise / 0.28));
+  // Railings: back (−X, gap for the stairs), both ends; the trough side (+X) stays open.
+  const balusters = (a: V3, b: V3, count: number): void => {
+    for (let index = 0; index <= count; index += 1) {
+      const t = index / count;
+      batch.box(a[0] + (b[0] - a[0]) * t, rise + 0.5, a[2] + (b[2] - a[2]) * t, 0.12, 1.0, 0.12, index % 2 === 0 ? P.plankLight : P.plank, 'wood', 0);
+    }
+    batch.log([a[0], rise + 1.02, a[2]], [b[0], rise + 1.02, b[2]], 0.06, P.logDark, 'wood', { segments: 4 });
+  };
+  balusters([-6.85, 0, -3.95], [-6.85, 0, -2.2], 3);
+  balusters([-6.85, 0, 0.2], [-6.85, 0, 1.95], 3);
+  balusters([-6.85, 0, 1.95], [0, 0, 1.95], 12);
+  balusters([-6.85, 0, -3.95], [0, 0, -3.95], 12);
+  // Stairs off the back edge (collider ramp from x −6.9 − rise/0.68 up to −6.9 at z −1).
+  const run = rise / 0.68;
+  const steps = Math.max(2, Math.round(rise / 0.22));
   for (let step = 0; step < steps; step += 1) {
     const t = (step + 0.5) / steps;
-    batch.box(-3.4, rise * t, -8.6 + 4.6 * t, 2.2, 0.12, 4.6 / steps + 0.05, P.plankLight, 'wood', 0.02);
+    batch.box(-6.9 - run + run * t, rise * t, -1, run / steps + 0.05, 0.12, 2.2, P.plankLight, 'wood', 0.02);
   }
-  for (const sx of [-6.6, -0.2]) for (const sz of [-3.8, 1.8]) batch.log([sx, rise, sz], [sx, rise + 3.2, sz], 0.12, P.steel, 'metal', { segments: 5 });
-  for (const sign of [1, -1]) {
-    batch.with(Affine.translation(-3.4, rise + 3.6, -1).rotateZ(-sign * 0.3), () => {
-      batch.box(sign * 1.9, 0, 0, 3.8, 0.14, 6.4, sign > 0 ? P.coasterTeal : P.coral, 'cloth', 0.04);
-    });
+  for (const side of [-1, 1]) {
+    batch.log([-6.9 - run, -0.2, -1 + side * 1.15], [-6.9, rise - 0.2, -1 + side * 1.15], 0.1, P.logDark, 'wood', { segments: 4 });
+    batch.log([-6.9 - run, 1.0, -1 + side * 1.2], [-6.9, rise + 1.0, -1 + side * 1.2], 0.05, P.log, 'wood', { segments: 4 });
+    for (const t of [0.3, 0.65]) {
+      batch.log([-6.9 - run + run * t, -0.3, -1 + side * 1.2], [-6.9 - run + run * t, rise * t + 1.0, -1 + side * 1.2], 0.06, P.log, 'wood', { segments: 4 });
+    }
   }
+  // Open timber roof on four log posts.
+  for (const sx of [-6.6, -0.2]) for (const sz of [-3.8, 1.8]) batch.log([sx, rise, sz], [sx, rise + 3.2, sz], 0.15, P.log, 'wood', { segments: 5, endColor: P.logEnd });
+  for (const sx of [-6.6, -0.2]) batch.log([sx, rise + 3.15, -4.3], [sx, rise + 3.15, 2.3], 0.12, P.logDark, 'wood', { segments: 5, endColor: P.logEnd });
+  batch.with(Affine.translation(-3.4, 0, -1), () => drawStationRoof(batch, 3.9, 3.5, rise + 3.25, 0.5, P.shingleDark, true));
   // Waiting bobs in four colours
   const colors = [P.flamingo, P.yellow, P.flowerPurple, P.peakBlue];
   for (let bob = 0; bob < 4; bob += 1) {
-    batch.with(Affine.translation(-5.6 + bob * 1.5, rise, 1.2), () => {
+    batch.with(Affine.translation(-5.6 + bob * 1.5, rise, 1.0), () => {
       batch.blob(0, 0.35, 0, 0.6, 0.35, 0.9, colors[bob] ?? P.flamingo, 'plain', { segments: 8, rings: 4, flatBottom: true });
       batch.blob(0, 0.5, -0.1, 0.42, 0.2, 0.55, P.ink, 'plain', { segments: 7, rings: 3 });
     });
   }
+}
+
+/** Timber bent under the jump ramp: a centre post (the collider), splayed legs, cap beam and braces. */
+function drawRampBent(batch: GeometryBatch, x: number, y: number, z: number, ground: number, sideX: number, sideZ: number): void {
+  const capY = y - 0.4;
+  batch.log([x, ground - 0.3, z], [x, capY, z], 0.3, P.log, 'wood', { segments: 6, endColor: P.logEnd });
+  const legTop: V3[] = [];
+  const legFoot: V3[] = [];
+  for (const s of [-1, 1]) {
+    const gx = x + sideX * s * 2.3;
+    const gz = z + sideZ * s * 2.3;
+    const foot: V3 = [gx, sampleMapHeight(gx, gz) - 0.3, gz];
+    const head: V3 = [x + sideX * s * 1.15, capY, z + sideZ * s * 1.15];
+    batch.log(foot, head, 0.17, P.log, 'wood', { segments: 5, endColor: P.logEnd });
+    legFoot.push(foot);
+    legTop.push(head);
+  }
+  batch.log([x - sideX * 1.5, capY, z - sideZ * 1.5], [x + sideX * 1.5, capY, z + sideZ * 1.5], 0.17, P.logDark, 'wood', { segments: 5, endColor: P.logEnd });
+  const [footA, footB] = legFoot as [V3, V3];
+  const [headA, headB] = legTop as [V3, V3];
+  const at = (a: V3, b: V3, t: number): V3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  batch.log(at(footA, headA, 0.12), at(footB, headB, 0.8), 0.08, P.logDark, 'wood', { segments: 4 });
+  batch.log(at(footB, headB, 0.12), at(footA, headA, 0.8), 0.08, P.logDark, 'wood', { segments: 4 });
+  batch.log(at(footA, headA, 0.45), at(footB, headB, 0.45), 0.08, P.logDark, 'wood', { segments: 4 });
 }
 
 // ---------------------------------------------------------------------------

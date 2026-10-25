@@ -37,19 +37,23 @@ function styleFor(layout: BuildingLayout, variant: number): BuildingStyle {
   const shutter = shutters[variant % shutters.length] ?? P.shutterRed;
   switch (layout.style) {
     case 'plaster_chalet':
-      return { ground: 'plaster', upper: 'logs', wood: P.log, trim: P.trim, shutter, roof: P.shingle, roofKind: 'shingle', flowers: true, hearts: true, plinthStone: true };
+      // Alpen-Bistro: white plaster ground floor, plank upper floor with flower boxes.
+      return { ground: 'plaster', upper: 'boards', wood: P.log, trim: P.trim, shutter, roof: P.shingle, roofKind: 'shingle', flowers: true, hearts: true, plinthStone: true };
     case 'tiki_chalet':
-      return { ground: 'logs', upper: 'bamboo', wood: P.logLight, trim: P.trim, shutter: P.teal, roof: P.thatch, roofKind: 'thatch', flowers: true, hearts: false, plinthStone: true };
+      // Tiki-Alm: log body under a thick palm-thatch roof.
+      return { ground: 'logs', upper: 'logs', wood: P.logLight, trim: P.trim, shutter: P.teal, roof: P.thatch, roofKind: 'thatch', flowers: true, hearts: false, plinthStone: true };
     case 'beach_bar':
       return { ground: 'bamboo', upper: 'bamboo', wood: P.bamboo, trim: P.cream, shutter: P.coral, roof: P.thatch, roofKind: 'thatch', flowers: true, hearts: false, plinthStone: false };
     case 'fisher_hut':
       return { ground: 'greyBoards', upper: 'greyBoards', wood: P.plankGrey, trim: P.cream, shutter: P.shutterBlue, roof: P.shingleDark, roofKind: 'shingle', flowers: false, hearts: false, plinthStone: false };
     case 'side_hut':
-      return { ground: 'logs', upper: 'logs', wood: P.logDark, trim: P.trim, shutter, roof: P.shingle, roofKind: 'shingle', flowers: variant % 2 === 0, hearts: true, plinthStone: true };
+      // Snowy side hut: weathered grey planks.
+      return { ground: 'greyBoards', upper: 'greyBoards', wood: P.plankGrey, trim: P.trim, shutter, roof: P.shingleDark, roofKind: 'shingle', flowers: false, hearts: true, plinthStone: true };
     case 'dairy_fortress':
       return { ground: 'boards', upper: 'logs', wood: P.logDark, trim: P.trim, shutter: P.shutterRed, roof: P.shingleDark, roofKind: 'shingle', flowers: true, hearts: true, plinthStone: true };
     case 'hangar':
-      return { ground: 'boards', upper: 'boards', wood: P.plank, trim: P.cream, shutter: P.alpineRed, roof: P.metal, roofKind: 'metal', flowers: false, hearts: false, plinthStone: true };
+      // Tank hangar: dark planks.
+      return { ground: 'boards', upper: 'boards', wood: P.logDark, trim: P.cream, shutter: P.alpineRed, roof: P.metal, roofKind: 'metal', flowers: false, hearts: false, plinthStone: true };
     case 'bamboo_garage':
       return { ground: 'bamboo', upper: 'bamboo', wood: P.bamboo, trim: P.cream, shutter: P.coral, roof: P.thatch, roofKind: 'thatch', flowers: false, hearts: false, plinthStone: false };
     default:

@@ -27,6 +27,7 @@ import {
   BRIDGE_SOUTH,
   BRIDGE_WIDTH,
   CABLE_CAR_STATIONS,
+  CABLE_STATION_YAWS,
   GLACIER_RUNWAY,
   GORGE,
   GORGE_TRAIL_WIDTH,
@@ -477,6 +478,36 @@ export const LIGHTHOUSE = {
   spiralSweep: Math.PI * 1.06,
 } as const;
 
+/** Front terraces (depth in metres) of the Alpen-Bistro café and the Tiki-Alm. */
+export const CHALET_TERRACES: Readonly<Record<string, number>> = {
+  chalet_east: 3.4,
+  chalet_south: 3,
+};
+
+/** Raised front terrace with railings, a gap and a step at the door. */
+function terraceColliders(width: number, depth: number, plinth: number, terraceDepth: number, doorOffset: number, pieceId: string): PropCollider[] {
+  const halfW = width / 2;
+  const halfD = depth / 2;
+  const z0 = halfD;
+  const z1 = halfD + terraceDepth;
+  const rail = 1.0;
+  const gapFrom = doorOffset - 1.1;
+  const gapTo = doorOffset + 1.1;
+  return [
+    boxCollider(halfW, plinth / 2, terraceDepth / 2, 0, plinth / 2, (z0 + z1) / 2, { surface: 'wood', pieceId }),
+    boxCollider((gapFrom + halfW) / 2, rail / 2, 0.06, (-halfW + gapFrom) / 2, plinth + rail / 2, z1 - 0.06, { pieceId }),
+    boxCollider((halfW - gapTo) / 2, rail / 2, 0.06, (gapTo + halfW) / 2, plinth + rail / 2, z1 - 0.06, { pieceId }),
+    boxCollider(0.06, rail / 2, terraceDepth / 2, -halfW + 0.06, plinth + rail / 2, (z0 + z1) / 2, { pieceId }),
+    boxCollider(0.06, rail / 2, terraceDepth / 2, halfW - 0.06, plinth + rail / 2, (z0 + z1) / 2, { pieceId }),
+    boxCollider(1.1, plinth / 4, 0.4, doorOffset, plinth / 4, z1 + 0.4, { surface: 'wood', pieceId }),
+  ];
+}
+
+/** Stone step in front of the door so the plinth is a comfortable climb. */
+function doorStepColliders(depth: number, plinth: number, doorOffset: number, pieceId: string): PropCollider[] {
+  return [boxCollider(1.2, plinth / 4, 0.45, doorOffset, plinth / 4, depth / 2 + 0.7, { surface: 'cobblestone', pieceId })];
+}
+
 export const CHALET_PLACEMENTS = [
   { id: 'chalet_west', nameKey: 'world.buildings.gasthof', x: -31, z: -12, rotationY: Math.PI / 2, style: 'log_chalet' as const, doorOffset: 2.6 },
   { id: 'chalet_east', nameKey: 'world.buildings.bistro', x: 31, z: -6, rotationY: -Math.PI / 2, style: 'plaster_chalet' as const, doorOffset: -2.4 },
@@ -535,11 +566,17 @@ function villageSeeds(): PropSeed[] {
       snow: placement.style !== 'tiki_chalet',
       doorOffset: placement.doorOffset,
     });
+    const destructibleId = `building_${placement.id}`;
+    const terrace = CHALET_TERRACES[placement.id];
+    const extra = terrace
+      ? terraceColliders(layout.width, layout.depth, layout.plinth, terrace, placement.doorOffset, destructibleId)
+      : doorStepColliders(layout.depth, layout.plinth, placement.doorOffset, destructibleId);
     seeds.push(
       building(placement.id, 'chalet', layout, placement.x, placement.z, placement.rotationY, {
         y: VILLAGE_HEIGHT,
-        destructibleId: `building_${placement.id}`,
+        destructibleId,
         variant: CHALET_PLACEMENTS.indexOf(placement),
+        extra,
       }),
     );
   }
@@ -842,7 +879,7 @@ function midSupportSeeds(): PropSeed[] {
   const station = CABLE_CAR_STATIONS.mid;
   const footY = ground(station.x, station.z);
   const rise = station.y - footY;
-  const yaw = yawTowards(CABLE_CAR_STATIONS.valley, CABLE_CAR_STATIONS.mountain) + Math.PI / 2;
+  const yaw = CABLE_STATION_YAWS.mid;
   const half = rise / 2;
   const colliders: PropCollider[] = [
     boxCollider(3.6, 0.2, 3, 0, rise - 0.2, 0, { surface: 'wood' }),
@@ -874,6 +911,9 @@ function midSupportSeeds(): PropSeed[] {
 // ---------------------------------------------------------------------------
 
 export const SUMMIT_YAW = -0.75 * Math.PI;
+
+/** Coaster start stairs climb at tan⁻¹(0.68) ≈ 34°, well under the motor's 52° limit. */
+const COASTER_STAIR_SLOPE = 0.68;
 
 function summitSeeds(): PropSeed[] {
   const seeds: PropSeed[] = [];
@@ -933,7 +973,7 @@ function summitSeeds(): PropSeed[] {
   const mountain = CABLE_CAR_STATIONS.mountain;
   const mountainFoot = ground(mountain.x, mountain.z);
   const rise = mountain.y - mountainFoot;
-  const stationYaw = yawTowards(CABLE_CAR_STATIONS.mid, mountain);
+  const stationYaw = CABLE_STATION_YAWS.mountain;
   seeds.push({
     id: 'cable_station_mountain',
     kind: 'cable_station',
@@ -947,8 +987,9 @@ function summitSeeds(): PropSeed[] {
     colliders: [
       boxCollider(4, 0.25, 4.5, 0, rise - 0.25, 0, { surface: 'wood' }),
       rampCollider(vec3(5.6, 0, -4.6), vec3(5.6, rise, 1.6), 1.8, 0.3, { surface: 'wood' }),
-      boxCollider(1.4, 0.15, 1.4, 5.2, rise - 0.15, 2.4, { surface: 'wood' }),
-      boxCollider(3.2, 1.6, 0.5, 0, rise + 1.6, 4.1),
+      boxCollider(1.4, 0.15, 1.4, 5.2, rise - 0.15, 0.6, { surface: 'wood' }),
+      // Carved station chalet at the back of the covered docking balcony.
+      boxCollider(4, 2.7, 1.2, 0, rise + 2.7, 3.3, { surface: 'wood' }),
     ],
   });
 
@@ -968,7 +1009,8 @@ function summitSeeds(): PropSeed[] {
     surface: 'wood',
     colliders: [
       boxCollider(3.5, coasterRise / 2, 3, -3.4, coasterRise / 2, -1, { surface: 'wood' }),
-      rampCollider(vec3(-3.4, 0, -8.6), vec3(-3.4, coasterRise, -4), 2.2, 0.3, { surface: 'wood' }),
+      // Stairs off the back edge, away from the summit ring path.
+      rampCollider(vec3(-6.9 - coasterRise / COASTER_STAIR_SLOPE, 0, -1), vec3(-6.9, coasterRise, -1), 2.2, 0.3, { surface: 'wood' }),
     ],
   });
   const terrace = localToWorld(vec3(coasterStart.x, coasterFoot, coasterStart.z), coasterYaw, vec3(-6.5, 0, 2));
@@ -1092,6 +1134,24 @@ function lagoonBaseSeeds(): PropSeed[] {
   seeds.push(simple('lagoon_flag_0', 'flag', -302, -306, 0, 2, [cylinderCollider(0.18, 5, 0, 5, 0)], base.y));
   seeds.push(simple('lagoon_flag_1', 'flag', -316, -318, 0, 2, [cylinderCollider(0.18, 5, 0, 5, 0)], base.y));
   seeds.push(simple('lagoon_surf_rack', 'surfboard_rack', -296, -292, 0.8, 0, [boxCollider(1.5, 1, 0.4, 0, 1, 0)], base.y));
+  // Palms around the plaza strung with pastel bunting.
+  const basePalms = [
+    [-284, -318, 1.05, 0],
+    [-284, -300, 0.95, 2],
+    [-296, -284, 1.1, 1],
+    [-322, -288, 1.0, 0],
+  ] as const;
+  basePalms.forEach(([x, z, scale, variant], index) =>
+    seeds.push(simple(`lagoon_palm_${index}`, 'palm', x, z, index * 1.9, variant, [cylinderCollider(0.34 * scale, 1.6 * scale, 0, 1.6 * scale, 0)], base.y, scale)),
+  );
+  for (let index = 0; index + 1 < basePalms.length; index += 1) {
+    const a = basePalms[index];
+    const b = basePalms[index + 1];
+    if (!a || !b) continue;
+    seeds.push(
+      polylineProp(`lagoon_bunting_${index}`, 'bunting', [vec3(a[0], base.y + 5.6 * a[2], a[1]), vec3(b[0], base.y + 5.6 * b[2], b[1])], index + 2),
+    );
+  }
   // Water runway buoys.
   const dx = WATER_RUNWAY.end.x - WATER_RUNWAY.start.x;
   const dz = WATER_RUNWAY.end.z - WATER_RUNWAY.start.z;
@@ -1117,7 +1177,7 @@ function transportSeeds(): PropSeed[] {
   // Valley station on the beach cliff.
   const valley = CABLE_CAR_STATIONS.valley;
   const valleyFoot = ground(valley.x, valley.z);
-  const valleyYaw = yawTowards(valley, CABLE_CAR_STATIONS.mid);
+  const valleyYaw = CABLE_STATION_YAWS.valley;
   const deck = Math.max(0.3, valley.y - valleyFoot);
   seeds.push({
     id: 'cable_station_valley',
@@ -1131,7 +1191,7 @@ function transportSeeds(): PropSeed[] {
     surface: 'wood',
     colliders: [
       boxCollider(4.5, deck / 2, 5, 0, deck / 2, 0, { surface: 'wood' }),
-      boxCollider(4.5, 1.6, 0.5, 0, deck + 1.6, -4.6),
+      boxCollider(4.5, 2.8, 1.5, 0, deck + 2.8, -3.5, { surface: 'wood' }),
       ...[-1, 1].map((side) => cylinderCollider(0.3, 2.6, side * 4.1, deck + 2.6, 4.4)),
     ],
   });
@@ -1153,8 +1213,18 @@ function transportSeeds(): PropSeed[] {
   // T-bar stations and masts.
   const tbar = FJORD_ROUTES.tBar;
   const tbarYaw = yawTowards(tbar.bottom, tbar.top);
-  seeds.push(simple('tbar_bottom', 'tbar_station', tbar.bottom.x, tbar.bottom.z, tbarYaw, 0, [boxCollider(2.2, 1.6, 2.2, -3.4, 1.6, -1.5)]));
-  seeds.push(simple('tbar_top', 'tbar_station', tbar.top.x, tbar.top.z, tbarYaw, 1, [boxCollider(2.2, 1.6, 2.2, -3.4, 1.6, 1.5)]));
+  seeds.push(
+    simple('tbar_bottom', 'tbar_station', tbar.bottom.x, tbar.bottom.z, tbarYaw, 0, [
+      boxCollider(2.2, 1.6, 2.2, -3.4, 1.6, -1.5),
+      boxCollider(0.8, 0.6, 0.8, 0, 0.6, 0, { surface: 'cobblestone' }),
+    ]),
+  );
+  seeds.push(
+    simple('tbar_top', 'tbar_station', tbar.top.x, tbar.top.z, tbarYaw, 1, [
+      boxCollider(2.2, 1.6, 2.2, -3.4, 1.6, 1.5),
+      ...[-1, 1].map((side) => cylinderCollider(0.2, 2.4, side * 1.0, 2.4, 0)),
+    ]),
+  );
   const left = { x: -Math.cos(tbarYaw), z: Math.sin(tbarYaw) };
   tbar.pylons.forEach((top, index) => {
     const x = top.x + left.x * 2.8;

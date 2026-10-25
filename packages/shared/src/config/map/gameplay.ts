@@ -220,12 +220,14 @@ function beside(pierId: string, along: number, side: number): Vec3 {
 }
 
 export const FJORD_VEHICLE_SPAWNS: readonly VehicleSpawnPoint[] = [
-  { id: 'flamingo_base', vehicle: 'badi_flamingo', position: vec3(-307, 0, -236), rotationY: 0, faction: 'lagoon', trigger: 'base' },
+  { id: 'flamingo_base', vehicle: 'badi_flamingo', position: vec3(-312.5, 0, -239), rotationY: -0.12, faction: 'lagoon', trigger: 'base' },
   { id: 'flamingo_harbor', vehicle: 'badi_flamingo', position: vec3(-165, 0, -175), rotationY: Math.PI / 4, faction: null, trigger: 'map' },
   { id: 'flamingo_east_beach', vehicle: 'badi_flamingo', position: vec3(60, 0, -210), rotationY: Math.PI, faction: null, trigger: 'map' },
-  { id: 'crawler_base', vehicle: 'fondue_crawler', position: ground(290, 285), rotationY: -2.4, faction: 'alpine', trigger: 'base' },
+  // Inside the alpine hangar (26 × 20 m, door 19 m) facing out of the door toward the runway.
+  { id: 'crawler_base', vehicle: 'fondue_crawler', position: ground(334, 318), rotationY: Math.atan2(301.4 - 334, 248 - 318), faction: 'alpine', trigger: 'base' },
   { id: 'crawler_summit', vehicle: 'fondue_crawler', position: ground(175, 195), rotationY: -1.7, faction: 'alpine', trigger: { capture: 'tower_c' } },
-  { id: 'coconut_tank_base', vehicle: 'coconut_tank', position: ground(-285, -280), rotationY: 0.75, faction: 'lagoon', trigger: 'base' },
+  // Inside the bamboo garage (18 × 13 m, door 13.5 m) facing out toward the spit.
+  { id: 'coconut_tank_base', vehicle: 'coconut_tank', position: ground(-326, -334), rotationY: Math.PI / 4, faction: 'lagoon', trigger: 'base' },
   { id: 'coconut_tank_harbor', vehicle: 'coconut_tank', position: ground(-130, -140), rotationY: 0.75, faction: 'lagoon', trigger: { capture: 'tower_a' } },
   { id: 'rowboat_pier_w', vehicle: 'rowboat', position: beside('pier_w', 14, 1), rotationY: -Math.PI / 2, faction: null, trigger: 'map' },
   { id: 'rowboat_pier_s', vehicle: 'rowboat', position: beside('pier_s', 14, -1), rotationY: Math.PI, faction: null, trigger: 'map' },
