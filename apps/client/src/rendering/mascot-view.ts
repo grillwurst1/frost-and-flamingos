@@ -125,6 +125,11 @@ export function coconutShellChoice(): CoconutShellChoice {
   return value === 'meshy' || value === 'painted' || value === 'vertex' ? value : DEFAULT_COCONUT_SHELL;
 }
 
+/** The Meshy cow walks with its authored clip; `?cowWalk=procedural` uses the solver walk. */
+function clipWalkEnabled(): boolean {
+  return queryOverride('cowWalk') !== 'procedural';
+}
+
 /** `?mascotModels=off` keeps the procedural mascots (fallback testing). */
 function modelsEnabled(): boolean {
   return queryOverride('mascotModels') !== 'off';
@@ -183,8 +188,7 @@ export class MascotView {
   private cowBody: CowBody | null = null;
   private pendingModel: (() => void) | null = null;
   private cowFallbackTimer: ReturnType<typeof setTimeout> | null = null;
-  private useClipWalk = false;
-  private clipPhase = 0;
+  private useClipWalk = clipWalkEnabled();
   private readonly drive: CowDrive = {
     forward: 0,
     lateral: 0,
@@ -284,6 +288,12 @@ export class MascotView {
     return this.cowAnimator?.cadence ?? 0;
   }
 
+  /** Measured walk-clip gait and whether it drives the walk (for dev probes). */
+  get clipWalk(): { active: boolean; gait: unknown; groundCorrection: number } | null {
+    const clip = this.cowBody?.clip;
+    return clip ? { active: this.useClipWalk && clip.gait !== null, gait: clip.gait, groundCorrection: clip.groundCorrection } : null;
+  }
+
   /** Which rig the cow uses right now (for dev probes). */
   get rigKind(): string {
     if (this.form === 'cow') return this.cowBody?.kind ?? 'pending';
@@ -368,6 +378,7 @@ export class MascotView {
     };
     this.cowAnimator = new CowAnimator(built.strideLimit);
     this.cowAnimator.lyingDrop = built.skeleton.lyingHeight - built.skeleton.visualRestY;
+    this.cowAnimator.setWalkClip(this.useClipWalk ? built.clip?.gait ?? null : null);
     return true;
   }
 
@@ -534,6 +545,7 @@ export class MascotView {
   /** Dev hook: play Meshy's walk clip instead of the procedural walk. */
   setClipWalk(enabled: boolean): void {
     this.useClipWalk = enabled;
+    this.cowAnimator?.setWalkClip(enabled ? this.cowBody?.clip?.gait ?? null : null);
   }
 
   update(deltaSeconds: number, pose: AvatarPose): void {
@@ -655,9 +667,12 @@ export class MascotView {
     }
     const cowPose = animator.update(dt, drive);
     applyCowPose(body.skeleton, cowPose);
-    if (body.clip && this.useClipWalk) {
-      this.clipPhase = (this.clipPhase + dt * animator.cadence * Math.sign(drive.forward || 1)) % 1;
-      body.clip.apply(this.clipPhase, animator.walkWeight * saturate(Math.abs(drive.forward) / 0.6));
+    if (body.clip) {
+      // The gait phase is the clip time; the clip owns the walking legs, the
+      // solver keeps trot, gallop and every non-walking pose.
+      const weight = this.useClipWalk && body.clip.gait ? saturate(animator.walkWeight) * animator.stepping : 0;
+      body.clip.apply(animator.gaitPhase, weight);
+      if (weight > 0) body.skeleton.visual.position.y += body.clip.groundCorrection * weight;
     }
 
     // Feedback: bell clank, topple thud, hoof dust.

@@ -275,8 +275,29 @@ export class CowAnimator {
   private stepAmount = 0;
   private gaitLift = 0;
   private flight = 0;
+  private walk: Gait = WALK;
+  private walkStride = 0;
 
   constructor(private readonly strideLimit: number) {}
+
+  /**
+   * Adopts the duty, footfall offsets and stride of an authored walk clip, so
+   * the gait phase doubles as the clip time (null = procedural walk).
+   */
+  setWalkClip(clip: { duty: number; offsets: readonly [number, number, number, number]; stride: number } | null): void {
+    this.walk = clip ? { ...WALK, duty: clip.duty, offsets: clip.offsets } : WALK;
+    this.walkStride = clip ? clip.stride : 0;
+  }
+
+  /** Gait cycle phase 0..1 (the walk clip's time when one is set). */
+  get gaitPhase(): number {
+    return this.phase;
+  }
+
+  /** How much the legs are stepping (0 = standing, airborne or busy). */
+  get stepping(): number {
+    return this.stepAmount;
+  }
 
   /** Gameplay reactions: landing impact, hit, battle cry / moo, cowbell clang. */
   react(kind: 'hurt' | 'cry' | 'clang' | 'impact', strength = 1): void {
@@ -368,9 +389,11 @@ export class CowAnimator {
     const effective = Math.max(speed, turning, drive.swimming ? 1.4 : 0);
     const stepTarget = grounded && drive.alive && drive.stomp < 0 ? smoothstep(0.08, 0.7, effective) : 0;
     this.stepAmount = damp(this.stepAmount, stepTarget, 9, dt);
-    const duty = WALK.duty * wWalk + TROT.duty * wTrot + GALLOP.duty * wGallop;
-    let cadence =
-      WALK.cadence(effective) * wWalk + TROT.cadence(effective) * wTrot + GALLOP.cadence(effective) * wGallop;
+    const walk = this.walk;
+    const duty = walk.duty * wWalk + TROT.duty * wTrot + GALLOP.duty * wGallop;
+    // An authored walk clip has a fixed stride: its cadence is speed / stride.
+    const walkCadence = this.walkStride > 0 ? Math.max(0.3, effective / this.walkStride) : walk.cadence(effective);
+    let cadence = walkCadence * wWalk + TROT.cadence(effective) * wTrot + GALLOP.cadence(effective) * wGallop;
     // Stride = speed / cadence; the stance sweep (duty x stride) must fit the
     // legs, so the cadence rises when the stride would outgrow them. Small
     // steps while starting (stepAmount < 1) slow the cycle, never the hooves.
@@ -381,8 +404,8 @@ export class CowAnimator {
     this.phase = fract(this.phase + cadence * dt * direction);
     const sweep = cadence > 1e-4 ? (speed * duty) / cadence : 0;
     const phase = this.phase;
-    const lift = (WALK.lift * wWalk + TROT.lift * wTrot + GALLOP.lift * wGallop) * this.stepAmount;
-    const frontLift = (WALK.frontLift * wWalk + TROT.frontLift * wTrot + GALLOP.frontLift * wGallop) * this.stepAmount;
+    const lift = (walk.lift * wWalk + TROT.lift * wTrot + GALLOP.lift * wGallop) * this.stepAmount;
+    const frontLift = (walk.frontLift * wWalk + TROT.frontLift * wTrot + GALLOP.frontLift * wGallop) * this.stepAmount;
     this.gaitLift = lift;
 
     // --- whole-body motion ---------------------------------------------------------
@@ -607,7 +630,7 @@ export class CowAnimator {
     // --- legs ------------------------------------------------------------------------------
     const offsets = this.offsets;
     for (let leg = 0; leg < 4; leg += 1) {
-      offsets[leg] = blendOffset(WALK.offsets[leg] ?? 0, TROT.offsets[leg] ?? 0, GALLOP.offsets[leg] ?? 0, wTrot, wGallop);
+      offsets[leg] = blendOffset(walk.offsets[leg] ?? 0, TROT.offsets[leg] ?? 0, GALLOP.offsets[leg] ?? 0, wTrot, wGallop);
     }
     for (let leg = 0; leg < 4; leg += 1) {
       const out = pose.legs[leg];

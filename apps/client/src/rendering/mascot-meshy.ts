@@ -115,46 +115,176 @@ function measure(asset: MascotModelAsset, instance: Instance, holder: TransformN
   return result;
 }
 
-/** Plays Meshy's walk clip on the mapped joints, phase-locked to the gait. */
+/** Walk gait measured from an authored clip (phase = clip time). */
+export interface ClipGait {
+  duty: number;
+  /** Phase offsets FL, FR, HL, HR such that leg i lifts off at clip time liftOff[i]. */
+  offsets: [number, number, number, number];
+  /** Ground covered per cycle (m). */
+  stride: number;
+}
+
+/**
+ * Meshy's walk clip as the cow's walk layer. At construction the clip is
+ * measured on the instance itself: per hoof the stance window (lift-off and
+ * touch-down) and the stance travel, giving the duty factor, the stride per
+ * cycle (cadence = speed / stride keeps planted hooves still) and the phase
+ * offsets that make the animator's footfalls coincide with the clip's. It
+ * also measures how far the clip's stance hooves sit from the rest sole, so
+ * the body can be lifted back onto the ground. Only legs, Hips and chest
+ * follow the clip; head, ears, bell and tail stay procedural.
+ */
 export class CowClipLayer {
-  private readonly targets: Array<{ index: number; node: TransformNode }> = [];
+  private readonly targets: Array<{ index: number; node: TransformNode; rest: Quaternion | null }> = [];
   private readonly root: TransformNode | null;
   private readonly rootRest = new Vector3();
+  private readonly rootSample = new Vector3();
   private readonly sample = new Quaternion();
   private readonly next = new Quaternion();
-  /** Clip time (0..1) of the front-left lift-off, to align with the gait phase. */
-  readonly liftOff: number;
+  private applied = false;
+  /** Measured gait, or null when the clip does not look like a four-beat walk. */
+  readonly gait: ClipGait | null;
+  /** Lift that puts the clip's stance hooves back on the rest sole (m, visual space). */
+  readonly groundCorrection: number;
 
   constructor(
     private readonly clip: BakedClip,
     nodes: Map<string, TransformNode>,
+    driven: ReadonlySet<TransformNode>,
+    visual: TransformNode,
+    rig: TransformNode,
+    feet: readonly TransformNode[],
   ) {
+    const gait = /leg|^hips$|^chest$/;
     clip.joints.forEach((joint, index) => {
-      const node = nodes.get(normalised(joint));
-      if (node) this.targets.push({ index, node });
+      const name = normalised(joint);
+      const node = nodes.get(name);
+      if (!node || !gait.test(name)) return;
+      // Joints no driver writes each frame blend from their rest pose instead of drifting.
+      const rest = driven.has(node) ? null : node.rotationQuaternion?.clone() ?? null;
+      this.targets.push({ index, node, rest });
     });
     this.root = clip.rootJoint ? nodes.get(normalised(clip.rootJoint)) ?? null : null;
     if (this.root) this.rootRest.copyFrom(this.root.position);
-    this.liftOff = 0.93;
+
+    // Sample every hoof through one cycle, then restore the rest pose.
+    const frames = clip.frames;
+    const saved = this.targets.map(({ node }) => node.rotationQuaternion?.clone() ?? null);
+    const probe = new Vector3();
+    forceWorld(rig);
+    const restY = feet.map((foot) => relativePosition(foot, visual, probe).y);
+    const heights = feet.map(() => new Float64Array(frames));
+    const travel = feet.map(() => new Float64Array(frames));
+    for (let frame = 0; frame < frames; frame += 1) {
+      this.apply(frame / frames, 1);
+      forceWorld(rig);
+      feet.forEach((foot, leg) => {
+        relativePosition(foot, visual, probe);
+        (heights[leg] as Float64Array)[frame] = probe.y;
+        (travel[leg] as Float64Array)[frame] = probe.z;
+      });
+    }
+    this.targets.forEach(({ node }, index) => {
+      const rest = saved[index];
+      if (rest && node.rotationQuaternion) node.rotationQuaternion.copyFrom(rest);
+    });
+    if (this.root) this.root.position.copyFrom(this.rootRest);
+    this.applied = false;
+    forceWorld(rig);
+
+    const offsets: [number, number, number, number] = [0, 0, 0, 0];
+    let dutySum = 0;
+    let strideSum = 0;
+    let liftSum = 0;
+    let valid = feet.length === 4 && frames >= 8;
+    const lifts: number[] = [];
+    feet.forEach((_, leg) => {
+      const y = heights[leg] as Float64Array;
+      const z = travel[leg] as Float64Array;
+      let low = Infinity;
+      let high = -Infinity;
+      for (let frame = 0; frame < frames; frame += 1) {
+        low = Math.min(low, y[frame] ?? 0);
+        high = Math.max(high, y[frame] ?? 0);
+      }
+      const threshold = low + (high - low) * 0.15;
+      let stance = 0;
+      let liftOff = -1;
+      let stanceY = 0;
+      let swept = 0;
+      for (let frame = 0; frame < frames; frame += 1) {
+        const following = (frame + 1) % frames;
+        const down = (y[frame] ?? 0) <= threshold;
+        if (!down) continue;
+        stance += 1;
+        stanceY += y[frame] ?? 0;
+        if ((y[following] ?? 0) <= threshold) swept += (z[frame] ?? 0) - (z[following] ?? 0);
+        else liftOff = following / frames;
+      }
+      if (stance < 2 || liftOff < 0 || high - low < 1e-4) valid = false;
+      const duty = stance / frames;
+      dutySum += duty;
+      // Stance frames minus one interval swept the hoof back by `swept`.
+      strideSum += stance > 1 ? (swept / (stance - 1)) * frames : 0;
+      liftSum += (restY[leg] ?? 0) - stanceY / Math.max(1, stance);
+      lifts.push(liftOff);
+    });
+    const duty = dutySum / 4;
+    const stride = strideSum / 4;
+    lifts.forEach((liftOff, leg) => {
+      offsets[leg] = (((duty - liftOff) % 1) + 1) % 1;
+    });
+    valid = valid && duty > 0.3 && duty < 0.9 && stride > 0.2 && stride < 4;
+    this.gait = valid ? { duty, offsets, stride } : null;
+    this.groundCorrection = valid ? liftSum / 4 : 0;
   }
 
+  /** Blends the clip in at `phase` (0..1). Weight 0 puts the undriven joints back at rest. */
   apply(phase: number, weight: number): void {
-    if (weight <= 0.001) return;
+    if (weight <= 0.001) {
+      if (this.applied) this.release();
+      return;
+    }
+    this.applied = true;
     const clip = this.clip;
     const position = (((phase % 1) + 1) % 1) * clip.frames;
     const frame = Math.floor(position) % clip.frames;
     const following = (frame + 1) % clip.frames;
     const t = position - Math.floor(position);
     const count = clip.joints.length;
-    for (const { index, node } of this.targets) {
+    const rotations = clip.rotations;
+    for (const { index, node, rest } of this.targets) {
       const a = (frame * count + index) * 4;
       const b = (following * count + index) * 4;
-      this.sample.set(clip.rotations[a] ?? 0, clip.rotations[a + 1] ?? 0, clip.rotations[a + 2] ?? 0, clip.rotations[a + 3] ?? 1);
-      this.next.set(clip.rotations[b] ?? 0, clip.rotations[b + 1] ?? 0, clip.rotations[b + 2] ?? 0, clip.rotations[b + 3] ?? 1);
+      this.sample.set(rotations[a] ?? 0, rotations[a + 1] ?? 0, rotations[a + 2] ?? 0, rotations[a + 3] ?? 1);
+      this.next.set(rotations[b] ?? 0, rotations[b + 1] ?? 0, rotations[b + 2] ?? 0, rotations[b + 3] ?? 1);
       Quaternion.SlerpToRef(this.sample, this.next, t, this.sample);
       const target = node.rotationQuaternion;
-      if (target) Quaternion.SlerpToRef(target, this.sample, weight, target);
+      if (!target) continue;
+      Quaternion.SlerpToRef(rest ?? target, this.sample, weight, target);
     }
+    const root = this.root;
+    const translations = clip.rootTranslations;
+    if (root && translations) {
+      const ax = translations[frame * 3] ?? 0;
+      const ay = translations[frame * 3 + 1] ?? 0;
+      const az = translations[frame * 3 + 2] ?? 0;
+      this.rootSample.set(
+        ax + ((translations[following * 3] ?? ax) - ax) * t,
+        ay + ((translations[following * 3 + 1] ?? ay) - ay) * t,
+        az + ((translations[following * 3 + 2] ?? az) - az) * t,
+      );
+      Vector3.LerpToRef(this.rootRest, this.rootSample, Math.min(1, weight), root.position);
+    }
+  }
+
+  /** Puts the undriven joints and the Hips translation back at rest. */
+  release(): void {
+    for (const { node, rest } of this.targets) {
+      if (rest && node.rotationQuaternion) node.rotationQuaternion.copyFrom(rest);
+    }
+    this.root?.position.copyFrom(this.rootRest);
+    this.applied = false;
   }
 }
 
@@ -288,7 +418,11 @@ export function buildMeshyCow(scene: Scene, asset: MascotModelAsset, viewRoot: T
     neckPitchBias: 0,
     bellParent: 'head',
   };
-  const clip = asset.walk ? new CowClipLayer(asset.walk, instance.nodes) : null;
+  const driven = new Set<TransformNode>();
+  for (const driver of Object.values(joints)) if (driver) driven.add(driver.node);
+  for (const leg of legs) for (const driver of leg.joints) driven.add(driver.node);
+  const hooves = ordered.map((chain) => chain.nodes[chain.nodes.length - 1] as TransformNode);
+  const clip = asset.walk ? new CowClipLayer(asset.walk, instance.nodes, driven, visual, rig, hooves) : null;
   return {
     skeleton,
     mesh: instance.mesh,
