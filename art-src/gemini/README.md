@@ -55,3 +55,4 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-sheet-vehicles-alps.webp` | Fondue Crawler, sidecar motorcycle, cable-car gondola references |
 | `gemini-sheet-vehicles-beach.webp` | Coconut tank, flamingo boat, rowboat, biplane references |
 | `gemini-coconut-faces.webp` | Coconut mascot face decals: 12 expressions (angry, blink, battle cry, ramming, happy, smug, surprised, scared, dizzy, pain, KO, sleepy) |
+| `gemini-lei-flowers.webp` | Coconut lei pieces: 4 hibiscus, 4 plumeria, 4 small blossoms, 4 leaves (4x4 stickers on magenta) |

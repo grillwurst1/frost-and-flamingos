@@ -1,5 +1,5 @@
 import type { MascotForm } from '../types/index.js';
-import type { SurfaceTag } from './map-fjord.js';
+import type { SurfaceTag } from '../types/map.js';
 
 /**
  * Mascot class tuning: the Peak Guard cow and the Lagoon League coconut.

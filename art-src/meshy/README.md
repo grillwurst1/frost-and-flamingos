@@ -16,3 +16,12 @@ Free-plan Meshy output is licensed CC BY 4.0 — attribution is in `CREDITS.md`.
 | `meshy-cow.glb` | Alpine cow mascot (Holstein, cowbell, bedroll, saddlebags); Meshy "Quadruped Dog" rig, 27 joints incl. 4-bone tail chain and ear tips, 20.9k tris, 2048² PNG base colour | Walking (1 s loop, clip name `Armature|Unreal Take|baselayer`) |
 | `meshy-coconut.glb` | Lagoon coconut mascot shell (bare husk, no face/lei); static, no rig; 31k tris, base colour + normal 2048², MR + emissive 4096²; germination pores sit on the +Z front (rotate them to the top), mirror seam on the YZ plane | — (rolled procedurally) |
 | `meshy-alpine-ghostgirl.glb` | "Creepy Mountain Girl" (Peak Guard extra character: long black hair, pale, white ragged dress, barefoot); Mixamo rig (28 joints), 21k tris, 2048² PNG base colour | Running, Walking, Call_Gesture, Female_Crouch_Pick_Gun_Point_Forward, Lean_Forward_Sprint, Quad_Jump_Up, Skip_Forward, Swim_Forward, Walk_Backward, jump_push_up |
+| `meshy-hen.glb` | Snow-white hen (ambient NPC critter on both map halves, can be shot); Meshy "Quadruped Dog" rig (27 joints; backleg chains drive the two legs, tail chain the tail feathers), 20.8k tris, 2048² PNG base colour | Walking (clip `Armature|Unreal Take|baselayer`) |
+| `meshy-vehicle-rowboat.glb` | Lagoon rowboat (planked hull, thwarts, one oar fused in its rowlock); static, 20.5k tris, base colour + MR + normal 2048² JPEG | — |
+| `meshy-vehicle-biplane.glb` | Lagoon "Sky Skipper" seaplane biplane (floats, struts, propeller fused); static, 19.0k tris, 3× 2048² JPEG | — |
+| `meshy-vehicle-sidecar.glb` | Alpine vintage sidecar motorcycle (riveted sidecar, wheels fused); static, 19.8k tris, 3× 2048² JPEG | — |
+| `meshy-vehicle-gondola.glb` | Alpine red cable-car gondola with white star and hanger arm (no cable); static, 20.1k tris, 3× 2048² JPEG | — |
+| `meshy-vehicle-flamingo-boat.glb` | Lagoon "Badi-Flamingo" inflatable ring boat with harpoon gun on the neck; static, 20.9k tris, 3× 2048² JPEG | — |
+| `meshy-vehicle-coconut-tank.glb` | Lagoon coconut cannon tank (plank jeep cab on tracks, palm-frond camouflage, coconut turret, bamboo barrel); static, 19.4k tris, 3× 2048² JPEG | — |
+| `meshy-vehicle-fondue-crawler.glb` | Alpine Fondue Crawler (red snow-plough tank, fondue-pot turret with spoon, cheese wheels); static, 20.3k tris, 3× 2048² JPEG | — |
+| `meshy-npc-cow.glb` | Grumpy brown-and-white NPC cow with brass bell (M5 map toy); Meshy "Quadruped Dog" rig, 20.7k tris, 2048² PNG base colour | Walking (clip `Armature|Unreal Take|baselayer`) |
