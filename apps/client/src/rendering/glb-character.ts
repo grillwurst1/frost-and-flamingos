@@ -944,7 +944,7 @@ export class GlbCharacterView implements AvatarView {
     const offset = HOLD_OFFSETS[style];
     const aim = Quaternion.RotationAxis(AXIS_X, -this.pitch * blend);
     const local = toArmature(
-      offset[0] * (this.shoulderHalf / 0.2),
+      offset[0] * Math.min(1.1, this.shoulderHalf / 0.2),
       offset[1],
       offset[2] - this.recoil * 0.05,
     );
@@ -976,18 +976,31 @@ export class GlbCharacterView implements AvatarView {
         }
       }
     }
-    // Long stocks stay in front of the chest: the arm-reach pull above (and
-    // the aim pitch) would otherwise push the butt out through the back.
+    // Long stocks stay in front of the chest (soft limit): the arm-reach
+    // pull above and the aim pitch would otherwise push the butt through the
+    // body. Then the grip is clamped to the right arm's reach, and only a
+    // hard limit (the butt never leaves through the back) may override that.
     const torso = this.asset.torso;
+    const tailZ = (): number =>
+      grip.add(new Vector3(0, 0, this.weaponRear).rotateByQuaternionToRef(weaponRotation, new Vector3())).z;
     if (torso && this.weaponRear < -0.02) {
-      const tail = grip.add(new Vector3(0, 0, this.weaponRear).rotateByQuaternionToRef(weaponRotation, new Vector3()));
-      const limit = chest.z + (torso.front - torso.chestZ) + 0.03;
-      const deficit = limit - tail.z;
-      if (deficit > 0) {
-        grip.z += deficit;
-        if (support) support = new Vector3(support.x, support.y, support.z + deficit);
-      }
+      const deficit = chest.z + (torso.front - torso.chestZ) + 0.03 - tailZ();
+      if (deficit > 0) grip.z += deficit;
     }
+    const rightArm = rig.position('RightArm');
+    const rightFore = rig.position('RightForeArm');
+    const rightHand = rig.position('RightHand');
+    if (rightArm && rightFore && rightHand) {
+      const reach = 0.92 * (Vector3.Distance(rightArm, rightFore) + Vector3.Distance(rightFore, rightHand));
+      const toGrip = grip.subtract(rightArm);
+      const distance = toGrip.length();
+      if (distance > reach && distance > 1e-4) grip.copyFrom(rightArm.add(toGrip.scale(reach / distance)));
+    }
+    if (torso && this.weaponRear < -0.02) {
+      const deficit = chest.z + (torso.back - torso.chestZ) + 0.06 - tailZ();
+      if (deficit > 0) grip.z += deficit;
+    }
+    if (support) support = this.supportPoint(hold, grip, weaponRotation);
     this.weaponAnchor.position.copyFrom(grip);
     this.weaponAnchor.rotationQuaternion?.copyFrom(weaponRotation);
 
