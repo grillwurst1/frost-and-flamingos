@@ -712,8 +712,9 @@ export class GlbCharacterView implements AvatarView {
         continue;
       }
       if (LOCOMOTION.includes(binding.role)) {
+        // Shared phase 0 = left-foot contact in every cycle.
         const phase = binding.reverse ? 1 - this.locoPhase : this.locoPhase;
-        binding.time = phase * binding.clip.duration;
+        binding.time = ((phase + (binding.clip.contactPhase ?? 0)) % 1) * binding.clip.duration;
         continue;
       }
       const duration = binding.clip.duration;
