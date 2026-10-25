@@ -1,9 +1,11 @@
 import '@babylonjs/core/Bones/skeleton';
 import { AnimationGroup } from '@babylonjs/core/Animations/animationGroup';
 import type { InstantiatedEntries } from '@babylonjs/core/assetContainer';
+import { BoundingInfo } from '@babylonjs/core/Culling/boundingInfo';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { SubMesh } from '@babylonjs/core/Meshes/subMesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
@@ -240,6 +242,8 @@ export class GlbCharacterView implements AvatarView {
   private rollTuck = 0;
   /** Air clip active last frame (its rising edge rewinds to just before the apex). */
   private airActive = false;
+  /** The painted headgear sub-mesh was dropped for another headgear item. */
+  private hatHidden = false;
   private crouch = 0;
   private twist = 0;
   private pitch = 0;
@@ -304,9 +308,13 @@ export class GlbCharacterView implements AvatarView {
     this.bodyMesh = mesh;
     mesh.material = this.material;
     mesh.isPickable = false;
-    // Skinned bounds are never refreshed (a death clip travels ~1 m flat on
-    // the ground), so never frustum-cull the body; ≤16 characters are cheap.
-    mesh.alwaysSelectAsActiveMesh = true;
+    // Skinned bounds are never refreshed, so the body culls against a static
+    // box: the bind box grown by the ~1 m a death clip travels on the ground
+    // plus the roll/tilt pivots.
+    const bindBox = mesh.getBoundingInfo();
+    mesh.setBoundingInfo(
+      new BoundingInfo(bindBox.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), bindBox.maximum.add(new Vector3(1.2, 0.5, 1.2))),
+    );
     for (const child of gltfRoot.getChildMeshes(false)) child.isPickable = false;
 
     // Joint nodes by normalised Mixamo name, in parent-first order.
@@ -407,7 +415,7 @@ export class GlbCharacterView implements AvatarView {
       enabled: this.root.isEnabled(false),
       position: this.root.position.asArray().map((value) => Math.round(value * 100) / 100),
       weapon: this.weaponId,
-      hatHidden: this.bodyMesh.subMeshes.length === 1 && this.asset.hatSplit !== null,
+      hatHidden: this.hatHidden,
       drawCalls: this.drawCalls(),
       yaw: Math.round(this.yaw * 1000) / 1000,
       clips,
@@ -438,7 +446,16 @@ export class GlbCharacterView implements AvatarView {
     if (!wearsNative(profile, spec, 'headgear')) {
       if (cosmetics.headgear !== 'head_none') headgear = cosmetics.headgear;
       else if (removableHat) headgear = 'hair_cap';
-      if (headgear && removableHat) this.bodyMesh.subMeshes.splice(1);
+      if (headgear && removableHat) {
+        this.bodyMesh.subMeshes.splice(1);
+        this.hatHidden = true;
+      }
+    }
+    if (removableHat && !this.hatHidden && this.bodyMesh.subMeshes.length > 1) {
+      // Hat worn: one draw for body and hat (the split only exists to drop it).
+      const total = this.bodyMesh.subMeshes.reduce((sum, sub) => sum + sub.indexCount, 0);
+      this.bodyMesh.subMeshes = [];
+      new SubMesh(0, 0, this.bodyMesh.getTotalVertices(), 0, total, this.bodyMesh);
     }
     const face = !wearsNative(profile, spec, 'face') && cosmetics.face !== 'face_none' ? cosmetics.face : null;
     const head = buildHeadAttachment(this.scene, headgear, face, hairHex, this.propMaterial);
@@ -1102,7 +1119,7 @@ export class GlbCharacterView implements AvatarView {
 
   /** Draw calls this view adds to the main pass (body, props, shadow disc). */
   drawCalls(): number {
-    let count = 1 + 1 + this.attachments.length;
+    let count = this.bodyMesh.subMeshes.length + 1 + this.attachments.length;
     if (this.weapon?.mesh.isEnabled()) count += 1;
     if (this.canopyPivot.isEnabled()) count += 1;
     return count;

@@ -392,7 +392,20 @@ export class PaintedModelLibrary {
   /** Model and painted textures together (null when either is unavailable). */
   async loadWithTextures(key: string): Promise<{ asset: PaintedModelAsset; textures: PaintedTextures } | null> {
     const [asset, textures] = await Promise.all([this.load(key), this.textures(key)]);
-    return asset && textures ? { asset, textures } : null;
+    if (asset && textures) return { asset, textures };
+    // Half a model is no model: release whichever half did load.
+    if (textures) {
+      textures.albedo.dispose();
+      textures.normal?.dispose();
+      this.loadedTextures.delete(key);
+      this.textureLoads.set(key, Promise.resolve(null));
+    }
+    if (asset) {
+      asset.container.dispose();
+      this.assets.set(key, null);
+      this.loads.set(key, Promise.resolve(null));
+    }
+    return null;
   }
 
   /**
