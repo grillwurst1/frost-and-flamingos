@@ -40,6 +40,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-menu-icons.webp` | Menu and settings icons |
 | `gemini-ui-kit.webp` | Blank UI frames: signs, ribbons, paper, clock frame, ticket stubs, bubble, buttons |
 | `gemini-favicon.webp` | Browser-tab / app icon badge |
+| `gemini-facade-gasthof.webp` | Gasthof facade texture sheet (front/side/back/roof) |
 | `gemini-vfx.webp` | Explosion, smoke, fire, snow, water, dust and muzzle-flash particle sprites |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
