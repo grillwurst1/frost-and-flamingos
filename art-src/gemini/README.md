@@ -42,6 +42,7 @@ These are the untouched originals (WebP, as received). Processed game assets der
 | `gemini-favicon.webp` | Browser-tab / app icon badge |
 | `gemini-facade-gasthof.webp` | Gasthof facade texture sheet (front/side/back/roof) |
 | `gemini-facade-bistro.webp` | Alpen-Bistro facade texture sheet (front/side/back/roof) |
+| `gemini-facade-towerc.webp` | Tower C cuckoo-clock fortress facade sheet |
 | `gemini-vfx.webp` | Explosion, smoke, fire, snow, water, dust and muzzle-flash particle sprites |
 | `gemini-sheet-cow/coconut.webp` | Mascot model references |
 | `gemini-sheet-alps-soldiers/beach-soldiers.webp` | Human character model references |
