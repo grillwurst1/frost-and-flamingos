@@ -193,7 +193,8 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
     sparkleWeight = snow * smoothstep(0.55, 0.85, up) * smoothstep(18.0, 30.0, length(localPos.xz));
     // Natural surfaces take the strongest painted colour tile (snow/sand/grass/rock).
     float strongest = max(max(wB.x, wB.y), max(wB.z, wB.w));
-    colourWeight = smoothstep(0.35, 0.7, strongest);
+    // World-space map meshes only (like the glitter): mascots and small local-space props keep their own paint.
+    colourWeight = smoothstep(0.35, 0.7, strongest) * smoothstep(18.0, 30.0, length(localPos.xz));
     colourCell = wB.x >= strongest ? 4.0 : (wB.y >= strongest ? 5.0 : (wB.z >= strongest ? 6.0 : 7.0));
   } else {
     float id = floor(vertexColor.a * 32.0);
@@ -531,7 +532,7 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
     // small local-space objects such as mascots, vehicles or instanced props.
     sparkleWeight = snow * smoothstep(0.55, 0.85, up) * smoothstep(18.0, 30.0, length(localPos.xz));
     let strongest = max(max(wB.x, wB.y), max(wB.z, wB.w));
-    colourWeight = smoothstep(0.35, 0.7, strongest);
+    colourWeight = smoothstep(0.35, 0.7, strongest) * smoothstep(18.0, 30.0, length(localPos.xz));
     colourCell = select(select(select(7.0, 6.0, wB.z >= strongest), 5.0, wB.y >= strongest), 4.0, wB.x >= strongest);
   } else {
     let id = floor(vertexColor.a * 32.0);

@@ -501,7 +501,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   sky.renderingGroupId = 0;
 
   const chunks = new ChunkSet();
-  const fineDetails: Array<{ id: string; fine: GeometryBatch | null; far: GeometryBatch | null }> = [];
+  const fineDetails: Array<{ id: string; owner: string | null; fine: GeometryBatch | null; far: GeometryBatch | null }> = [];
   const destructibleBatches = new Map<string, GeometryBatch>();
   const towerBatches = new Map<TowerId, GeometryBatch>();
   const dressingBatches = new Map<string, GeometryBatch>();
@@ -530,9 +530,9 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
     drawPropAt(batch, prop, painted.has(prop.id));
     // Static props: thin railings and slats become their own near-LOD mesh
     // (solid stand-ins far away) so distant balconies do not clot into ink.
-    if (batch.vertexCount > 0 && !prop.destructibleId && !tower && !dressing) {
+    if (!tower && !dressing) {
       const detail = batch.takeDetail();
-      if (detail.fine) fineDetails.push({ id: prop.id, ...detail });
+      if (detail.fine) fineDetails.push({ id: prop.id, owner: prop.destructibleId ?? null, ...detail });
     }
   }
 
@@ -600,12 +600,6 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
     const mesh = register(batch.toMesh(scene, `map-clutter-${key}`, material), staticMeshes);
     if (mesh) mesh.addLODLevel(CLUTTER_LOD_DISTANCE, null);
   }
-  for (const detail of fineDetails) {
-    const near = detail.fine ? register(detail.fine.toMesh(scene, `map-fine-${detail.id}`, material), staticMeshes) : null;
-    if (!near) continue;
-    const far = detail.far ? register(detail.far.toMesh(scene, `map-fine-far-${detail.id}`, material), staticMeshes) : null;
-    near.addLODLevel(FINE_LOD_DISTANCE, far);
-  }
   register(routes.toMesh(scene, 'map-routes', material), staticMeshes);
   register(coaster.toMesh(scene, 'map-coaster', material), staticMeshes);
   const preview = register(previewBatch.toMesh(scene, 'preview-stage', material), staticMeshes);
@@ -617,6 +611,20 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   for (const [id, batch] of destructibleBatches) {
     const mesh = register(batch.toMesh(scene, `destructible-${id}`, material), destructibleList);
     if (mesh) destructibleMeshes.set(id, mesh);
+  }
+  // Near/far LOD pairs of thin detail; a destructible's pair hangs under its mesh
+  // (identity world matrix) so hiding or disposing the building takes it along.
+  for (const detail of fineDetails) {
+    const owner = detail.owner ? (destructibleMeshes.get(detail.owner) ?? null) : null;
+    const list = owner ? destructibleList : staticMeshes;
+    const near = detail.fine ? register(detail.fine.toMesh(scene, `map-fine-${detail.id}`, material), list) : null;
+    if (!near) continue;
+    const far = detail.far ? register(detail.far.toMesh(scene, `map-fine-far-${detail.id}`, material), list) : null;
+    near.addLODLevel(FINE_LOD_DISTANCE, far);
+    if (owner) {
+      near.parent = owner;
+      if (far) far.parent = owner;
+    }
   }
   for (const [id, batch] of towerBatches) {
     const visual = towers.get(id);
