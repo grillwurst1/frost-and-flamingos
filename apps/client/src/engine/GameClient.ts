@@ -64,6 +64,8 @@ import {
 } from '../rendering/materials';
 import { classifyGpu } from '../rendering/gpu-tier';
 import { createSceneLook, type SceneLook, type VisualQuality } from '../rendering/scene-look';
+import { loadSpriteAtlas } from '../rendering/sprite-atlas';
+import { loadFacadeAtlas } from '../rendering/facade-atlas';
 import {
   clearCombatUi,
   damageFlash,
@@ -565,6 +567,15 @@ export class GameClient {
       }
 
       setLoadingStep('world', 'active');
+      // Painted sprite atlas loads while Rapier initialises; null keeps procedural props.
+      const spriteAtlas = loadSpriteAtlas(scene).catch((error: unknown) => {
+        console.warn('[frost-and-flamingos] painted sprites unavailable, using procedural props', error);
+        return null;
+      });
+      const facadeAtlas = loadFacadeAtlas(scene).catch((error: unknown) => {
+        console.warn('[frost-and-flamingos] painted facades unavailable, using procedural buildings', error);
+        return null;
+      });
       const physics = await PhysicsWorld.create();
       if (this.disposed) {
         physics.dispose();
@@ -572,7 +583,9 @@ export class GameClient {
       }
       this.physics = physics;
       this.toonMaterial = createToonMaterial(scene, 'fjord-toon-material');
-      this.visuals = buildFjordFiesta(scene, this.toonMaterial);
+      const [sprites, facades] = await Promise.all([spriteAtlas, facadeAtlas]);
+      if (this.disposed) return;
+      this.visuals = buildFjordFiesta(scene, this.toonMaterial, { sprites, facades });
       this.wardrobeStage = new WardrobeStage(scene, this.toonMaterial, this.visuals.previewStage.position);
       if (import.meta.env.DEV) {
         // Screenshot probe: hold the wardrobe preview at an angle to the camera.

@@ -473,10 +473,54 @@ function pack(channels: Array<Uint8ClampedArray | null>): Uint8Array {
   return packed;
 }
 
+/** Painted colour tiles in the 2x2 `detailColor` atlas (see shaders/detail.ts). */
+const COLOR_TILES = ['wood_planks_color.jpg', 'log_wall_color.jpg', 'shingles_color.jpg', 'cobblestone_color.jpg'] as const;
+const COLOR_TILE_SIZE = 512;
+
+/**
+ * Draws one painted colour tile into its atlas cell, normalised so its mean
+ * colour lands on 0.5 grey (the shader multiplies the albedo by 2x the tile).
+ */
+function paintColorTile(target: Uint8Array, image: HTMLImageElement, cell: number): boolean {
+  const canvas = document.createElement('canvas');
+  canvas.width = COLOR_TILE_SIZE;
+  canvas.height = COLOR_TILE_SIZE;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return false;
+  ctx.drawImage(image, 0, 0, COLOR_TILE_SIZE, COLOR_TILE_SIZE);
+  const data = ctx.getImageData(0, 0, COLOR_TILE_SIZE, COLOR_TILE_SIZE).data;
+  const count = COLOR_TILE_SIZE * COLOR_TILE_SIZE;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (let index = 0; index < count; index += 1) {
+    r += data[index * 4] ?? 0;
+    g += data[index * 4 + 1] ?? 0;
+    b += data[index * 4 + 2] ?? 0;
+  }
+  const mean = [Math.max(8, r / count), Math.max(8, g / count), Math.max(8, b / count)];
+  const atlasWidth = COLOR_TILE_SIZE * 2;
+  const ox = (cell % 2) * COLOR_TILE_SIZE;
+  const oy = Math.floor(cell / 2) * COLOR_TILE_SIZE;
+  for (let y = 0; y < COLOR_TILE_SIZE; y += 1) {
+    for (let x = 0; x < COLOR_TILE_SIZE; x += 1) {
+      const source = (y * COLOR_TILE_SIZE + x) * 4;
+      const dest = ((oy + y) * atlasWidth + ox + x) * 4;
+      for (let channel = 0; channel < 3; channel += 1) {
+        target[dest + channel] = Math.max(0, Math.min(255, Math.round(((data[source + channel] ?? 0) / (mean[channel] ?? 128)) * 128)));
+      }
+      target[dest + 3] = 255;
+    }
+  }
+  return true;
+}
+
 export interface DetailTextureSet {
   detailA: RawTexture;
   detailB: RawTexture;
   detailC: RawTexture;
+  /** Painted colour tiles (planks, log wall, shingles, cobble), neutral until loaded. */
+  detailColor: RawTexture;
   /** Resolves once optional painted tiles were probed and merged. */
   painted: Promise<number>;
   dispose(): void;
@@ -511,8 +555,31 @@ export function createDetailTextures(scene: Scene): DetailTextureSet {
     textures[name] = texture;
   }
 
+  const colorData = new Uint8Array(COLOR_TILE_SIZE * 2 * COLOR_TILE_SIZE * 2 * 4).fill(128);
+  const detailColor = RawTexture.CreateRGBATexture(
+    colorData,
+    COLOR_TILE_SIZE * 2,
+    COLOR_TILE_SIZE * 2,
+    scene,
+    true,
+    false,
+    Constants.TEXTURE_TRILINEAR_SAMPLINGMODE,
+  );
+  detailColor.name = 'ff-detailColor';
+  detailColor.wrapU = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+  detailColor.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+  detailColor.anisotropicFilteringLevel = 4;
+
   const painted = (async () => {
     let fromArt = 0;
+    let colours = 0;
+    for (let cell = 0; cell < COLOR_TILES.length; cell += 1) {
+      const image = await loadArtImage(`tex/${COLOR_TILES[cell] ?? ''}`);
+      if (disposed) return fromArt;
+      if (image && paintColorTile(colorData, image, cell)) colours += 1;
+      await yieldToFrame();
+    }
+    if (colours > 0 && detailColor.getInternalTexture()) detailColor.update(colorData);
     for (const name of Object.keys(DETAIL_LAYOUT) as DetailTextureName[]) {
       const specs = DETAIL_LAYOUT[name];
       const data: Array<Uint8ClampedArray | null> = [];
@@ -541,9 +608,11 @@ export function createDetailTextures(scene: Scene): DetailTextureSet {
     detailA: textures.detailA,
     detailB: textures.detailB,
     detailC: textures.detailC,
+    detailColor,
     painted,
     dispose() {
       disposed = true;
+      detailColor.dispose();
       textures.detailA.dispose();
       textures.detailB.dispose();
       textures.detailC.dispose();

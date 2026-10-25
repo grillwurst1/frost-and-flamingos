@@ -8,8 +8,17 @@ const MIN_PITCH = -1.15;
 const MAX_PITCH = 1.1;
 const MIN_DISTANCE = 2.7;
 const MAX_DISTANCE = 8.2;
-const SHOULDER_OFFSET = 0.62;
-const EYE_HEIGHT = 1.58;
+/**
+ * Painting-style framing (owner reference art): close, low and wide. The
+ * pivot sits at chest height, the camera ~4 m behind a wider shoulder, so
+ * the busy foreground (tufts, drifts, crates) and the horizon share the frame.
+ */
+const SHOULDER_OFFSET = 0.82;
+const PLAYER_PIVOT_HEIGHT = 1.32;
+const PLAYER_DISTANCE = 4.0;
+/** Vertical FOV while playing (72 deg); menu, wardrobe and killer cam keep the tele framing. */
+const PLAYER_FOV = 1.2566;
+const SHOWCASE_FOV = 0.88;
 
 export type PreviewCameraMode = 'menu' | 'wardrobe';
 
@@ -23,7 +32,7 @@ export interface CameraProfile {
   shoulder: number;
 }
 
-export const HUMAN_CAMERA: CameraProfile = { pivotHeight: EYE_HEIGHT + 0.14, distance: 4.8, shoulder: SHOULDER_OFFSET };
+export const HUMAN_CAMERA: CameraProfile = { pivotHeight: PLAYER_PIVOT_HEIGHT, distance: PLAYER_DISTANCE, shoulder: SHOULDER_OFFSET };
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
 
@@ -65,10 +74,10 @@ export class CameraRig {
   private pitch = -0.08;
   private targetYaw = 0;
   private targetPitch = -0.08;
-  private distance = 4.8;
-  private targetDistance = 4.8;
+  private distance = PLAYER_DISTANCE;
+  private targetDistance = PLAYER_DISTANCE;
   private shoulderSide = 1;
-  private collisionDistance = 4.8;
+  private collisionDistance = PLAYER_DISTANCE;
   private menuAngle = 0.6;
   private previewCameraAngle = 0.6;
   private initialized = false;
@@ -82,7 +91,7 @@ export class CameraRig {
     this.camera = new FreeCamera('player-camera', new Vector3(0, 40, -80), scene);
     this.camera.minZ = 0.12;
     this.camera.maxZ = 5000;
-    this.camera.fov = 0.88;
+    this.camera.fov = SHOWCASE_FOV;
     this.camera.inputs.clear();
     this.camera.inertia = 0;
   }
@@ -156,8 +165,15 @@ export class CameraRig {
     this.initialized = false;
   }
 
+  /** Eases the vertical field of view towards `target` (radians). */
+  private easeFov(target: number, dt: number, rate = 6): void {
+    const fov = this.camera.fov;
+    this.camera.fov = Math.abs(target - fov) < 0.0005 ? target : fov + (target - fov) * (1 - Math.exp(-dt * rate));
+  }
+
   updatePlayer(dt: number, feet: Vector3, physics: PhysicsWorld): void {
     const clampedDt = Math.min(0.05, Math.max(0.001, dt));
+    this.easeFov(PLAYER_FOV, clampedDt);
     const yawAlpha = 1 - Math.exp(-clampedDt * 22);
     const pitchAlpha = 1 - Math.exp(-clampedDt * 20);
     this.yaw += shortestAngle(this.yaw, this.targetYaw) * yawAlpha;
@@ -220,6 +236,7 @@ export class CameraRig {
    */
   updateKillerCam(dt: number, target: Vec3, physics: PhysicsWorld): void {
     const clampedDt = Math.min(0.05, Math.max(0.001, dt));
+    this.easeFov(SHOWCASE_FOV, clampedDt);
     this.killerAngle += clampedDt * 0.24;
     const radius = 5.2;
     const lookAt = new Vector3(target.x, target.y + 1.18, target.z);
@@ -265,6 +282,7 @@ export class CameraRig {
    */
   updatePreview(dt: number, stage: Vec3, mode: PreviewCameraMode, viewAngle?: number): void {
     const clampedDt = Math.min(0.05, Math.max(0.001, dt));
+    this.camera.fov = SHOWCASE_FOV;
     this.menuAngle += clampedDt * (mode === 'menu' ? 0.055 : 0.11);
     this.initialized = false;
 
@@ -296,6 +314,7 @@ export class CameraRig {
   }
 
   updateMenu(dt: number): void {
+    this.camera.fov = SHOWCASE_FOV;
     this.menuAngle += dt * 0.035;
     const radius = 205;
     const height = 82 + Math.sin(this.menuAngle * 0.7) * 8;
@@ -311,6 +330,7 @@ export class CameraRig {
 
   snapToPlayer(feet: Vector3): void {
     this.initialized = false;
+    this.camera.fov = PLAYER_FOV;
     this.pivotSpring.value.set(feet.x, feet.y + this.profile.pivotHeight, feet.z);
     const cosPitch = Math.cos(this.pitch);
     const forward = new Vector3(

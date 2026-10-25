@@ -345,6 +345,7 @@ export class SceneLook {
     this.context.textures.detailA = this.detail.detailA;
     this.context.textures.detailB = this.detail.detailB;
     this.context.textures.detailC = this.detail.detailC;
+    this.context.textures.detailColor = this.detail.detailColor;
 
     // Slim g-buffer: linear view depth in R32F, view normals in RGBA16F.
     const gbr = scene.enableGeometryBufferRenderer(1, Constants.TEXTUREFORMAT_DEPTH24_STENCIL8, {
@@ -397,6 +398,8 @@ export class SceneLook {
     const profile = QUALITY[tier];
     const values = this.context.values;
     values.detailParams.set(profile.detailMode > 0 ? 0.62 : 0, 45, 170, profile.detailMode);
+    // Painted colour tiles on wood, logs, shingles and cobbles (~1 repeat per 2 m).
+    values.colorParams.set(profile.detailMode > 0 ? 0.9 : 0, 0.5, 0, 0);
     values.toonParams.w = profile.hatch;
     this.gradeExtra.y = profile.grain;
     this.inkParams.w = profile.wobble;

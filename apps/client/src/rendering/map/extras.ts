@@ -133,7 +133,12 @@ function stripedAwning(batch: GeometryBatch, width: number, y: number, z: number
 }
 
 /** Building-specific decorations keyed by the blueprint prop id / style. */
-export function drawBuildingExtras(batch: GeometryBatch, prop: MapProp): void {
+/**
+ * `painted`: the building wears an owner-painted facade (map/facades.ts), so
+ * ornaments that the painting already shows flat on the wall (chamois head,
+ * café awning) are skipped; walkable terraces, steps and 3D props stay.
+ */
+export function drawBuildingExtras(batch: GeometryBatch, prop: MapProp, painted = false): void {
   const layout = prop.building;
   if (!layout) return;
   const halfW = layout.width / 2;
@@ -144,14 +149,14 @@ export function drawBuildingExtras(batch: GeometryBatch, prop: MapProp): void {
   const doorOffset = layout.floors[0]?.openings.find((opening) => opening.wall === 'front' && opening.kind === 'door')?.offset ?? 0;
   switch (prop.id) {
     case 'chalet_west':
-      chamoisHead(batch, 0, top + 1.6, halfD + 0.3);
+      if (!painted) chamoisHead(batch, 0, top + 1.6, halfD + 0.3);
       hangingSign(batch, -halfW, 3.0, halfD - 0.3, -Math.PI / 2, P.log);
       batch.box(doorOffset, layout.plinth / 4, halfD + 0.7, 2.4, layout.plinth / 2, 0.9, P.cobble, 'stone', 0.06);
       return;
     case 'chalet_east': {
       const depth = CHALET_TERRACES[prop.id] ?? 3.4;
       terrace(batch, layout, depth, doorOffset, false);
-      stripedAwning(batch, layout.width - 0.6, 3.35, halfD + 0.1, depth - 0.2);
+      if (!painted) stripedAwning(batch, layout.width - 0.6, 3.35, halfD + 0.1, depth - 0.2);
       cafeSet(batch, -halfW + 2.4, layout.plinth, halfD + depth / 2, seed);
       cafeSet(batch, halfW - 2.4, layout.plinth, halfD + depth / 2, seed + 1);
       hangingSign(batch, halfW, 3.0, halfD - 0.3, Math.PI / 2, P.plankLight);
@@ -162,7 +167,7 @@ export function drawBuildingExtras(batch: GeometryBatch, prop: MapProp): void {
       terrace(batch, layout, depth, doorOffset, true);
       tikiMask(batch, -halfW - 0.25, 2.3, halfD, -Math.PI / 2, 0);
       tikiMask(batch, halfW + 0.25, 2.3, halfD, Math.PI / 2, 1);
-      tikiMask(batch, 0, top + 2.0, halfD + 0.32, 0, 2);
+      if (!painted) tikiMask(batch, 0, top + 2.0, halfD + 0.32, 0, 2);
       tikiMask(batch, -halfW + 1.2, 1.4, halfD + depth + 0.15, 0, 1);
       hangingSign(batch, halfW, 2.9, halfD - 0.3, Math.PI / 2, P.bamboo);
       return;

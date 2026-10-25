@@ -13,6 +13,7 @@ import {
   BASE_HEIGHTS,
   COAST_GRID,
   FJORD_MAP,
+  FjordLayout,
   GRID_POINTS,
   MAP_HALF_SIZE,
   SNOWLINE_Y,
@@ -47,6 +48,8 @@ interface TerrainPaint {
   surface: SurfaceKind;
 }
 
+const SQUARE_HALF = FjordLayout.SQUARE_HALF;
+
 function paintTerrain(x: number, z: number, height: number, slope: number, coast: number): TerrainPaint {
   const biome = terrainBiomeAt(x, z, height, slope, coast);
   const patch = noise(x, z, 0.08);
@@ -76,7 +79,13 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
     bare = mix(mix(P.sand, P.wetSand, 0.4), mix(P.lagoonMid, P.lagoonDeep, 0.3), depth * 0.75);
     surface = 'sand';
   }
-  if (biome.cobble > 0) {
+  // Lanes crossing the beach read as trodden sand tracks, not cobbles (paintings).
+  const square = Math.max(Math.abs(x), Math.abs(z)) < SQUARE_HALF + 1.5;
+  const sandTrack = !square && biome.sand > 0.35 ? biome.cobble : 0;
+  if (sandTrack > 0) {
+    bare = mix(bare, mix(P.wetSand, P.sandShade, 0.35 + fine * 0.3), sandTrack * 0.75);
+  }
+  if (biome.cobble > 0 && sandTrack === 0) {
     // Per-vertex flagstone tones with real contrast; the plaza disc is dark grout under the paving mesh.
     const stone = hash3(Math.floor(x / 1.6), Math.floor(z / 1.6), 41) > 0.5 ? P.cobble : mix(P.cobbleWarm, P.cobbleDark, 0.25);
     const grout = Math.hypot(x, z) < 24.8 ? 1 : 0;
@@ -94,13 +103,28 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
     if (rockWeight > 0.5) surface = 'rock';
   }
   let final = bare;
-  const snow = height >= WATER_LEVEL ? terrainSnowWeight(height, biome.snowBias, rockWeight, SNOWLINE_Y) : 0;
+  // High peaks read as snow-clad alps (paintings), not grey rock pyramids:
+  // above the treeline the rock only shows as streaks through the snow.
+  // Visual only; the server's surface tags keep the shared rock weights.
+  const alpine = smooth((height - (SNOWLINE_Y + 10)) / 16);
+  const streak = fine > 0.62 || patch > 0.8 ? 1 : 0;
+  const rockForSnow = rockWeight * (1 - alpine * (streak ? 0.25 : 0.75));
+  const snow = height >= WATER_LEVEL ? terrainSnowWeight(height, biome.snowBias, rockForSnow, SNOWLINE_Y) : 0;
   if (snow > 0) {
     // Steeper, wind-blown slopes read cooler and bluer than the sheltered flats.
     const windBlown = smooth((slope - 0.16) / 0.34) * 0.6;
     const snowColor = mix(mix(P.snowShade, P.snow, 0.55 + Math.min(1, snow) * 0.45 - rockWeight * 0.3), P.snowShade, windBlown);
     final = mix(bare, snowColor, Math.min(1, snow * 1.15));
     if (snow > 0.5 && surface !== 'cobble') surface = 'snow';
+    // Packed snow trails: roads and trails above the snowline stay visible as
+    // trodden, slightly warm-grey bands with darker ruts (paintings).
+    const road = square ? 0 : Math.max(biome.cobble, biome.dirt);
+    if (snow > 0.3 && road > 0.2) {
+      const rut = Math.abs(Math.sin((x + z) * 1.9 + patch * 3)) > 0.82 ? 0.18 : 0;
+      const packed = mix(mix(P.snowShade, P.cream, 0.28), P.rockShade, 0.08 + rut);
+      final = mix(final, packed, Math.min(1, road * 1.1) * 0.7);
+      surface = 'snow';
+    }
   }
   if (isOnIcePatch(x, z)) {
     final = mix(P.iceDeep, P.ice, 0.45 + patch * 0.4);
@@ -179,10 +203,21 @@ export function buildTerrainMesh(scene: Scene, material: Material): Mesh {
 }
 
 // ---------------------------------------------------------------------------
-// Mountain ring beyond the boundary
+// Foothill ring beyond the boundary
 // ---------------------------------------------------------------------------
+//
+// The painted horizon panorama (art/sky/horizon-panorama.jpg) already shows
+// the high Alps from north round to south-east and the open sea with islands
+// to the south-west. The ring therefore stays LOW: a forested, snowy foothill
+// shoulder that continues the map edge (no visible terrain cut-off) and caps
+// its skyline a few degrees above the horizon, so the painted summits rise
+// behind it instead of grey procedural pyramids standing in front of them.
 
 const SKIRT_EXTENT = 1500;
+/** Reference eye for the skyline cap (village plaza height). */
+const SKYLINE_EYE_Y = 18;
+/** Maximum skyline elevation of the ring seen from the map centre (tan 5.2 deg). */
+const SKYLINE_SLOPE = 0.091;
 
 function ridgeNoise(a: number, b: number): number {
   const n = Math.sin(a * 1.7 + Math.sin(b * 0.9) * 2) * 0.5 + 0.5;
@@ -191,22 +226,45 @@ function ridgeNoise(a: number, b: number): number {
   return (1 - Math.abs(n * 2 - 1)) * 0.55 + (1 - Math.abs(m * 2 - 1)) * 0.3 + k * 0.15;
 }
 
-/** Height of the visual mountain ring / open sea beyond the playable square. */
-function outerHeight(x: number, z: number): number {
+/** 0 on land, 1 on the open sea (south edge, south-east coast and west channel). */
+function seaWeight(x: number, z: number): number {
+  const angle = Math.atan2(x, z); // 0 = north, pi/2 = east
+  // Sea azimuths ~115..290 deg (the map's own coast meets the edge there).
+  const southness = Math.cos(angle - (202 * Math.PI) / 180);
+  return smooth((southness - 0.36) / 0.22);
+}
+
+export function outerIsSea(x: number, z: number): boolean {
+  return seaWeight(x, z) > 0.5;
+}
+
+/** Snow line of the foothill ring (metres). */
+export function outerSnowLine(x: number, z: number): number {
+  return 44 + hash3(Math.floor(x * 0.01), 0, Math.floor(z * 0.01)) * 14;
+}
+
+/** Height of the foothill ring / open sea beyond the playable square. */
+export function outerHeight(x: number, z: number): number {
   const edge = Math.max(Math.abs(x), Math.abs(z));
   const clampedX = Math.max(-MAP_HALF_SIZE, Math.min(MAP_HALF_SIZE, x));
   const clampedZ = Math.max(-MAP_HALF_SIZE, Math.min(MAP_HALF_SIZE, z));
   const edgeHeight = sampleMapHeight(clampedX, clampedZ);
-  const angle = Math.atan2(x, z); // 0 = north, π/2 = east
-  // Open sea from south-east round to the west-south-west; mountains elsewhere.
-  const southness = Math.cos(angle - Math.PI * 1.12);
-  const sea = smooth((southness - 0.25) / 0.35);
+  const angle = Math.atan2(x, z);
   const distance = Math.hypot(x, z);
-  const ridge = ridgeNoise(angle * 3.2, distance * 0.004);
-  const mountain = 40 + smooth((edge - 430) / 520) * (150 + ridge * 230) + ridge * 40;
-  // Open sea stays open: single-vertex islet peaks on the 50 m skirt grid read as floating pyramids.
-  const ring = mountain * (1 - sea) - 7 * sea;
-  const blend = smooth((edge - MAP_HALF_SIZE) / 140);
+  const sea = seaWeight(x, z);
+  const ridge = ridgeNoise(angle * 5.1, distance * 0.006);
+  const roll = Math.sin(angle * 11 + distance * 0.011) * 0.5 + 0.5;
+  // Forested shoulder: continue the edge, settle onto a rolling plateau.
+  const plateau = Math.max(8, edgeHeight * 0.8 + 10 + ridge * 26 + roll * 10);
+  const shoulder = smooth((edge - MAP_HALF_SIZE) / 170);
+  let land = edgeHeight + (plateau - edgeHeight) * shoulder;
+  const cap = Math.max(edgeHeight + 4, SKYLINE_EYE_Y + SKYLINE_SLOPE * distance);
+  land = Math.min(land, cap);
+  // Islets only inside the fine 12 m skirt grid: on the coarse outer grid a
+  // single-vertex peak reads as a floating pyramid.
+  const islands = smooth((ridgeNoise(angle * 9, distance * 0.01) - 0.82) / 0.1) * 12 * (1 - smooth((edge - 700) / 60));
+  const ring = land * (1 - sea) + (-7 + islands) * sea;
+  const blend = smooth((edge - MAP_HALF_SIZE) / 120);
   return edgeHeight + (ring - edgeHeight) * blend;
 }
 
@@ -214,9 +272,11 @@ export function buildOuterRing(scene: Scene, material: Material): Mesh | null {
   const batch = new GeometryBatch();
   batch.jitter = 0;
   const coordinates: number[] = [];
-  for (let value = -SKIRT_EXTENT; value < -MAP_HALF_SIZE - 40; value += 50) coordinates.push(value);
+  for (let value = -SKIRT_EXTENT; value < -780; value += 60) coordinates.push(value);
+  for (let value = -780; value < -MAP_HALF_SIZE - 40; value += 12) coordinates.push(value);
   for (let value = -MAP_HALF_SIZE - 40; value <= MAP_HALF_SIZE + 40; value += 10) coordinates.push(value);
-  for (let value = MAP_HALF_SIZE + 90; value <= SKIRT_EXTENT; value += 50) coordinates.push(value);
+  for (let value = MAP_HALF_SIZE + 52; value <= 780; value += 12) coordinates.push(value);
+  for (let value = 840; value <= SKIRT_EXTENT; value += 60) coordinates.push(value);
   const size = coordinates.length;
   const heights: number[] = [];
   const vertexIndex: number[] = [];
@@ -242,20 +302,23 @@ export function buildOuterRing(scene: Scene, material: Material): Mesh | null {
       const nz = -(h(column, row + 1) - h(column, row - 1)) / (dz || 1);
       const length = Math.hypot(nx, 1, nz);
       const steep = 1 - 1 / length;
-      const snowLine = 70 + hash3(x * 0.01, 0, z * 0.01) * 40;
+      const snowLine = outerSnowLine(x, z);
+      const patch = hash3(Math.floor(x * 0.04), 2, Math.floor(z * 0.04));
       let color: RGB;
-      let surface: SurfaceKind = 'rock';
+      let surface: SurfaceKind = 'grass';
       if (y < 0.5) {
         color = mix(P.sand, P.wetSand, 0.5);
         surface = 'sand';
-      } else if (y > snowLine && steep < 0.55) {
-        color = mix(P.snowShade, P.snow, 0.6 + (1 - steep) * 0.4);
+      } else if (y > snowLine) {
+        color = mix(P.snowShade, P.snow, 0.55 + (1 - steep) * 0.45);
         surface = 'snow';
-      } else if (steep > 0.45 || y > 45) {
+      } else if (steep > 0.5) {
         color = mix(P.rockShade, P.rock, hash3(x * 0.03, y * 0.05, z * 0.03));
+        surface = 'rock';
       } else {
-        color = mix(P.firDark, P.grassShade, hash3(x * 0.02, 1, z * 0.02));
-        surface = 'foliage';
+        // Forest floor under the painted ring forests, meadow clearings between.
+        color = mix(mix(P.grassShade, P.firDark, 0.35), P.grass, patch * 0.55);
+        if (y > snowLine - 8) color = mix(color, P.snowShade, smooth((y - snowLine + 8) / 8) * 0.8);
       }
       vertexIndex.push(batch.vertex(x, y, z, nx / length, 1 / length, nz / length, color, surface));
     }

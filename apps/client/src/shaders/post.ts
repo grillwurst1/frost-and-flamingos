@@ -21,6 +21,12 @@
  *              where the mask changes between character and anything else
  *              (depth-gated, so translucent effects over a character draw
  *              none), 1.25× the world's outline width, on every tier.
+ *   alpha 0.75 painted sprite (billboard vegetation/clutter, shaders/sprite.ts):
+ *              the world look, but no screen-space ink (the painting carries
+ *              its own outline). Counts only where no 4-neighbour is
+ *              character-dark, so a character's 0<->1 AA edge never does.
+ *              A blend over a character that happens to leave ~0.75 only
+ *              loses the ink on those pixels, a harmless failure.
  *   There is deliberately no "fully exempt" level: blended surfaces over a
  *   character (water, smoke) leave alpha = their own alpha there, so any
  *   in-band value can be produced by accident. A photoreal exemption needs
@@ -46,9 +52,18 @@ uniform vec4 uPaintParams;
 const vec2 FF_HALF_STEP = vec2(0.98078528, 0.19509032);
 
 // x = stylised-character weight, y = reserved (no exempt level: blends over a
-// character can produce any alpha, so an in-band value could false-trigger).
-vec2 ffLookMask(vec2 uv, float a0) {
-  return vec2(1.0 - a0, 0.0);
+// character can produce any alpha, so an in-band value could false-trigger),
+// z = painted-sprite weight (world look, no screen-space ink).
+vec3 ffLookMask(vec2 uv, float a0) {
+  float aR = texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a;
+  float aL = texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a;
+  float aU = texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a;
+  float aD = texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a;
+  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
+  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  float sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+  return vec3((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 vec2 ffStagger(vec2 d) {
@@ -87,7 +102,7 @@ vec4 ffBlend(vec3 center, vec3 center2, vec3 s, vec3 q, vec3 sl, vec3 ql, vec3 s
 void main(void) {
   vec4 c0 = texture2D(textureSampler, vUV);
   vec3 center = c0.rgb;
-  vec2 lookMask = ffLookMask(vUV, c0.a);
+  vec3 lookMask = ffLookMask(vUV, c0.a);
   float charMask = lookMask.x;
   float rings = clamp(floor(uPaintParams.y), 1.0, 3.0);
   vec2 ringStep = uTexel * (uPaintParams.x / rings);
@@ -131,8 +146,19 @@ struct FFSectorSum {
   q : vec3f,
 };
 
-fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  return vec2f(1.0 - a0, 0.0);
+// x = stylised-character weight, y = reserved (no exempt level, see the
+// header), z = painted-sprite weight (world look, no screen-space ink).
+fn ffLookMask(uv : vec2f, a0 : f32) -> vec3f {
+  let texel = uniforms.uTexel;
+  let aR = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a;
+  let aL = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a;
+  let aU = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a;
+  let aD = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a;
+  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
+  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  let sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+  return vec3f((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 fn ffStagger(d : vec2f) -> vec2f {
@@ -251,9 +277,18 @@ float ffHash(vec2 p) {
 }
 
 // x = stylised-character weight, y = reserved (no exempt level: blends over a
-// character can produce any alpha, so an in-band value could false-trigger).
-vec2 ffLookMask(vec2 uv, float a0) {
-  return vec2(1.0 - a0, 0.0);
+// character can produce any alpha, so an in-band value could false-trigger),
+// z = painted-sprite weight (world look, no screen-space ink).
+vec3 ffLookMask(vec2 uv, float a0) {
+  float aR = texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a;
+  float aL = texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a;
+  float aU = texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a;
+  float aD = texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a;
+  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
+  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  float sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+  return vec3((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 float ffNoise(vec2 p) {
@@ -299,9 +334,10 @@ float ffSilhouetteTap(vec2 uv, float char0, float d0, vec2 o) {
 void main(void) {
   vec4 c0 = texture2D(textureSampler, vUV);
   vec3 color = c0.rgb;
-  vec2 lookMask = ffLookMask(vUV, c0.a);
+  vec3 lookMask = ffLookMask(vUV, c0.a);
   float charMask = lookMask.x;
   float exempt = lookMask.y;
+  float spriteMask = lookMask.z;
   // uSharpen: x sharpen amount, y detailed edges (1 = 8 taps + wobble-aware near depth).
   if (uSharpen.x > 0.0) {
     vec3 around = texture2D(textureSampler, vUV + vec2(uTexel.x, 0.0)).rgb + texture2D(textureSampler, vUV - vec2(uTexel.x, 0.0)).rgb
@@ -360,7 +396,8 @@ void main(void) {
     float worldY = uCamPos.y + ray.y * near;
     ink *= 1.0 - smoothstep(0.05, 0.9, uWaterLevel.x - worldY) * 0.85;
   }
-  ink *= uInkColor.a * (1.0 - exempt);
+  // Painted sprites carry their own painted ink: no g-buffer lines over them.
+  ink *= uInkColor.a * (1.0 - exempt) * (1.0 - spriteMask);
   color = mix(color, uInkColor.rgb, clamp(ink, 0.0, 1.0));
   vec3 ungraded = color;
 
@@ -426,8 +463,19 @@ fn ffHash(p : vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  return vec2f(1.0 - a0, 0.0);
+// x = stylised-character weight, y = reserved (no exempt level, see the
+// header), z = painted-sprite weight (world look, no screen-space ink).
+fn ffLookMask(uv : vec2f, a0 : f32) -> vec3f {
+  let texel = uniforms.uTexel;
+  let aR = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a;
+  let aL = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a;
+  let aU = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a;
+  let aD = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a;
+  // Sprite: centre reads ~0.75 and no neighbour is character-dark, so the
+  // anti-aliased 0<->1 edge of a character passing 0.75 never counts.
+  let sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.2, 0.45, min(min(aR, aL), min(aU, aD)));
+  return vec3f((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 fn ffNoise(p : vec2f) -> f32 {
@@ -473,6 +521,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let lookMask = ffLookMask(input.vUV, c0.a);
   let charMask = lookMask.x;
   let exempt = lookMask.y;
+  let spriteMask = lookMask.z;
   let texel = uniforms.uTexel;
   if (uniforms.uSharpen.x > 0.0) {
     let around = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(texel.x, 0.0), 0.0).rgb
@@ -530,7 +579,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     let worldY = uniforms.uCamPos.y + ray.y * near;
     ink *= 1.0 - smoothstep(0.05, 0.9, uniforms.uWaterLevel.x - worldY) * 0.85;
   }
-  ink *= uniforms.uInkColor.a * (1.0 - exempt);
+  ink *= uniforms.uInkColor.a * (1.0 - exempt) * (1.0 - spriteMask);
   color = mix(color, uniforms.uInkColor.rgb, clamp(ink, 0.0, 1.0));
   let ungraded = color;
 

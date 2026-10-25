@@ -86,7 +86,17 @@ function toWorld(prop: MapProp, x: number, z: number, extraYaw = 0): { x: number
   return { x: prop.position.x + world.x, z: prop.position.z + world.z };
 }
 
-export function drawLighthouse(batch: GeometryBatch): void {
+/**
+ * `painted`: the owner-painted tower shell (map/facades.ts) wraps the stone
+ * base and the striped body, so only the gallery, lantern, dome and spiral
+ * stair are modelled here.
+ */
+export function drawLighthouse(batch: GeometryBatch, painted = false): void {
+  if (!painted) drawLighthouseBody(batch);
+  drawLighthouseTop(batch);
+}
+
+function drawLighthouseBody(batch: GeometryBatch): void {
   const L = LIGHTHOUSE;
   // Stone base
   batch.lathe(
@@ -132,6 +142,10 @@ export function drawLighthouse(batch: GeometryBatch): void {
       batch.box(0, -0.58, 0.05, 0.9, 0.14, 0.2, P.trim, 'wood', 0.02);
     });
   }
+}
+
+function drawLighthouseTop(batch: GeometryBatch): void {
+  const L = LIGHTHOUSE;
   // Gallery deck with brackets, railing posts and rail.
   batch.lathe(
     [
@@ -360,7 +374,8 @@ export function drawPlazaPaving(batch: GeometryBatch): void {
   }
 }
 
-export function drawClockPavilion(batch: GeometryBatch): void {
+/** `painted`: the hip roof is the owner-painted top view (map/facades.ts); the spire stays. */
+export function drawClockPavilion(batch: GeometryBatch, painted = false): void {
   const C = PAVILION;
   // Round stone fountain basin
   const blocks = 22;
@@ -412,7 +427,8 @@ export function drawClockPavilion(batch: GeometryBatch): void {
   }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) batch.box(sx * (s / 2), yb + C.houseHeight / 2, sz * (s / 2), 0.36, C.houseHeight, 0.36, P.logDark, 'wood', 0.06);
   // Pyramid roof: four sloped faces over overhanging eaves, shingle courses laid
-  // along each face, hip caps, an eave trim and the gold spire.
+  // along each face, hip caps, an eave trim and the gold spire (painted: eave,
+  // trim and spire only).
   const roofBase = yb + C.houseHeight;
   const eave = s / 2 + 0.9;
   const apexY = roofBase + C.roofHeight;
@@ -422,6 +438,9 @@ export function drawClockPavilion(batch: GeometryBatch): void {
   const courses = 8;
   for (let side = 0; side < 4; side += 1) {
     batch.with(Affine.rotationY((side * Math.PI) / 2), () => {
+      batch.log([-eave, roofBase + 0.02, eave + 0.02], [eave, roofBase + 0.02, eave + 0.02], 0.12, P.trim, 'wood', { segments: 5 });
+      // Painted: the owner's hip-roof top view (map/facades.ts) is the roof; only the eave and trim stay modelled.
+      if (painted) return;
       batch.orientedPolygon([[-eave, roofBase, eave], [eave, roofBase, eave], [0, apexY, 0]], [0, eave, C.roofHeight], P.shingle, 'shingle');
       batch.with(Affine.translation(0, apexY, 0).rotateX(pitch), () => {
         for (let course = 0; course < courses; course += 1) {
@@ -433,7 +452,6 @@ export function drawClockPavilion(batch: GeometryBatch): void {
           batch.box(0, 0.02 - (course % 2) * 0.02, along, half * 2, 0.16, slopeLength / courses + 0.14, color, 'shingle', 0.04);
         }
       });
-      batch.log([-eave, roofBase + 0.02, eave + 0.02], [eave, roofBase + 0.02, eave + 0.02], 0.12, P.trim, 'wood', { segments: 5 });
       batch.log([eave, roofBase + 0.08, eave], [0, apexY + 0.05, 0], 0.13, shade(P.shingle, 0.7), 'wood', { segments: 5 });
     });
   }

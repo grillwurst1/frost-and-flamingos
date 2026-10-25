@@ -25,8 +25,17 @@
  * low-frequency noise to hide tiling.
  */
 
-export const DETAIL_UNIFORMS = ['uFFDetailParams', 'uFFDetailScale', 'uFFInkColor'] as const;
-export const DETAIL_SAMPLERS = ['detailA', 'detailB', 'detailC'] as const;
+export const DETAIL_UNIFORMS = ['uFFDetailParams', 'uFFDetailScale', 'uFFInkColor', 'uFFColorParams'] as const;
+export const DETAIL_SAMPLERS = ['detailA', 'detailB', 'detailC', 'detailColor'] as const;
+
+/*
+ * detailColor: 2x2 atlas of the owner's painted COLOUR tiles (art/tex/*_color.jpg)
+ * normalised to their mean colour (mean = 0.5 grey): planks | log wall / shingles |
+ * cobblestone. Wood, log, shingle and stone surfaces multiply their vertex
+ * colour by 2x this tile, so the painted grain, knots and hue shifts show in
+ * colour while each part keeps its own albedo (red shutters stay red).
+ * uFFColorParams: x strength, y repeats per metre.
+ */
 
 export const DETAIL_FRAGMENT_GLSL = /* glsl */ `
 uniform sampler2D detailA;
@@ -35,6 +44,8 @@ uniform sampler2D detailC;
 uniform vec4 uFFDetailParams;
 uniform vec4 uFFDetailScale;
 uniform vec4 uFFInkColor;
+uniform sampler2D detailColor;
+uniform vec4 uFFColorParams;
 
 float ffIsId(float id, float k) {
   return 1.0 - step(0.5, abs(id - k));
@@ -103,6 +114,12 @@ vec4 ffTriplanarAT(sampler2D tex, vec3 p, vec3 dpx, vec3 dpy, vec3 w, float scal
     + ffAntiTile(tex, p, dpx, dpy, 2, scale, blend) * w.z;
 }
 
+// Painted colour tile cell (0 planks, 1 log wall, 2 shingles, 3 cobble), 0.5 = neutral.
+vec3 ffColorTile(vec2 uv, vec2 gx, vec2 gy, float cell) {
+  vec2 offset = vec2(mod(cell, 2.0), floor(cell / 2.0)) * 0.5;
+  return textureGrad(detailColor, fract(uv) * 0.5 + offset, gx * 0.5, gy * 0.5).rgb;
+}
+
 // Returns albedo in rgb and a packed extra in the out params.
 vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos, vec3 dpx, vec3 dpy, out float gloss, out float hatch) {
   vec3 base = vertexColor.rgb;
@@ -140,6 +157,8 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
   vec4 wB = vec4(0.0);
   vec4 wC = vec4(0.0);
   float sparkleWeight = 0.0;
+  float colourWeight = 0.0;
+  float colourCell = 0.0;
   if (vertexColor.a >= 0.75) {
     float snow = smoothstep(0.74, 0.86, luma) * (1.0 - smoothstep(0.1, 0.24, saturation));
     float warm = step(base.b, base.g) * step(base.g, base.r);
@@ -167,6 +186,8 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
     wC = vec4(plaster + ffIsId(id, 10.0) * 0.4 + ffIsId(id, 11.0) * 0.25, ffIsId(id, 13.0), 0.0, 0.0);
     gloss = ffIsId(id, 10.0) * 0.85 + ffIsId(id, 11.0) * 0.7 + ffIsId(id, 14.0) * 0.9 + ffIsId(id, 15.0) * 1.0;
     sparkleWeight = ffIsId(id, 5.0) + ffIsId(id, 14.0) * 0.6;
+    colourWeight = ffIsId(id, 1.0) + ffIsId(id, 2.0) + ffIsId(id, 3.0) + ffIsId(id, 4.0);
+    colourCell = clamp(id - 1.0, 0.0, 3.0);
   }
 
   float value = dot(a, wA) + dot(b, wB) + dot(c, wC);
@@ -179,6 +200,12 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
   float delta = (value - 0.5) * 2.0 * strength;
   vec3 darkTint = ffShadeTint(base) * 0.8;
   vec3 albedo = delta < 0.0 ? mix(base, base * darkTint, min(-delta * 1.25, 1.0)) : base * (1.0 + delta * 0.6);
+  if (colourWeight > 0.0 && uFFColorParams.x > 0.0) {
+    int axis = ffDominantAxis(w);
+    float scale = uFFColorParams.y;
+    vec3 tile = ffColorTile(ffPlaneUv(localPos, axis) * scale, ffPlaneUv(dpx, axis) * scale, ffPlaneUv(dpy, axis) * scale, colourCell);
+    albedo *= mix(vec3(1.0), clamp(tile * 2.0, 0.0, 1.8), colourWeight * uFFColorParams.x * fade);
+  }
   float ink = (1.0 - smoothstep(0.07, 0.2, value)) * strength * uFFDetailScale.w;
   albedo = mix(albedo, uFFInkColor.rgb, ink * 0.7);
   albedo += vec3(1.0) * c.a * sparkleWeight * 0.85 * fade;
@@ -197,6 +224,9 @@ var detailC : texture_2d<f32>;
 uniform uFFDetailParams : vec4f;
 uniform uFFDetailScale : vec4f;
 uniform uFFInkColor : vec4f;
+var detailColorSampler : sampler;
+var detailColor : texture_2d<f32>;
+uniform uFFColorParams : vec4f;
 
 struct FFSurface {
   albedo : vec3f,
@@ -224,6 +254,11 @@ fn ffTriplanar(tex : texture_2d<f32>, samp : sampler, p : vec3f, dpx : vec3f, dp
   return ffSampleGrad(tex, samp, p, dpx, dpy, 0, scale) * w.x
     + ffSampleGrad(tex, samp, p, dpx, dpy, 1, scale) * w.y
     + ffSampleGrad(tex, samp, p, dpx, dpy, 2, scale) * w.z;
+}
+
+fn ffColorTile(uv : vec2f, gx : vec2f, gy : vec2f, cell : f32) -> vec3f {
+  let offset = vec2f(cell - 2.0 * floor(cell / 2.0), floor(cell / 2.0)) * 0.5;
+  return textureSampleGrad(detailColor, detailColorSampler, fract(uv) * 0.5 + offset, gx * 0.5, gy * 0.5).rgb;
 }
 
 fn ffDominantAxis(w : vec3f) -> i32 {
@@ -307,6 +342,8 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
   var wB = vec4f(0.0);
   var wC = vec4f(0.0);
   var sparkleWeight = 0.0;
+  var colourWeight = 0.0;
+  var colourCell = 0.0;
   if (vertexColor.a >= 0.75) {
     let snow = smoothstep(0.74, 0.86, luma) * (1.0 - smoothstep(0.1, 0.24, saturation));
     let warm = step(base.b, base.g) * step(base.g, base.r);
@@ -334,6 +371,8 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
     wC = vec4f(plaster + ffIsId(id, 10.0) * 0.4 + ffIsId(id, 11.0) * 0.25, ffIsId(id, 13.0), 0.0, 0.0);
     result.gloss = ffIsId(id, 10.0) * 0.85 + ffIsId(id, 11.0) * 0.7 + ffIsId(id, 14.0) * 0.9 + ffIsId(id, 15.0) * 1.0;
     sparkleWeight = ffIsId(id, 5.0) + ffIsId(id, 14.0) * 0.6;
+    colourWeight = ffIsId(id, 1.0) + ffIsId(id, 2.0) + ffIsId(id, 3.0) + ffIsId(id, 4.0);
+    colourCell = clamp(id - 1.0, 0.0, 3.0);
   }
 
   var value = dot(a, wA) + dot(b, wB) + dot(c, wC);
@@ -346,6 +385,12 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
   let delta = (value - 0.5) * 2.0 * strength;
   let darkTint = ffShadeTint(base) * 0.8;
   var albedo = select(base * (1.0 + delta * 0.6), mix(base, base * darkTint, min(-delta * 1.25, 1.0)), delta < 0.0);
+  if (colourWeight > 0.0 && uniforms.uFFColorParams.x > 0.0) {
+    let axis = ffDominantAxis(w);
+    let scale = uniforms.uFFColorParams.y;
+    let tile = ffColorTile(ffPlaneUv(localPos, axis) * scale, ffPlaneUv(dpx, axis) * scale, ffPlaneUv(dpy, axis) * scale, colourCell);
+    albedo = albedo * mix(vec3f(1.0), clamp(tile * 2.0, vec3f(0.0), vec3f(1.8)), colourWeight * uniforms.uFFColorParams.x * fade);
+  }
   let ink = (1.0 - smoothstep(0.07, 0.2, value)) * strength * uniforms.uFFDetailScale.w;
   albedo = mix(albedo, uniforms.uFFInkColor.rgb, ink * 0.7);
   albedo += vec3f(1.0) * c.a * sparkleWeight * 0.85 * fade;
