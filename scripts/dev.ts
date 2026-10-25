@@ -5,11 +5,13 @@
  */
 const root = `${import.meta.dir}/..`;
 const bun = process.execPath;
+const serverPort = process.env.FF_SERVER_PORT ?? '3000';
+const clientPort = process.env.FF_CLIENT_PORT ?? '5173';
 
 console.log('');
 console.log('  Frost & Flamingos — dev stack');
-console.log('  client   http://localhost:5173');
-console.log('  server   http://127.0.0.1:3000/api/health');
+console.log(`  client   http://localhost:${clientPort}`);
+console.log(`  server   http://127.0.0.1:${serverPort}/api/health`);
 console.log('  stop     Ctrl+C');
 console.log('');
 
@@ -18,7 +20,7 @@ const server = Bun.spawn({
   cwd: `${root}/apps/server`,
   stdout: 'inherit',
   stderr: 'inherit',
-  env: { ...process.env, FORCE_COLOR: '1' },
+  env: { ...process.env, PORT: serverPort, FORCE_COLOR: '1' },
 });
 
 const client = Bun.spawn({
@@ -26,14 +28,14 @@ const client = Bun.spawn({
   cwd: `${root}/apps/client`,
   stdout: 'inherit',
   stderr: 'inherit',
-  env: { ...process.env, FORCE_COLOR: '1' },
+  env: { ...process.env, FF_SERVER_PORT: serverPort, FF_CLIENT_PORT: clientPort, FORCE_COLOR: '1' },
 });
 
 let shuttingDown = false;
 
 function releasePorts(): void {
   Bun.spawnSync({
-    cmd: ['sh', '-c', 'lsof -ti:5173,3000,4173 2>/dev/null | xargs kill -9 2>/dev/null || true'],
+    cmd: ['sh', '-c', `lsof -ti:${clientPort},${serverPort} 2>/dev/null | xargs kill -9 2>/dev/null || true`],
     stdout: 'ignore',
     stderr: 'ignore',
   });

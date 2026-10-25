@@ -2,7 +2,10 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
-const target = 'http://127.0.0.1:3000';
+const serverPort = Number(process.env.FF_SERVER_PORT ?? 3000);
+const clientPort = Number(process.env.FF_CLIENT_PORT ?? 5173);
+const previewPort = Number(process.env.FF_PREVIEW_PORT ?? 4173);
+const target = `http://127.0.0.1:${serverPort}`;
 const proxy = {
   '/api': {
     target,
@@ -18,13 +21,13 @@ export default defineConfig({
   plugins: [tailwindcss(), svelte()],
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: clientPort,
     strictPort: true,
     proxy,
   },
   preview: {
     host: '127.0.0.1',
-    port: 4173,
+    port: previewPort,
     strictPort: true,
     proxy,
   },
