@@ -990,10 +990,13 @@ export class CharacterBody {
     };
 
     const proposedFeetY = nextCenter.y - this.baseHeight / 2;
+    // A character the hulls pass through must not snap onto a hull roof either.
     const probe = this.physics.raycast(
       { x: nextCenter.x, y: proposedFeetY + 0.18, z: nextCenter.z },
       { x: 0, y: -1, z: 0 },
       PLAYER_SNAP_TO_GROUND + 0.18,
+      undefined,
+      !hullsBlock,
     );
     const probeDrop = probe ? proposedFeetY - probe.point.y : Number.POSITIVE_INFINITY;
     let grounded = controllerGrounded;

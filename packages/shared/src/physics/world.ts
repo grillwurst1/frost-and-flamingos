@@ -297,9 +297,10 @@ export class PhysicsWorld {
 
   /**
    * World raycast (players excluded). `ignoreCollider` skips one more
-   * collider, e.g. the camera of a vehicle's own hull.
+   * collider, e.g. the camera of a vehicle's own hull; `skipVehicles` skips
+   * every hull (a drifter's ground probe: hulls pass through her).
    */
-  raycast(origin: Vec3, direction: Vec3, maxDistance: number, ignoreCollider?: number): RayHit | null {
+  raycast(origin: Vec3, direction: Vec3, maxDistance: number, ignoreCollider?: number, skipVehicles = false): RayHit | null {
     const length = Math.hypot(direction.x, direction.y, direction.z) || 1;
     const ray = new RAPIER.Ray(origin, {
       x: direction.x / length,
@@ -314,7 +315,10 @@ export class PhysicsWorld {
       undefined,
       undefined,
       undefined,
-      (collider) => !this.playerColliderHandles.has(collider.handle) && collider.handle !== ignoreCollider,
+      (collider) =>
+        !this.playerColliderHandles.has(collider.handle) &&
+        collider.handle !== ignoreCollider &&
+        !(skipVehicles && this.vehicleColliderHandles.has(collider.handle)),
     );
     if (!hit) return null;
     return {
