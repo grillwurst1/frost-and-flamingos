@@ -97,9 +97,11 @@ describe('hens ignore drifters', () => {
     const ghost = join(harness, 'Hen Ghost', 'drifter', 'alpine');
     expect(ghost.player.profile.cosmetics.classId).toBe('drifter');
     ticks(5);
-    // /api/health reports both blocks side by side.
+    // /api/health reports the drifter, critter and vehicle blocks side by side.
     const status = harness.room.getStatus();
-    expect(status.protocolVersion).toBe(8);
+    // 7 critters, 8 drifter, 9 vehicles (4V).
+    expect(status.protocolVersion).toBe(9);
+    expect(status.vehicles.list.length).toBeGreaterThan(0);
     expect(status.critters.total).toBe(6);
     expect(status.critters.alive).toBe(6);
     expect(status.drifters.active).toBe(1);

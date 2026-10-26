@@ -60,6 +60,7 @@ import type { BakedClip } from '../apps/client/src/rendering/glb/clips';
 import { readGlb, writeBakedAnimations, writeGlb, type GlbParts } from '../apps/client/src/rendering/glb/glb-binary';
 import { bakeClipLibrary, type BakeSource } from '../apps/client/src/rendering/glb/offline-bake';
 import { removeSmallIslands, type GlbJson } from './glb-islands';
+import { splitVehicle, VEHICLE_PART_SPECS } from './vehicle-parts';
 import { simplifyGlb, type SimplifyJson } from './glb-simplify';
 
 const ROOT = resolve(import.meta.dir, '..');
@@ -78,6 +79,8 @@ interface ModelTuning {
   baseSize?: number;
   /** Triangle budget: the mesh is welded and simplified below it. */
   maxTriangles?: number;
+  /** false drops the normal map (not visible at the model's viewing distance). */
+  keepNormal?: boolean;
 }
 
 /**
@@ -87,6 +90,12 @@ interface ModelTuning {
  */
 const MODEL_TUNING: Readonly<Record<string, ModelTuning>> = {
   hen: { baseSize: 1024, maxTriangles: 8000 },
+  // Vehicles: nine of them stand around the map; seen from 4-10 m behind
+  // the hull at most, so 8k triangles, a 1024² paint and no normal map.
+  'vehicle-fondue-crawler': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
+  'vehicle-coconut-tank': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
+  'vehicle-flamingo-boat': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
+  'vehicle-sidecar': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
 };
 
 interface BakeEntry {
@@ -317,7 +326,14 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
   const outFile = join(OUTPUT_DIR, outName);
   const stem = join(workDir, outName.replace('.glb', ''));
 
-  const parts = readGlb(new Uint8Array(await Bun.file(file).arrayBuffer()));
+  let parts = readGlb(new Uint8Array(await Bun.file(file).arrayBuffer()));
+  if (VEHICLE_PART_SPECS[key]) {
+    // Static vehicles: re-oriented to game space and split into moving parts
+    // (hull, turret, barrel, wheels; see vehicle-parts.ts).
+    const split = splitVehicle(key, parts);
+    parts = split.parts;
+    console.log(`${name}: ${split.report.parts.map((part) => part.name).join(' ')}`);
+  }
   if (CLEAN_ISLANDS.has(key)) {
     const report = removeSmallIslands(parts.json as GlbJson, parts.bin);
     console.log(`${name}: removed ${report.removedIslands} stray islands (${report.removedTriangles} tris), kept ${report.keptTriangles}`);
@@ -336,7 +352,7 @@ async function optimize(file: string, options: Options, workDir: string, baked: 
   }
   const clips = baked.get(key);
   if (clips) writeBakedAnimations(parts, orderedClips(clips));
-  stripUnusedTextures(parts, options.keepNormal);
+  stripUnusedTextures(parts, options.keepNormal && tuning.keepNormal !== false);
   await Bun.write(`${stem}-0.glb`, writeGlb(parts));
 
   await run(['prune', `${stem}-0.glb`, `${stem}-1.glb`]);

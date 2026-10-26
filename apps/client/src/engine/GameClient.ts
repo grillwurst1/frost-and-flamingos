@@ -118,6 +118,7 @@ import { InputController } from './input';
 import { CritterClient } from './critter-client';
 import { cameraProfileFor, MascotClient } from './mascot-client';
 import { DrifterClient } from './drifter-client';
+import { VehicleClient } from './vehicle-client';
 
 const INTERPOLATION_DELAY_MS = 110;
 const SNAPSHOT_HISTORY = 40;
@@ -345,6 +346,8 @@ export class GameClient {
   private previewView: AvatarView | null = null;
   private mascotFx: MascotFx | null = null;
   private mascots: MascotClient | null = null;
+  /** Drivable vehicles (package 4V). */
+  private vehicles: VehicleClient | null = null;
   private critters: CritterClient | null = null;
   private drifters: DrifterClient | null = null;
   private tracers: TracerFx | null = null;
@@ -593,6 +596,34 @@ export class GameClient {
       };
       this.mascotFx = new MascotFx(scene, groundProbe);
       this.mascots = new MascotClient(this.mascotFx);
+      this.vehicles = new VehicleClient(scene, physics, this.mascotFx, this.input);
+      // The own profile is not in `profiles`: the local id resolves to the local faction.
+      this.vehicles.factionOf = (id) => (id === this.localId ? this.localFaction : this.profiles.get(id)?.faction ?? null);
+      // Visual vehicle shots end at a living enemy avatar they pass (direct
+      // hits), the local one included; friends and corpses let them through.
+      this.vehicles.avatarHit = (origin, direction, maxDistance, shooterFaction) => {
+        let best: { along: number; point: Vec3 } | null = null;
+        const players = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot.players ?? [];
+        const candidates: Array<{ id: number; root: AvatarView['root'] }> = [...this.remoteViews.entries()].map(([id, remote]) => ({ id, root: remote.view.root }));
+        if (this.localView && this.localId !== null) candidates.push({ id: this.localId, root: this.localView.root });
+        for (const { id, root } of candidates) {
+          if (!root.isEnabled()) continue;
+          if (shooterFaction && this.vehicles?.factionOf?.(id) === shooterFaction) continue;
+          if (players.find((player) => player.id === id)?.alive === false) continue;
+          const feet = root.getAbsolutePosition();
+          const centre = { x: feet.x, y: feet.y + 0.9, z: feet.z };
+          const along = (centre.x - origin.x) * direction.x + (centre.y - origin.y) * direction.y + (centre.z - origin.z) * direction.z;
+          if (along < 0 || along > maxDistance || (best && along >= best.along)) continue;
+          const point = { x: origin.x + direction.x * along, y: origin.y + direction.y * along, z: origin.z + direction.z * along };
+          // A standing body: about 0.55 m wide, 1.8 m tall.
+          if (Math.hypot(point.x - centre.x, (point.y - centre.y) * 0.6, point.z - centre.z) > 0.55) continue;
+          best = { along, point };
+        }
+        return best?.point ?? null;
+      };
+      if (import.meta.env.DEV) {
+        (window as unknown as { __ffVehicles?: () => unknown }).__ffVehicles = () => this.vehicles?.debugInfo() ?? null;
+      }
       this.critters = new CritterClient({
         fx: new CritterFx(scene, groundProbe),
         mascotFx: this.mascotFx,
@@ -786,6 +817,7 @@ export class GameClient {
     this.deathAt = 0;
     this.lastDamageAt = 0;
     this.cameraRig?.endKillerCam();
+    audio.stopVehicleEngines();
     setPhase('menu');
     this.input?.releasePointerLock();
   }
@@ -817,6 +849,8 @@ export class GameClient {
     this.wardrobeStage = null;
     for (const remote of this.remoteViews.values()) remote.view.dispose();
     this.remoteViews.clear();
+    this.vehicles?.dispose();
+    this.vehicles = null;
     this.mascotFx?.dispose();
     this.critters?.dispose();
     this.drifters?.dispose();
@@ -953,6 +987,7 @@ export class GameClient {
     this.latestLocalState = null;
     this.profiles.clear();
     this.clearRemoteViews();
+    this.vehicles?.clear();
     this.critters?.reset();
     this.deathKillerId = 0;
     this.deathKillerName = '';
@@ -1158,6 +1193,11 @@ export class GameClient {
       return;
     }
 
+    if (this.vehicles?.handleEvent(event, this.profiles)) {
+      if (event.eventType === 'PINBALL_BOING_HIT' || event.eventType === 'VEHICLE_DESTROYED') this.lastCombatAt = now;
+      return;
+    }
+
     switch (event.eventType) {
       case 'PARACHUTE_POPPED': {
         if (event.actorId === this.localId) return;
@@ -1302,6 +1342,7 @@ export class GameClient {
       this.look?.setWeatherLook(snapshot.weatherBalance);
     }
     this.latestWind = { angle: snapshot.windAngle, strength: snapshot.windStrength };
+    this.vehicles?.onSnapshot(snapshot, this.localId, performance.now());
 
     if (this.localId === null || !this.localCharacter) return;
     const authoritative = snapshot.players.find((player) => player.id === this.localId);
@@ -1358,6 +1399,13 @@ export class GameClient {
   private reconcile(authoritative: PlayerState): void {
     const character = this.localCharacter;
     if (!character) return;
+    if (this.vehicles?.localSeat) {
+      // Seated: the vehicle client predicts the hull; the body rides its seat.
+      this.pendingInputs.length = 0;
+      this.lastAcknowledged = null;
+      this.predictionError = this.vehicles.predictionError;
+      return;
+    }
 
     const acknowledged = authoritative.lastProcessedInput;
     while (
@@ -1462,6 +1510,15 @@ export class GameClient {
     this.updateLocalView(delta);
     this.updatePreviewView(delta);
     this.updateRemoteViews(delta, now);
+    if (this.vehicles && this.cameraRig) {
+      const character = this.localCharacter;
+      const onFoot =
+        this.currentPhase === 'playing' && character && !this.vehicles.localSeat
+          ? { position: character.position, faction: this.localFaction, alive: this.latestLocalState?.alive ?? true, classId: character.stats.id }
+          : null;
+      const audible = this.currentPhase === 'playing' || this.currentPhase === 'deploying' || this.currentPhase === 'paused';
+      this.vehicles.update(delta, now, this.snapshotHistory, this.cameraRig.camera.position, onFoot, audible);
+    }
     const listener = this.cameraRig?.camera.position;
     this.critters?.update(delta, now, listener ? { x: listener.x, y: listener.y, z: listener.z } : null);
     this.updateDrifters(delta);
@@ -1505,6 +1562,16 @@ export class GameClient {
       weaponSlot: slot,
     };
     this.sequence = this.sequence >= 0xffff ? 1 : this.sequence + 1;
+
+    const seat = this.vehicles?.localSeat ?? null;
+    if (seat && this.vehicles) {
+      const sent = this.vehicles.stepLocal(input, camera);
+      this.physics?.step();
+      this.vehicles.placeLocalCharacter(character);
+      this.network.sendInput(sent);
+      if (seat.handWeapons) this.maybeSendFire(buttons, slot, character, camera);
+      return;
+    }
 
     const previousButtons = character.buttons;
     // Predict with the same authoritative status the server applies.
@@ -1634,6 +1701,7 @@ export class GameClient {
       (this.currentPhase === 'paused' && !this.wardrobeIsOpen);
     if (playerCamera) {
       const character = this.localCharacter;
+      if (this.physics && this.vehicles?.updateCamera(delta, camera, this.physics)) return;
       if (character && this.physics) {
         camera.setProfile(cameraProfileFor(character.form));
         if (character.form === 'cow' && this.currentPhase === 'playing') {
@@ -1661,7 +1729,8 @@ export class GameClient {
       this.currentPhase === 'playing' ||
       this.currentPhase === 'deploying' ||
       (this.currentPhase === 'paused' && !this.wardrobeIsOpen);
-    view.root.setEnabled(showLocal);
+    const seated = this.vehicles?.occupantPose(this.localId) ?? null;
+    view.root.setEnabled(showLocal && (seated?.visible ?? true));
     if (!showLocal) return;
     const moving = this.currentPhase === 'playing';
     const pose: AvatarPose = {
@@ -1691,7 +1760,12 @@ export class GameClient {
       pitch: this.cameraRig?.lookPitch ?? 0,
       reloading: this.latestLocalState?.reloading ?? false,
     };
-    if (this.localId !== null) this.renderedFeet.set(this.localId, character.position);
+    if (seated) {
+      Object.assign(pose, { position: seated.position, velocity: { x: 0, y: 0, z: 0 }, yaw: seated.yaw, heading: seated.yaw, grounded: true, crouched: false, swimming: false, sprinting: false, rolling: false });
+      if (seated.unarmed) pose.weaponId = null;
+    }
+    // Where the body is drawn (the seat while riding): tracers and drifter FX start here.
+    if (this.localId !== null) this.renderedFeet.set(this.localId, pose.position);
     if (character.drifter && this.drifters && this.localId !== null) {
       const extras = this.drifters.poseFor(this.localId, character.position, this.localFaction);
       pose.stare = extras.stare;
@@ -1804,15 +1878,24 @@ export class GameClient {
       // (the latest one runs ~110 ms ahead of what is drawn).
       const previous = olderEntry.snapshot.players.find((entry) => entry.id === player.id);
       const newer = newerEntry.snapshot.players.find((entry) => entry.id === player.id) ?? player;
-      const { position, velocity, yaw, heading } = interpolateRemote(previous, newer, t, span);
+      const interpolated = interpolateRemote(previous, newer, t, span);
+      const { yaw, heading } = interpolated;
+      let { position, velocity } = interpolated;
+      // Seated crews ride the interpolated hull (vehicle-client) instead of their own samples.
+      const seated = this.vehicles?.occupantPose(player.id) ?? null;
+      remote.view.root.setEnabled(seated?.visible ?? true);
+      if (seated) {
+        position = seated.position;
+        velocity = { x: 0, y: 0, z: 0 };
+      }
       this.renderedFeet.set(player.id, position);
       const drifterExtras =
         newer.classId === 'drifter' ? this.drifters?.poseFor(player.id, position, newer.faction) : undefined;
       remote.view.update(delta, {
         position,
         velocity,
-        yaw,
-        heading,
+        yaw: seated ? seated.yaw : yaw,
+        heading: seated ? seated.yaw : heading,
         mascot: newer.mascot ? { ...newer.mascot, heading } : null,
         launchSeconds: newer.launchSeconds,
         dazed: newer.dazed,
@@ -1825,8 +1908,9 @@ export class GameClient {
         sprinting: newer.sprinting,
         rolling: newer.rolling,
         parachuteState: newer.parachuteState,
-        // Drifters are unarmed: nothing in their hands.
-        weaponId: classCapabilities(newer.classId).armed ? weaponForSlot(profile.loadout, newer.weaponSlot) : null,
+        // Drifters are unarmed, and so are crews in seats without hand weapons.
+        weaponId:
+          classCapabilities(newer.classId).armed && !seated?.unarmed ? weaponForSlot(profile.loadout, newer.weaponSlot) : null,
         reloading: newer.reloading,
         stare: drifterExtras?.stare ?? null,
         shimmer: drifterExtras?.shimmer ?? 0,
@@ -2164,6 +2248,8 @@ export class GameClient {
       this.mascots?.publishHud(character, state, this.localFaction, weaponSlot);
     }
     if (get(scoreboardOpen)) this.publishScoreboard();
+
+    this.vehicles?.publishHud();
 
     if (this.lastDamageAt > 0) {
       const flash = Math.max(0, 1 - (now - this.lastDamageAt) / 520);

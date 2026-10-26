@@ -4,6 +4,7 @@ import type {
   MainWeaponId,
   MascotForm,
   MascotWeaponId,
+  VehicleWeaponId,
   WeaponId,
   WeaponSlot,
 } from '../types/index.js';
@@ -218,6 +219,14 @@ export const ALL_WEAPON_IDS = [
   'turbo_roll',
   'ground_pound',
   'milk_splash',
+  'fondue_cannon',
+  'coconut_mortar',
+  'harpoon_gun',
+  'dozer_ram',
+  'grille_ram',
+  'sidecar_ram',
+  'flamingo_boing',
+  'vehicle_blast',
 ] as const satisfies readonly WeaponId[];
 
 /** Mascot move ids per slot. Ram ids credit kills made by body contact. */
@@ -464,10 +473,60 @@ const MASCOT_WEAPON_STATS: Record<MascotWeaponId, WeaponStats> = {
   milk_splash: mascotMoveStats('milk_splash', 0, SKILLS.milk_splash.radius, SKILLS.milk_splash.radius),
 };
 
+/**
+ * HUD/kill-feed numbers of the vehicle weapons and roadkill. Combat itself
+ * resolves from config/vehicles.ts (VEHICLES[kind].weapon / .ram); the two
+ * tables are kept in step here by hand.
+ */
+function vehicleWeaponStats(
+  id: VehicleWeaponId,
+  damage: number,
+  rpm: number,
+  projectileSpeed: number,
+  splashRadius: number,
+  range: number,
+): WeaponStats {
+  return {
+    id,
+    slot: 3,
+    damage,
+    rpm,
+    magazine: 0,
+    reserve: 0,
+    pellets: 1,
+    spread: 0,
+    range,
+    automatic: true,
+    projectileSpeed,
+    splashRadius,
+    headshotMultiplier: 1,
+    reloadSeconds: 0,
+    fireMode: projectileSpeed > 0 ? 'projectile' : 'melee',
+  };
+}
+
+const VEHICLE_WEAPON_STATS: Record<VehicleWeaponId, WeaponStats> = {
+  fondue_cannon: vehicleWeaponStats('fondue_cannon', 85, 20, 42, 5, 160),
+  coconut_mortar: vehicleWeaponStats('coconut_mortar', 85, 20, 42, 5, 160),
+  harpoon_gun: vehicleWeaponStats('harpoon_gun', 28, 250, 85, 0, 130),
+  dozer_ram: vehicleWeaponStats('dozer_ram', 120, 60, 0, 0, 2.5),
+  grille_ram: vehicleWeaponStats('grille_ram', 120, 60, 0, 0, 2.5),
+  sidecar_ram: vehicleWeaponStats('sidecar_ram', 120, 60, 0, 0, 1.6),
+  flamingo_boing: vehicleWeaponStats('flamingo_boing', 110, 60, 0, 0, 2),
+  vehicle_blast: vehicleWeaponStats('vehicle_blast', 55, 60, 0, 6, 6),
+};
+
+export const VEHICLE_WEAPON_IDS = Object.keys(VEHICLE_WEAPON_STATS) as VehicleWeaponId[];
+
+export function isVehicleWeapon(id: WeaponId): id is VehicleWeaponId {
+  return id in VEHICLE_WEAPON_STATS;
+}
+
 export const WEAPON_STATS: Record<WeaponId, WeaponStats> = {
   ...MAIN_WEAPON_STATS,
   ...GIMMICK_WEAPON_STATS,
   ...MASCOT_WEAPON_STATS,
+  ...VEHICLE_WEAPON_STATS,
 };
 
 export function weaponStats(id: WeaponId): WeaponStats {

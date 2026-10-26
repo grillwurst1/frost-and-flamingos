@@ -5,6 +5,8 @@ import { quaternionFromYawPitchRoll } from '../config/map/math.js';
 import type { Vec3 } from '../types/index.js';
 import type { MapProp, PropCollider } from '../types/map.js';
 import { CharacterBody, type CharacterBodyOptions } from './character.js';
+import { VehicleBody } from './vehicle.js';
+import type { DrivableVehicleKind } from '../config/vehicles.js';
 
 /** Membership bit 1 = static world, filter accepts world, player and drifter bodies. */
 export const WORLD_COLLISION_GROUP = 0x00010007;
@@ -82,7 +84,11 @@ export class PhysicsWorld {
   private readonly characters = new Map<number, CharacterBody>();
   private readonly playerColliderHandles = new Set<number>();
   private readonly pieceColliders = new Map<string, number[]>();
+  private readonly vehicles = new Map<number, VehicleBody>();
+  private readonly vehicleColliderHandles = new Map<number, VehicleBody>();
+  private terrainColliderHandle = -1;
   private nextCharacterHandle = 1;
+  private nextVehicleHandle = 1;
 
   private constructor(world: RAPIER.World) {
     this.world = world;
@@ -118,7 +124,7 @@ export class PhysicsWorld {
       .setFriction(0.92)
       .setRestitution(0)
       .setCollisionGroups(WORLD_COLLISION_GROUP);
-    this.world.createCollider(description);
+    this.terrainColliderHandle = this.world.createCollider(description).handle;
   }
 
   private createPropColliders(): void {
@@ -259,11 +265,41 @@ export class PhysicsWorld {
     return this.playerColliderHandles.has(handle);
   }
 
+  /** The terrain heightfield (boats follow it analytically instead of colliding). */
+  isTerrainCollider(handle: number): boolean {
+    return handle === this.terrainColliderHandle;
+  }
+
+  /** Adds a drivable vehicle hull (kinematic, see physics/vehicle.ts). */
+  createVehicle(kind: DrivableVehicleKind, position: Vec3, yaw: number): VehicleBody {
+    const handle = this.nextVehicleHandle;
+    this.nextVehicleHandle += 1;
+    const vehicle = new VehicleBody(this, handle, kind, position, yaw);
+    this.vehicles.set(handle, vehicle);
+    this.vehicleColliderHandles.set(vehicle.colliderHandle, vehicle);
+    return vehicle;
+  }
+
+  removeVehicle(vehicle: VehicleBody): void {
+    this.vehicleColliderHandles.delete(vehicle.colliderHandle);
+    this.vehicles.delete(vehicle.handle);
+    vehicle.dispose();
+  }
+
+  /** The vehicle a collider belongs to, if any. */
+  vehicleForCollider(handle: number): VehicleBody | null {
+    return this.vehicleColliderHandles.get(handle) ?? null;
+  }
+
   step(): void {
     this.world.step();
   }
 
-  raycast(origin: Vec3, direction: Vec3, maxDistance: number): RayHit | null {
+  /**
+   * World raycast (players excluded). `ignoreCollider` skips one more
+   * collider, e.g. the camera of a vehicle's own hull.
+   */
+  raycast(origin: Vec3, direction: Vec3, maxDistance: number, ignoreCollider?: number): RayHit | null {
     const length = Math.hypot(direction.x, direction.y, direction.z) || 1;
     const ray = new RAPIER.Ray(origin, {
       x: direction.x / length,
@@ -278,7 +314,7 @@ export class PhysicsWorld {
       undefined,
       undefined,
       undefined,
-      (collider) => !this.playerColliderHandles.has(collider.handle),
+      (collider) => !this.playerColliderHandles.has(collider.handle) && collider.handle !== ignoreCollider,
     );
     if (!hit) return null;
     return {
@@ -296,6 +332,9 @@ export class PhysicsWorld {
       character.dispose();
     }
     this.characters.clear();
+    for (const vehicle of this.vehicles.values()) vehicle.dispose();
+    this.vehicles.clear();
+    this.vehicleColliderHandles.clear();
     this.playerColliderHandles.clear();
     this.world.free();
   }

@@ -1,8 +1,9 @@
 /**
- * Protocol 8 (3G drifter merged onto 3H critters): one merged WorldSnapshot
- * with a drifter (aura bits + uint16 support score), an aura-supplied
- * teammate, a vehicle and the critter trailer survives the binary codec
- * field for field.
+ * Protocol 9 (3H critters = 7, 3G drifter = 8, 4V vehicles = 9): one merged
+ * WorldSnapshot with a drifter (aura bits + uint16 support score), an
+ * aura-supplied teammate riding a vehicle, the full 4V vehicle block and the
+ * critter trailer survives the binary codec field for field, in the order
+ * players -> vehicles -> critters.
  *
  *   bun test apps/server/test/snapshot-codec.test.ts
  */
@@ -10,11 +11,15 @@ import { describe, expect, test } from 'bun:test';
 import {
   PHYSICS_TICK_RATE,
   PROTOCOL_VERSION,
+  VEHICLE_FLAG,
+  VEHICLE_KIND_TABLE,
+  VEHICLES,
   classStatsFor,
   decodeSnapshot,
   encodeSnapshot,
   type CritterState,
   type PlayerState,
+  type VehicleSnapshot,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
 
@@ -22,6 +27,10 @@ import {
 const pos = (x: number, y: number, z: number) => ({ x: x / 80, y: y / 80, z: z / 80 });
 const vel = (x: number, y: number, z: number) => ({ x: x / 128, y: y / 128, z: z / 128 });
 const angle = (steps: number): number => (steps / 65535) * Math.PI * 2;
+/** Signed wire angles (vehicle yaw / turret yaw decode to -π…π). */
+const signedAngle = (steps: number): number => (steps > 32767 ? angle(steps) - Math.PI * 2 : angle(steps));
+/** Milli-unit wire values (yaw rate, steer, turret pitch). */
+const milli = (value: number): number => value / 1000;
 
 function player(overrides: Partial<PlayerState> & Pick<PlayerState, 'id' | 'faction' | 'classId'>): PlayerState {
   const yaw = overrides.yaw ?? angle(9000);
@@ -108,6 +117,43 @@ const enemy = player({
   boosted: true,
 });
 
+// The teammate drives the tank (gunner seat free); an enemy boat floats empty on its turbo cooldown.
+const tank: VehicleSnapshot = {
+  id: 2,
+  type: VEHICLE_KIND_TABLE.code.coconut_tank,
+  position: pos(400, 800, 1200),
+  yaw: signedAngle(4000),
+  health: 900,
+  velocity: vel(512, -16, -384),
+  yawRate: milli(731),
+  steer: milli(-210),
+  turretYaw: signedAngle(60000),
+  turretPitch: milli(120),
+  flags: VEHICLE_FLAG.Grounded | VEHICLE_FLAG.Handbrake,
+  boostTicks: 0,
+  boostCooldownTicks: 0,
+  weaponCooldownTicks: 180,
+  seats: VEHICLES.coconut_tank.seats.map((_, index) => (index === 0 ? mate.id : 0)),
+};
+const boat: VehicleSnapshot = {
+  id: 7,
+  type: VEHICLE_KIND_TABLE.code.badi_flamingo,
+  position: pos(-15600, 0, -12400),
+  yaw: signedAngle(50000),
+  health: 312,
+  velocity: vel(0, 0, 0),
+  yawRate: 0,
+  steer: 0,
+  turretYaw: 0,
+  turretPitch: milli(-45),
+  flags: VEHICLE_FLAG.Afloat,
+  boostTicks: 150,
+  boostCooldownTicks: 420,
+  weaponCooldownTicks: 0,
+  seats: VEHICLES.badi_flamingo.seats.map(() => 0),
+};
+const vehicles: VehicleSnapshot[] = [tank, boat];
+
 const critters: CritterState[] = [
   { id: 1, species: 'hen', half: 'alpine', position: pos(988, 1442, -3240), yaw: angle(12000), speed: 19 / 20, behaviour: 'walk', alive: true, airborne: false },
   { id: 2, species: 'hen', half: 'lagoon', position: pos(-15208, 112, -12056), yaw: angle(30000), speed: 88 / 20, behaviour: 'flee', alive: true, airborne: true },
@@ -123,21 +169,28 @@ const snapshot: WorldSnapshot = {
   ticketsLagoon: 50,
   turretStates: 5,
   players: [drifter, mate, enemy],
-  vehicles: [{ id: 2, type: 1, position: pos(400, 800, 1200), yaw: angle(4000), health: 900 }],
+  vehicles,
   critters,
 };
 
-/** Header 14 B, 43 B per (non-mascot) player (support uint16 included), vehicle count + 13 B each, critter count + 12 B each. */
+const HEADER_BYTES = 14;
+/** Non-mascot player record (3G support uint16 included). */
+const PLAYER_BYTES = 43;
+/** 4V vehicle block: 35 B + 2 B per seat. */
+const vehicleBytes = (vehicle: VehicleSnapshot): number => 35 + 2 * vehicle.seats.length;
+
+/** Header, players, vehicle count + blocks, critter count + 12 B each. */
 function expectedBytes(value: WorldSnapshot): number {
-  return 14 + value.players.length * 43 + 1 + value.vehicles.length * 13 + 1 + value.critters.length * 12;
+  const vehicleBlock = value.vehicles.reduce((sum, vehicle) => sum + vehicleBytes(vehicle), 0);
+  return HEADER_BYTES + value.players.length * PLAYER_BYTES + 1 + vehicleBlock + 1 + value.critters.length * 12;
 }
 
-describe('merged protocol 8 snapshot codec', () => {
-  test('protocol version is 8 (3H critters = 7, 3G drifter on top = 8)', () => {
-    expect(PROTOCOL_VERSION).toBe(8);
+describe('merged protocol 9 snapshot codec', () => {
+  test('protocol version is 9 (3H critters = 7, 3G drifter = 8, 4V vehicles = 9)', () => {
+    expect(PROTOCOL_VERSION).toBe(9);
   });
 
-  test('a drifter with aura bits and support score plus critters round-trips with deep equality', () => {
+  test('a drifter, a seated teammate, the vehicle block and critters round-trip with deep equality', () => {
     const bytes = encodeSnapshot(snapshot);
     expect(bytes.byteLength).toBe(expectedBytes(snapshot));
     const decoded = decodeSnapshot(bytes);
@@ -153,6 +206,9 @@ describe('merged protocol 8 snapshot codec', () => {
     expect(wireMate?.auraResupplied).toBe(true);
     expect(wireMate?.slowed).toBe(true);
     expect(decoded?.critters).toEqual(critters);
+    expect(decoded?.vehicles).toEqual(vehicles);
+    expect(decoded?.vehicles[0]?.seats[0]).toBe(mate.id);
+    expect(decoded?.vehicles[0]?.turretYaw).toBeLessThan(0);
     // Re-encoding the decoded snapshot is byte-identical.
     if (!decoded) throw new Error('decode failed');
     expect(new Uint8Array(encodeSnapshot(decoded))).toEqual(new Uint8Array(bytes));
@@ -166,7 +222,30 @@ describe('merged protocol 8 snapshot codec', () => {
     expect(capped?.players[1]?.support).toBe(0);
     const bytes = new Uint8Array(encodeSnapshot(snapshot));
     expect(decodeSnapshot(bytes.slice(0, bytes.length - 1))).toBeNull();
-    // A snapshot that stops after the vehicles (3G's own protocol 7, no critter trailer) fails, not half-reads.
+    // A snapshot that stops after the vehicles (no critter trailer) fails, not half-reads.
     expect(decodeSnapshot(bytes.slice(0, expectedBytes({ ...snapshot, critters: [] }) - 1))).toBeNull();
+    // A protocol-8 style vehicle record (13 B, no motor state) cannot pass for protocol 9.
+    expect(decodeSnapshot(bytes.slice(0, HEADER_BYTES + snapshot.players.length * PLAYER_BYTES + 1 + 13))).toBeNull();
+  });
+
+  test('wire order is players, then vehicles, then critters', () => {
+    const bytes = new Uint8Array(encodeSnapshot(snapshot));
+    const vehicleCountAt = HEADER_BYTES + snapshot.players.length * PLAYER_BYTES;
+    expect(bytes[vehicleCountAt]).toBe(vehicles.length);
+    // First vehicle record: id u16 (little or big endian, it is 2) then the kind byte.
+    const firstId = (bytes[vehicleCountAt + 1] ?? 0) | ((bytes[vehicleCountAt + 2] ?? 0) << 8);
+    const firstIdBigEndian = ((bytes[vehicleCountAt + 1] ?? 0) << 8) | (bytes[vehicleCountAt + 2] ?? 0);
+    expect([firstId, firstIdBigEndian]).toContain(tank.id);
+    expect(bytes[vehicleCountAt + 3]).toBe(tank.type);
+    const critterCountAt = vehicleCountAt + 1 + vehicles.reduce((sum, vehicle) => sum + vehicleBytes(vehicle), 0);
+    expect(bytes[critterCountAt]).toBe(critters.length);
+    expect(critterCountAt + 1 + critters.length * 12).toBe(bytes.byteLength);
+  });
+
+  test('an empty vehicle list and an empty critter trailer still round-trip', () => {
+    const bare: WorldSnapshot = { ...snapshot, players: [drifter], vehicles: [], critters: [] };
+    const bytes = encodeSnapshot(bare);
+    expect(bytes.byteLength).toBe(expectedBytes(bare));
+    expect(decodeSnapshot(bytes)).toEqual(bare);
   });
 });

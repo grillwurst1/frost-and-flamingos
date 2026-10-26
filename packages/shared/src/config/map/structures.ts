@@ -1073,14 +1073,15 @@ function summitSeeds(): PropSeed[] {
   // Summit rink, flags, crates, snowmen, sleds and ski racks.
   const rink = ICE_PATCH_LAYOUT[1];
   seeds.push(simple('summit_rink', 'ice_rink', rink.x, rink.z, 0, 1, [], undefined, rink.radius));
+  // Props near the serpentine stay at least 1.5 m clear of the 10 m tank road.
   ([
     [190, 228, 0],
-    [226, 200, 1],
-    [236, 236, 2],
+    [217, 204, 1],
+    [230, 240, 2],
     [204, 248, 0],
   ] as const).forEach(([x, z, variant], index) => seeds.push(crateStack(`summit_crates_${index}`, x, z, index * 1.1, variant)));
   ([
-    [214, 196],
+    [213, 198.5],
     [188, 214],
     [258, 244],
   ] as const).forEach(([x, z], index) => seeds.push(simple(`summit_snowman_${index}`, 'snowman', x, z, index * 1.7, index, [cylinderCollider(0.8, 0.9, 0, 0.9, 0)])));
@@ -1089,7 +1090,7 @@ function summitSeeds(): PropSeed[] {
     [244, 260, 2.2],
   ] as const).forEach(([x, z, yaw], index) => seeds.push(simple(`summit_skis_${index}`, 'ski_rack', x, z, yaw, index, [boxCollider(1.2, 0.8, 0.25, 0, 0.8, 0)])));
   ([
-    [230, 196, 0.2],
+    [231.5, 195, 0.2],
     [196, 238, 1.5],
   ] as const).forEach(([x, z, yaw], index) => seeds.push(simple(`summit_woodpile_${index}`, 'woodpile', x, z, yaw, index, [boxCollider(1.4, 0.6, 0.6, 0, 0.6, 0)])));
   seeds.push(simple('summit_sled_0', 'sled', 218, 252, 0.9, 0));
@@ -1109,8 +1110,9 @@ function alpineBaseSeeds(): PropSeed[] {
   seeds.push(simple('alpine_tent_0', 'tent', 296, 330, 2.4, 0, [boxCollider(2.2, 1.2, 2.6, 0, 1.2, 0)], base.y));
   seeds.push(simple('alpine_tent_1', 'tent', 286, 314, 2.0, 1, [boxCollider(2.2, 1.2, 2.6, 0, 1.2, 0)], base.y));
   seeds.push(simple('alpine_tent_2', 'tent', 322, 290, 0.6, 2, [boxCollider(2.2, 1.2, 2.6, 0, 1.2, 0)], base.y));
+  // The first stack and flag stand beside the tank road, clear of its edge.
   ([
-    [306, 296, 0],
+    [309, 293.5, 0],
     [300, 318, 1],
     [326, 304, 2],
     [314, 334, 0],
@@ -1120,7 +1122,7 @@ function alpineBaseSeeds(): PropSeed[] {
     [342, 303],
     [339, 306],
   ] as const).forEach(([x, z], index) => seeds.push(barrel(`alpine_fuel_${index}`, x, z, index + 3, base.y)));
-  seeds.push(simple('alpine_flag_0', 'flag', 300, 304, 0, 0, [cylinderCollider(0.18, 5, 0, 5, 0)], base.y));
+  seeds.push(simple('alpine_flag_0', 'flag', 298, 305.5, 0, 0, [cylinderCollider(0.18, 5, 0, 5, 0)], base.y));
   seeds.push(simple('alpine_flag_1', 'flag', 318, 300, 0, 0, [cylinderCollider(0.18, 5, 0, 5, 0)], base.y));
   seeds.push(simple('alpine_campfire', 'campfire', 304, 322, 0, 0, [], base.y));
   // Glacier runway edge markers.
@@ -1385,7 +1387,8 @@ function siloSeeds(): PropSeed[] {
     { id: 'silo_bridge_south', kind: 'cheese_silo', x: -6, z: 42 },
     { id: 'silo_bridge_north', kind: 'cheese_silo', x: 7, z: 103 },
     { id: 'silo_square_east', kind: 'cheese_silo', x: 40, z: 20 },
-    { id: 'silo_arch_north', kind: 'cheese_silo', x: 110, z: 92 },
+    // Beside the arch's north ramp, clear of the tank road.
+    { id: 'silo_arch_north', kind: 'cheese_silo', x: 113, z: 86 },
     { id: 'silo_hairpin_1', kind: 'cheese_silo', x: 220, z: 112 },
     { id: 'silo_hairpin_2', kind: 'cheese_silo', x: 98, z: 160 },
     { id: 'silo_harbor_deck_0', kind: 'coconut_silo', x: A.x + Math.sin(3.0) * 15, z: A.z + Math.cos(3.0) * 15, y: HARBOR_DECK_HEIGHT },

@@ -13,13 +13,18 @@
   import MascotHud from './MascotHud.svelte';
   import DrifterHud from './DrifterHud.svelte';
   import StatusBar from './hud/StatusBar.svelte';
+  import VehicleHud from './hud/VehicleHud.svelte';
   import WeaponDock from './hud/WeaponDock.svelte';
+  import { vehicleHud } from '../state/vehicle';
 
   $: player = $localPlayer;
   // Mascots carry no firearms: MascotHud shows their portrait, vitality and moves.
   $: isMascot = player?.classId === 'mascot';
   // Drifters carry nothing: no crosshair, no dock, no skills; DrifterHud shows her aura.
   $: isDrifter = player?.classId === 'drifter';
+  // Riding a vehicle: drivers and gunners use the vehicle card instead of the weapon dock.
+  $: riding = $vehicleHud;
+  $: showDock = !riding || riding.handWeapons;
   $: dead = $deathState !== null;
   $: maxHp = Math.max(1, player?.maxHp ?? 100);
   $: lowHealth = !!player && player.alive && !isDrifter && (player.hp / maxHp) * 100 <= 30;
@@ -62,7 +67,7 @@
       {#if $interactionPrompt.icon}
         <span class="prompt-tile"><Pictogram tile={$interactionPrompt.icon} painted /></span>
       {/if}
-      <kbd>F</kbd>
+      <kbd>{$t($interactionPrompt.keyLabel ?? 'controls.interactKey')}</kbd>
       <span>{$t($interactionPrompt.key, $interactionPrompt.params)}</span>
     </div>
   {/if}
@@ -72,9 +77,10 @@
     <MascotHud />
   {:else if isDrifter}
     <DrifterHud />
-  {:else}
+  {:else if showDock}
     <WeaponDock />
   {/if}
+  <VehicleHud raised={!!riding && riding.handWeapons} />
 
   <div class="hud-controls-hint" aria-hidden="true">
     <span class="hint-title">{$t('hud.controlsHintTitle')}</span>

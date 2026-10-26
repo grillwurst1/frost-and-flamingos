@@ -70,6 +70,34 @@
         "basecolor": "lagoon-infiltrator-basecolor.webp",
         "normal": "lagoon-infiltrator-normal.webp"
       }
+    },
+    "vehicle-coconut-tank": {
+      "file": "vehicle-coconut-tank.glb",
+      "bytes": 751584,
+      "textures": {
+        "basecolor": "vehicle-coconut-tank-basecolor.webp"
+      }
+    },
+    "vehicle-flamingo-boat": {
+      "file": "vehicle-flamingo-boat.glb",
+      "bytes": 394560,
+      "textures": {
+        "basecolor": "vehicle-flamingo-boat-basecolor.webp"
+      }
+    },
+    "vehicle-fondue-crawler": {
+      "file": "vehicle-fondue-crawler.glb",
+      "bytes": 663380,
+      "textures": {
+        "basecolor": "vehicle-fondue-crawler-basecolor.webp"
+      }
+    },
+    "vehicle-sidecar": {
+      "file": "vehicle-sidecar.glb",
+      "bytes": 751854,
+      "textures": {
+        "basecolor": "vehicle-sidecar-basecolor.webp"
+      }
     }
   }
 }

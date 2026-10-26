@@ -31,6 +31,7 @@ export class InputController {
   /** Tab opened the scoreboard: its repeats are swallowed until release. */
   private scoreboardHeld = false;
   private weaponSlot: WeaponSlot = 1;
+  private vehicleMode = false;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement, handlers: InputHandlers) {
@@ -78,6 +79,17 @@ export class InputController {
     return this.weaponSlot;
   }
 
+  /**
+   * In a vehicle C is the seat switch: a tap sends a short Crouch pulse
+   * instead of toggling crouch (which is cleared on the way in and out).
+   */
+  setVehicleMode(on: boolean): void {
+    if (this.vehicleMode === on) return;
+    this.vehicleMode = on;
+    this.crouchToggle = false;
+    this.crouchPulseUntil = 0;
+  }
+
   buttons(): number {
     let mask = 0;
     if (this.pressed.has('KeyW') || this.pressed.has('ArrowUp')) mask |= InputButton.Forward;
@@ -103,6 +115,8 @@ export class InputController {
     if (this.pressed.has('KeyQ')) mask |= InputButton.Skill1;
     if (this.pressed.has('KeyE')) mask |= InputButton.Skill2;
     if (this.pressed.has('KeyT')) mask |= InputButton.Skill3OrTaunt;
+    // Vehicle horn (H) travels on the otherwise unused Heal bit.
+    if (this.pressed.has('KeyH')) mask |= InputButton.Heal;
     return mask;
   }
 
@@ -142,6 +156,10 @@ export class InputController {
       // moving the keyboard focus.
       if (!event.repeat) this.scoreboardHeld = this.handlers.onScoreboard(true);
       if (this.scoreboardHeld) event.preventDefault();
+      return;
+    }
+    if (event.code === 'KeyC' && !event.repeat && this.vehicleMode) {
+      this.crouchPulseUntil = performance.now() + 130;
       return;
     }
     if (event.code === 'KeyC' && !event.repeat) {

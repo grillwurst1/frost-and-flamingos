@@ -224,6 +224,8 @@ export interface ComicPopState {
 export interface InteractionPromptState {
   key: TranslationKey;
   params?: TranslationParams;
+  /** Key cap label (i18n); defaults to the Interact key. */
+  keyLabel?: TranslationKey;
   /** Optional painted tile id from the HUD's `TILE_FILES` map, e.g. `wrench` for repairs. */
   icon?: string;
 }

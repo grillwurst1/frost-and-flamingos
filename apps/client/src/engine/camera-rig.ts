@@ -26,6 +26,10 @@ export interface CameraProfile {
 export const HUMAN_CAMERA: CameraProfile = { pivotHeight: EYE_HEIGHT + 0.14, distance: 4.8, shoulder: SHOULDER_OFFSET };
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
+/** Vehicles: centred, higher and further back (pivot above the vehicle base). */
+export const TANK_CAMERA: CameraProfile = { pivotHeight: 3.7, distance: 10.5, shoulder: 0 };
+export const BOAT_CAMERA: CameraProfile = { pivotHeight: 2.7, distance: 8.4, shoulder: 0 };
+export const SIDECAR_CAMERA: CameraProfile = { pivotHeight: 2.3, distance: 6.8, shoulder: 0 };
 
 /** Mouse idle time before the camera starts easing behind a steered body. */
 const FOLLOW_IDLE_SECONDS = 1.1;
@@ -78,6 +82,8 @@ export class CameraRig {
   private lastMouseAt = 0;
   private wobble = 0;
   private wobbleTime = 0;
+  /** A collider the occlusion ray passes through (the hull of the ridden vehicle). */
+  private ignoredCollider: number | undefined = undefined;
   constructor(scene: Scene) {
     this.camera = new FreeCamera('player-camera', new Vector3(0, 40, -80), scene);
     this.camera.minZ = 0.12;
@@ -140,6 +146,11 @@ export class CameraRig {
     this.targetYaw += shortestAngle(this.targetYaw, heading) * (1 - Math.exp(-dt * strength));
   }
 
+  /** Occlusion ignores this collider (null: none), e.g. the own vehicle hull. */
+  setIgnoredCollider(handle: number | null): void {
+    this.ignoredCollider = handle ?? undefined;
+  }
+
   /** Dazed wobble amount 0–1 (cowbell clang). */
   setWobble(amount: number): void {
     this.wobble = Math.max(0, Math.min(1, amount));
@@ -192,7 +203,7 @@ export class CameraRig {
     let allowedDistance = this.distance;
     if (rayLength > 0.001) {
       const normalized = direction.scale(1 / rayLength);
-      const hit = physics.raycast(this.pivotSpring.value, normalized, rayLength + 0.4);
+      const hit = physics.raycast(this.pivotSpring.value, normalized, rayLength + 0.4, this.ignoredCollider);
       if (hit) {
         allowedDistance = Math.max(1.05, hit.distance - 0.35);
       }

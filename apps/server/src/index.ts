@@ -74,6 +74,22 @@ const server = Bun.serve<SocketData>({
       return json(room.devTeleport(player, x, z, y !== undefined && Number.isFinite(y) ? y : undefined));
     }
 
+    if (url.pathname === '/api/dev/vehicle' && process.env.FF_DEV_TOOLS === '1') {
+      // Local capture tooling only: POST from a loopback address.
+      const address = bunServer.requestIP(request)?.address ?? '';
+      const loopback = address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+      if (request.method !== 'POST' || !loopback) return json({ ok: false }, 403);
+      const player = Number(url.searchParams.get('player') ?? 0);
+      const vehicle = Number(url.searchParams.get('vehicle') ?? 0);
+      const value = Number(url.searchParams.get('value') ?? 0);
+      const action = url.searchParams.get('action') ?? '';
+      if (!Number.isFinite(player) || !Number.isFinite(vehicle) || !Number.isFinite(value)) return json({ ok: false }, 400);
+      const x = Number(url.searchParams.get('x'));
+      const z = Number(url.searchParams.get('z'));
+      const place = Number.isFinite(x) && Number.isFinite(z) ? { x, z, yaw: Number(url.searchParams.get('yaw') ?? 0) || 0 } : null;
+      return json(room.devVehicle(player, action, vehicle, value, place));
+    }
+
     if (url.pathname === '/api/dev/critters' && process.env.FF_DEV_TOOLS === '1') {
       // Local capture tooling only: gathers the hens of that map half around (x, z).
       const address = bunServer.requestIP(request)?.address ?? '';

@@ -77,6 +77,7 @@ export const GameEventCode = {
   KILL_HELMET_POP: 3,
   KILL_BLAST_LAUNCH: 4,
   KILL_ELEMENTAL: 5,
+  /** Vehicle roadkill/ram. actor = driver, target = victim, param = contact (dm), value = damage (0 = shove). */
   PINBALL_BOING_HIT: 6,
   TURRET_CAPTURED: 7,
   PROP_EXPLODE: 8,
@@ -84,7 +85,9 @@ export const GameEventCode = {
   ENV_EXTINGUISH: 10,
   ENV_BRIDGE_REPAIR: 11,
   TERRAIN_CRATER: 12,
+  /** Badi-Flamingo plug turbo. actor = driver, target = vehicle id. */
   FLAMINGO_BOOST: 13,
+  /** Any vehicle weapon shot. actor = gunner, target = vehicle id, param = world yaw/pitch (mrad), value = weapon code. */
   TANK_CANNON_FIRE: 14,
   CUCKOO_POP: 15,
   GONDOLA_BRAKE: 16,
@@ -98,6 +101,14 @@ export const GameEventCode = {
   MASCOT_IMPACT: 22,
   /** Coconut-milk puddle. param = centre (dm), value = lifetime in deciseconds. */
   MASCOT_PUDDLE: 23,
+  /** actor = attacker, target = vehicle id, paramX = 1 when the armour soaked it, value = damage. */
+  VEHICLE_DAMAGED: 24,
+  /** actor = destroyer (0 = drowned/deflated), target = vehicle id, param = position (dm), value = kind code. */
+  VEHICLE_DESTROYED: 25,
+  /** actor = driver, target = vehicle id. */
+  VEHICLE_HORN: 26,
+  /** actor = player, target = vehicle id, value = seat index + 1 (0 = got out). */
+  VEHICLE_SEAT: 27,
   /**
    * Critters use 32+ (clear of the player event range). actor = killer (0 =
    * none), target = critter id, param = position (dm), value = species code

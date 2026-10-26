@@ -4,8 +4,10 @@
  * 7: ambient critter trailer in the snapshot and the CRITTER_KILLED event (3H).
  * 8: drifter class (CLASS_CODE 4), aura status bits and a uint16 support score
  *    per snapshot player (3G), on top of the protocol-7 critter trailer.
+ * 9: vehicle block in the snapshot (between the players and the critter
+ *    trailer) and the VEHICLE_* events (4V), on top of 8.
  */
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;

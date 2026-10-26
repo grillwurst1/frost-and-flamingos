@@ -80,6 +80,7 @@ import {
 } from './combat.js';
 import { CritterSystem, type CritterKill, type CritterThreat } from './critters.js';
 import { mascotBotButtons, type MascotBotMemory } from './mascot-bot.js';
+import { VehicleManager, type VehicleStatus } from './vehicle-manager.js';
 
 export interface GameSocket {
   send(data: string | ArrayBuffer | Uint8Array): unknown;
@@ -295,6 +296,7 @@ export interface RoomStatus {
     puddles: number;
     lastRam: MascotRamRecord | null;
   };
+  vehicles: VehicleStatus;
   critters: {
     alive: number;
     total: number;
@@ -432,9 +434,28 @@ export class MatchRoom {
   private weatherBalance = 0;
   private windAngle = 0.6;
   private windStrength = 0;
+  /** Drivable vehicles (package 4V); see vehicle-manager.ts. */
+  readonly vehicles: VehicleManager<PlayerConnection>;
 
   private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean) {
     this.physics = physics;
+    this.vehicles = new VehicleManager<PlayerConnection>(physics, {
+      physicsTick: () => this.physicsTick,
+      snapshotTick: () => this.snapshotTick,
+      players: () => this.players.values(),
+      player: (id) => this.players.get(id),
+      damagePlayer: (target, attacker, damage, weaponId, headshot) =>
+        this.damagePlayer(target, attacker, damage, weaponId, headshot),
+      explode: (owner, position, damage, radius, weaponId) => this.explode(owner, position, damage, radius, weaponId),
+      combatTargets: (owner, clientTick) => this.combatTargets(owner, clientTick),
+      broadcastEvent: (event) => this.broadcastEvent(event),
+      // Hens (package 3H): vehicle shells, harpoons, splash and run-overs.
+      critterRaycast: (origin, direction, maxDistance) => this.critters.raycast(origin, direction, maxDistance, null),
+      killCritter: (critterId, killerId, weaponId) => {
+        this.critters.kill(critterId, killerId, weaponId);
+      },
+      killCrittersInSphere: (center, radius, killerId, weaponId) => this.critters.killInSphere(center, radius, killerId, weaponId, null),
+    });
     this.critters = new CritterSystem(physics, {
       seed: critterSeed,
       enabled: critters,
@@ -501,7 +522,7 @@ export class MatchRoom {
       }
 
       const input = player.isBot
-        ? this.botInput(player)
+        ? this.vehicles.botAdjust(player, this.botInput(player))
         : player.inputQueue.shift() ?? null;
       if (input) {
         this.applyInput(player, input, wind);
@@ -525,6 +546,7 @@ export class MatchRoom {
       }
     }
 
+    this.vehicles.step();
     this.critters.step(this.physicsTick, this.critterThreats());
     this.physics.step();
     this.resolveMascotRams();
@@ -575,6 +597,19 @@ export class MatchRoom {
     player.lastInput = input;
     player.lastProcessedInput = input.sequence;
     const mascot = player.character.form !== null;
+
+    // Vehicles: seated players drive/aim instead of walking; F enters and exits.
+    const seat = this.vehicles.handleInput(player, input, previousButtons, trackButtons);
+    if (seat !== 'none') {
+      if (seat === 'hands' && (input.buttons & InputButton.Reload) !== 0 && (previousButtons & InputButton.Reload) === 0) {
+        this.startReload(player);
+      }
+      if (seat === 'hands' && player.isBot && (input.buttons & InputButton.FirePrimary) !== 0) {
+        this.tryFire(player, this.snapshotTick);
+      }
+      if (trackButtons) player.previousButtons = input.buttons;
+      return;
+    }
 
     if (
       !mascot &&
@@ -710,6 +745,25 @@ export class MatchRoom {
     return { ok: true, position };
   }
 
+  /**
+   * DEV-only vehicle probe (FF_DEV_TOOLS=1): `enter` seats the player in a
+   * vehicle (seat index `value`), `damage` hurts a vehicle by `value`,
+   * `park` moves a vehicle (with its crew) onto the ground or water at x/z.
+   */
+  devVehicle(
+    playerId: number,
+    action: string,
+    vehicleId: number,
+    value: number,
+    place: { x: number; z: number; yaw: number } | null = null,
+  ): { ok: boolean } {
+    const player = this.players.get(playerId);
+    if (action === 'enter') return { ok: !!player && player.alive && this.vehicles.devEnter(player, vehicleId, Math.max(0, Math.floor(value))) };
+    if (action === 'damage') return { ok: this.vehicles.devDamage(vehicleId, null, value) };
+    if (action === 'park' && place) return { ok: this.vehicles.devPark(vehicleId, place.x, place.z, place.yaw) };
+    return { ok: false };
+  }
+
   private eyePosition(player: PlayerConnection): Vec3 {
     const position = player.character.position;
     return {
@@ -746,6 +800,8 @@ export class MatchRoom {
     if (!player.alive) return;
     // Mascots and drifters carry no firearms.
     if (player.character.form || !capabilitiesOf(player).armed) return;
+    // Only seats that keep their hands free (commander hatch, sidecar tub) fire the own loadout.
+    if (!this.vehicles.mayUseHandWeapons(player.id)) return;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const stats = WEAPON_STATS[weaponId];
     if (stats.fireMode === 'melee' && stats.damage <= 0) return;
@@ -833,10 +889,18 @@ export class MatchRoom {
     const maxDistance = Math.min(range, worldHit?.distance ?? range);
     const targets = this.combatTargets(player, player.isBot ? 0 : clientTick);
     const hit = raycastTargets(origin, direction, maxDistance, targets);
-    // Critters are rewound like players; a critter in front takes the shot.
+    // Hulls and critters stop bullets: the nearest of hull, critter and player takes the shot.
+    const vehicleHit = this.vehicles.raycast(origin, normalizeDirection(direction), maxDistance + 0.3, this.vehicles.vehicleIdOf(player.id));
+    // Critters are rewound like players.
     const rewindTick = player.isBot ? null : (this.findLagSample(clientTick)?.tick ?? null);
     const critterHit = this.critters.raycast(origin, direction, maxDistance, rewindTick);
-    if (critterHit && (!hit || critterHit.distance < hit.distance)) {
+    const playerDistance = hit ? hit.distance : Number.POSITIVE_INFINITY;
+    const critterDistance = critterHit ? critterHit.distance : Number.POSITIVE_INFINITY;
+    if (vehicleHit && vehicleHit.distance < playerDistance && vehicleHit.distance <= critterDistance) {
+      this.vehicles.damageFromWeapon(vehicleHit.id, player, damage, weaponId);
+      return;
+    }
+    if (critterHit && critterDistance < playerDistance) {
       this.critters.kill(critterHit.critterId, player.id, weaponId);
       return;
     }
@@ -854,6 +918,8 @@ export class MatchRoom {
       if (other.profile.faction === player.profile.faction) continue;
       // Shots and projectiles pass through a drifter to whoever stands behind her.
       if (untouchable(other)) continue;
+      // Crews inside the armour are hit through their vehicle instead.
+      if (this.vehicles.isShielded(other.id)) continue;
       const classStats = classStatsFor(other.profile.cosmetics.classId, other.profile.faction);
       const state = sample?.players.get(other.id);
       targets.push({
@@ -1040,6 +1106,8 @@ export class MatchRoom {
         for (const other of this.players.values()) {
           if (other.id === player.id || !other.alive || untouchable(other)) continue;
           if (other.profile.faction === player.profile.faction) continue;
+          // Crews inside the armour are out of reach.
+          if (this.vehicles.isShielded(other.id)) continue;
           if (distance3(player.character.position, other.character.position) > skill.radius) continue;
           this.damagePlayer(other, player, skill.amount, null, false);
         }
@@ -1050,6 +1118,8 @@ export class MatchRoom {
         for (const other of this.players.values()) {
           if (other.id === player.id || !other.alive || untouchable(other)) continue;
           if (other.profile.faction === player.profile.faction) continue;
+          // Crews inside the armour are out of reach.
+          if (this.vehicles.isShielded(other.id)) continue;
           if (distance3(player.character.position, other.character.position) > skill.radius) continue;
           other.slowUntilTick = Math.max(
             other.slowUntilTick,
@@ -1136,11 +1206,13 @@ export class MatchRoom {
       if (!other.alive || untouchable(other)) continue;
       if (other.id === owner.id) continue;
       if (other.profile.faction === owner.profile.faction) continue;
+      if (this.vehicles.isShielded(other.id)) continue;
       const distance = distance3(position, other.character.position);
       if (distance > radius) continue;
       const falloff = Math.max(0.3, 1 - (distance / radius) * 0.7);
-      this.damagePlayer(other, owner, damage * falloff, null, false);
+      this.damagePlayer(other, owner, damage * falloff, weaponId, false);
     }
+    this.vehicles.explode(owner, position, damage, radius, weaponId);
     this.broadcastEvent({
       eventType: 'PROP_EXPLODE',
       actorId: owner.id,
@@ -1202,6 +1274,7 @@ export class MatchRoom {
     });
     for (const other of this.players.values()) {
       if (!other.alive || !this.isEnemy(player, other) || untouchable(other)) continue;
+      if (this.vehicles.isShielded(other.id)) continue;
       const feet = other.character.position;
       const dx = feet.x - position.x;
       const dz = feet.z - position.z;
@@ -1234,6 +1307,7 @@ export class MatchRoom {
     for (const other of this.players.values()) {
       if (!other.alive || !this.isEnemy(player, other) || untouchable(other)) continue;
       if (this.physicsTick < other.spawnProtectionUntil) continue;
+      if (this.vehicles.isShielded(other.id)) continue;
       if (distance3(player.character.position, other.character.position) > skill.radius) continue;
       other.dazedUntilTick = Math.max(other.dazedUntilTick, until);
       other.slowUntilTick = Math.max(other.slowUntilTick, until);
@@ -1370,6 +1444,7 @@ export class MatchRoom {
         if (victim.id === rammer.id || !victim.alive) continue;
         // Mascots charge straight through a drifter: no ram, no bump.
         if (untouchable(victim)) continue;
+        if (this.vehicles.isShielded(victim.id)) continue;
         if (this.physicsTick < (rammer.ramCooldowns.get(victim.id) ?? 0)) continue;
         const touched = this.ramTouch(rammer, form, victim, rewind);
         if (!touched) continue;
@@ -1874,7 +1949,7 @@ export class MatchRoom {
       // charging: follow the waypoint graph towards the target instead.
       if (this.physicsTick >= route.nextSightTick) {
         route.nextSightTick = this.physicsTick + 12;
-        route.seesTarget = this.hasLineOfSight(origin, targetPoint, distance, targetDirection);
+        route.seesTarget = this.hasLineOfSight(origin, targetPoint, distance, targetDirection, live.id);
       }
       if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
         // Routed movement has its own stuck escalation (hop, sidestep, re-plan).
@@ -1923,7 +1998,7 @@ export class MatchRoom {
         if (
           this.physicsTick >= bot.nextFireTick &&
           distance <= weapon.range &&
-          this.hasLineOfSight(origin, targetPoint, distance, targetDirection)
+          this.hasLineOfSight(origin, targetPoint, distance, targetDirection, live.id)
         ) {
           buttons |= InputButton.FirePrimary;
           const interval = Math.max(
@@ -2035,6 +2110,7 @@ export class MatchRoom {
           targetPoint,
           distance,
           normalizeDirection({ x: dx, y: dy, z: dz }),
+          target.id,
         );
       }
       if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
@@ -2125,9 +2201,11 @@ export class MatchRoom {
     target: Vec3,
     distance: number,
     direction: Vec3,
+    targetId = 0,
   ): boolean {
     const hit = this.physics.raycast(origin, direction, distance);
-    return hit === null || hit.distance >= distance - 0.6;
+    // The hull of the vehicle the target rides counts as a clear shot at it.
+    return hit === null || hit.distance >= distance - 0.6 || this.vehicles.isVehicleSurfaceNear(hit.point, target, targetId);
   }
 
   join(socket: GameSocket, hello: ServerHello): JoinResult | JoinError {
@@ -2253,6 +2331,7 @@ export class MatchRoom {
     const player = this.players.get(playerId);
     if (!player || player.isBot || !player.alive) return;
     if (player.character.form || !capabilitiesOf(player).armed) return;
+    if (!this.vehicles.mayUseHandWeapons(player.id)) return;
     const weaponId = WEAPON_TABLE.byCode[fire.weaponId];
     if (!weaponId) return;
     if (weaponId !== weaponForSlot(player.profile.loadout, player.activeSlot)) return;
@@ -2404,7 +2483,7 @@ export class MatchRoom {
       ticketsLagoon: this.ticketsLagoon,
       turretStates: 0,
       players,
-      vehicles: [],
+      vehicles: this.vehicles.snapshot(),
       critters: this.critters.states(),
     };
   }
@@ -2465,6 +2544,7 @@ export class MatchRoom {
         puddles: this.puddles.length,
         lastRam: this.mascotStats.lastRam,
       },
+      vehicles: this.vehicles.status(),
       critters: {
         alive: this.critters.states().filter((critter) => critter.alive).length,
         total: this.critters.count,
