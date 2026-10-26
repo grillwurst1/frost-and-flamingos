@@ -18,6 +18,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import { audio } from '../audio/synth';
 import { isMascotView, type AvatarView } from '../rendering/avatar';
+import type { MascotReaction } from '../rendering/mascot-view';
 import { puffKindForSurface, type MascotFx, type PopupStyle } from '../rendering/mascot-fx';
 import { showComicPop } from '../state/game';
 import { mascotHud } from '../state/mascot';
@@ -41,6 +42,17 @@ const HEAD_HEIGHT: Record<MascotForm | 'human', number> = { cow: 1.9, coconut: 1
 
 function decimetres(value: number): number {
   return value / 10;
+}
+
+/** Face/body reaction of a mascot to one of its own moves (slot 1–3). */
+function moveReaction(form: MascotForm, slot: number): MascotReaction | null {
+  if (form === 'cow') return slot === 1 ? 'cry' : slot === 3 ? 'clang' : null;
+  // Turbo Roll and Milk Splash are battle cries; Ground Pound's face comes from the motor state.
+  return slot === 2 ? null : 'cry';
+}
+
+function react(view: AvatarView | null | undefined, reaction: MascotReaction | null): void {
+  if (reaction && isMascotView(view)) view.react(reaction);
 }
 
 export function cameraProfileFor(form: MascotForm | null): CameraProfile {
@@ -108,9 +120,11 @@ export class MascotClient {
         if (!form || local) return true;
         const point = { x: decimetres(event.paramX), y: actor?.position.y ?? 0, z: decimetres(event.paramZ) };
         this.impactFeedback(form, event.paramValue === 1 ? 'stomp' : 'pound', point);
+        react(context.viewFor(event.actorId), 'impact');
         return true;
       }
       case 'MASCOT_PUDDLE': {
+        if (!local) react(context.viewFor(event.actorId), 'cry');
         const point = { x: decimetres(event.paramX), y: actor?.position.y ?? 0, z: decimetres(event.paramZ) };
         this.fx.puddle(point, SKILLS.milk_splash.radius, event.paramValue / 10);
         this.popup('mascot.popups.splash', point, 'ice', 1.3, 1.4);
@@ -122,6 +136,7 @@ export class MascotClient {
           const at = actor?.position;
           audio.playMascotMove(form, event.paramX, at, pitch);
           if (at) this.moveFeedback(form, event.paramX, at);
+          react(context.viewFor(event.actorId), moveReaction(form, event.paramX));
         }
         return true;
       }
@@ -144,13 +159,20 @@ export class MascotClient {
   }
 
   /** Instant feedback for the local, predicted mascot (server echoes are skipped). */
-  onLocalMotorEvents(events: readonly MascotMotorEvent[], form: MascotForm, pitch: number): void {
+  onLocalMotorEvents(
+    events: readonly MascotMotorEvent[],
+    form: MascotForm,
+    pitch: number,
+    view?: AvatarView | null,
+  ): void {
     for (const event of events) {
       if (event.type === 'move') {
         audio.playMascotMove(form, event.slot, undefined, pitch);
         this.moveFeedback(form, event.slot, event.position);
+        react(view, moveReaction(form, event.slot));
       } else if (event.type === 'impact') {
         this.impactFeedback(form, event.kind, event.position);
+        react(view, 'impact');
       } else if (event.type === 'bounce') {
         audio.playCoconutKnock(undefined, Math.min(1, event.speed / 14), pitch);
       }
@@ -165,10 +187,11 @@ export class MascotClient {
     return true;
   }
 
-  playTaunt(profile: PlayerProfile): boolean {
+  playTaunt(profile: PlayerProfile, view?: AvatarView | null): boolean {
     const form = this.formOf(profile);
     if (!form) return false;
     audio.playMascotVoice(form, profile.cosmetics.voicePitch);
+    react(view, 'cry');
     return true;
   }
 
@@ -195,6 +218,10 @@ export class MascotClient {
       state.hoof = Math.min(state.hoof, 0.3);
       return;
     }
+    // A suspended audio context (no click yet, background tab) never finishes
+    // the scheduled nodes, so stride foley would only pile up: skip it.
+    const context = (audio as unknown as { ctx?: AudioContext | null }).ctx;
+    if (!context || context.state !== 'running') return;
     const travelled = speed * delta;
     const where = at ?? position;
     const surface = where ? surfaceTagAt(where.x, where.z, where.y) : 'grass_mud';
@@ -239,7 +266,8 @@ export class MascotClient {
       this.fx.setDizzy(id, null);
       return;
     }
-    const height = !alive && form === 'cow' ? 1.25 : !alive ? 1.2 : HEAD_HEIGHT[form ?? 'human'];
+    // A toppled cow's stiff legs stick up; the stars circle above them.
+    const height = !alive && form === 'cow' ? 1.5 : !alive ? 1.2 : HEAD_HEIGHT[form ?? 'human'];
     this.fx.setDizzy(id, { x: position.x, y: position.y + height, z: position.z });
   }
 

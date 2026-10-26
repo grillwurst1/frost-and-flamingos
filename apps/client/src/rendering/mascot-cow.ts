@@ -4,7 +4,9 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
+import type { CowJointName, CowSkeleton } from './cow-animator';
 import { fbm3, ink, mixColor, PartBin, shade, smoothNormals, type Paint } from './mascot-geometry';
+import { buildRigidSkin, JointDriver, LegSolver } from './mascot-rig';
 
 /**
  * The Peak Guard cow, built to the owner's turnaround sheet: barrel body
@@ -17,15 +19,21 @@ import { fbm3, ink, mixColor, PartBin, shade, smoothNormals, type Paint } from '
  *
  * Space: +Z forward, +Y up, feet at y = 0. `visual` sits at the barrel centre
  * so whole-body tilts (gallop rocking, rearing, flips) pivot naturally.
+ *
+ * Every part is merged into ONE mesh rigidly skinned to the node rig
+ * (mascot-rig.ts), so the cow is a single draw call; cow-animator.ts drives
+ * the nodes. Legs are hip / knee / hoof chains solved by IK.
  */
 
 export const COW_BODY_CENTER_Y = 0.95;
-const HIP_Y = -0.26;
+const HIP_Y = -0.18;
 const LEG_X = 0.27;
 const FRONT_Z = 0.44;
 const HIND_Z = -0.46;
-const UPPER_LEG = 0.32;
-const LOWER_LEG = 0.27;
+const UPPER_LEG = 0.36;
+const LOWER_LEG = 0.33;
+/** Ankle joint to the sole of the hoof. */
+const HOOF_DROP = 0.085;
 
 const WHITE = ink('#f8f5ee');
 const WHITE_SHADE = ink('#e9e4da');
@@ -48,6 +56,7 @@ const BEDROLL = ink('#6f8fae');
 const BEDROLL_DARK = ink('#3f5a78');
 const EYE_WHITE = ink('#ffffff');
 const PUPIL = ink('#141015');
+const MOUTH = ink('#5a1f28');
 
 interface Patch {
   center: Vector3;
@@ -82,24 +91,12 @@ const BODY_PATCHES: readonly Patch[] = [
   { center: new Vector3(-0.32, -0.32, 0.02), radius: 0.11 },
 ];
 
-export interface CowRig {
-  visual: TransformNode;
-  body: TransformNode;
-  neck: TransformNode;
-  head: TransformNode;
-  eyeLeft: TransformNode;
-  eyeRight: TransformNode;
-  browLeft: TransformNode;
-  browRight: TransformNode;
-  earLeft: TransformNode;
-  earRight: TransformNode;
-  bell: TransformNode;
-  tailUpper: TransformNode;
-  tailLower: TransformNode;
-  /** Order: front-left, front-right, hind-left, hind-right. */
-  hips: [TransformNode, TransformNode, TransformNode, TransformNode];
-  knees: [TransformNode, TransformNode, TransformNode, TransformNode];
-  meshes: Mesh[];
+export interface ProceduralCow {
+  skeleton: CowSkeleton;
+  mesh: Mesh;
+  /** Longest stance sweep the legs can reach without the hooves slipping (m). */
+  strideLimit: number;
+  headHeight: number;
 }
 
 /** Rotates an offset about +Y (Babylon convention: +Z turns toward +X). */
@@ -128,12 +125,13 @@ function barrelDeform(point: Vector3, unit: Vector3): void {
   if (unit.y < 0) point.y -= chest * -unit.y;
 }
 
-export function buildCowRig(scene: Scene, material: ShaderMaterial, root: TransformNode): CowRig {
-  const meshes: Mesh[] = [];
+export function buildCowRig(scene: Scene, material: ShaderMaterial, viewRoot: TransformNode): ProceduralCow | null {
+  // Parts stay parented to their rig node until buildRigidSkin bakes them.
   const keep = (mesh: Mesh | null): void => {
-    if (mesh) meshes.push(mesh);
+    void mesh;
   };
-  const visual = node(scene, 'cow-visual', root, 0, COW_BODY_CENTER_Y, 0);
+  const rig = node(scene, 'cow-rig', viewRoot);
+  const visual = node(scene, 'cow-visual', rig, 0, COW_BODY_CENTER_Y, 0);
 
   // --- body: barrel, udder and back gear -------------------------------------
   const body = node(scene, 'cow-body', visual);
@@ -276,7 +274,11 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
   // Big rounded muzzle with nostrils and a little smile.
   headBin.blob(new Vector3(0.27, 0.19, 0.19), PINK, { at: new Vector3(0, -0.11, 0.45) }, 20, (point) => {
     if (point.z > 0.08) point.z = 0.08 + (point.z - 0.08) * 0.7;
+    // Flat underside: the chin is its own (jaw) part below it.
+    if (point.y < -0.07) point.y = -0.07 + (point.y + 0.07) * 0.25;
   });
+  // Mouth interior, seen when the jaw drops (chewing, mooing, KO).
+  headBin.blob(new Vector3(0.17, 0.05, 0.12), MOUTH, { at: new Vector3(0, -0.19, 0.45) }, 12);
   for (const side of [-1, 1]) {
     headBin.blob(new Vector3(0.048, 0.03, 0.022), NOSTRIL, {
       at: new Vector3(side * 0.1, -0.07, 0.6),
@@ -311,6 +313,20 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
   }
   keep(headBin.merge(material, head));
 
+  // Jaw: the pink chin and lower lip hinge at the back of the mouth.
+  const jaw = node(scene, 'cow-jaw', head, 0, -0.17, 0.33);
+  const jawBin = new PartBin(scene, 'cow-jaw-mesh');
+  jawBin.blob(new Vector3(0.19, 0.075, 0.14), PINK, { at: new Vector3(0, -0.045, 0.13) }, 16, (point) => {
+    if (point.y > 0.02) point.y = 0.02 + (point.y - 0.02) * 0.4;
+  });
+  keep(jawBin.merge(material, jaw));
+  // Tongue: folded away (scaled flat) until the KO, then it lolls out.
+  const tongue = node(scene, 'cow-tongue', jaw, 0, -0.03, 0.1);
+  tongue.rotation.x = 0.45;
+  const tongueBin = new PartBin(scene, 'cow-tongue-mesh');
+  tongueBin.capsule(new Vector3(0, 0, 0), new Vector3(0, 0, 0.32), 0.045, PINK_INNER, 0.04, 10);
+  keep(tongueBin.merge(material, tongue));
+
   // Eyes: big, slightly bulging ovals with large pupils and highlights, set
   // into the face and turned with its curvature (mascot-view animates the
   // node's own rotation, so the turn is baked into the parts).
@@ -332,6 +348,28 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
     keep(eyeBin.merge(material, eye));
     eyes.push(eye);
   }
+  // Eyelids: a dome a touch larger than the eye, painted like the fur around
+  // it. Open = swung back inside the head, closed = swung over the front.
+  const lids: TransformNode[] = [];
+  for (const side of [-1, 1]) {
+    const at = new Vector3(side * 0.15, 0.11, 0.42);
+    const lid = node(scene, side < 0 ? 'cow-lid-left' : 'cow-lid-right', head, at.x, at.y, at.z);
+    const lidBin = new PartBin(scene, 'cow-lid-mesh');
+    const fur = patchPaint(facePatch, WHITE, BLACK, 0.4, 9) as (point: Vector3, normal: Vector3) => Color4;
+    const world = new Vector3();
+    lidBin.blob(
+      new Vector3(0.094, 0.112, 0.072),
+      (point, normal) => fur(world.copyFrom(point).addInPlace(at), normal),
+      { rotation: new Vector3(0, side * 0.4, 0) },
+      14,
+      (point, unit) => {
+        if (unit.y < 0) point.y = 0;
+      },
+    );
+    keep(lidBin.merge(material, lid));
+    lids.push(lid);
+  }
+
   // Brows hug the forehead: the inner end sits forward, the outer end follows
   // the head back around its curve.
   const brows: TransformNode[] = [];
@@ -360,22 +398,28 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
     ears.push(ear);
   }
 
-  // --- tail: two segments for a lively sway, black tuft at the end ----------------
-  const tailUpper = node(scene, 'cow-tail-upper', visual, 0, 0.36, -0.74);
-  const tailUpperBin = new PartBin(scene, 'cow-tail-upper-mesh');
-  tailUpperBin.capsule(new Vector3(0, 0, 0), new Vector3(0, -0.32, -0.04), 0.028, WHITE, 0.022, 8);
-  keep(tailUpperBin.merge(material, tailUpper));
-  const tailLower = node(scene, 'cow-tail-lower', tailUpper, 0, -0.32, -0.04);
-  const tailLowerBin = new PartBin(scene, 'cow-tail-lower-mesh');
-  tailLowerBin.capsule(new Vector3(0, 0, 0), new Vector3(0, -0.26, 0), 0.02, WHITE, 0.018, 8);
-  tailLowerBin.blob(new Vector3(0.06, 0.12, 0.06), BLACK, { at: new Vector3(0, -0.33, 0) }, 12, (point) => {
-    point.x += (fbm3(point.y * 30, 1, 2) - 0.5) * 0.03;
-  });
-  keep(tailLowerBin.merge(material, tailLower));
+  // --- tail: four segments for a whippy swish, black tuft at the end ---------------
+  const tailSegments: TransformNode[] = [];
+  let tailParent: TransformNode = visual;
+  for (let index = 0; index < 4; index += 1) {
+    const segment =
+      index === 0
+        ? node(scene, 'cow-tail-0', visual, 0, 0.36, -0.74)
+        : node(scene, `cow-tail-${index}`, tailParent, 0, -0.16, index === 1 ? -0.03 : 0);
+    const bin = new PartBin(scene, `cow-tail-${index}-mesh`);
+    const end = new Vector3(0, -0.16, index === 0 ? -0.03 : 0);
+    bin.capsule(new Vector3(0, 0, 0), end, 0.028 - index * 0.003, WHITE, 0.025 - index * 0.003, 8);
+    if (index === 3) {
+      bin.blob(new Vector3(0.06, 0.12, 0.06), BLACK, { at: new Vector3(0, -0.22, 0) }, 12, (point) => {
+        point.x += (fbm3(point.y * 30, 1, 2) - 0.5) * 0.03;
+      });
+    }
+    keep(bin.merge(material, segment));
+    tailSegments.push(segment);
+    tailParent = segment;
+  }
 
-  // --- legs -------------------------------------------------------------------------
-  const hips: TransformNode[] = [];
-  const knees: TransformNode[] = [];
+  // --- legs: hip / knee / hoof chains -------------------------------------------------
   const legSpots: readonly Patch[] = [
     { center: new Vector3(0.06, -0.12, 0.05), radius: 0.07 },
   ];
@@ -385,51 +429,97 @@ export function buildCowRig(scene: Scene, material: ShaderMaterial, root: Transf
     [-LEG_X, HIND_Z, false],
     [LEG_X, HIND_Z, true],
   ];
+  const legNodes: Array<[TransformNode, TransformNode, TransformNode]> = [];
   for (const [x, z, spotted] of layout) {
+    const hind = z < 0;
     const hip = node(scene, 'cow-hip', visual, x, HIP_Y, z);
     const upperBin = new PartBin(scene, 'cow-upper-leg-mesh');
-    const hind = z < 0;
     upperBin.capsule(
       new Vector3(0, 0.05, 0),
-      new Vector3(0, -UPPER_LEG, hind ? -0.02 : 0.01),
+      new Vector3(0, -UPPER_LEG, 0),
       hind ? 0.16 : 0.145,
       spotted ? patchPaint(legSpots, WHITE, BLACK, 0.3, x * 7) : WHITE,
       0.105,
       12,
     );
     keep(upperBin.merge(material, hip));
-    const knee = node(scene, 'cow-knee', hip, 0, -UPPER_LEG, hind ? -0.02 : 0.01);
+    const knee = node(scene, 'cow-knee', hip, 0, -UPPER_LEG, 0);
     const lowerBin = new PartBin(scene, 'cow-lower-leg-mesh');
     // The cannon ends inside the hoof, so no white cap shows under the sole.
-    lowerBin.capsule(new Vector3(0, 0, 0), new Vector3(0, -LOWER_LEG + 0.02, 0.01), 0.1, WHITE, 0.088, 12);
-    lowerBin.blob(new Vector3(0.105, 0.06, 0.12), (point, normal) => {
+    lowerBin.capsule(new Vector3(0, 0.02, 0), new Vector3(0, -LOWER_LEG + 0.02, 0), 0.1, WHITE, 0.088, 12);
+    keep(lowerBin.merge(material, knee));
+    const hoof = node(scene, 'cow-hoof', knee, 0, -LOWER_LEG, 0);
+    const hoofBin = new PartBin(scene, 'cow-hoof-mesh');
+    hoofBin.blob(new Vector3(0.105, 0.06, 0.12), (point, normal) => {
       // Cloven hoof: a dark notch down the front.
       return normal.z > 0.35 && Math.abs(point.x) < 0.012 ? BLACK : HOOF;
-    }, { at: new Vector3(0, -LOWER_LEG - 0.065, 0.02) }, 14, (point) => {
+    }, { at: new Vector3(0, -0.035, 0.02) }, 14, (point) => {
       // Flatten the underside into a sole (squash toward the centre line).
       if (point.y < -0.02) point.y = -0.02 + (point.y + 0.02) * 0.3;
     });
-    keep(lowerBin.merge(material, knee));
-    hips.push(hip);
-    knees.push(knee);
+    keep(hoofBin.merge(material, hoof));
+    legNodes.push([hip, knee, hoof]);
   }
 
-  return {
+  const skin = buildRigidSkin(scene, 'cow-procedural', rig, material);
+  if (!skin) return null;
+
+  const driver = (target: TransformNode): JointDriver => new JointDriver(target, rig);
+  const legs: LegSolver[] = [];
+  const legChains: TransformNode[][] = [];
+  legNodes.forEach(([hip, knee, hoof], index) => {
+    const [x, z] = layout[index] ?? [0, 0];
+    const pivots = [
+      new Vector3(x, HIP_Y, z),
+      new Vector3(x, HIP_Y - UPPER_LEG, z),
+      new Vector3(x, HIP_Y - UPPER_LEG - LOWER_LEG, z),
+    ];
+    const sole = new Vector3(x, HIP_Y - UPPER_LEG - LOWER_LEG - HOOF_DROP, z);
+    // Forelegs fold with the knee forward, hind legs with the hock back.
+    legs.push(new LegSolver([driver(hip), driver(knee), driver(hoof)], pivots, sole, index < 2 ? -1 : 1));
+    legChains.push([viewRoot, rig, visual, hip]);
+  });
+  let strideLimit = Infinity;
+  for (const leg of legs) strideLimit = Math.min(strideLimit, leg.strideReach(COW_BODY_CENTER_Y, 0.04));
+
+  const joints: Partial<Record<CowJointName, JointDriver>> = {
+    body: driver(body),
+    neck: driver(neck),
+    head: driver(head),
+    jaw: driver(jaw),
+    tongue: driver(tongue),
+    earL: driver(ears[0] as TransformNode),
+    earR: driver(ears[1] as TransformNode),
+    bell: driver(bell),
+    tail0: driver(tailSegments[0] as TransformNode),
+    tail1: driver(tailSegments[1] as TransformNode),
+    tail2: driver(tailSegments[2] as TransformNode),
+    tail3: driver(tailSegments[3] as TransformNode),
+    eyeL: driver(eyes[0] as TransformNode),
+    eyeR: driver(eyes[1] as TransformNode),
+    lidL: driver(lids[0] as TransformNode),
+    lidR: driver(lids[1] as TransformNode),
+    browL: driver(brows[0] as TransformNode),
+    browR: driver(brows[1] as TransformNode),
+  };
+  const skeleton: CowSkeleton = {
+    root: rig,
     visual,
-    body,
-    neck,
-    head,
-    eyeLeft: eyes[0] as TransformNode,
-    eyeRight: eyes[1] as TransformNode,
-    browLeft: brows[0] as TransformNode,
-    browRight: brows[1] as TransformNode,
-    earLeft: ears[0] as TransformNode,
-    earRight: ears[1] as TransformNode,
-    bell,
-    tailUpper,
-    tailLower,
-    hips: hips as CowRig['hips'],
-    knees: knees as CowRig['knees'],
-    meshes,
+    visualRestY: COW_BODY_CENTER_Y,
+    joints,
+    legs,
+    legChains,
+    frontFromChest: false,
+    // Lying on its side the saddlebags take the weight.
+    lyingHeight: 0.56,
+    neckYawBias: 0,
+    neckPitchBias: 0,
+    bellParent: 'neck',
+  };
+  return {
+    skeleton,
+    mesh: skin.mesh,
+    strideLimit: Number.isFinite(strideLimit) ? strideLimit : 0.4,
+    headHeight: 1.75,
   };
 }

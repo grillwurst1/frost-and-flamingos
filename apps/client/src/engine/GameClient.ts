@@ -56,6 +56,9 @@ import { interpolateRemote } from './remote-interp';
 import { MascotFx } from '../rendering/mascot-fx';
 import { DrifterFx } from '../rendering/drifter-fx';
 import { TracerFx } from '../rendering/tracer-fx';
+import { installMascotDevHandle } from '../rendering/mascot-dev';
+import { preloadMascotModels } from '../rendering/mascot-models';
+import { preloadMascotTextures } from '../rendering/mascot-view';
 import {
   createShadowMaterial,
   createToonMaterial,
@@ -530,7 +533,7 @@ export class GameClient {
           const profile = this.localProfile;
           // The drifter has no voice and no taunt: she only walks.
           if (profile?.cosmetics.classId === 'drifter') return;
-          if (profile && !this.mascots?.playTaunt(profile)) {
+          if (profile && !this.mascots?.playTaunt(profile, this.localView)) {
             audio.playTaunt(profile.faction, profile.cosmetics.voicePitch);
             this.localView?.taunt?.();
           }
@@ -601,6 +604,9 @@ export class GameClient {
           return hit ? hit.point.y : fromY - 4;
         }),
       );
+      preloadMascotModels(scene);
+      preloadMascotTextures(scene);
+      installMascotDevHandle(scene, this.mascotFx);
       this.look?.attachMap(this.visuals);
       if (import.meta.env.DEV) {
         installMapDevTools({
@@ -1506,7 +1512,12 @@ export class GameClient {
     if (character.form) {
       const events = character.drainMascotEvents();
       if (events.length > 0) {
-        this.mascots?.onLocalMotorEvents(events, character.form, this.localProfile?.cosmetics.voicePitch ?? 1);
+        this.mascots?.onLocalMotorEvents(
+          events,
+          character.form,
+          this.localProfile?.cosmetics.voicePitch ?? 1,
+          this.localView,
+        );
       }
     }
     this.pendingInputs.push({
@@ -1651,6 +1662,8 @@ export class GameClient {
       mascot: character.mascotState,
       launchSeconds: character.launchSeconds,
       dazed: this.latestLocalState?.dazed ?? false,
+      vitality: this.latestLocalState ? this.latestLocalState.hp / Math.max(1, this.latestLocalState.maxHp) : 1,
+      kills: this.latestLocalState?.kills,
       grounded: character.grounded,
       alive: this.latestLocalState?.alive ?? true,
       crouched: character.crouched,
@@ -1775,6 +1788,8 @@ export class GameClient {
         mascot: newer.mascot ? { ...newer.mascot, heading } : null,
         launchSeconds: newer.launchSeconds,
         dazed: newer.dazed,
+        vitality: newer.hp / Math.max(1, newer.maxHp),
+        kills: newer.kills,
         grounded: newer.grounded,
         alive: newer.alive,
         crouched: newer.crouched,

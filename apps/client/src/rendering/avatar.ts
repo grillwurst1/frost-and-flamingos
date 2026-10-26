@@ -24,6 +24,10 @@ export interface AvatarPose extends CharacterPose {
   /** Aim pitch in radians (+ = up); only known for the local player. */
   pitch?: number;
   reloading?: boolean;
+  /** hp / maxHp, 0…1 (mascot expressions: hurt flinch, scared at low vitality). */
+  vitality?: number;
+  /** Kill counter from the snapshot (mascots celebrate a new kill). */
+  kills?: number;
 }
 
 /**

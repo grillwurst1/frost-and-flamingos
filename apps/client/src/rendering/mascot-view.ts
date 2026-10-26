@@ -1,133 +1,279 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
+import { Quaternion, Vector3, Vector4 } from '@babylonjs/core/Maths/math';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
+import { Texture } from '@babylonjs/core/Materials/Textures/texture';
+import { Constants } from '@babylonjs/core/Engines/constants';
 import type { Scene } from '@babylonjs/core/scene';
 import {
+  COCONUT_TUNING,
   SKILLS,
   mascotFormForFaction,
+  sampleMapHeight,
   surfaceTagAt,
   type MascotForm,
   type MascotWireState,
   type PlayerProfile,
   type Vec3,
 } from '@frost-and-flamingos/shared';
+import { audio } from '../audio/synth';
 import type { AvatarPose } from './avatar';
-import type { CoconutExpression } from './coconut-face';
+import { CoconutFaceController, FACE, faceAtlas, type FaceCell, type FaceInput } from './coconut-expression';
+import { applyCowPose, CowAnimator, type CowDrive, type CowSkeleton } from './cow-animator';
+import { createShadowMaterial, type CharacterMaterialState } from './materials';
 import {
-  createCharacterMaterial,
-  createShadowMaterial,
-  updateCharacterMaterial,
-  type CharacterMaterialState,
-} from './materials';
-import { buildCoconutRig, COCONUT_RADIUS, type CoconutRig } from './mascot-coconut';
-import { buildCowRig, COW_BODY_CENTER_Y, type CowRig } from './mascot-cow';
+  buildCoconutRig,
+  buildCoconutShell,
+  buildFibreFringe,
+  buildProceduralLei,
+  COCONUT_RADIUS,
+  LEI_ATLAS_URL,
+  type CoconutRig,
+  type LeiStyle,
+  type ShellStyle,
+} from './mascot-coconut';
+import { buildCowRig } from './mascot-cow';
 import { puffKindForSurface, type MascotFx } from './mascot-fx';
+import { createMascotMaterial, mascotLidState, updateMascotMaterial } from './mascot-material';
+import { buildMeshyCow, buildMeshyShell, type CowClipLayer, type MeshyShell } from './mascot-meshy';
+import { mascotModels } from './mascot-models';
+import { clamp, damp, saturate, shortestAngle, Spring } from './mascot-motion';
 
 /**
- * Animated view for the mascot class (cow or coconut). It owns its character
- * material and shadow material (never the shared toon material), and reads
+ * Animated view for the mascot class (cow or coconut). It owns its mascot
+ * materials and shadow material (never the shared toon material) and reads
  * the same pose GameClient builds for human players plus the mascot block.
+ *
+ * Cow: cow-animator.ts drives either the owner's Meshy cow (when its model
+ * is in the manifest) or the procedural rig. Coconut: the shell rolls
+ * exactly with the ground speed; face + lei + painted expressions sit on an
+ * upright layer. Everything here is visual only.
  */
 
-function approach(current: number, target: number, amount: number): number {
-  if (Math.abs(target - current) <= amount) return target;
-  return current + Math.sign(target - current) * amount;
+export type MascotReaction = 'score' | 'hurt' | 'impact' | 'kill' | 'cry' | 'clang';
+
+/** Shell used for the coconut when the Meshy file is present: 'meshy' or the painted procedural nut. */
+export type CoconutShellChoice = 'meshy' | 'painted' | 'vertex';
+const DEFAULT_COCONUT_SHELL: CoconutShellChoice = 'painted';
+
+const HUSK_URL = `${import.meta.env.BASE_URL}art/mascot/coconut-husk.jpg`;
+
+interface SharedTexture {
+  texture: Texture;
+  failed: boolean;
+  listeners: Set<() => void>;
 }
 
-function shortestAngle(from: number, to: number): number {
-  let difference = (to - from) % (Math.PI * 2);
-  if (difference > Math.PI) difference -= Math.PI * 2;
-  if (difference < -Math.PI) difference += Math.PI * 2;
-  return difference;
+const sharedTextures = new WeakMap<Scene, Map<string, SharedTexture>>();
+
+/** One texture per scene and URL, with a failure flag (fallbacks swap in on error). */
+function sharedTexture(scene: Scene, url: string): SharedTexture {
+  let byUrl = sharedTextures.get(scene);
+  if (!byUrl) {
+    byUrl = new Map();
+    sharedTextures.set(scene, byUrl);
+  }
+  const existing = byUrl.get(url);
+  if (existing) return existing;
+  const listeners = new Set<() => void>();
+  const created: SharedTexture = { texture: null as unknown as Texture, failed: false, listeners };
+  created.texture = new Texture(url, scene, {
+    invertY: false,
+    samplingMode: Constants.TEXTURE_TRILINEAR_SAMPLINGMODE,
+    onError: () => {
+      created.failed = true;
+      for (const listener of [...listeners]) listener();
+    },
+  });
+  created.texture.anisotropicFilteringLevel = 4;
+  byUrl.set(url, created);
+  return created;
 }
 
-function damp(current: number, target: number, rate: number, dt: number): number {
-  return current + (target - current) * (1 - Math.exp(-rate * dt));
+function huskTexture(scene: Scene): SharedTexture {
+  return sharedTexture(scene, HUSK_URL);
 }
 
-/** Critically-damped-ish spring used for all the secondary motion. */
-class Spring {
-  value = 0;
-  velocity = 0;
+function leiTexture(scene: Scene): SharedTexture {
+  const entry = sharedTexture(scene, LEI_ATLAS_URL);
+  entry.texture.hasAlpha = true;
+  return entry;
+}
 
-  constructor(
-    private readonly stiffness: number,
-    private readonly damping: number,
-  ) {}
+/** Starts loading the mascot textures (face atlas, painted husk) during boot. */
+export function preloadMascotTextures(scene: Scene): void {
+  if (coconutShellChoice() === 'meshy') mascotModels(scene).load('coconut');
+  faceAtlas(scene);
+  leiTexture(scene);
+  if (coconutShellChoice() === 'painted') huskTexture(scene);
+}
 
-  step(target: number, dt: number, impulse = 0): number {
-    this.velocity += impulse;
-    this.velocity += ((target - this.value) * this.stiffness - this.velocity * this.damping) * dt;
-    this.value += this.velocity * dt;
-    return this.value;
+function queryOverride(name: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return new URLSearchParams(window.location.search).get(name);
+  } catch {
+    return null;
   }
 }
 
-export type MascotReaction = 'score' | 'hurt' | 'impact';
+/** Dev/screenshot override of the coconut shell (`?coconutShell=meshy|painted|vertex`). */
+export function coconutShellChoice(): CoconutShellChoice {
+  const value = queryOverride('coconutShell');
+  return value === 'meshy' || value === 'painted' || value === 'vertex' ? value : DEFAULT_COCONUT_SHELL;
+}
 
-const TAU = Math.PI * 2;
+/**
+ * Meshy's walk clip is a crouched, dog-like stalk on this rig (the Hips drop by
+ * about 15 % of the height, knees bent), so the solver walk on this skeleton is
+ * the default; `?cowWalk=clip` plays the phase-locked clip instead.
+ */
+function clipWalkEnabled(): boolean {
+  return queryOverride('cowWalk') === 'clip';
+}
+
+/** `?mascotModels=off` keeps the procedural mascots (fallback testing). */
+function modelsEnabled(): boolean {
+  return queryOverride('mascotModels') !== 'off';
+}
+
+interface CowBody {
+  skeleton: CowSkeleton;
+  mesh: Mesh;
+  strideLimit: number;
+  headHeight: number;
+  clip: CowClipLayer | null;
+  kind: 'procedural' | 'meshy';
+  dispose(): void;
+}
+
+const scratchQuat = new Quaternion();
+const scratchAxis = new Vector3();
+const scratchPoint = { x: 0, y: 0, z: 0 };
+const scratchVelocity = { x: 0, y: 0, z: 0 };
+const scratchVector = new Vector3();
 
 export class MascotView {
   readonly root: TransformNode;
-  readonly material: ShaderMaterial;
   readonly form: MascotForm;
   private readonly scene: Scene;
+  private readonly name: string;
   private readonly shadow: Mesh;
   private readonly shadowMaterial: StandardMaterial;
   private readonly fx: MascotFx | null;
-  private readonly cow: CowRig | null;
-  private readonly coconut: CoconutRig | null;
+  private readonly preview: boolean;
   private effects: CharacterMaterialState = { battleDamage: 0, charred: 0, frozen: 0 };
   private disposed = false;
+  private readonly materials: ShaderMaterial[] = [];
+  /** Vertex-coloured parts: procedural cow, lei, fibres. */
+  private readonly partMaterial: ShaderMaterial;
 
   private heading = 0;
   private time = Math.random() * 10;
-  private gait = 0;
-  private lastVelocity = new Vector3();
+  private readonly lastVelocity = new Vector3();
+  private readonly velocity = new Vector3();
+  private readonly accel = new Vector3();
   private lastHeading = 0;
+  private yawRate = 0;
   private wasGrounded = true;
   private wasAlive = true;
   private fallSpeed = 0;
   private puffTimer = 0;
-  private blinkTimer = 2 + Math.random() * 3;
-  private blink = 0;
-  private flip = 0;
-  private stompActive = false;
-  private slam = 0;
-  private happyTimer = 0;
-  private squashTimer = 0;
-  private angryTimer = 0;
-  private readonly squash = new Spring(160, 11);
-  private readonly bellX = new Spring(55, 3.2);
-  private readonly bellZ = new Spring(55, 3.2);
-  private readonly earSpring = new Spring(90, 7);
-  private readonly tailX = new Spring(26, 3.4);
-  private readonly tailZ = new Spring(26, 3);
-  private readonly tailLowerX = new Spring(40, 4.5);
-  private readonly lean = new Spring(40, 8);
+  private lastVitality = 1;
+  private lastKills = -1;
+  private idleTime = 0;
+  private dazedLook = 0;
+  private readonly forcedExpression: { cell: FaceCell | null } = { cell: null };
+
+  // Cow --------------------------------------------------------------------------
+  private cowAnimator: CowAnimator | null = null;
+  private cowBody: CowBody | null = null;
+  private pendingModel: (() => void) | null = null;
+  private cowFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private useClipWalk = clipWalkEnabled();
+  private readonly drive: CowDrive = {
+    forward: 0,
+    lateral: 0,
+    vertical: 0,
+    forwardAccel: 0,
+    lateralAccel: 0,
+    yawRate: 0,
+    aim: 0,
+    grounded: true,
+    swimming: false,
+    alive: true,
+    launched: false,
+    dazed: false,
+    charging: false,
+    stomp: -1,
+    skidding: false,
+    galloping: false,
+    slope: 0,
+    vitality: 1,
+    preview: false,
+  };
+
+  // Coconut ----------------------------------------------------------------------
+  private coconut: CoconutRig | null = null;
+  private coconutShell: CoconutShellChoice = 'painted';
+  private shellMaterial: ShaderMaterial | null = null;
+  private meshyShell: MeshyShell | null = null;
+  private fibreFringe: Mesh | null = null;
+  private readonly faceController = new CoconutFaceController();
+  private readonly faceInput: FaceInput = {
+    alive: true,
+    dazed: false,
+    battleCry: false,
+    ramming: false,
+    airborne: false,
+    vitality: 1,
+    idle: 0,
+    preview: false,
+  };
+  private readonly squash = new Spring(170, 9);
+  private readonly wobbleX = new Spring(90, 7);
+  private readonly wobbleZ = new Spring(90, 7);
+  private readonly faceBob = new Spring(140, 10);
+  private readonly lean = new Spring(50, 9);
+  private readonly leiBounce: Spring[] = [];
+  private readonly leiSway: Spring[] = [];
+  private readonly leiOut: Spring[] = [];
+  private readonly leiAxes: Vector3[] = [];
+  private shake = 0;
   private faceYaw = 0;
   private facePitch = 0;
+  private rollAngle = 0;
+  private cryTimer = 0;
   private readonly spin = new Vector3();
   private readonly restQuaternion = Quaternion.Identity();
+  private readonly normal = new Vector3(0, 1, 0);
+  private readonly lastPosition = new Vector3();
 
-  constructor(scene: Scene, shadowMaterial: StandardMaterial, profile: PlayerProfile, fx: MascotFx | null) {
+  constructor(
+    scene: Scene,
+    shadowMaterial: StandardMaterial,
+    profile: PlayerProfile,
+    fx: MascotFx | null,
+    preview = false,
+  ) {
     this.scene = scene;
     this.shadowMaterial = shadowMaterial;
     this.fx = fx;
+    this.preview = preview;
     this.form = mascotFormForFaction(profile.faction);
-    this.material = createCharacterMaterial(scene, `mascot-${this.form}-${profile.displayName}`, '#ffffff');
+    this.name = `${this.form}-${profile.displayName}`;
     this.root = new TransformNode(`mascot-${this.form}-root`, scene);
+    this.partMaterial = createMascotMaterial(scene, `mascot-${this.name}-parts`);
+    this.materials.push(this.partMaterial);
     if (this.form === 'cow') {
-      this.cow = buildCowRig(scene, this.material, this.root);
-      this.coconut = null;
+      this.cowAnimator = new CowAnimator(0.4);
+      this.setupCow();
     } else {
-      this.coconut = buildCoconutRig(scene, this.material, this.root);
-      this.cow = null;
+      this.setupCoconut();
     }
-    this.shadow = CreateDisc('mascot-shadow', { radius: this.form === 'cow' ? 0.62 : 0.62, tessellation: 24 }, scene);
+    this.shadow = CreateDisc('mascot-shadow', { radius: 0.62, tessellation: 24 }, scene);
     this.shadow.rotation.x = Math.PI / 2;
     this.shadow.position.y = 0.02;
     if (this.form === 'cow') this.shadow.scaling.set(1, 1.75, 1);
@@ -138,8 +284,215 @@ export class MascotView {
 
   /** Feet-to-head-top height, for overhead markers (dizzy stars). */
   get headHeight(): number {
-    return this.form === 'cow' ? 1.75 : COCONUT_RADIUS * 2 + 0.25;
+    return this.form === 'cow' ? this.cowBody?.headHeight ?? 1.75 : COCONUT_RADIUS * 2 + 0.25;
   }
+
+  /** Current gait cadence in cycles per second (dev probes / strips). */
+  get gaitCadence(): number {
+    return this.cowAnimator?.cadence ?? 0;
+  }
+
+  /** Shader-lid state of the Meshy cow (for dev probes). */
+  get lidProbe(): readonly number[] | null {
+    const material = this.cowBody?.mesh.material;
+    // The WeakMap lookup is safe for any material; only FF_LIDS materials are in it.
+    return material ? mascotLidState(material as ShaderMaterial) ?? null : null;
+  }
+
+  /** Measured walk-clip gait and whether it drives the walk (for dev probes). */
+  get clipWalk(): { active: boolean; gait: unknown; groundCorrection: number } | null {
+    const clip = this.cowBody?.clip;
+    return clip ? { active: this.useClipWalk && clip.gait !== null, gait: clip.gait, groundCorrection: clip.groundCorrection } : null;
+  }
+
+  /** Which rig the cow uses right now (for dev probes). */
+  get rigKind(): string {
+    if (this.form === 'cow') return this.cowBody?.kind ?? 'pending';
+    return this.coconutShell;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Construction
+  // ---------------------------------------------------------------------------
+
+  private setupCow(): void {
+    const library = mascotModels(this.scene);
+    if (!modelsEnabled()) {
+      this.attachProceduralCow();
+      return;
+    }
+    library.load('cow');
+    const status = library.status('cow');
+    if (status === 'ready') {
+      this.attachMeshyCow();
+      return;
+    }
+    if (status === 'missing' || status === 'failed') {
+      this.attachProceduralCow();
+      return;
+    }
+    // Still loading: wait (no procedural flash) but never longer than a few seconds.
+    this.pendingModel = library.whenSettled('cow', () => {
+      this.pendingModel = null;
+      if (this.disposed) return;
+      if (this.cowFallbackTimer) clearTimeout(this.cowFallbackTimer);
+      this.cowFallbackTimer = null;
+      if (this.cowBody?.kind === 'meshy') return;
+      const previous = this.cowBody;
+      if (library.status('cow') === 'ready' && this.attachMeshyCow()) previous?.dispose();
+      else if (!previous) this.attachProceduralCow();
+    });
+    this.cowFallbackTimer = setTimeout(() => {
+      this.cowFallbackTimer = null;
+      if (!this.disposed && !this.cowBody) this.attachProceduralCow();
+    }, 6000);
+  }
+
+  private attachProceduralCow(): void {
+    const built = buildCowRig(this.scene, this.partMaterial, this.root);
+    if (!built) return;
+    this.cowBody = {
+      skeleton: built.skeleton,
+      mesh: built.mesh,
+      strideLimit: built.strideLimit,
+      headHeight: built.headHeight,
+      clip: null,
+      kind: 'procedural',
+      dispose: () => {
+        built.skeleton.root.dispose(false, false);
+        built.mesh.skeleton?.dispose();
+        built.mesh.dispose();
+      },
+    };
+    this.cowAnimator = new CowAnimator(built.strideLimit);
+    this.cowAnimator.lyingDrop = built.skeleton.lyingHeight - built.skeleton.visualRestY;
+  }
+
+  private attachMeshyCow(): boolean {
+    const asset = mascotModels(this.scene).asset('cow');
+    if (!asset) return false;
+    const built = buildMeshyCow(this.scene, asset, this.root, this.name);
+    if (!built) return false;
+    this.materials.push(built.material);
+    this.cowBody = {
+      skeleton: built.skeleton,
+      mesh: built.mesh,
+      strideLimit: built.strideLimit,
+      headHeight: built.headHeight,
+      clip: built.clip,
+      kind: 'meshy',
+      dispose: () => {
+        const index = this.materials.indexOf(built.material);
+        if (index >= 0) this.materials.splice(index, 1);
+        built.dispose();
+      },
+    };
+    this.cowAnimator = new CowAnimator(built.strideLimit);
+    this.cowAnimator.lyingDrop = built.skeleton.lyingHeight - built.skeleton.visualRestY;
+    this.cowAnimator.setWalkClip(this.useClipWalk ? built.clip?.gait ?? null : null);
+    return true;
+  }
+
+  private setupCoconut(): void {
+    this.coconutShell = coconutShellChoice();
+    const style: ShellStyle = this.coconutShell === 'vertex' ? 'vertex' : 'painted';
+    const husk = style === 'painted' ? huskTexture(this.scene) : null;
+    this.shellMaterial =
+      husk && !husk.failed
+        ? createMascotMaterial(this.scene, `mascot-${this.name}-husk`, {
+            albedo: husk.texture,
+            vertexTint: true,
+            paint: new Vector4(0, 1.08, 1.1, 0.12),
+          })
+        : this.partMaterial;
+    if (this.shellMaterial !== this.partMaterial) this.materials.push(this.shellMaterial);
+    const lei = leiTexture(this.scene);
+    const leiStyle: LeiStyle = lei.failed || queryOverride('lei') === 'procedural' ? 'procedural' : 'painted';
+    let leiMaterial = this.partMaterial;
+    if (leiStyle === 'painted') {
+      leiMaterial = createMascotMaterial(this.scene, `mascot-${this.name}-lei`, {
+        albedo: lei.texture,
+        cutout: true,
+        paint: new Vector4(0, 1.06, 1.04, 0.2),
+      });
+      this.leiMaterial = leiMaterial;
+      this.materials.push(leiMaterial);
+      lei.listeners.add(this.onLeiFailed);
+    }
+    const rig = buildCoconutRig(
+      this.scene,
+      this.shellMaterial,
+      leiMaterial,
+      this.root,
+      husk && !husk.failed ? 'painted' : 'vertex',
+      leiStyle,
+    );
+    this.coconut = rig;
+    for (const material of rig.decal.materials) this.materials.push(material);
+    this.resetLeiSprings();
+    if (husk && !husk.failed) husk.listeners.add(this.onHuskFailed);
+    if (this.coconutShell === 'meshy' && modelsEnabled()) {
+      const library = mascotModels(this.scene);
+      library.load('coconut');
+      this.pendingModel = library.whenSettled('coconut', () => {
+        this.pendingModel = null;
+        if (!this.disposed && library.status('coconut') === 'ready') this.attachMeshyShell();
+      });
+    }
+  }
+
+  private leiMaterial: ShaderMaterial | null = null;
+
+  /** One spring set per lei segment (8 procedural segments or one per painted flower). */
+  private resetLeiSprings(): void {
+    const rig = this.coconut;
+    this.leiBounce.length = 0;
+    this.leiSway.length = 0;
+    this.leiOut.length = 0;
+    this.leiAxes.length = 0;
+    if (!rig) return;
+    rig.lei.directions.forEach((direction, segment) => {
+      const stiffness = 150 * (1 + 0.18 * Math.sin(segment * 2.1));
+      this.leiBounce.push(new Spring(stiffness, 6.5));
+      this.leiSway.push(new Spring(stiffness * 0.8, 6));
+      this.leiOut.push(new Spring(stiffness * 1.2, 8));
+      // Tangent axis: rotating about it slides the segment's flowers up/down the shell.
+      this.leiAxes.push(new Vector3(direction.z, 0, -direction.x));
+    });
+  }
+
+  private readonly onHuskFailed = (): void => {
+    const rig = this.coconut;
+    if (!rig || this.disposed || this.meshyShell) return;
+    rig.shellMesh?.dispose();
+    rig.shellMesh = buildCoconutShell(this.scene, this.partMaterial, rig.shell, 'vertex');
+  };
+
+  /** The painted lei atlas failed: fall back to the procedural garland. */
+  private readonly onLeiFailed = (): void => {
+    const rig = this.coconut;
+    if (!rig || this.disposed || rig.lei.style === 'procedural') return;
+    rig.lei.mesh?.skeleton?.dispose();
+    rig.lei.root.dispose(false, false);
+    rig.lei = buildProceduralLei(this.scene, this.partMaterial, rig.face);
+    this.resetLeiSprings();
+  };
+
+  private attachMeshyShell(): void {
+    const rig = this.coconut;
+    const asset = mascotModels(this.scene).asset('coconut');
+    if (!rig || !asset || this.meshyShell) return;
+    const shell = buildMeshyShell(this.scene, asset, rig.shell, COCONUT_RADIUS * 1.005, this.name);
+    if (!shell) return;
+    this.meshyShell = shell;
+    this.materials.push(shell.material);
+    rig.shellMesh?.setEnabled(false);
+    this.fibreFringe = buildFibreFringe(this.scene, this.partMaterial, rig.shell);
+  }
+
+  // ---------------------------------------------------------------------------
+  // AvatarView
+  // ---------------------------------------------------------------------------
 
   setEffects(partial: Partial<CharacterMaterialState>): void {
     this.effects = { ...this.effects, ...partial };
@@ -147,7 +500,7 @@ export class MascotView {
 
   setYaw(yaw: number, immediate = false): void {
     this.heading = immediate ? yaw : this.heading + shortestAngle(this.heading, yaw) * 0.24;
-    if (this.cow) this.root.rotation.y = this.heading;
+    if (this.form === 'cow') this.root.rotation.y = this.heading;
     if (immediate) {
       this.faceYaw = yaw;
       this.lastHeading = yaw;
@@ -158,423 +511,467 @@ export class MascotView {
     this.root.position.set(position.x, position.y, position.z);
   }
 
-  /** Gameplay feedback that drives expressions (ram hit, damage, shockwave). */
+  /** Gameplay feedback that drives expressions and secondary motion. */
   react(reaction: MascotReaction): void {
-    if (reaction === 'score') this.happyTimer = 1.4;
-    else if (reaction === 'hurt') this.squashTimer = Math.max(this.squashTimer, 0.45);
-    else this.angryTimer = 0.8;
-    if (reaction === 'hurt' && this.coconut) this.squash.velocity -= 2.4;
+    if (this.form === 'cow') {
+      const animator = this.cowAnimator;
+      if (!animator) return;
+      if (reaction === 'hurt') animator.react('hurt');
+      else if (reaction === 'impact' || reaction === 'score') animator.react('impact', reaction === 'score' ? 1.2 : 0.8);
+      else if (reaction === 'clang') animator.react('clang');
+      else animator.react('cry');
+      return;
+    }
+    if (reaction === 'hurt') {
+      this.faceController.react('hurt');
+      this.squash.kick(-3);
+      this.shake = Math.max(this.shake, 0.25);
+    } else if (reaction === 'score') {
+      this.faceController.react('score');
+      this.squash.kick(-7);
+      this.shake = Math.max(this.shake, 0.38);
+    } else if (reaction === 'impact') {
+      this.squash.kick(-5);
+      this.shake = Math.max(this.shake, 0.3);
+    } else if (reaction === 'kill') {
+      this.faceController.react('kill');
+    } else {
+      this.faceController.react('cry');
+      this.cryTimer = 0.85;
+    }
+  }
+
+  /** Dev/screenshot hook: hold one coconut expression (null = gameplay). */
+  forceExpression(cell: FaceCell | null): void {
+    this.forcedExpression.cell = cell;
+    this.faceController.force(cell);
+  }
+
+  /** Dev hook: start a blink now. */
+  forceBlink(): void {
+    this.cowAnimator?.forceBlink();
+    this.faceController.forceBlink();
+  }
+
+  /** Dev hook: play Meshy's walk clip instead of the procedural walk. */
+  setClipWalk(enabled: boolean): void {
+    this.useClipWalk = enabled;
+    this.cowAnimator?.setWalkClip(enabled ? this.cowBody?.clip?.gait ?? null : null);
   }
 
   update(deltaSeconds: number, pose: AvatarPose): void {
     if (this.disposed) return;
-    const dt = Math.min(0.05, Math.max(0.0001, deltaSeconds));
+    const dt = Math.min(0.25, Math.max(0.0001, deltaSeconds));
     this.time += dt;
     this.setPosition(pose.position);
     const mascot = pose.mascot ?? null;
     const targetHeading = mascot?.heading ?? pose.heading ?? pose.yaw;
     this.heading += shortestAngle(this.heading, targetHeading) * (1 - Math.exp(-dt * 16));
-    const velocity = new Vector3(pose.velocity.x, pose.velocity.y, pose.velocity.z);
-    const acceleration = velocity.subtract(this.lastVelocity).scale(1 / dt);
-    this.lastVelocity.copyFrom(velocity);
-    const yawRate = shortestAngle(this.lastHeading, this.heading) / dt;
+    this.velocity.set(pose.velocity.x, pose.velocity.y, pose.velocity.z);
+    // Smoothed acceleration: remote velocities change in snapshot steps.
+    const ax = (this.velocity.x - this.lastVelocity.x) / dt;
+    const ay = (this.velocity.y - this.lastVelocity.y) / dt;
+    const az = (this.velocity.z - this.lastVelocity.z) / dt;
+    this.accel.set(
+      damp(this.accel.x, clamp(ax, -60, 60), 14, dt),
+      damp(this.accel.y, clamp(ay, -80, 80), 14, dt),
+      damp(this.accel.z, clamp(az, -60, 60), 14, dt),
+    );
+    this.lastVelocity.copyFrom(this.velocity);
+    this.yawRate = damp(this.yawRate, shortestAngle(this.lastHeading, this.heading) / dt, 12, dt);
     this.lastHeading = this.heading;
-    this.happyTimer = Math.max(0, this.happyTimer - dt);
-    this.squashTimer = Math.max(0, this.squashTimer - dt);
-    this.angryTimer = Math.max(0, this.angryTimer - dt);
-    this.updateBlink(dt);
 
-    const landed = pose.grounded && !this.wasGrounded;
-    if (!pose.grounded) this.fallSpeed = Math.max(this.fallSpeed, -velocity.y);
-    if (landed) {
-      const impact = this.fallSpeed;
-      this.squash.velocity -= Math.min(5, impact * 0.32);
-      if (impact > 9) this.squashTimer = Math.max(this.squashTimer, 0.35);
-      if (impact > 6 && this.fx) {
-        this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y)), pose.position, 8, 2.6, 0.38);
-      }
+    // Gameplay-derived reactions: damage taken and kills scored.
+    const vitality = pose.vitality ?? 1;
+    if (pose.alive && this.wasAlive && vitality < this.lastVitality - 0.004) this.react('hurt');
+    this.lastVitality = vitality;
+    if (pose.kills !== undefined) {
+      if (this.lastKills >= 0 && pose.kills > this.lastKills) this.react('kill');
+      this.lastKills = pose.kills;
     }
+    const speed = Math.hypot(this.velocity.x, this.velocity.z);
+    this.idleTime = pose.grounded && speed < 0.3 && pose.alive ? this.idleTime + dt : 0;
+
+    if (!pose.grounded) this.fallSpeed = Math.max(this.fallSpeed, -this.velocity.y);
+    const landed = pose.grounded && !this.wasGrounded;
+    if (landed && this.fallSpeed > 6 && this.fx) {
+      this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y)), pose.position, 8, 2.6, 0.38);
+    }
+
+    if (this.form === 'cow') this.animateCow(dt, pose, mascot);
+    else if (this.coconut) this.animateCoconut(this.coconut, dt, pose, mascot, landed);
     if (pose.grounded) this.fallSpeed = 0;
     this.wasGrounded = pose.grounded;
-
-    if (this.cow) this.animateCow(this.cow, dt, pose, mascot, velocity, acceleration, yawRate);
-    else if (this.coconut) this.animateCoconut(this.coconut, dt, pose, mascot, velocity);
     this.wasAlive = pose.alive;
     this.shadow.setEnabled(pose.alive || this.form === 'coconut');
-    this.updateMaterial();
+    this.updateMaterials();
   }
+
+  private readonly previewPose: AvatarPose = {
+    position: { x: 0, y: 0, z: 0 },
+    velocity: { x: 0, y: 0, z: 0 },
+    yaw: 0,
+    heading: 0,
+    grounded: true,
+    alive: true,
+    mascot: null,
+  };
 
   updatePreview(deltaSeconds: number, spin: number): void {
+    const pose = this.previewPose;
     const position = this.root.position;
-    this.update(deltaSeconds, {
-      position: { x: position.x, y: position.y, z: position.z },
-      velocity: { x: 0, y: 0, z: 0 },
-      yaw: spin,
-      heading: spin,
-      grounded: true,
-      alive: true,
-      mascot: null,
-    });
+    pose.position.x = position.x;
+    pose.position.y = position.y;
+    pose.position.z = position.z;
+    pose.yaw = spin;
+    pose.heading = spin;
+    this.update(deltaSeconds, pose);
     if (this.coconut) {
       // The preview coconut turns on its stand so the fibres show.
-      this.coconut.shell.rotationQuaternion = Quaternion.RotationYawPitchRoll(spin, 0, 0);
+      Quaternion.RotationYawPitchRollToRef(spin, 0, 0, this.restQuaternion);
+      this.coconut.shell.rotationQuaternion?.copyFrom(this.restQuaternion);
     }
-  }
-
-  private updateBlink(dt: number): void {
-    this.blinkTimer -= dt;
-    if (this.blinkTimer <= 0) {
-      this.blink = 0.14;
-      this.blinkTimer = 2.2 + Math.random() * 3.4;
-    }
-    this.blink = Math.max(0, this.blink - dt);
   }
 
   // ---------------------------------------------------------------------------
   // Cow
   // ---------------------------------------------------------------------------
 
-  private animateCow(
-    rig: CowRig,
-    dt: number,
-    pose: AvatarPose,
-    mascot: MascotWireState | null,
-    velocity: Vector3,
-    acceleration: Vector3,
-    yawRate: number,
-  ): void {
+  private animateCow(dt: number, pose: AvatarPose, mascot: MascotWireState | null): void {
     this.root.rotation.y = this.heading;
+    const body = this.cowBody;
+    const animator = this.cowAnimator;
+    if (!body || !animator) return;
     const sin = Math.sin(this.heading);
     const cos = Math.cos(this.heading);
-    const forward = velocity.x * sin + velocity.z * cos;
-    const lateral = velocity.x * cos - velocity.z * sin;
-    const forwardAccel = acceleration.x * sin + acceleration.z * cos;
-    const lateralAccel = acceleration.x * cos - acceleration.z * sin;
-    const speed = Math.hypot(velocity.x, velocity.z);
-    const boosting = (mascot?.boostSeconds ?? 0) > 0;
+    const velocity = this.velocity;
+    const drive = this.drive;
+    drive.forward = velocity.x * sin + velocity.z * cos;
+    drive.lateral = velocity.x * cos - velocity.z * sin;
+    drive.vertical = velocity.y;
+    drive.forwardAccel = this.accel.x * sin + this.accel.z * cos;
+    drive.lateralAccel = this.accel.x * cos - this.accel.z * sin;
+    drive.yawRate = this.yawRate;
+    drive.aim = shortestAngle(this.heading, pose.yaw);
+    drive.grounded = pose.grounded;
+    drive.swimming = pose.swimming ?? false;
+    drive.alive = pose.alive;
+    drive.launched = (pose.launchSeconds ?? 0) > 0 && !pose.grounded;
+    drive.dazed = pose.dazed ?? false;
+    drive.charging = (mascot?.boostSeconds ?? 0) > 0;
     const stomping = (mascot?.actionSeconds ?? 0) > 0;
-    const galloping = (mascot?.galloping ?? false) || boosting || speed > 8.4;
-    const skidding = mascot?.skidding ?? false;
-    const launched = (pose.launchSeconds ?? 0) > 0 && !pose.grounded;
-    const swimming = pose.swimming ?? false;
-    const angry = boosting || stomping || this.angryTimer > 0 || skidding;
-    const worried = (pose.dazed ?? false) || launched;
-
-    // Hoof stomp slam: the wind-up just finished.
-    if (this.stompActive && !stomping) this.slam = 0.3;
-    this.stompActive = stomping;
-    this.slam = Math.max(0, this.slam - dt);
-
-    // --- whole-body pose ---------------------------------------------------------
-    const squash = this.squash.step(0, dt);
-    let pitch = 0;
-    let lift = 0;
-    let roll = this.lean.step(Math.max(-0.22, Math.min(0.22, -lateral * 0.035 - yawRate * speed * 0.012)), dt);
-    if (!pose.alive) {
-      this.flip = approach(this.flip, Math.PI, dt * 5);
-      rig.visual.rotation.set(0, 0, this.flip);
-      rig.visual.position.y = damp(rig.visual.position.y, 0.6, 6, dt);
-      this.poseCowDead(rig, dt);
-      return;
+    drive.stomp = stomping ? saturate(1 - (mascot?.actionSeconds ?? 0) / SKILLS.hoof_stomp.durationSeconds) : -1;
+    drive.skidding = mascot?.skidding ?? false;
+    drive.galloping = mascot?.galloping ?? false;
+    drive.vitality = pose.vitality ?? 1;
+    drive.preview = this.preview;
+    // Slope under the legs, only when standing on the terrain itself.
+    const x = pose.position.x;
+    const z = pose.position.z;
+    const ground = sampleMapHeight(x, z);
+    if (pose.grounded && Math.abs(pose.position.y - ground) < 0.35) {
+      const front = sampleMapHeight(x + sin * 0.45, z + cos * 0.45);
+      const back = sampleMapHeight(x - sin * 0.45, z - cos * 0.45);
+      drive.slope = damp(drive.slope, clamp(front - back, -0.45, 0.45), 10, dt);
+    } else {
+      drive.slope = damp(drive.slope, 0, 6, dt);
     }
-    if (!this.wasAlive) {
-      this.flip = 0;
-      rig.visual.rotation.z = 0;
-    }
-    if (launched) {
-      // Knocked flying: tumble and flail.
-      this.flip += dt * 9;
-      roll = this.flip;
-    } else if (this.flip !== 0) {
-      this.flip = 0;
-    }
-    if (stomping) {
-      const windup = 1 - (mascot?.actionSeconds ?? 0) / SKILLS.hoof_stomp.durationSeconds;
-      const eased = Math.sin(Math.min(1, windup * 1.2) * Math.PI * 0.5);
-      pitch = -0.55 * eased;
-      lift = Math.sin(-pitch) * 0.5;
-    } else if (this.slam > 0) {
-      pitch = 0.08 * (this.slam / 0.3);
+    const cowPose = animator.update(dt, drive);
+    applyCowPose(body.skeleton, cowPose);
+    if (body.clip) {
+      // The gait phase is the clip time; the clip owns the walking legs, the
+      // solver keeps trot, gallop and every non-walking pose.
+      const weight = this.useClipWalk && body.clip.gait ? saturate(animator.walkWeight) * animator.stepping : 0;
+      body.clip.apply(animator.gaitPhase, weight);
+      if (weight > 0) body.skeleton.visual.position.y += body.clip.groundCorrection * weight;
     }
 
-    // Gait phase: trot and gallop cycles driven by ground speed.
-    const moving = pose.grounded && speed > 0.25;
-    const cycle = galloping ? 2.7 : 1.45;
-    if (moving || swimming) {
-      this.gait += (Math.max(speed, swimming ? 1.6 : 0) / cycle) * dt * Math.sign(forward || 1);
-    }
-    const phase = this.gait * TAU;
-    if (galloping && moving) {
-      pitch += Math.sin(phase) * 0.09;
-      lift += Math.abs(Math.sin(phase)) * 0.06;
-    } else if (moving) {
-      lift += Math.abs(Math.sin(phase * 2)) * 0.025 * Math.min(1, speed / 4);
-    }
-    const breathe = Math.sin(this.time * 1.9) * 0.012;
-    rig.visual.position.y = COW_BODY_CENTER_Y + lift + (swimming ? -0.05 + Math.sin(this.time * 2.4) * 0.03 : 0);
-    rig.visual.rotation.x = damp(rig.visual.rotation.x, pitch + (boosting ? 0.06 : 0), 14, dt);
-    rig.visual.rotation.z = launched ? roll : damp(rig.visual.rotation.z, roll, 12, dt);
-    rig.body.scaling.set(1 - squash * 0.2, 1 + squash * 0.35 + breathe, 1 - squash * 0.12);
-
-    // --- legs -----------------------------------------------------------------------
-    const offsets = galloping ? [0.55, 0.68, 0.02, 0.14] : [0, 0.5, 0.5, 0];
-    const amplitude = galloping ? 0.78 : Math.min(0.55, speed * 0.1 + (swimming ? 0.35 : 0));
-    for (let index = 0; index < 4; index += 1) {
-      const hip = rig.hips[index];
-      const knee = rig.knees[index];
-      if (!hip || !knee) continue;
-      const front = index < 2;
-      let hipAngle = 0;
-      let kneeAngle = 0;
-      if (launched) {
-        hipAngle = Math.sin(this.time * 22 + index * 1.7) * 0.7;
-        kneeAngle = 0.6 + Math.sin(this.time * 19 + index) * 0.4;
-      } else if (stomping && front) {
-        hipAngle = -1.1;
-        kneeAngle = 1.3;
-      } else if (stomping) {
-        hipAngle = 0.35;
-        kneeAngle = 0.2;
-      } else if (!pose.grounded && !swimming) {
-        hipAngle = front ? -0.5 : 0.55;
-        kneeAngle = 0.7;
-      } else if (moving || swimming) {
-        const legPhase = phase + (offsets[index] ?? 0) * TAU;
-        hipAngle = Math.sin(legPhase) * amplitude;
-        kneeAngle = Math.max(0, -Math.cos(legPhase)) * amplitude * (swimming ? 1.5 : 1.3);
-        if (skidding) hipAngle = front ? -0.45 : 0.25;
+    // Feedback: bell clank, topple thud, hoof dust.
+    const fx = this.fx;
+    const audible = fx !== null && this.audible(pose.position);
+    if (audible && animator.bellClank > 0) audio.playCowbell(pose.position, 0.25 + animator.bellClank * 0.5);
+    if (fx && animator.thud > 0) {
+      if (audible) {
+        audio.playCowbell(pose.position, 0.85);
+        audio.playLand(pose.position);
       }
-      hip.rotation.x = damp(hip.rotation.x, hipAngle, 26, dt);
-      knee.rotation.x = damp(knee.rotation.x, kneeAngle, 26, dt);
-      hip.rotation.z = damp(hip.rotation.z, skidding ? (index % 2 === 0 ? -0.12 : 0.12) : 0, 10, dt);
+      fx.burst(puffKindForSurface(surfaceTagAt(x, z, pose.position.y)), pose.position, 12, 3.2, 0.45);
     }
-
-    // --- neck, head and face ----------------------------------------------------------
-    const charge = boosting ? 0.5 : 0;
-    const gallopNod = galloping && moving ? Math.sin(phase * 2) * 0.07 : 0;
-    const trotNod = !galloping && moving ? Math.sin(phase * 2) * 0.04 : 0;
-    const swimLift = swimming ? -0.38 : 0;
-    const rear = stomping ? -0.35 : 0;
-    const idleLook = speed < 0.3 ? Math.sin(this.time * 0.4) * 0.25 : 0;
-    rig.neck.rotation.x = damp(rig.neck.rotation.x, 0.1 + charge + gallopNod + trotNod + swimLift + rear, 10, dt);
-    rig.neck.rotation.y = damp(rig.neck.rotation.y, Math.max(-0.35, Math.min(0.35, yawRate * 0.14)) + idleLook, 6, dt);
-    rig.head.rotation.z = damp(rig.head.rotation.z, (pose.dazed ? Math.sin(this.time * 5) * 0.25 : 0) - roll * 0.4, 8, dt);
-
-    const browAngle = angry ? 0.42 : worried ? -0.32 : 0.06;
-    const browDrop = angry ? -0.02 : worried ? 0.02 : 0;
-    for (const [brow, side] of [
-      [rig.browLeft, -1],
-      [rig.browRight, 1],
-    ] as const) {
-      brow.rotation.z = damp(brow.rotation.z, side * browAngle, 14, dt);
-      brow.position.y = damp(brow.position.y, 0.245 + browDrop, 14, dt);
+    const speed = Math.abs(drive.forward);
+    if (fx && animator.footfalls && pose.grounded && !drive.swimming && speed > 3.2) {
+      const kind = puffKindForSurface(surfaceTagAt(x, z, pose.position.y));
+      const big = animator.gallopWeight > 0.5 || drive.charging;
+      for (let leg = 0; leg < 4; leg += 1) {
+        if (!(animator.footfalls & (1 << leg))) continue;
+        const solver = body.skeleton.legs[leg];
+        const legPose = cowPose.legs[leg];
+        if (!solver || !legPose) continue;
+        if (!big && Math.random() < 0.5) continue;
+        const lx = solver.restX;
+        const lz = solver.restSoleZ + legPose.z;
+        scratchPoint.x = x + cos * lx + sin * lz;
+        scratchPoint.y = pose.position.y + 0.08;
+        scratchPoint.z = z - sin * lx + cos * lz;
+        scratchVelocity.x = -velocity.x * 0.12 + (Math.random() - 0.5) * 0.8;
+        scratchVelocity.y = 0.7 + Math.random() * 0.5;
+        scratchVelocity.z = -velocity.z * 0.12 + (Math.random() - 0.5) * 0.8;
+        fx.puff(kind, scratchPoint, scratchVelocity, 0.22 + speed * 0.022 + (drive.charging ? 0.12 : 0), 0.5);
+      }
     }
-    const eyeOpen = this.blink > 0 ? 0.12 : angry ? 0.78 : worried ? 1.15 : 1;
-    for (const [eye, side] of [
-      [rig.eyeLeft, -1],
-      [rig.eyeRight, 1],
-    ] as const) {
-      eye.scaling.y = damp(eye.scaling.y, eyeOpen, 30, dt);
-      eye.rotation.y = damp(eye.rotation.y, Math.max(-0.4, Math.min(0.4, yawRate * 0.2)) + side * 0.02, 10, dt);
-      eye.rotation.z = pose.dazed ? Math.sin(this.time * 9 + side) * 0.3 : 0;
-    }
-
-    // --- secondary motion: ears, bell, tail ---------------------------------------------
-    const bounce = moving ? Math.cos(phase * 2) * (galloping ? 9 : 4) : 0;
-    const ear = this.earSpring.step(0, dt, (bounce - acceleration.y * 0.02) * dt);
-    const earFlick = Math.max(0, Math.sin(this.time * 0.7) - 0.96) * 6;
-    rig.earLeft.rotation.z = -(-0.45 + ear * 0.6 - earFlick * 0.3 + (galloping ? -0.25 : 0));
-    rig.earRight.rotation.z = -0.45 + ear * 0.6 + (galloping ? -0.25 : 0);
-    rig.earLeft.rotation.x = galloping ? 0.35 : 0;
-    rig.earRight.rotation.x = galloping ? 0.35 : 0;
-
-    const bellX = this.bellX.step(-rig.neck.rotation.x * 0.6, dt, (forwardAccel * 0.05 + bounce * 0.12) * dt);
-    const bellZ = this.bellZ.step(0, dt, (-lateralAccel * 0.05 - yawRate * 0.4) * dt);
-    rig.bell.rotation.x = Math.max(-1.1, Math.min(1.1, bellX));
-    rig.bell.rotation.z = Math.max(-0.9, Math.min(0.9, bellZ));
-
-    const tailStream = Math.min(1.2, speed * 0.1 + (launched ? 0.8 : 0));
-    const swish = Math.sin(this.time * 1.6) * (speed < 0.5 ? 0.22 : 0.08);
-    const tailX = this.tailX.step(0.12 + tailStream, dt, (forwardAccel * 0.04 + bounce * 0.1) * dt);
-    const tailZ = this.tailZ.step(swish, dt, (lateralAccel * 0.05 + yawRate * 0.25) * dt);
-    rig.tailUpper.rotation.x = tailX;
-    rig.tailUpper.rotation.z = tailZ;
-    rig.tailLower.rotation.x = this.tailLowerX.step(tailStream * 0.5, dt, -bounce * 0.15 * dt);
-    rig.tailLower.rotation.z = tailZ * 0.8;
-
-    // --- dust -----------------------------------------------------------------------------
     this.puffTimer -= dt;
-    if (this.fx && pose.grounded && !swimming && this.puffTimer <= 0 && (galloping || skidding || boosting) && speed > 5) {
-      this.puffTimer = skidding ? 0.05 : 0.09;
-      const kind = puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y));
+    if (fx && pose.grounded && !drive.swimming && drive.skidding && speed > 4 && this.puffTimer <= 0) {
+      this.puffTimer = 0.05;
       const side = Math.random() < 0.5 ? -1 : 1;
-      const back = skidding ? 0.2 : -0.6;
-      this.fx.puff(
-        kind,
-        {
-          x: pose.position.x + sin * back + cos * side * 0.35,
-          y: pose.position.y + 0.12,
-          z: pose.position.z + cos * back - sin * side * 0.35,
-        },
-        { x: -velocity.x * 0.12 + (Math.random() - 0.5), y: 0.8 + Math.random() * 0.6, z: -velocity.z * 0.12 + (Math.random() - 0.5) },
-        0.32 + Math.random() * 0.22 + (boosting ? 0.12 : 0),
-        0.55,
-      );
+      scratchPoint.x = x + sin * 0.5 + cos * side * 0.3;
+      scratchPoint.y = pose.position.y + 0.1;
+      scratchPoint.z = z + cos * 0.5 - sin * side * 0.3;
+      scratchVelocity.x = -velocity.x * 0.1;
+      scratchVelocity.y = 0.9;
+      scratchVelocity.z = -velocity.z * 0.1;
+      fx.puff(puffKindForSurface(surfaceTagAt(x, z, pose.position.y)), scratchPoint, scratchVelocity, 0.38, 0.55);
     }
-    if (this.slam > 0.28 && this.fx) {
-      this.fx.burst(puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y)), pose.position, 14, 4.5, 0.5);
+    if (fx && drive.stomp < 0 && this.wasStomping) {
+      fx.burst(puffKindForSurface(surfaceTagAt(x, z, pose.position.y)), pose.position, 14, 4.5, 0.5);
     }
+    this.wasStomping = drive.stomp >= 0;
   }
 
-  private poseCowDead(rig: CowRig, dt: number): void {
-    const twitch = Math.sin(this.time * 14) * 0.08;
-    for (let index = 0; index < 4; index += 1) {
-      const hip = rig.hips[index];
-      const knee = rig.knees[index];
-      if (!hip || !knee) continue;
-      hip.rotation.x = damp(hip.rotation.x, (index < 2 ? -0.15 : 0.15) + twitch * (index % 2 ? 1 : -1), 8, dt);
-      knee.rotation.x = damp(knee.rotation.x, 0.1, 8, dt);
-    }
-    rig.neck.rotation.x = damp(rig.neck.rotation.x, -0.45, 6, dt);
-    rig.head.rotation.z = damp(rig.head.rotation.z, 0.4, 6, dt);
-    rig.eyeLeft.scaling.y = damp(rig.eyeLeft.scaling.y, 0.15, 10, dt);
-    rig.eyeRight.scaling.y = damp(rig.eyeRight.scaling.y, 0.15, 10, dt);
-    rig.tailUpper.rotation.x = damp(rig.tailUpper.rotation.x, -0.6, 6, dt);
-    rig.bell.rotation.x = damp(rig.bell.rotation.x, 2.2, 4, dt);
+  private wasStomping = false;
+
+  /**
+   * Positional one-shots only near the camera and while the audio context
+   * runs (a suspended context, e.g. before the first click or in a
+   * background tab, would otherwise pile up nodes that never finish).
+   */
+  private audible(position: Vec3): boolean {
+    const context = (audio as unknown as { ctx?: AudioContext | null }).ctx;
+    if (!context || context.state !== 'running') return false;
+    const camera = this.scene.activeCamera;
+    if (!camera) return false;
+    const dx = camera.position.x - position.x;
+    const dy = camera.position.y - position.y;
+    const dz = camera.position.z - position.z;
+    return dx * dx + dy * dy + dz * dz < 45 * 45;
   }
 
   // ---------------------------------------------------------------------------
   // Coconut
   // ---------------------------------------------------------------------------
 
-  private animateCoconut(
-    rig: CoconutRig,
-    dt: number,
-    pose: AvatarPose,
-    mascot: MascotWireState | null,
-    velocity: Vector3,
-  ): void {
+  private animateCoconut(rig: CoconutRig, dt: number, pose: AvatarPose, mascot: MascotWireState | null, landed: boolean): void {
+    const velocity = this.velocity;
     const speed = Math.hypot(velocity.x, velocity.z);
     const swimming = pose.swimming ?? false;
     const pounding = mascot?.pounding ?? false;
     const boosting = (mascot?.boostSeconds ?? 0) > 0;
     const launched = (pose.launchSeconds ?? 0) > 0 && !pose.grounded;
+    const grounded = pose.grounded || swimming;
+    this.cryTimer = Math.max(0, this.cryTimer - dt);
+    this.shake = Math.max(0, this.shake - dt);
 
-    // Rolling: the shell turns by distance / radius about cross(up, velocity).
+    // --- roll: ω = v / r about N × v, slope-aware ------------------------------------
+    const x = pose.position.x;
+    const z = pose.position.z;
+    const terrain = sampleMapHeight(x, z);
+    if (grounded && Math.abs(pose.position.y - terrain) < 0.3) {
+      const step = 0.6;
+      const dx = sampleMapHeight(x + step, z) - sampleMapHeight(x - step, z);
+      const dz = sampleMapHeight(x, z + step) - sampleMapHeight(x, z - step);
+      this.normal.set(-dx, step * 2, -dz).normalize();
+    } else {
+      this.normal.set(0, 1, 0);
+    }
     if (!pose.alive) {
       this.spin.scaleInPlace(Math.max(0, 1 - dt * 3));
-    } else if ((pose.grounded || swimming) && speed > 0.05) {
-      const rate = speed / COCONUT_RADIUS;
-      this.spin.set((velocity.z / speed) * rate, 0, (-velocity.x / speed) * rate);
+    } else if (grounded && speed > 0.05) {
+      // Tangential velocity on the ground plane (slopes included).
+      const along = velocity.x * this.normal.x + velocity.y * this.normal.y + velocity.z * this.normal.z;
+      scratchVector.set(velocity.x - this.normal.x * along, velocity.y - this.normal.y * along, velocity.z - this.normal.z * along);
+      const tangential = scratchVector.length();
+      Vector3.CrossToRef(this.normal, scratchVector, scratchAxis);
+      const length = scratchAxis.length();
+      if (length > 1e-5) scratchAxis.scaleInPlace(tangential / COCONUT_RADIUS / length);
+      else scratchAxis.set(0, 0, 0);
+      this.spin.copyFrom(scratchAxis);
       if (swimming) this.spin.scaleInPlace(0.35);
     } else if (!pose.grounded) {
       // Airborne: keep tumbling, a double jump adds a forward flip.
       if ((mascot?.jumpsUsed ?? 0) >= 2 && this.spin.length() < 9) {
-        const fx = Math.sin(this.faceYaw);
-        const fz = Math.cos(this.faceYaw);
-        this.spin.addInPlace(new Vector3(fz, 0, -fx).scale(dt * 30));
+        this.spin.x += Math.cos(this.faceYaw) * dt * 30;
+        this.spin.z += -Math.sin(this.faceYaw) * dt * 30;
       }
       this.spin.scaleInPlace(Math.max(0, 1 - dt * 0.6));
     }
     if (pounding) this.spin.scaleInPlace(Math.max(0, 1 - dt * 8));
     const spinRate = this.spin.length();
-    const shell = rig.shell.rotationQuaternion ?? Quaternion.Identity();
+    const shell = rig.shell.rotationQuaternion ?? (rig.shell.rotationQuaternion = Quaternion.Identity());
     if (spinRate > 0.01) {
-      const step = Quaternion.RotationAxis(this.spin.scale(1 / spinRate), spinRate * dt);
-      rig.shell.rotationQuaternion = step.multiply(shell);
-    } else {
-      rig.shell.rotationQuaternion = shell;
+      scratchAxis.copyFrom(this.spin).scaleInPlace(1 / spinRate);
+      Quaternion.RotationAxisToRef(scratchAxis, spinRate * dt, scratchQuat);
+      scratchQuat.multiplyToRef(shell, shell);
+      shell.normalize();
+      this.rollAngle += spinRate * dt;
     }
     if (speed < 0.6 && pose.grounded && pose.alive) {
       // Settle with the three holes on the crown, facing the same way as the face.
       Quaternion.RotationYawPitchRollToRef(this.faceYaw, 0, 0, this.restQuaternion);
       Quaternion.SlerpToRef(shell, this.restQuaternion, Math.min(1, dt * 2.2), shell);
-      rig.shell.rotationQuaternion = shell;
       this.spin.scaleInPlace(Math.max(0, 1 - dt * 6));
     }
 
-    // Face layer: turns toward the heading and leans into the roll.
+    // --- face layer: turns to the heading, leans into turns, bobs ----------------------
     const headingTarget = mascot?.heading ?? pose.heading ?? pose.yaw;
     const turn = shortestAngle(this.faceYaw, headingTarget);
+    const previousYaw = this.faceYaw;
     this.faceYaw += turn * (1 - Math.exp(-dt * (speed > 1 ? 7 : 3)));
-    const lean = !pose.alive
+    const faceTurnRate = shortestAngle(previousYaw, this.faceYaw) / dt;
+    const sin = Math.sin(this.faceYaw);
+    const cos = Math.cos(this.faceYaw);
+    const lateralAccel = this.accel.x * cos - this.accel.z * sin;
+    const forwardAccel = this.accel.x * sin + this.accel.z * cos;
+    const forwardLean = !pose.alive
       ? 0.25
       : pounding
         ? 0.32
         : !pose.grounded && !swimming
-          ? Math.max(-0.25, Math.min(0.25, -velocity.y * 0.02))
-          : Math.min(0.28, speed * 0.022);
-    this.facePitch = damp(this.facePitch, lean, 8, dt);
-    rig.face.rotation.set(this.facePitch, this.faceYaw, !pose.alive ? 0.5 : swimming ? Math.sin(this.time * 2.1) * 0.08 : 0);
+          ? clamp(-velocity.y * 0.02, -0.25, 0.25)
+          : Math.min(0.28, speed * 0.022) + clamp(forwardAccel * 0.006, -0.08, 0.08);
+    this.facePitch = damp(this.facePitch, forwardLean, 8, dt);
+    const roll = this.lean.step(
+      !pose.alive ? 0.5 : clamp(lateralAccel * 0.014 + faceTurnRate * speed * 0.012, -0.3, 0.3),
+      dt,
+    );
+    const swimSway = swimming ? Math.sin(this.time * 2.1) * 0.08 : 0;
+    Quaternion.RotationYawPitchRollToRef(this.faceYaw, this.facePitch, roll + swimSway, scratchQuat);
+    if (!rig.face.rotationQuaternion) rig.face.rotationQuaternion = new Quaternion();
+    rig.face.rotationQuaternion.copyFrom(scratchQuat);
+    // Rolling bump: the lumpy nut lifts the upright layer twice per turn.
+    const bump = grounded && speed > 0.5 ? Math.abs(Math.sin(this.rollAngle)) * Math.min(1, speed / 6) * 0.025 : 0;
+    rig.face.position.y = this.faceBob.step(bump, dt, -this.accel.y * 0.02);
 
-    // Squash and stretch: launch stretch, landing squash, slam stretch.
-    const target = pounding ? 0.18 : !pose.grounded && velocity.y > 3 ? 0.1 : 0;
-    const squash = this.squash.step(target, dt);
-    const squashY = 1 + squash * 1.2;
-    const squashXZ = 1 - squash * 0.5;
+    // --- squash & stretch: anticipation, stretch in the air, landing overshoot ----------
+    const tookOff = !pose.grounded && this.wasGrounded && velocity.y > 2 && pose.alive;
+    if (tookOff) this.squash.kick(-5.5);
+    if (landed && pose.alive) this.squash.kick(-Math.min(7, 1.2 + this.fallSpeed * 0.4));
+    const stretchTarget = pounding ? 0.2 : !pose.grounded && !swimming ? clamp(velocity.y * 0.013, -0.04, 0.14) : 0;
+    const squash = clamp(this.squash.step(stretchTarget, dt), -0.4, 0.35);
+    const squashY = 1 + squash;
+    const squashXZ = 1 / Math.sqrt(Math.max(0.4, squashY));
     rig.visual.scaling.set(squashXZ, squashY, squashXZ);
     const bob = swimming ? Math.sin(this.time * 2.3) * 0.05 : 0;
-    rig.visual.position.y = COCONUT_RADIUS * squashY + bob - (pose.alive ? 0 : 0.05);
+    const shakeAmount = this.shake > 0 ? this.shake * 0.12 : 0;
+    rig.visual.position.set(
+      Math.sin(this.time * 61) * shakeAmount,
+      COCONUT_RADIUS * squashY + bob - (pose.alive ? 0 : 0.05),
+      Math.cos(this.time * 53) * shakeAmount,
+    );
 
-    // Expression.
-    let expression: CoconutExpression = 'angry';
-    if (!pose.alive) expression = 'ko';
-    else if (pose.dazed || launched) expression = 'dizzy';
-    else if (this.happyTimer > 0) expression = 'happy';
-    else if (this.squashTimer > 0) expression = 'squashed';
-    else if (pounding || boosting) expression = 'shout';
+    // --- jelly wobble along the direction of sudden acceleration -------------------------
+    const wx = this.wobbleX.step(0, dt, -this.accel.x * 0.012);
+    const wz = this.wobbleZ.step(0, dt, -this.accel.z * 0.012);
+    const amount = Math.min(0.13, Math.hypot(wx, wz));
+    const direction = Math.atan2(wx, wz);
+    rig.wobbleYaw.rotation.y = direction;
+    rig.wobbleScale.scaling.set(1 - amount * 0.5, 1 - amount * 0.25, 1 + amount);
+    rig.wobbleUnyaw.rotation.y = -direction;
+
+    // --- lei: spring-driven segments (lag, bounce, sway) --------------------------------
+    const segments = rig.lei.segments;
+    for (let segment = 0; segment < segments.length; segment += 1) {
+      const node = segments[segment];
+      const along = rig.lei.directions[segment];
+      const axis = this.leiAxes[segment];
+      const bounceSpring = this.leiBounce[segment];
+      const swaySpring = this.leiSway[segment];
+      const outSpring = this.leiOut[segment];
+      if (!node || !along || !axis || !bounceSpring || !swaySpring || !outSpring) continue;
+      // Acceleration in the face frame (the lei turns with the face).
+      const radial = forwardAccel * along.z + lateralAccel * along.x;
+      const tangent = forwardAccel * along.x * -1 + lateralAccel * along.z;
+      const buzz = grounded && speed > 1 ? Math.sin(this.time * 17 + segment * 1.3) * speed * 0.35 : 0;
+      const bounce = clamp(bounceSpring.step(0, dt, this.accel.y * 0.05 + buzz), -0.22, 0.22);
+      const sway = clamp(swaySpring.step(0, dt, -tangent * 0.03 - faceTurnRate * 0.6), -0.25, 0.25);
+      const out = clamp(outSpring.step(0, dt, -radial * 0.025), 0, 0.4);
+      Quaternion.RotationAxisToRef(axis, bounce, scratchQuat);
+      if (!node.rotationQuaternion) node.rotationQuaternion = new Quaternion();
+      Quaternion.RotationYawPitchRollToRef(sway, 0, 0, node.rotationQuaternion);
+      scratchQuat.multiplyToRef(node.rotationQuaternion, node.rotationQuaternion);
+      node.scaling.setAll(1 + out * 0.08);
+    }
+
+    // --- expression -------------------------------------------------------------------
+    const faceInput = this.faceInput;
+    faceInput.alive = pose.alive;
+    faceInput.dazed = (pose.dazed ?? false) || launched;
+    faceInput.battleCry = boosting || pounding || this.cryTimer > 0;
+    faceInput.ramming = speed > COCONUT_TUNING.maxRollSpeed * 0.7 && grounded;
+    faceInput.airborne = !pose.grounded && !swimming;
+    faceInput.vitality = pose.vitality ?? 1;
+    faceInput.idle = this.idleTime;
+    faceInput.preview = this.preview;
+    const cell = this.faceController.update(dt, faceInput);
     const relative = Math.atan2(velocity.x, velocity.z) - this.faceYaw;
-    // Canvas right is the coconut's own left (-X), so a roll toward +X
-    // (sin > 0, its right) moves the pupils toward canvas left: hence the sign.
-    const lookX = speed > 0.5 ? -Math.sin(relative) * Math.min(1, speed / 6) : Math.sin(this.time * 0.5) * 0.3;
-    const lookY = Math.max(-1, Math.min(1, velocity.y / 10));
-    rig.painter.draw(this.blink > 0 && expression === 'angry' ? 'squashed' : expression, lookX, lookY);
+    this.dazedLook = speed > 0.5 ? -Math.sin(relative) * Math.min(1, speed / 6) : Math.sin(this.time * 0.5) * 0.3;
+    rig.decal.show(cell, this.faceController.changed && cell !== FACE.blink, this.dazedLook, clamp(velocity.y / 10, -1, 1), dt);
 
-    // Sand/dust trail and splashes.
+    // --- sand/dust trail scaled with speed, splashes ------------------------------------
     this.puffTimer -= dt;
-    if (this.fx && this.puffTimer <= 0 && pose.alive) {
+    const fx = this.fx;
+    if (fx && this.puffTimer <= 0 && pose.alive) {
       if (swimming && speed > 1) {
         this.puffTimer = 0.12;
-        this.fx.puff('splash', { x: pose.position.x, y: pose.position.y + 0.55, z: pose.position.z }, {
-          x: (Math.random() - 0.5) * 1.5,
-          y: 1.4,
-          z: (Math.random() - 0.5) * 1.5,
-        }, 0.3, 0.5);
-      } else if (pose.grounded && speed > 5) {
-        this.puffTimer = boosting ? 0.04 : 0.07;
-        const kind = puffKindForSurface(surfaceTagAt(pose.position.x, pose.position.z, pose.position.y));
-        this.fx.puff(
-          kind,
-          {
-            x: pose.position.x - (velocity.x / speed) * 0.5 + (Math.random() - 0.5) * 0.4,
-            y: pose.position.y + 0.1,
-            z: pose.position.z - (velocity.z / speed) * 0.5 + (Math.random() - 0.5) * 0.4,
-          },
-          { x: -velocity.x * 0.1, y: 0.7 + Math.random() * 0.5, z: -velocity.z * 0.1 },
-          0.28 + Math.random() * 0.2 + (boosting ? 0.15 : 0),
-          0.5,
-        );
-      }
-      if (this.squashTimer > 0.3 && this.fx) {
-        // Crumbs of husk when squashed.
-        this.fx.burst('dirt', { x: pose.position.x, y: pose.position.y + 0.3, z: pose.position.z }, 5, 2.2, 0.14);
-        this.squashTimer = 0.3;
+        scratchPoint.x = x;
+        scratchPoint.y = pose.position.y + 0.55;
+        scratchPoint.z = z;
+        scratchVelocity.x = (Math.random() - 0.5) * 1.5;
+        scratchVelocity.y = 1.4;
+        scratchVelocity.z = (Math.random() - 0.5) * 1.5;
+        fx.puff('splash', scratchPoint, scratchVelocity, 0.3, 0.5);
+      } else if (pose.grounded && speed > 2.5) {
+        this.puffTimer = clamp(0.16 - speed * 0.009, 0.03, 0.12) * (boosting ? 0.6 : 1);
+        const kind = puffKindForSurface(surfaceTagAt(x, z, pose.position.y));
+        const count = speed > 8 ? 2 : 1;
+        for (let index = 0; index < count; index += 1) {
+          const side = (index === 0 ? -1 : 1) * 0.22;
+          scratchPoint.x = x - (velocity.x / speed) * 0.5 + (velocity.z / speed) * side + (Math.random() - 0.5) * 0.25;
+          scratchPoint.y = pose.position.y + 0.1;
+          scratchPoint.z = z - (velocity.z / speed) * 0.5 - (velocity.x / speed) * side + (Math.random() - 0.5) * 0.25;
+          scratchVelocity.x = -velocity.x * 0.1;
+          scratchVelocity.y = 0.6 + Math.random() * 0.5 + speed * 0.03;
+          scratchVelocity.z = -velocity.z * 0.1;
+          fx.puff(kind, scratchPoint, scratchVelocity, 0.16 + speed * 0.026 + (boosting ? 0.15 : 0), 0.45 + speed * 0.012);
+        }
       }
     }
+    if (fx && cell === FACE.pain && this.shake > 0.2) {
+      // Crumbs of husk when squashed.
+      fx.burst('dirt', pose.position, 5, 2.2, 0.14);
+      this.shake = 0.2;
+    }
+    this.lastPosition.set(x, pose.position.y, z);
   }
 
-  private updateMaterial(): void {
+  private updateMaterials(): void {
     const camera = this.scene.activeCamera;
     if (!camera) return;
-    updateCharacterMaterial(this.material, camera.position, performance.now() / 1000, this.effects);
+    const time = performance.now() / 1000;
+    for (const material of this.materials) updateMascotMaterial(material, camera.position, time, this.effects);
   }
 
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.coconut?.painter.dispose();
+    this.pendingModel?.();
+    if (this.cowFallbackTimer) clearTimeout(this.cowFallbackTimer);
+    huskTexture(this.scene).listeners.delete(this.onHuskFailed);
+    leiTexture(this.scene).listeners.delete(this.onLeiFailed);
+    this.coconut?.lei.mesh?.skeleton?.dispose();
+    this.cowBody?.dispose();
+    this.coconut?.decal.dispose();
+    this.meshyShell?.dispose();
+    this.fibreFringe?.dispose();
     this.root.dispose(false, false);
-    this.material.dispose();
+    for (const material of this.materials) material.dispose();
     this.shadowMaterial.dispose();
   }
 }
@@ -594,13 +991,14 @@ export class MascotPreviewPair {
   constructor(scene: Scene, shadowMaterial: StandardMaterial, profile: PlayerProfile) {
     this.scene = scene;
     this.root = new TransformNode('mascot-preview-pair', scene);
-    this.primary = new MascotView(scene, shadowMaterial, profile, null);
+    this.primary = new MascotView(scene, shadowMaterial, profile, null, true);
     const other = profile.faction === 'alpine' ? 'lagoon' : 'alpine';
     this.secondary = new MascotView(
       scene,
       createShadowMaterial(scene, `mascot-preview-shadow-${other}`),
       { ...profile, faction: other },
       null,
+      true,
     );
     this.primary.root.parent = this.root;
     this.secondary.root.parent = this.root;
@@ -639,8 +1037,11 @@ export class MascotPreviewPair {
       sideX = (-dz / length) * 1.55 - (dx / length) * 0.5;
       sideZ = (dx / length) * 1.55 - (dz / length) * 0.5;
     }
-    this.primary.setPosition({ x: this.stage.x, y: this.stage.y, z: this.stage.z });
-    this.secondary.setPosition({ x: this.stage.x + sideX, y: this.stage.y, z: this.stage.z + sideZ });
+    this.primary.setPosition(this.stage);
+    scratchPoint.x = this.stage.x + sideX;
+    scratchPoint.y = this.stage.y;
+    scratchPoint.z = this.stage.z + sideZ;
+    this.secondary.setPosition(scratchPoint);
     this.primary.updatePreview(deltaSeconds, spin);
     this.secondary.updatePreview(deltaSeconds, spin + 0.6);
   }
