@@ -92,11 +92,15 @@ the meta/economy layer are gated behind the rest of M5, M6 and M7 (see
 Requirements: **Bun 1.4.4+**, a modern Chrome/Edge/Safari with WebGPU or WebGL2.
 
 ```bash
+git clone https://github.com/grillwurst1/frost-and-flamingos.git
+cd frost-and-flamingos
 bun install
 bun run dev
 ```
 
-Open <http://localhost:5173>. The server health endpoint is
+Open <http://localhost:5173> and stop with `Ctrl+C`. To update later: `git pull && bun install`.
+The German player guide [`BEDIENUNGSANLEITUNG.md`](BEDIENUNGSANLEITUNG.md) walks through every
+step on macOS. The server health endpoint is
 <http://127.0.0.1:3000/api/health>.
 
 Useful commands:

@@ -71,6 +71,13 @@ Damit Bun dauerhaft gefunden wird, diese Zeile in `~/.zshrc` ergänzen:
 echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.zshrc
 ```
 
+Getestet ist das Spiel mit Bun 1.4.4; neuere 1.x-Versionen laufen in der Regel auch. Genau
+diese Version installiert:
+
+```bash
+curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.4"
+```
+
 ### Browser
 
 Empfohlen: **Google Chrome** oder **Microsoft Edge**, aktuell gehalten. Safari funktioniert
@@ -87,35 +94,121 @@ zurück. Beide Wege sind spielbar.
 
 ---
 
-## 3. Installation
+## 3. Installation: das Spiel von GitHub holen
 
-1. Terminal öffnen (Programme → Dienstprogramme → Terminal).
-2. In den Projektordner wechseln:
+### Kurzfassung
 
-   ```bash
-   cd "/Users/nicolas/Documents/Default Project"
-   ```
+Wer Git und Bun schon hat, braucht im Terminal nur diese Befehle:
 
-   Der Pfad enthält ein Leerzeichen und muss daher in Anführungszeichen stehen.
+```bash
+cd ~
+git clone https://github.com/grillwurst1/frost-and-flamingos.git
+cd frost-and-flamingos
+bun install
+bun run dev
+```
 
-3. Abhängigkeiten installieren:
+Danach im Browser **<http://localhost:5173>** öffnen. Beenden mit `Ctrl` + `C` im Terminal.
+Die Schritte im Einzelnen:
 
-   ```bash
-   bun install
-   ```
+### 3.1 Terminal öffnen
 
-   Das legt die Workspace-Pakete an und lädt Babylon.js, Rapier, Svelte, Vite und TypeScript.
-   Der Vorgang ist nur beim ersten Mal oder nach Änderungen an den Abhängigkeiten nötig.
+Programme → Dienstprogramme → **Terminal** (oder `Cmd` + Leertaste, „Terminal“ tippen,
+Enter). Alle folgenden Befehle tippst du dort ein und bestätigst jeweils mit Enter.
+
+### 3.2 Git prüfen
+
+```bash
+git --version
+```
+
+Erscheint eine Versionsnummer (z. B. `git version 2.39.5`), ist Git vorhanden. Sonst bietet
+macOS an, die „Command Line Developer Tools“ zu installieren: auf **Installieren** klicken,
+warten und den Befehl wiederholen. Von Hand geht das auch mit `xcode-select --install`.
+
+### 3.3 Bun prüfen
+
+```bash
+bun --version
+```
+
+Fehlt Bun, zuerst wie in Abschnitt 2 installieren.
+
+### 3.4 Das Spiel herunterladen (einmalig)
+
+```bash
+cd ~
+git clone https://github.com/grillwurst1/frost-and-flamingos.git
+cd frost-and-flamingos
+```
+
+Das Spiel liegt danach im Ordner `~/frost-and-flamingos` (im Finder: dein Benutzerordner →
+`frost-and-flamingos`). Der Download ist rund 250 MB groß, weil Modelle, gemalte Grafiken und
+Musik mitkommen. `git clone` holt automatisch den neusten Stand des Hauptzweigs `master`.
+
+**Falls GitHub nach Benutzername und Passwort fragt** (privates Repository): Im Terminal nimmt
+GitHub kein normales Passwort mehr an. Zwei einfache Wege:
+
+- **GitHub CLI:** einmal `brew install gh` (braucht [Homebrew](https://brew.sh)), dann
+  `gh auth login` und den Anweisungen im Browser folgen. Danach funktioniert `git clone` wie
+  oben, alternativ `gh repo clone grillwurst1/frost-and-flamingos`.
+- **Zugangstoken:** auf GitHub unter Settings → Developer settings → Personal access tokens
+  ein Token mit Lesezugriff auf das Repository erstellen und es bei der Passwortfrage
+  einfügen.
+
+**Ohne Git** (nur zum einmaligen Ausprobieren): auf der GitHub-Seite des Projekts den grünen
+Knopf **Code** → **Download ZIP** wählen, die ZIP-Datei entpacken und im Terminal in den
+entpackten Ordner wechseln, z. B. `cd ~/Downloads/frost-and-flamingos-master`. Eine neue
+Version musst du dann jedes Mal neu herunterladen; mit Git reicht `git pull` (Abschnitt 3.6).
+
+### 3.5 Abhängigkeiten installieren
+
+Im Spielordner:
+
+```bash
+bun install
+```
+
+Das legt die Workspace-Pakete an und lädt Babylon.js, Rapier, Svelte, Vite und TypeScript. Das
+dauert beim ersten Mal ein bis zwei Minuten und ist danach nur nach einem Update nötig.
+
+### 3.6 Auf die neuste Version aktualisieren
+
+Immer wenn auf GitHub eine neue Version liegt:
+
+```bash
+cd ~/frost-and-flamingos
+git pull
+bun install
+```
+
+Danach wie in Abschnitt 4 starten. Welche Version gerade installiert ist, zeigt
+`git log -1 --oneline` (z. B. `2a279ea docs: …`); auf GitHub steht derselbe Code oben in der
+Commit-Liste von `master`.
+
+Meldet `git pull`, dass lokale Änderungen überschrieben würden, und brauchst du diese
+Änderungen nicht, setzt du den Ordner auf den GitHub-Stand zurück:
+
+```bash
+git fetch origin
+git reset --hard origin/master
+bun install
+```
+
+**Achtung:** `git reset --hard` verwirft alle eigenen Änderungen im Spielordner.
 
 ---
 
 ## 4. Spiel starten
 
-Im Projektordner:
+Jedes Mal, wenn du spielen willst, im Terminal:
 
 ```bash
+cd ~/frost-and-flamingos
 bun run dev
 ```
+
+Das Terminalfenster muss geöffnet bleiben, solange du spielst.
 
 Der Befehl startet **Server und Client gemeinsam**. Im Terminal erscheint in etwa:
 
@@ -157,6 +250,12 @@ startet den Stack so:
 ```bash
 FF_NO_BOTS=1 bun run dev
 ```
+
+### Spiel beenden
+
+Im Terminal `Ctrl` + `C` drücken: das beendet Server und Client zusammen. Den Browser-Tab
+kannst du einfach schließen. Meldet ein späterer Start, dass ein Port belegt ist, hilft
+`bun run stop` (Abschnitt 17).
 
 ---
 
