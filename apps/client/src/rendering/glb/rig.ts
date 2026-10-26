@@ -52,6 +52,9 @@ const tmpC = new Vector3();
 const tmpQ = new Quaternion();
 const tmpQ2 = new Quaternion();
 
+/** Most of the wrist twist a forearm takes over (radians). */
+const MAX_FOREARM_TWIST = 1.4;
+
 /** Rotation taking unit vector `from` to unit vector `to`. */
 function fromTo(from: Vector3, to: Vector3, result: Quaternion): Quaternion {
   return Quaternion.FromUnitVectorsToRef(from, to, result);
@@ -60,6 +63,8 @@ function fromTo(from: Vector3, to: Vector3, result: Quaternion): Quaternion {
 export class GlbRig {
   private readonly joints = new Map<RigJoint, JointState>();
   private readonly order: JointState[] = [];
+  /** Last signed wrist twist per forearm, unwrapped across ±π (see shareWristTwist). */
+  private readonly twists = new Map<RigJoint, number>();
 
   constructor(nodes: ReadonlyMap<string, TransformNode>, parents: ReadonlyMap<string, string | null>) {
     for (const name of RIG_JOINTS) {
@@ -78,6 +83,11 @@ export class GlbRig {
 
   has(name: RigJoint): boolean {
     return this.joints.has(name);
+  }
+
+  /** Forgets the remembered forearm twists (a new hold starts from the principal angle). */
+  resetTwist(): void {
+    this.twists.clear();
   }
 
   /** Recomputes armature-space transforms of every solver joint. */
@@ -248,7 +258,9 @@ export class GlbRig {
   /**
    * There are no twist bones: move half of the wrist's twist (about the
    * forearm axis) into the forearm so linear skinning does not pinch the
-   * wrist into a candy wrapper.
+   * wrist into a candy wrapper. The twist is unwrapped against last frame's,
+   * so a hold whose twist passes ±180° does not flip the forearm's half from
+   * +90° to -90° in one frame; the forearm's share is capped at ±80°.
    */
   private shareWristTwist(
     hand: RigJoint,
@@ -279,7 +291,15 @@ export class GlbRig {
     let signed = angle * sign;
     if (signed > Math.PI) signed -= Math.PI * 2;
     if (signed < -Math.PI) signed += Math.PI * 2;
-    this.rotateWorld(forearm, Quaternion.RotationAxis(axis, 0.5 * signed * blend));
+    const previous = this.twists.get(forearm);
+    if (previous !== undefined) {
+      signed += Math.round((previous - signed) / (Math.PI * 2)) * Math.PI * 2;
+      // More than a turn and a half wound up: fall back to the principal angle.
+      if (Math.abs(signed) > Math.PI * 1.5) signed -= Math.sign(signed) * Math.PI * 2;
+    }
+    this.twists.set(forearm, signed);
+    const share = Math.max(-MAX_FOREARM_TWIST, Math.min(MAX_FOREARM_TWIST, 0.5 * signed));
+    this.rotateWorld(forearm, Quaternion.RotationAxis(axis, share * blend));
     this.refresh();
   }
 }
