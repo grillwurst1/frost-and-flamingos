@@ -5,6 +5,7 @@ import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder';
 import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import type { WeaponId } from '@frost-and-flamingos/shared';
@@ -78,6 +79,43 @@ export interface HoldSpec {
   support: Vector3 | null;
   /** Weapon-space pitch offset (polearms are held tilted up). */
   tilt: number;
+  /**
+   * Right-hand grip relative to the anchor in the aim frame (x = character
+   * right, y = up, z = forward); overrides the style's default offset.
+   */
+  offset?: readonly [number, number, number];
+  /** Weapon yaw against the aim (radians, + = muzzle to the holder's left). */
+  yaw?: number;
+  /**
+   * 'shoulders': `offset` is relative to the bind-pose shoulder point (rigid
+   * on Spine2) and scales with arm length and body bulk; the support-hand
+   * pull is capped. Default 'chest': relative to Spine2, unscaled.
+   */
+  anchor?: 'chest' | 'shoulders';
+  /**
+   * Weapon-space z of the stock butt for the chest-clearance rule; null =
+   * nothing behind the grip (poles, pistols). Omitted: the mesh bounds.
+   */
+  rear?: number | null;
+  /** Share of the aim pitch the prop follows (default 1; long poles and horns less). */
+  pitchScale?: number;
+  /**
+   * Support-hand slide: when `support` is out of the left arm's reach, the
+   * wrist target may move along the foregrip / shaft back to this
+   * weapon-space point (never further); null or omitted = fixed grip.
+   */
+  supportBack?: Vector3 | null;
+  /** Weapon-space point held at the mouth (alphorn mouthpiece), or null. */
+  mouthpiece?: Vector3 | null;
+  /** Weapon-space capsule (axis ends, radius) kept out of the head, or null. */
+  headClear?: { from: Vector3; to: Vector3; radius: number } | null;
+}
+
+/** Per-frame state a weapon prop animates from (umbrella canopy, flashes). */
+export interface WeaponPropState {
+  /** A long fall (far past a jump's air time, dropping fast); never an ordinary hop. */
+  falling: boolean;
+  preview: boolean;
 }
 
 const WOOD = '#9a5f30';
@@ -217,8 +255,11 @@ const BUILDERS: Partial<Record<WeaponId, (p: PartList) => HoldSpec>> = {
  *     the aim pitch and recoil move that frame, and two-bone IK pulls the
  *     right hand onto the origin.
  *   - `hold.support` is the left-hand grip in weapon space (null = the left
- *     arm stays free); `hold.tilt` pitches the prop up (polearms).
- *   - The mesh's bounding box is read once: its rear (minimum z) is kept in
+ *     arm stays free); `hold.tilt` pitches the prop up (polearms). With
+ *     `hold.supportBack` the left hand may slide back along the foregrip
+ *     when the grip is out of reach; still unreachable, the left arm eases
+ *     back to its animated pose instead of hovering beside the weapon.
+ *   - The mesh's bounding box (or `hold.rear`) is read once: its rear (minimum z) is kept in
  *     front of the chest, so long stocks are pushed forward instead of
  *     passing through the body.
  *   - Render with `material` (the view's vertex-colour cel material, so the
@@ -231,6 +272,14 @@ const BUILDERS: Partial<Record<WeaponId, (p: PartList) => HoldSpec>> = {
 export interface WeaponProp {
   mesh: Mesh;
   hold: HoldSpec;
+  /** Muzzle socket (child of `mesh`, +Z out of the barrel), or null. */
+  muzzle?: TransformNode | null;
+  /** Shot feedback on the prop itself (muzzle flash, umbrella pop). */
+  fire?(): void;
+  /** Per-frame prop animation; may update `hold` (umbrella overhead). */
+  animate?(deltaSeconds: number, state: WeaponPropState): void;
+  /** Back to the resting state (furled, no flash); called when the prop is equipped again. */
+  reset?(): void;
 }
 
 export type WeaponPropFactory = (scene: Scene, id: WeaponId, material: ShaderMaterial) => WeaponProp | null;
