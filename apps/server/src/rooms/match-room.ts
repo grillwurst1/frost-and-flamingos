@@ -873,8 +873,12 @@ export class MatchRoom {
     return this.conquest.status();
   }
 
-  /** True when another living player stands on (or right next to) a spawn pad. */
+  /**
+   * True when another living player stands on (or right next to) a spawn pad,
+   * or a hull (package 4V) is parked on it.
+   */
   private isSpawnOccupied(position: Vec3, selfId: number): boolean {
+    if (this.vehicles.hullCovers(position)) return true;
     for (const other of this.players.values()) {
       if (other.id === selfId || !other.alive || untouchable(other)) continue;
       const feet = other.character.position;

@@ -337,6 +337,23 @@ export class VehicleManager<P extends VehicleOccupant> {
     return best;
   }
 
+  /**
+   * True when a hull (driven, parked or a smouldering wreck) covers a point on
+   * the ground, within `margin` of its footprint: a spawn pad under a parked
+   * vehicle counts as occupied. A deflating flamingo wreck has no collider.
+   */
+  hullCovers(point: Vec3, margin = 0.6): boolean {
+    for (const record of this.records) {
+      const body = record.body;
+      if (!body || record.lifecycle === 'waiting') continue;
+      if (record.lifecycle === 'wreck' && record.definition.chassis === 'boat') continue;
+      const top = body.position.y + record.definition.halfExtents.y * 2;
+      if (point.y > top + 1 || point.y < body.position.y - 2.5) continue;
+      if (distanceToHull(record.definition, body.position, body.yaw, point) < margin) return true;
+    }
+    return false;
+  }
+
   /** The vehicle a player sits in (their own shots skip it). */
   vehicleIdOf(playerId: number): number {
     return this.seatOf.get(playerId)?.vehicleId ?? 0;

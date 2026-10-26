@@ -1,11 +1,13 @@
 /**
  * Climate Conquest (4T) x vehicles (4V) x hens (3H) x drifter (3G) after the
- * merge: the 15 s results ceasefire also holds for hulls, rams and hens.
+ * merge: the 15 s results ceasefire also holds for hulls, rams and hens; a
+ * hull parked on a spawn pad makes the pad occupied.
  *
  *   bun test apps/server/test/conquest-vehicles.test.ts
  */
 import { describe, expect, test } from 'bun:test';
 import {
+  FJORD_TOWERS,
   FjordLayout,
   INTERMISSION_TICKS,
   sampleMapHeight,
@@ -14,7 +16,7 @@ import {
   type Vec3,
 } from '@frost-and-flamingos/shared';
 import { MatchRoom } from '../src/rooms/match-room';
-import { InputButton, joinPlayer, parkVehicle, placePlayer, playerOf, run, sendInput, slotByKind } from './vehicle-helpers';
+import { InputButton, createRoom, joinPlayer, parkVehicle, placePlayer, playerOf, run, sendInput, slotByKind, slotBySpawn } from './vehicle-helpers';
 
 const { GLACIER_RUNWAY } = FjordLayout;
 const W = InputButton.Forward;
@@ -24,6 +26,8 @@ const RUNWAY = { x: 288, z: 140 };
 interface RoomProbe {
   critters: { states(): CritterState[] };
   explode(owner: unknown, position: Vec3, damage: number, radius: number, weaponId: string | null): void;
+  isSpawnOccupied(position: Vec3, selfId: number): boolean;
+  spawnFor(faction: 'alpine' | 'lagoon', selfId?: number): { position: Vec3; yaw: number };
 }
 
 function probe(room: MatchRoom): RoomProbe {
@@ -94,6 +98,35 @@ describe('results ceasefire x vehicles and hens', () => {
     probe(room).explode(playerOf(room, victim.id), { ...target.position }, 120, 3, 'bazooka');
     expect(probe(room).critters.states().find((critter) => critter.id === target.id)?.alive).toBe(false);
     expect(driver.socket.eventsOf('CRITTER_KILLED').length).toBe(1);
+    room.stop();
+  });
+});
+
+describe('spawn pads x parked hulls', () => {
+  test('a hull parked on a pad makes it occupied; spawns pick another pad', async () => {
+    const room = await createRoom();
+    // Peak Guard holds Tower C at the round start: its summit pads are live.
+    const tower = FJORD_TOWERS.find((entry) => entry.id === 'tower_c');
+    const pad = tower?.spawnPads.find((entry) => entry.faction === 'alpine');
+    if (!pad) throw new Error('no Peak Guard Tower C pad');
+    expect(probe(room).isSpawnOccupied(pad.position, 0)).toBe(false);
+
+    // The summit crawler (live while Peak Guard holds C) parks right on the pad.
+    const crawler = slotBySpawn('crawler_summit');
+    expect(room.vehicles.lifecycleOf(crawler.id)).toBe('active');
+    expect(room.vehicles.devPark(crawler.id, pad.position.x, pad.position.z, pad.rotationY)).toBe(true);
+    run(room, 2);
+    expect(room.vehicles.hullCovers(pad.position)).toBe(true);
+    expect(probe(room).isSpawnOccupied(pad.position, 0)).toBe(true);
+    for (let draw = 0; draw < 400; draw += 1) {
+      const spawn = probe(room).spawnFor('alpine');
+      expect(Math.hypot(spawn.position.x - pad.position.x, spawn.position.z - pad.position.z)).toBeGreaterThan(0.5);
+    }
+
+    // Driven away again, the pad is free.
+    expect(room.vehicles.devPark(crawler.id, pad.position.x + 30, pad.position.z + 30, 0)).toBe(true);
+    run(room, 2);
+    expect(probe(room).isSpawnOccupied(pad.position, 0)).toBe(false);
     room.stop();
   });
 });
