@@ -97,6 +97,18 @@ export interface HoldSpec {
    * nothing behind the grip (poles, pistols). Omitted: the mesh bounds.
    */
   rear?: number | null;
+  /** Share of the aim pitch the prop follows (default 1; long poles and horns less). */
+  pitchScale?: number;
+  /**
+   * Support-hand slide: when `support` is out of the left arm's reach, the
+   * wrist target may move along the foregrip / shaft back to this
+   * weapon-space point (never further); null or omitted = fixed grip.
+   */
+  supportBack?: Vector3 | null;
+  /** Weapon-space point held at the mouth (alphorn mouthpiece), or null. */
+  mouthpiece?: Vector3 | null;
+  /** Weapon-space capsule (axis ends, radius) kept out of the head, or null. */
+  headClear?: { from: Vector3; to: Vector3; radius: number } | null;
 }
 
 /** Per-frame state a weapon prop animates from (umbrella canopy, flashes). */
@@ -243,7 +255,10 @@ const BUILDERS: Partial<Record<WeaponId, (p: PartList) => HoldSpec>> = {
  *     the aim pitch and recoil move that frame, and two-bone IK pulls the
  *     right hand onto the origin.
  *   - `hold.support` is the left-hand grip in weapon space (null = the left
- *     arm stays free); `hold.tilt` pitches the prop up (polearms).
+ *     arm stays free); `hold.tilt` pitches the prop up (polearms). With
+ *     `hold.supportBack` the left hand may slide back along the foregrip
+ *     when the grip is out of reach; still unreachable, the left arm eases
+ *     back to its animated pose instead of hovering beside the weapon.
  *   - The mesh's bounding box (or `hold.rear`) is read once: its rear (minimum z) is kept in
  *     front of the chest, so long stocks are pushed forward instead of
  *     passing through the body.

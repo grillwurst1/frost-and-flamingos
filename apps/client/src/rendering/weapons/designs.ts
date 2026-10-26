@@ -46,6 +46,15 @@ export interface WeaponHoldData {
   yaw: number;
   /** Support-hand (left) grip point in gun space, or null for one-handed weapons. */
   support: V3 | null;
+  /**
+   * Back end of the foregrip / shaft (gun space): a support hand that cannot
+   * reach `support` slides back towards here, never further. Omitted = fixed.
+   */
+  supportBack?: V3;
+  /** Gun-space point that sits at the holder's mouth (alphorn mouthpiece). */
+  mouthpiece?: V3;
+  /** Gun-space capsule (axis ends, radius) kept out of the holder's head. */
+  headClear?: { from: V3; to: V3; radius: number };
   /** Axis through the right fist (gun space). */
   gripAxis: V3;
   /** Axis through the support fist (gun space). */
@@ -154,6 +163,9 @@ function bipod(kit: WeaponKit, hex: string, y: number, z: number, length: number
 
 // ---- designs ---------------------------------------------------------------------
 
+/** Alphorn tube offset (gun +Y) so the fist sits 12 cm below the mouthpiece. */
+const HORN_FIST = 0.08;
+
 const DESIGNS: Record<string, WeaponDesign> = {
   /** Tommy gun: walnut stock and grips, steel receiver, finned barrel, big drum. */
   smg: {
@@ -163,6 +175,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: 0.04,
       yaw: 0.0,
       support: [0, 0.01, 0.22],
+      supportBack: [0, 0.04, 0.15],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0, -1, 0.1],
       butt: -0.29,
@@ -243,6 +256,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: 0.05,
       yaw: 0.0,
       support: [0, 0.1, 0.24],
+      supportBack: [0, 0.1, 0.15],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.1],
       butt: -0.31,
@@ -296,6 +310,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: 0.06,
       yaw: -0.06,
       support: [0, 0.07, 0.24],
+      supportBack: [0, 0.07, 0.15],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0.1, -1, 0.1],
       butt: -0.31,
@@ -406,6 +421,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: 0.03,
       yaw: 0.02,
       support: [0, 0.1, 0.26],
+      supportBack: [0, 0.1, 0.16],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.2],
       butt: -0.33,
@@ -631,6 +647,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: 0.08,
       yaw: -0.06,
       support: [0, 0.05, 0.27],
+      supportBack: [0, 0.05, 0.18],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0, -1, 0.2],
       muzzle: [0, 0.155, 0.76],
@@ -689,6 +706,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: 0.03,
       yaw: 0.02,
       support: [0, 0.1, 0.26],
+      supportBack: [0, 0.1, 0.16],
       gripAxis: [0, -1, -0.45],
       supportAxis: [0, -1, 0.15],
       butt: -0.31,
@@ -750,6 +768,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: -1.12,
       yaw: 0.24,
       support: [0, 0.32, 0],
+      supportBack: [0, 0.17, 0],
       gripAxis: [0, 1, 0],
       supportAxis: [0, 1, 0],
       muzzle: null,
@@ -824,6 +843,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       tilt: 0.42,
       yaw: -0.1,
       support: null,
+      headClear: { from: [0, 0.34, 0], to: [0, 0.92, 0], radius: 0.09 },
       gripAxis: [0, 1, 0],
       supportAxis: [0, 1, 0],
       muzzle: null,
@@ -900,17 +920,22 @@ const DESIGNS: Record<string, WeaponDesign> = {
     hold: {
       pose: 'horn',
       shoulder: [0.04, 0.155, 0.28],
-      tilt: -1.95,
+      tilt: -2.15,
       yaw: 0.0,
       support: [0, 0.17, 0],
+      supportBack: [0, 0.1, 0],
+      mouthpiece: [0, -0.12, 0],
       gripAxis: [0, 1, 0],
       supportAxis: [0, 1, 0],
-      muzzle: [0, 1.39, -0.24],
+      muzzle: [0, 1.47, -0.24],
       muzzleDir: [0, 0.6, -0.8],
       muzzleKind: 'sonic',
     },
-    preview: { shoulder: [0.04, 0.155, 0.28], tilt: -1.85, yaw: 0.55 },
-    build: (kit) => {
+    // The mouthpiece sits on the lips (the animator seats it there), so the
+    // shoulder offset only matters without a measured head.
+    preview: { shoulder: [0.04, 0.155, 0.28], tilt: -2.05, yaw: 0.55 },
+    // The right fist holds the tube 12 cm below the mouthpiece (chibi arms).
+    build: (kit) => kit.frame({ at: [0, HORN_FIST, 0] }, () => {
       // Gun -Z turns into "up" once the hold swings the tube forward-down,
       // so the tube's end curls towards -Z into the upturned bell.
       kit.tube(
@@ -950,7 +975,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         ],
         { rot: [-HALF_PI, 0, 0], segments: 8, capStart: true },
       );
-    },
+    }),
   },
 };
 

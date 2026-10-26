@@ -40,6 +40,7 @@ import {
 import { buildBackAttachment, buildHandAttachment, buildHeadAttachment, HEAD_UNIT } from './glb/cosmetics';
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { buildCanopyProp, buildWeaponProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
+import { closestOnSegment, fistTargets, groundLift, headFrame, keepOutZ, segmentReach, supportPoints, type HandSide, type HeadFrame } from './glb/hold';
 import { GlbRig, type RigJoint } from './glb/rig';
 import { registerHeroWeaponProps } from './weapons/glb-adapter';
 
@@ -128,6 +129,12 @@ const HOLD_OFFSETS: Readonly<Record<HoldStyle, readonly [number, number, number]
 
 /** Shoulder-anchored holds: the most the weapon moves for the support hand. */
 const MAX_SUPPORT_PULL = 0.08;
+/** Hold state easing (1/s): support slide and reach weight settle in ~0.2 s. */
+const HOLD_EASE = 12;
+/** Held props keep their lowest point this far above the feet (armature units). */
+const GROUND_CLEARANCE = 0.04;
+/** The most a short arm pulls a mouth-held horn off the lips (into a beard). */
+const MOUTH_GIVE = 0.08;
 /** A long fall, not a jump (hops last ~0.66 s): the umbrella may open overhead. */
 const FALL_AIR_TIME = 0.9;
 const FALL_SPEED = 4;
@@ -155,6 +162,15 @@ function smoothstep(edge0: number, edge1: number, value: number): number {
 /** Character-space hold vector (x right, y up, z forward) → armature space (right = -X). */
 function toArmature(x: number, y: number, z: number): Vector3 {
   return new Vector3(-x, y, z);
+}
+
+/** Bounding points per held prop (weapon space), measured once. */
+const propPoints = new WeakMap<WeaponProp, Vector3[]>();
+
+/** The prop mesh and its directly attached parts that show at rest (not the open canopy). */
+function propMeshes(prop: WeaponProp): Mesh[] {
+  const parts = prop.mesh.getChildMeshes(true).filter((child): child is Mesh => child instanceof Mesh && child.isEnabled(false));
+  return [prop.mesh, ...parts];
 }
 
 const liveViews = new Set<GlbCharacterView>();
@@ -246,6 +262,19 @@ export class GlbCharacterView implements AvatarView {
   /** Rear end (weapon-space z) of the held prop, kept in front of the chest. */
   private weaponRear = 0;
   private weaponId: WeaponId | null = null;
+  /** Head centre and mouth in the Head joint's frame (alphorn mouthpiece, umbrella clearance). */
+  private readonly head: HeadFrame | null;
+  /** Finger joints and their fist rotations: the hands close on what they hold. */
+  private readonly fists: Readonly<Record<HandSide, ReadonlyArray<{ node: TransformNode; fist: Quaternion; trigger: boolean }>>>;
+  /** Weapon-space points bounding the held prop (ground rule), and scratch space. */
+  private weaponPoints: Vector3[] = [];
+  private readonly liftScratch: Vector3[] = [];
+  /** Support hand: eased slide along the foregrip (0..1) and IK weight. */
+  private supportSlide = 0;
+  private supportReach = 1;
+  /** The next hold frame snaps the eased hold state (just equipped). */
+  private holdSnap = true;
+  private holdDt = 0;
   /** True once driven by updatePreview (wardrobe / menu turntable). */
   private previewing = false;
   private effects: CharacterMaterialState = { battleDamage: 0, charred: 0, frozen: 0 };
@@ -382,6 +411,13 @@ export class GlbCharacterView implements AvatarView {
     const hipsNode = nodes.get('Hips');
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
+    this.head = headFrame(asset, mesh, spec.head);
+    const fist = (side: HandSide): Array<{ node: TransformNode; fist: Quaternion; trigger: boolean }> =>
+      fistTargets(asset, side).flatMap((target) => {
+        const node = nodes.get(target.joint);
+        return node ? [{ node, fist: target.fist, trigger: target.trigger }] : [];
+      });
+    this.fists = { Left: fist('Left'), Right: fist('Right') };
 
     const upperRoots = new Set(['Spine1', 'Spine2']);
     const isUpper = (name: string): boolean => {
@@ -775,6 +811,7 @@ export class GlbCharacterView implements AvatarView {
     this.armed = approach(this.armed, weaponVisible ? 1 : 0, dt * 6);
     this.setWeapon(this.armedModel ? pose.weaponId ?? null : null);
     if (this.weapon) this.weapon.mesh.setEnabled(this.armed > 0.3);
+    this.holdDt = dt;
     const falling = airborne && this.airTime > FALL_AIR_TIME && pose.velocity.y < -FALL_SPEED;
     this.weapon?.animate?.(dt, { falling, preview: this.previewing });
 
@@ -1022,14 +1059,19 @@ export class GlbCharacterView implements AvatarView {
     }
 
     // Weapon frame in front of the chest, hands pulled onto the grips.
+    // Every rule below is continuous in the animated pose (smooth weights,
+    // closed-form solves, eased state), so the weapon never jumps a frame.
     const weapon = this.weapon;
     const armed = this.armed * blend;
     if (!weapon || armed < 0.01 || !style) return;
     const chest = rig.position('Spine2');
     if (!chest) return;
     const hold = weapon.hold;
+    const ease = this.holdSnap ? 1 : 1 - Math.exp(-HOLD_EASE * this.holdDt);
+    this.holdSnap = false;
     const offset = hold.offset ?? HOLD_OFFSETS[style];
-    const aim = Quaternion.RotationAxis(AXIS_X, -this.pitch * blend);
+    // Long props (alphorn, polearms) follow only part of the aim pitch.
+    const aim = Quaternion.RotationAxis(AXIS_X, -this.pitch * blend * (hold.pitchScale ?? 1));
     // Shoulder-anchored holds sit relative to the shoulder line and scale
     // with the arm length, so every painted body (high-shouldered heavies,
     // short-armed scouts) reaches the same grips.
@@ -1039,13 +1081,16 @@ export class GlbCharacterView implements AvatarView {
     let reachScale = 1;
     let clearance = 0;
     const spineRotation = rig.rotation('Spine2');
-    if (hold.anchor === 'shoulders') {
-      // Protract the right clavicle too: clips that roll the shoulders back
-      // (the heavies' idles) would leave the grip out of the arm's reach.
-      rig.rotateWorld('RightShoulder', Quaternion.RotationAxis(AXIS_Y, 0.3 * armed));
-      rig.refresh();
-    }
-    if (hold.anchor === 'shoulders' && this.shoulderLocal && spineRotation) {
+    const tucked = hold.anchor === 'shoulders';
+    const mouthpiece = hold.mouthpiece ?? null;
+    // Protract the clavicles before any reach test, so the tests see the
+    // shoulders the arms start from: clips that roll the shoulders back (the
+    // heavies' idles) would leave the grips out of reach. A horn at the mouth
+    // hunches the shoulders forward a little more.
+    if (tucked) rig.rotateWorld('RightShoulder', Quaternion.RotationAxis(AXIS_Y, (mouthpiece ? 0.65 : 0.3) * armed));
+    if (hold.support) rig.rotateWorld('LeftShoulder', Quaternion.RotationAxis(AXIS_Y, -0.38 * armed * this.supportReach));
+    if (tucked || hold.support) rig.refresh();
+    if (tucked && this.shoulderLocal && spineRotation) {
       anchor = chest.add(this.shoulderLocal.rotateByQuaternionToRef(spineRotation, new Vector3()));
       reachScale = Math.min(1.25, Math.max(0.8, this.armLength / 0.43));
       // Bulky bodies (barrel chests, beards, swim rings) push the weapon out.
@@ -1065,11 +1110,24 @@ export class GlbCharacterView implements AvatarView {
       local.y += 0.12 * Math.sin(Math.PI * Math.min(1, t * 1.4));
     }
     const grip = anchor.add(local.rotateByQuaternionToRef(frame, new Vector3()));
-    const weaponRotation = frame
+    let weaponRotation = frame
       .multiply(Quaternion.RotationAxis(AXIS_Y, hold.yaw ?? 0))
       .multiply(Quaternion.RotationAxis(AXIS_X, -hold.tilt));
+    // Alphorn: the mouthpiece sits on the lips (measured per model); the
+    // wrist target follows from it. A short arm pulls it back towards the
+    // right shoulder by a few centimetres at most (into a beard); beyond that
+    // the hands fall short rather than moving the mouthpiece off the mouth.
+    const mouth = mouthpiece && this.head ? this.headPoint(this.head.mouth) : null;
+    const seatAtMouth = (): void => {
+      if (mouth && mouthpiece) grip.copyFrom(mouth.subtract(mouthpiece.rotateByQuaternionToRef(weaponRotation, new Vector3())));
+    };
+    seatAtMouth();
+    // Long props never sink below the feet: pitch up about the grip (or the mouthpiece).
+    weaponRotation = this.liftOffGround(grip, weaponRotation, mouth ? mouthpiece : null);
+    seatAtMouth();
+    this.clearHead(grip, weaponRotation, hold);
     let support = this.supportPoint(hold, grip, weaponRotation);
-    if (support) {
+    if (support && !mouth) {
       // Short painted arms: pull the whole weapon towards the left shoulder
       // until the support hand can reach its grip.
       const leftArm = rig.position('LeftArm');
@@ -1081,8 +1139,8 @@ export class GlbCharacterView implements AvatarView {
         const distance = toShoulder.length();
         if (distance > reach && distance > 1e-4) {
           // Shoulder-anchored holds keep their place (pull a little at
-          // most); a hand that still falls short reaches out towards the grip.
-          const pull = Math.min(distance - reach, hold.anchor === 'shoulders' ? MAX_SUPPORT_PULL : Infinity);
+          // most); the support hand then slides along the foregrip below.
+          const pull = Math.min(distance - reach, tucked ? MAX_SUPPORT_PULL : Infinity);
           const shift = toShoulder.scale(pull / distance);
           grip.addInPlace(shift);
           support = support.add(shift);
@@ -1095,7 +1153,6 @@ export class GlbCharacterView implements AvatarView {
     // hard limit (the butt never leaves through the back) may override that.
     // Shoulder-anchored holds tuck the stock against the body (under the
     // arm), so for them only the hard limit applies.
-    const tucked = hold.anchor === 'shoulders';
     const torso = this.asset.torso;
     const tailZ = (): number =>
       grip.add(new Vector3(0, 0, this.weaponRear).rotateByQuaternionToRef(weaponRotation, new Vector3())).z;
@@ -1106,30 +1163,36 @@ export class GlbCharacterView implements AvatarView {
     const rightArm = rig.position('RightArm');
     const rightFore = rig.position('RightForeArm');
     const rightHand = rig.position('RightHand');
-    if (rightArm && rightFore && rightHand && tucked) {
+    if (mouth && rightArm && rightFore && rightHand) {
+      const reach = 0.92 * (Vector3.Distance(rightArm, rightFore) + Vector3.Distance(rightFore, rightHand));
+      const toShoulder = rightArm.subtract(grip);
+      const distance = toShoulder.length();
+      if (distance > reach) grip.addInPlace(toShoulder.scaleInPlace(Math.min(distance - reach, MOUTH_GIVE) / distance));
+    } else if (rightArm && rightFore && rightHand && tucked) {
       // Hero holds never put the grip inside the body: in front of the torso
-      // across its width, and when the arm is too short (heavies' bellies)
-      // the grip slides sideways and up towards the right shoulder line,
-      // never back into the chest. If even that is out of reach, the hand
-      // falls short of the grip rather than the weapon sinking in.
+      // across its width (fading out past the shoulder line), and when the
+      // arm is too short (heavies' bellies) the grip slides sideways and up
+      // towards the right shoulder line to the first point in reach, never
+      // back into the chest. If even that is out of reach, the hand falls
+      // short of the grip rather than the weapon sinking in.
       const reach = 0.92 * (Vector3.Distance(rightArm, rightFore) + Vector3.Distance(rightFore, rightHand));
       const front = this.frontLocal && spineRotation ? chest.add(this.frontLocal.rotateByQuaternionToRef(spineRotation, new Vector3())) : null;
-      const keepOut = (): void => {
-        if (front && Math.abs(grip.x - chest.x) < this.shoulderHalf) grip.z = Math.max(grip.z, front.z + 0.02);
+      const keepOut = (point: Vector3): void => {
+        if (front) point.z = keepOutZ(point.x, point.z, chest.x, this.shoulderHalf, front.z + 0.02);
       };
-      keepOut();
-      for (let step = 0; step < 8 && Vector3.Distance(grip, rightArm) > reach; step += 1) {
-        grip.x += (rightArm.x - grip.x) * 0.3;
-        // Raise a low grip a little, never up into the face (big guns sit above the grip).
-        if (grip.y < rightArm.y - 0.28) grip.y += (rightArm.y - 0.28 - grip.y) * 0.3;
-        keepOut();
-      }
+      keepOut(grip);
+      // Raise a low grip a little on the way, never up into the face (big guns sit above the grip).
+      const end = new Vector3(rightArm.x, Math.max(grip.y, rightArm.y - 0.28), grip.z);
+      keepOut(end);
+      const slide = segmentReach(grip, end, rightArm, reach);
+      grip.addInPlace(end.subtract(grip).scaleInPlace(slide));
+      keepOut(grip);
       // Still too far (an outstretched pistol): pull straight in, but not into the chest.
       const toGrip = grip.subtract(rightArm);
       const distance = toGrip.length();
       if (distance > reach && distance > 1e-4) {
         grip.copyFrom(rightArm.add(toGrip.scale(reach / distance)));
-        keepOut();
+        keepOut(grip);
       }
     } else if (rightArm && rightFore && rightHand) {
       const reach = 0.92 * (Vector3.Distance(rightArm, rightFore) + Vector3.Distance(rightFore, rightHand));
@@ -1137,7 +1200,7 @@ export class GlbCharacterView implements AvatarView {
       const distance = toGrip.length();
       if (distance > reach && distance > 1e-4) grip.copyFrom(rightArm.add(toGrip.scale(reach / distance)));
     }
-    if (torso && this.weaponRear < -0.02) {
+    if (torso && this.weaponRear < -0.02 && !mouth) {
       const deficit = chest.z + (torso.back - torso.chestZ) + (tucked ? 0.08 : 0.06) - tailZ();
       if (deficit > 0) grip.z += deficit;
     }
@@ -1145,13 +1208,17 @@ export class GlbCharacterView implements AvatarView {
     const leftArm = rig.position('LeftArm');
     const leftFore = rig.position('LeftForeArm');
     const leftWrist = rig.position('LeftHand');
-    if (support && tucked && leftArm && leftFore && leftWrist) {
-      // Still out of reach (short arms, big bellies): slide the support hand
-      // back along the weapon towards the right hand (at most 80 %), so it
-      // stays on the gun instead of hovering in front of it.
+    if (support && leftArm && leftFore && leftWrist) {
+      // Out of reach (short arms, big bellies): the support hand slides back
+      // along the foregrip / shaft to the first point in reach, never past
+      // its back end; when even that is out of reach the left arm eases back
+      // to its animated pose instead of hovering beside the weapon.
       const reach = 0.92 * (Vector3.Distance(leftArm, leftFore) + Vector3.Distance(leftFore, leftWrist));
-      const back = grip.subtract(support).scaleInPlace(0.1);
-      for (let step = 0; step < 8 && Vector3.Distance(leftArm, support) > reach; step += 1) support.addInPlace(back);
+      const back = hold.supportBack ? grip.add(hold.supportBack.rotateByQuaternionToRef(weaponRotation, new Vector3())) : support.clone();
+      this.supportSlide += (segmentReach(support, back, leftArm, reach) - this.supportSlide) * ease;
+      support = support.add(back.subtract(support).scaleInPlace(this.supportSlide));
+      const excess = Vector3.Distance(leftArm, support) - reach;
+      this.supportReach += (1 - smoothstep(0.03, 0.14, excess) - this.supportReach) * ease;
     }
     this.weaponAnchor.position.copyFrom(grip);
     this.weaponAnchor.rotationQuaternion?.copyFrom(weaponRotation);
@@ -1162,17 +1229,73 @@ export class GlbCharacterView implements AvatarView {
     const fingers = toArmature(-0.35, -0.45, 0.82).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
     const thumb = toArmature(-0.2, 0.65, 0.73).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
     rig.orientHand('RightHand', 'RightHandMiddle1', 'RightHandThumb1', fingers, thumb, armed, 'RightForeArm');
+    // The fist closes on the grip (the trigger finger stays half open on guns).
+    const trigger = !mouthpiece && (style === 'rifle' || style === 'pistol' || style === 'launcher');
+    this.closeHand('Right', armed, trigger);
     if (support) {
-      // Protract the left clavicle so short painted arms reach the foregrip.
-      rig.rotateWorld('LeftShoulder', Quaternion.RotationAxis(AXIS_Y, -0.38 * armed));
-      rig.refresh();
       const reloadDrop = 1 - (this.bindings.get('reload')?.weight ?? 0) * 0.8;
+      const leftWeight = armed * reloadDrop * this.supportReach;
       const leftPole = toArmature(-0.6, -1, -0.5).normalize();
-      rig.solveTwoBone('LeftArm', 'LeftForeArm', 'LeftHand', support, leftPole, armed * reloadDrop);
+      rig.solveTwoBone('LeftArm', 'LeftForeArm', 'LeftHand', support, leftPole, leftWeight);
       rig.refresh();
       const leftFingers = toArmature(0.45, -0.35, 0.82).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
       const leftThumb = toArmature(0.15, 0.6, 0.78).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
-      rig.orientHand('LeftHand', 'LeftHandMiddle1', 'LeftHandThumb1', leftFingers, leftThumb, armed * reloadDrop, 'LeftForeArm');
+      rig.orientHand('LeftHand', 'LeftHandMiddle1', 'LeftHandThumb1', leftFingers, leftThumb, leftWeight, 'LeftForeArm');
+      this.closeHand('Left', leftWeight, false);
+    }
+  }
+
+  /** A point given in the Head joint's frame, in armature space (current pose). */
+  private headPoint(local: Vector3): Vector3 | null {
+    const head = this.rig.position('Head');
+    const rotation = this.rig.rotation('Head');
+    if (!head || !rotation) return null;
+    return head.add(local.rotateByQuaternionToRef(rotation, new Vector3()));
+  }
+
+  /**
+   * Pitches the prop up (about the grip, or a weapon-space pivot) just enough
+   * that its lowest bounding point stays above the feet.
+   */
+  private liftOffGround(grip: Vector3, rotation: Quaternion, pivotLocal: Vector3 | null): Quaternion {
+    const points = this.weaponPoints;
+    if (points.length === 0) return rotation;
+    const pivot = pivotLocal ? grip.add(pivotLocal.rotateByQuaternionToRef(rotation, new Vector3())) : grip;
+    const scratch = this.liftScratch;
+    points.forEach((point, index) => {
+      const target = scratch[index] ?? (scratch[index] = new Vector3());
+      target.copyFrom(point);
+      if (pivotLocal) target.subtractInPlace(pivotLocal);
+      target.rotateByQuaternionToRef(rotation, target);
+    });
+    scratch.length = points.length;
+    const lift = groundLift(scratch, GROUND_CLEARANCE - pivot.y, 1.2);
+    return lift > 1e-4 ? Quaternion.RotationAxis(AXIS_X, -lift).multiply(rotation) : rotation;
+  }
+
+  /** Pushes a prop's head-clearance capsule (furled umbrella) sideways out of the head. */
+  private clearHead(grip: Vector3, rotation: Quaternion, hold: HoldSpec): void {
+    const capsule = hold.headClear;
+    const centre = capsule && this.head ? this.headPoint(this.head.centre) : null;
+    if (!capsule || !centre || !this.head) return;
+    const from = grip.add(capsule.from.rotateByQuaternionToRef(rotation, new Vector3()));
+    const to = grip.add(capsule.to.rotateByQuaternionToRef(rotation, new Vector3()));
+    const away = closestOnSegment(from, to, centre).subtractInPlace(centre);
+    const needed = capsule.radius + this.head.radius + 0.01;
+    const distance = away.length();
+    if (distance >= needed) return;
+    away.y = 0;
+    // Straight above or through the centre: out to the holder's right.
+    if (away.lengthSquared() < 1e-6) away.copyFrom(toArmature(1, 0, 0));
+    grip.addInPlace(away.normalize().scaleInPlace(needed - distance));
+  }
+
+  /** Closes one hand's fingers towards a fist (slerp from the clip pose). */
+  private closeHand(side: HandSide, weight: number, trigger: boolean): void {
+    if (weight <= 0.001) return;
+    for (const { node, fist, trigger: triggerFinger } of this.fists[side]) {
+      const rotation = node.rotationQuaternion;
+      if (rotation) Quaternion.SlerpToRef(rotation, fist, weight * (trigger && triggerFinger ? 0.4 : 1), rotation);
     }
   }
 
@@ -1202,8 +1325,11 @@ export class GlbCharacterView implements AvatarView {
       this.weapons.set(id, prop);
     }
     this.weapon = prop ?? null;
-    // A prop equipped again starts furled and flash-free.
+    // A prop equipped again starts furled and flash-free; the hold snaps into place.
     prop?.reset?.();
+    this.holdSnap = true;
+    this.rig.resetTwist();
+    this.weaponPoints = prop ? (propPoints.get(prop) ?? propPoints.set(prop, supportPoints(propMeshes(prop))).get(prop) ?? []) : [];
     const rear = prop?.hold.rear;
     this.weaponRear = !prop ? 0 : rear !== undefined ? Math.min(0, rear ?? 0) : Math.min(0, prop.mesh.getBoundingInfo().boundingBox.minimum.z);
   }

@@ -22,6 +22,13 @@ const GLB_STYLE: Readonly<Record<WeaponPose, HoldStyle>> = {
   horn: 'launcher',
 };
 
+/** Share of the aim pitch long props follow, so they never swing into the ground. */
+const PITCH_SCALE: Partial<Record<WeaponPose, number>> = {
+  horn: 0.3,
+  polearm: 0.35,
+  umbrella: 0.5,
+};
+
 function heroWeaponProp(scene: Scene, id: WeaponId, material: ShaderMaterial): WeaponProp | null {
   const weapon = buildHeroWeapon(scene, id, material, { origin: 'wrist' });
   if (!weapon) return null;
@@ -34,6 +41,10 @@ function heroWeaponProp(scene: Scene, id: WeaponId, material: ShaderMaterial): W
     yaw: pose.yaw,
     anchor: 'shoulders',
     rear: weapon.rear,
+    pitchScale: PITCH_SCALE[weapon.hold.pose] ?? 1,
+    supportBack: pose.supportBack,
+    mouthpiece: pose.mouthpiece,
+    headClear: pose.headClear,
   };
   return {
     mesh: weapon.mesh,

@@ -41,6 +41,12 @@ export interface HeroHoldPose {
   yaw: number;
   /** Support wrist target in weapon space, or null (one-handed). */
   support: Vector3 | null;
+  /** Back end of the support hand's slide along the foregrip / shaft, or null. */
+  supportBack: Vector3 | null;
+  /** Weapon-space point held at the mouth (alphorn), or null. */
+  mouthpiece: Vector3 | null;
+  /** Weapon-space capsule that must stay out of the head (furled umbrella), or null. */
+  headClear: { from: Vector3; to: Vector3; radius: number } | null;
 }
 
 export interface HeroWeapon {
@@ -318,7 +324,18 @@ class HeroWeaponProp implements HeroWeapon {
       tilt: hold.tilt,
       yaw: hold.yaw,
       support: hold.support ? this.supportWrist(hold.support) : null,
+      supportBack: hold.support && hold.supportBack ? this.supportWrist(hold.supportBack) : null,
+      mouthpiece: hold.mouthpiece ? this.gunPoint(hold.mouthpiece) : null,
+      headClear: hold.headClear
+        ? { from: this.gunPoint(hold.headClear.from), to: this.gunPoint(hold.headClear.to), radius: hold.headClear.radius }
+        : null,
     };
+  }
+
+  /** Gun-space point → weapon space (the origin offset and mirror applied). */
+  private gunPoint(point: V3): Vector3 {
+    const origin = this.options.origin === 'wrist' ? GRIP_FROM_WRIST : [0, 0, 0];
+    return vec([point[0] + (origin[0] ?? 0), point[1] + (origin[1] ?? 0), point[2] + (origin[2] ?? 0)], this.options.mirrorX);
   }
 
   get hold(): WeaponHoldData {
