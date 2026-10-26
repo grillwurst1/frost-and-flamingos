@@ -831,7 +831,9 @@ export class MatchRoom {
 
   /**
    * True during the 15 s results intermission: no damage, no captures, no
-   * tickets. Vehicles, critters and map toys should skip their damage while it holds.
+   * tickets. Players (damagePlayer), hulls and rams (the vehicle manager's
+   * ceasefire hook) and hens (the critter system's) all hold fire; later map
+   * toys should ask it too.
    */
   isCeasefire(): boolean {
     return !this.conquest.isLive;
