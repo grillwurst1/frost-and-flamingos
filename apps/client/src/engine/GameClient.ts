@@ -1,3 +1,4 @@
+import { QualityGovernor } from '../rendering/quality-governor';
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine';
 import { Engine } from '@babylonjs/core/Engines/engine';
 import { WebGPUEngine } from '@babylonjs/core/Engines/webgpuEngine';
@@ -139,11 +140,6 @@ const BOOT_TIMEOUT_MS = import.meta.env.DEV ? 90000 : 20000;
 const DEPLOYMENT_DURATION_MS = 2600;
 /** Window 'resize' fires every frame while dragging; resize the engine once it settles. */
 const RESIZE_SETTLE_MS = 150;
-/** Auto quality steps down one tier (once per session) if the menu stays slower than this. */
-const QUALITY_GOVERNOR_FRAME_MS = 22;
-const QUALITY_GOVERNOR_HOLD_MS = 3000;
-/** Ignore the first moments in the menu: shader compiles and texture uploads stall frames. */
-const QUALITY_GOVERNOR_WARMUP_MS = 2500;
 /** Weather grading is only re-applied for changes larger than this. */
 const WEATHER_LOOK_EPSILON = 0.01;
 
@@ -329,9 +325,7 @@ export class GameClient {
   private qualitySetting: VisualQualitySetting = 'auto';
   /** Tier used while the setting is 'auto' (GPU class, then the governor). */
   private autoQuality: VisualQuality = 'high';
-  private qualityGovernorUsed = false;
-  private menuEnteredAt = 0;
-  private slowMenuSince = 0;
+  private readonly qualityGovernor = new QualityGovernor();
   private appliedWeatherLook = 0;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -450,6 +444,7 @@ export class GameClient {
   private applyCanvasSize(): void {
     const engine = this.engine;
     if (!engine) return;
+    this.look?.refreshRenderScale();
     const box = this.devicePixelBox;
     const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
     if (box && Math.abs(engine.getHardwareScalingLevel() * dpr - 1) < 0.001) {
@@ -465,7 +460,7 @@ export class GameClient {
       clearTimeout(this.resizeTimer);
       this.resizeTimer = null;
     }
-    this.engine?.resize();
+    this.applyCanvasSize();
   };
 
   constructor(canvas: HTMLCanvasElement) {
@@ -473,8 +468,7 @@ export class GameClient {
     this.unsubscribePhase = phase.subscribe((next) => {
       const wasPlaying = this.currentPhase === 'playing';
       if (next === 'menu' && this.currentPhase !== 'menu') {
-        this.menuEnteredAt = performance.now();
-        this.slowMenuSince = 0;
+        this.qualityGovernor.reset();
       }
       this.currentPhase = next;
       if (next !== 'playing' && next !== 'deploying') scoreboardOpen.set(false);
@@ -524,6 +518,9 @@ export class GameClient {
         return;
       }
       this.engine = engine;
+      // High-refresh displays should not multiply the cost of every world,
+      // shadow and post-process pass. Simulation still runs at fixed 60 Hz.
+      engine.maxFPS = 60;
       setRenderer(renderer);
       setLoadingProgress(0.2);
 
@@ -807,35 +804,15 @@ export class GameClient {
     activeVisualQuality.set(tier);
   }
 
-  /**
-   * One-shot frame-time governor for 'auto': if the menu (scene behind the UI,
-   * wardrobe preview) stays above ~22 ms for ~3 s, drop one tier for this
-   * session. Never persisted and never raised again.
-   */
+  /** Adapt throughout a session, including sustained combat load and thermal throttling. */
   private updateQualityGovernor(now: number): void {
-    if (
-      this.qualityGovernorUsed ||
-      this.qualitySetting !== 'auto' ||
-      this.currentPhase !== 'menu' ||
-      this.autoQuality === 'low' ||
-      document.visibilityState !== 'visible' ||
-      now - this.menuEnteredAt < QUALITY_GOVERNOR_WARMUP_MS
-    ) {
-      this.slowMenuSince = 0;
-      return;
+    const active = this.currentPhase === 'menu' || this.currentPhase === 'playing' || this.currentPhase === 'paused';
+    const tier = this.qualityGovernor.observe(now, this.smoothedFrameMs, this.autoQuality,
+      this.qualitySetting === 'auto' && active && document.visibilityState === 'visible');
+    if (tier !== this.autoQuality) {
+      this.autoQuality = tier;
+      this.applyVisualQuality();
     }
-    if (this.smoothedFrameMs <= QUALITY_GOVERNOR_FRAME_MS) {
-      this.slowMenuSince = 0;
-      return;
-    }
-    if (this.slowMenuSince === 0) {
-      this.slowMenuSince = now;
-      return;
-    }
-    if (now - this.slowMenuSince < QUALITY_GOVERNOR_HOLD_MS) return;
-    this.qualityGovernorUsed = true;
-    this.autoQuality = this.autoQuality === 'high' ? 'medium' : 'low';
-    this.applyVisualQuality();
   }
 
   pause(): void {
@@ -1580,6 +1557,12 @@ export class GameClient {
   private frame(): void {
     if (this.disposed || !this.scene) return;
     const now = performance.now();
+    if (document.visibilityState !== 'visible') {
+      this.lastFrameAt = now;
+      this.accumulator = 0;
+      this.qualityGovernor.reset();
+      return;
+    }
     const delta = Math.min(0.1, Math.max(0.0001, (now - this.lastFrameAt) / 1000));
     this.lastFrameAt = now;
     this.smoothedFrameMs = this.smoothedFrameMs * 0.92 + delta * 1000 * 0.08;

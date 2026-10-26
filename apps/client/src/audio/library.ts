@@ -12,6 +12,11 @@
 
 export type NoiseColor = 'white' | 'pink' | 'brown';
 
+// Recipes reuse immutable source data rather than generating large arrays on
+// every gunshot. Weak keys release buffers when an AudioContext is discarded.
+const noiseBuffers = new WeakMap<AudioContext, Map<string, AudioBuffer>>();
+const saturationCurves = new Map<number, Float32Array<ArrayBuffer>>();
+
 /** A bus that may expose the shared outdoor convolution send. */
 export interface SfxDestination extends AudioNode {
   reverbSend?: AudioNode;
@@ -32,6 +37,11 @@ export function createNoiseBuffer(
 ): AudioBuffer {
   const sr = ctx.sampleRate;
   const len = Math.max(1, Math.floor(sr * duration));
+  let cache = noiseBuffers.get(ctx);
+  if (!cache) { cache = new Map(); noiseBuffers.set(ctx, cache); }
+  const key = `${type}:${len}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
   const buf = ctx.createBuffer(1, len, sr);
   const data = buf.getChannelData(0);
   let b0 = 0;
@@ -61,17 +71,21 @@ export function createNoiseBuffer(
       data[i] = white;
     }
   }
+  if (cache.size < 64) cache.set(key, buf);
   return buf;
 }
 
 /** Soft saturation curve for the weapon and explosion recipes. */
 export function makeSaturationCurve(drive = 35): Float32Array<ArrayBuffer> {
+  const cached = saturationCurves.get(drive);
+  if (cached) return cached;
   const n = 44100;
   const curve = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const x = (i * 2) / n - 1;
     curve[i] = Math.tanh(x * (1 + drive / 10));
   }
+  if (saturationCurves.size < 32) saturationCurves.set(drive, curve);
   return curve;
 }
 

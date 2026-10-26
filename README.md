@@ -290,3 +290,7 @@ Before each milestone is pushed:
 7. Two browser tabs see each other and exchange cosmetics.
 8. WebGL2 fallback is tested with `?renderer=webgl2`.
 9. No uncaught exceptions; only Rapier's harmless deprecation warning is expected.
+
+### Performance update (26 October 2026)
+
+Auto picture quality now adapts during gameplay as well as in menus. Rendering is capped at 60 FPS and 1440p/1080p/720p for High/Medium/Low; UI stays at native resolution. Full-screen MSAA is removed in favor of existing FXAA, and Medium uses cheaper shadows. Hidden tabs skip rendering work. Combat sound recipes reuse bounded noise/curve caches. These changes reduce GPU target memory, high-refresh load and audio allocation churn; they do not certify that every long-session hang is resolved on every device.

@@ -3,6 +3,7 @@ import '@babylonjs/core/Engines/WebGPU/Extensions/engine.multiRender';
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import '@babylonjs/core/Rendering/geometryBufferRendererSceneComponent';
 import type { Camera } from '@babylonjs/core/Cameras/camera';
+import { renderRatio } from './quality-governor';
 import { Constants } from '@babylonjs/core/Engines/constants';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
@@ -105,9 +106,9 @@ const QUALITY: Record<VisualQuality, QualityProfile> = {
     sharpen: 0.55,
     shadowSize: 2048,
     shadowFilter: 2,
-    msaa: 4,
+    msaa: 1,
     wobble: 1.6,
-    maxPixelRatio: Number.POSITIVE_INFINITY,
+    maxPixelRatio: 1.5,
   },
   medium: {
     paint: true,
@@ -118,13 +119,13 @@ const QUALITY: Record<VisualQuality, QualityProfile> = {
     hatch: 0.12,
     grain: 0.04,
     sharpen: 0.4,
-    shadowSize: 2048,
-    shadowFilter: 2,
+    shadowSize: 1024,
+    shadowFilter: 1,
     // No MSAA: WebGPU would round 2x up to 4x, and the ink pass redraws most
     // geometric edges from the single-sample g-buffer anyway.
     msaa: 1,
     wobble: 1.2,
-    maxPixelRatio: 1.5,
+    maxPixelRatio: 1.25,
   },
   low: {
     // No Kuwahara pass, but the painted surface tiles stay: they are what makes
@@ -534,8 +535,14 @@ export class SceneLook {
   private applyPixelRatio(maxRatio: number): void {
     const engine = this.scene.getEngine();
     const deviceRatio = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
-    const level = 1 / Math.min(deviceRatio, maxRatio);
+    const canvas = engine.getRenderingCanvas();
+    const level = 1 / renderRatio(canvas?.clientWidth ?? 1, canvas?.clientHeight ?? 1, deviceRatio, maxRatio, this.quality);
     if (Math.abs(engine.getHardwareScalingLevel() - level) > 0.001) engine.setHardwareScalingLevel(level);
+  }
+
+  /** Re-evaluate the pixel budget after window/fullscreen changes. */
+  refreshRenderScale(): void {
+    this.applyPixelRatio(QUALITY[this.quality].maxPixelRatio);
   }
 
   private filterGeometryBuffer(list: Nullable<readonly AbstractMesh[]>, length: number): AbstractMesh[] {

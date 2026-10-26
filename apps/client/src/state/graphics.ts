@@ -3,7 +3,7 @@ import type { VisualQuality } from '../rendering/scene-look';
 
 /**
  * Picture-quality setting. 'auto' lets GameClient pick the tier from the GPU
- * class (rendering/gpu-tier.ts) and its menu frame-time governor; a fixed tier
+ * class (rendering/gpu-tier.ts) and its continuous frame-time governor; a fixed tier
  * overrides both. `?quality=high|medium|low|auto` forces a setting for one
  * session without touching the saved choice.
  */

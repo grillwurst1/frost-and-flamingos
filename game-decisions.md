@@ -1668,3 +1668,12 @@ The only expected console warning is Rapier’s deprecation notice about initial
 ---
 
 *This document is a living decision record. Add new decisions here when they are made; move items between “design reference” and “implemented” only when the code and verification agree.*
+
+
+## Performance follow-up — 26 October 2026
+
+The owner's test reported heavy resource consumption and occasional long-session stalls. Inspection confirmed an uncapped High DPR with 4× scene MSAA before multiple full-screen passes; a one-shot menu-only governor that never responded to combat or thermal throttling; and procedural audio rebuilding noise buffers and 44100-sample saturation curves for repeated effects. This patch bounds target resolution, removes scene MSAA while retaining FXAA, caps rendering at 60 FPS, reduces Medium shadow cost, skips hidden-tab frame work and caches immutable audio inputs with fixed entry limits. Auto quality can step High→Medium→Low after sustained load during gameplay, with warmup between steps and no oscillating automatic upgrades. Manual settings remain manual.
+
+Regression tests cover long-session adaptation, short spikes/manual/hidden behavior, Retina/4K target budgets and repeated audio effects with bounded caches. Cloud SwiftShader rendering cannot establish hardware frame rates or prove that all intermittent stalls are eliminated.
+
+Validation: strict typecheck and production build passed. Script tests:10 passed. Server tests:165 passed on the first run, two vehicle cases exceeded the default5s timeout under parallel browser/build load; the entire affected10-test suite passed with a30s timeout, with unchanged assertions. Client tests:29 passed including5 new regressions. A real WebGL2/SwiftShader browser entered the round and pause menu, rendered advancing frames and snapshots, and reported zero uncaught page errors. Four samples showed meshes268→288→286→282 and textures56→66→71→70 while models loaded; this short run does not establish leak freedom over hours.

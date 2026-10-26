@@ -606,8 +606,11 @@ Telemetrie. Die Auswahl wird im Browser gespeichert und beim nächsten Öffnen w
 - **Bildqualität** (Einstellungen im Hauptmenü und in der Pause): **Automatisch**, **Hoch**,
   **Mittel** oder **Niedrig**. Sie regelt Pinselstrich-Malpass, Tuschekonturen, Schatten,
   Oberflächendetails und Renderauflösung. „Automatisch“ wählt eine Stufe passend zum
-  Grafikchip und schaltet einmal herunter, wenn das Menü ruckelt. Die Wahl wird auf dem Gerät
-  gespeichert.
+  Grafikchip und schaltet auch während des Spiels bei anhaltender Überlast stufenweise
+  herunter. Kurze Ladehänger lösen keinen Wechsel aus; manuell gewählte Stufen bleiben erhalten.
+  Die 3D-Auflösung ist auf höchstens 1440p (Hoch), 1080p (Mittel) beziehungsweise 720p
+  (Niedrig) begrenzt; die Oberfläche bleibt scharf. Das Rendering ist auf 60 Bilder/s begrenzt
+  und setzt in unsichtbaren Tabs aus. Die Wahl wird auf dem Gerät gespeichert.
 
 ---
 

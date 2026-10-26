@@ -90,6 +90,10 @@ picture quality setting.
 remaining vehicles; delete the interim spawn plates when the cable car lands). Do not implement
 M6 destruction or M7 meta systems before M5 is complete.
 
+## Performance fixes after the owner's test (26 October 2026)
+
+The owner authorized performance fixes and a push to master; the pause still applies to new milestone features. Rendering is capped at 60 FPS. Auto quality now reacts to sustained load throughout gameplay (4 s warmup plus 5 s overload; no automatic upgrades or changes to manual settings). Full-screen targets have pixel budgets: high 2560×1440, medium 1920×1080, low 1280×720, refreshed on resize/fullscreen. FXAA remains; redundant scene MSAA is off, medium uses 1024 shadows and cheaper filtering. Hidden tabs skip the frame work. Noise buffers are cached per AudioContext (bounded64entries), saturation curves per drive (bounded32), avoiding repeated audio-array generation during combat. Caches contain immutable recipe inputs.
+
 ## Repository map
 
 ```

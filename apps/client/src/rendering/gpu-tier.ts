@@ -12,8 +12,8 @@ import type { VisualQuality } from './scene-look';
  *
  * Strings come from `engine.getInfo()`: the unmasked GL vendor/renderer on
  * WebGL2, the adapter vendor/architecture/description on WebGPU. Browsers that
- * mask them simply land on 'high'; GameClient's menu frame-time governor then
- * steps down once if the device cannot keep up.
+ * mask them simply land on 'high'; GameClient's continuous frame-time governor then
+ * steps down as needed if the device cannot keep up.
  */
 export type GpuKind = 'software' | 'integrated' | 'discrete';
 
