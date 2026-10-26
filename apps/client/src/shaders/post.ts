@@ -21,6 +21,13 @@
  *              where the mask changes between character and anything else
  *              (depth-gated, so translucent effects over a character draw
  *              none), 1.25× the world's outline width, on every tier.
+ *   alpha 0.75 painted sprite (billboard vegetation/clutter, shaders/sprite.ts):
+ *              the world look, but no screen-space ink (the painting carries
+ *              its own outline). Counts only where every 4-neighbour reads
+ *              >= ~0.7, so a character's 0<->1 AA edge and partially covered
+ *              MSAA pixels at thin character parts never do. A blend over a
+ *              character that happens to leave ~0.75 only loses the ink on
+ *              those pixels, a harmless failure.
  *   There is deliberately no "fully exempt" level: blended surfaces over a
  *   character (water, smoke) leave alpha = their own alpha there, so any
  *   in-band value can be produced by accident. A photoreal exemption needs
@@ -46,9 +53,19 @@ uniform vec4 uPaintParams;
 const vec2 FF_HALF_STEP = vec2(0.98078528, 0.19509032);
 
 // x = stylised-character weight, y = reserved (no exempt level: blends over a
-// character can produce any alpha, so an in-band value could false-trigger).
-vec2 ffLookMask(vec2 uv, float a0) {
-  return vec2(1.0 - a0, 0.0);
+// character can produce any alpha, so an in-band value could false-trigger),
+// z = painted-sprite weight (world look, no screen-space ink).
+vec3 ffLookMask(vec2 uv, float a0) {
+  float aR = texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a;
+  float aL = texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a;
+  float aU = texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a;
+  float aD = texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a;
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
+  float sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
+  return vec3((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 vec2 ffStagger(vec2 d) {
@@ -87,7 +104,7 @@ vec4 ffBlend(vec3 center, vec3 center2, vec3 s, vec3 q, vec3 sl, vec3 ql, vec3 s
 void main(void) {
   vec4 c0 = texture2D(textureSampler, vUV);
   vec3 center = c0.rgb;
-  vec2 lookMask = ffLookMask(vUV, c0.a);
+  vec3 lookMask = ffLookMask(vUV, c0.a);
   float charMask = lookMask.x;
   float rings = clamp(floor(uPaintParams.y), 1.0, 3.0);
   vec2 ringStep = uTexel * (uPaintParams.x / rings);
@@ -131,8 +148,20 @@ struct FFSectorSum {
   q : vec3f,
 };
 
-fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  return vec2f(1.0 - a0, 0.0);
+// x = stylised-character weight, y = reserved (no exempt level, see the
+// header), z = painted-sprite weight (world look, no screen-space ink).
+fn ffLookMask(uv : vec2f, a0 : f32) -> vec3f {
+  let texel = uniforms.uTexel;
+  let aR = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a;
+  let aL = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a;
+  let aU = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a;
+  let aD = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a;
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
+  let sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
+  return vec3f((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 fn ffStagger(d : vec2f) -> vec2f {
@@ -251,9 +280,19 @@ float ffHash(vec2 p) {
 }
 
 // x = stylised-character weight, y = reserved (no exempt level: blends over a
-// character can produce any alpha, so an in-band value could false-trigger).
-vec2 ffLookMask(vec2 uv, float a0) {
-  return vec2(1.0 - a0, 0.0);
+// character can produce any alpha, so an in-band value could false-trigger),
+// z = painted-sprite weight (world look, no screen-space ink).
+vec3 ffLookMask(vec2 uv, float a0) {
+  float aR = texture2D(textureSampler, uv + vec2(uTexel.x, 0.0)).a;
+  float aL = texture2D(textureSampler, uv - vec2(uTexel.x, 0.0)).a;
+  float aU = texture2D(textureSampler, uv + vec2(0.0, uTexel.y)).a;
+  float aD = texture2D(textureSampler, uv - vec2(0.0, uTexel.y)).a;
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
+  float sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
+  return vec3((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 float ffNoise(vec2 p) {
@@ -299,9 +338,10 @@ float ffSilhouetteTap(vec2 uv, float char0, float d0, vec2 o) {
 void main(void) {
   vec4 c0 = texture2D(textureSampler, vUV);
   vec3 color = c0.rgb;
-  vec2 lookMask = ffLookMask(vUV, c0.a);
+  vec3 lookMask = ffLookMask(vUV, c0.a);
   float charMask = lookMask.x;
   float exempt = lookMask.y;
+  float spriteMask = lookMask.z;
   // uSharpen: x sharpen amount, y detailed edges (1 = 8 taps + wobble-aware near depth).
   if (uSharpen.x > 0.0) {
     vec3 around = texture2D(textureSampler, vUV + vec2(uTexel.x, 0.0)).rgb + texture2D(textureSampler, vUV - vec2(uTexel.x, 0.0)).rgb
@@ -326,21 +366,30 @@ void main(void) {
     near = min(d0, min(min(ffDepth(uv + vec2(uTexel.x, 0.0)), ffDepth(uv - vec2(uTexel.x, 0.0))), min(ffDepth(uv + vec2(0.0, uTexel.y)), ffDepth(uv - vec2(0.0, uTexel.y)))));
   }
   float farMix = smoothstep(uInkFade.x, uInkFade.y, near);
-  float width = uInkParams.x * widthNoise * mix(1.0, uInkFade.z, farMix);
+  // Bold contours up close, fine lines far away (thin far geometry must not clot).
+  float nearBoost = mix(1.5, 1.0, smoothstep(5.0, 26.0, near));
+  float width = uInkParams.x * widthNoise * nearBoost * mix(1.0, uInkFade.z, farMix);
   vec2 ox = vec2(uTexel.x * width, 0.0);
   vec2 oy = vec2(0.0, uTexel.y * width);
   vec2 od1 = (ox + oy) * 0.7071;
   vec2 od2 = (ox - oy) * 0.7071;
 
-  float lap = max(abs(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), abs(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
+  // Signed depth Laplacian (ratio form, zero on any plane): negative on the
+  // NEAR side of a depth step. Only the nearer surface is inked, so contours
+  // hug the object instead of doubling onto the background, which keeps
+  // railings, planks and trusses as single lines instead of a black clot.
+  float lap = max(-(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), -(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
   vec3 n0 = ffNormal(uv);
   float nEdge = max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy))));
   if (detailed) {
-    lap = max(lap, max(abs(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), abs(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
+    lap = max(lap, max(-(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), -(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
     nEdge = max(nEdge, max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2))));
   }
-  float depthEdge = smoothstep(uInkParams.y, uInkParams.y * 2.2, lap);
-  float normalEdge = smoothstep(uInkParams.z, uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uInkFade.x * 0.7, uInkFade.y * 0.55, near));
+  float depthThreshold = uInkParams.y * (1.0 + farMix * 1.2);
+  float depthEdge = smoothstep(depthThreshold, depthThreshold * 2.2, lap);
+  // Creases (normal edges) only near the camera: at range plank bevels and
+  // railing posts turn into noise, so far objects keep only their contours.
+  float normalEdge = smoothstep(uInkParams.z, uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uInkFade.x * 0.5, uInkFade.x * 2.1, near));
   normalEdge *= 1.0 - charMask;
 
   // Bold character silhouette (see the mask contract above).
@@ -360,8 +409,12 @@ void main(void) {
     float worldY = uCamPos.y + ray.y * near;
     ink *= 1.0 - smoothstep(0.05, 0.9, uWaterLevel.x - worldY) * 0.85;
   }
-  ink *= uInkColor.a * (1.0 - exempt);
-  color = mix(color, uInkColor.rgb, clamp(ink, 0.0, 1.0));
+  // Painted sprites carry their own painted ink: no g-buffer lines over them.
+  ink *= uInkColor.a * (1.0 - exempt) * (1.0 - spriteMask);
+  // Line colour picks up a little of the local paint (warm brown on wood,
+  // deep blue on snow) like inked-and-coloured comic art; never pure black.
+  vec3 localInk = mix(uInkColor.rgb, color * 0.32, 0.3);
+  color = mix(color, localInk, clamp(ink, 0.0, 1.0));
   vec3 ungraded = color;
 
   // Paper grain and a faint canvas weave.
@@ -426,8 +479,20 @@ fn ffHash(p : vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-fn ffLookMask(uv : vec2f, a0 : f32) -> vec2f {
-  return vec2f(1.0 - a0, 0.0);
+// x = stylised-character weight, y = reserved (no exempt level, see the
+// header), z = painted-sprite weight (world look, no screen-space ink).
+fn ffLookMask(uv : vec2f, a0 : f32) -> vec3f {
+  let texel = uniforms.uTexel;
+  let aR = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(texel.x, 0.0), 0.0).a;
+  let aL = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(texel.x, 0.0), 0.0).a;
+  let aU = textureSampleLevel(textureSampler, textureSamplerSampler, uv + vec2f(0.0, texel.y), 0.0).a;
+  let aD = textureSampleLevel(textureSampler, textureSamplerSampler, uv - vec2f(0.0, texel.y), 0.0).a;
+  // Sprite: centre reads ~0.75 and every neighbour reads >= ~0.7 (sprite or
+  // world). Any character-covered neighbour vetoes, so neither a character's
+  // 0<->1 AA edge nor a 25 %-coverage MSAA pixel at a thin part counts.
+  let sprite = (1.0 - smoothstep(0.1, 0.2, abs(a0 - 0.75)))
+    * smoothstep(0.6, 0.7, min(min(aR, aL), min(aU, aD)));
+  return vec3f((1.0 - a0) * (1.0 - sprite), 0.0, sprite);
 }
 
 fn ffNoise(p : vec2f) -> f32 {
@@ -473,6 +538,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let lookMask = ffLookMask(input.vUV, c0.a);
   let charMask = lookMask.x;
   let exempt = lookMask.y;
+  let spriteMask = lookMask.z;
   let texel = uniforms.uTexel;
   if (uniforms.uSharpen.x > 0.0) {
     let around = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV + vec2f(texel.x, 0.0), 0.0).rgb
@@ -498,21 +564,23 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     near = min(d0, min(min(ffDepth(uv + vec2f(texel.x, 0.0)), ffDepth(uv - vec2f(texel.x, 0.0))), min(ffDepth(uv + vec2f(0.0, texel.y)), ffDepth(uv - vec2f(0.0, texel.y)))));
   }
   let farMix = smoothstep(uniforms.uInkFade.x, uniforms.uInkFade.y, near);
-  let width = uniforms.uInkParams.x * widthNoise * mix(1.0, uniforms.uInkFade.z, farMix);
+  let nearBoost = mix(1.5, 1.0, smoothstep(5.0, 26.0, near));
+  let width = uniforms.uInkParams.x * widthNoise * nearBoost * mix(1.0, uniforms.uInkFade.z, farMix);
   let ox = vec2f(texel.x * width, 0.0);
   let oy = vec2f(0.0, texel.y * width);
   let od1 = (ox + oy) * 0.7071;
   let od2 = (ox - oy) * 0.7071;
 
-  var lap = max(abs(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), abs(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
+  var lap = max(-(d0 / ffDepth(uv - ox) + d0 / ffDepth(uv + ox) - 2.0), -(d0 / ffDepth(uv - oy) + d0 / ffDepth(uv + oy) - 2.0));
   let n0 = ffNormal(uv);
   var nEdge = max(max(ffNormalEdge(n0, ffNormal(uv - ox)), ffNormalEdge(n0, ffNormal(uv + ox))), max(ffNormalEdge(n0, ffNormal(uv - oy)), ffNormalEdge(n0, ffNormal(uv + oy))));
   if (detailed) {
-    lap = max(lap, max(abs(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), abs(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
+    lap = max(lap, max(-(d0 / ffDepth(uv - od1) + d0 / ffDepth(uv + od1) - 2.0), -(d0 / ffDepth(uv - od2) + d0 / ffDepth(uv + od2) - 2.0)));
     nEdge = max(nEdge, max(ffNormalEdge(n0, ffNormal(uv + od1)), ffNormalEdge(n0, ffNormal(uv - od2))));
   }
-  let depthEdge = smoothstep(uniforms.uInkParams.y, uniforms.uInkParams.y * 2.2, lap);
-  let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.7, uniforms.uInkFade.y * 0.55, near)) * (1.0 - charMask);
+  let depthThreshold = uniforms.uInkParams.y * (1.0 + farMix * 1.2);
+  let depthEdge = smoothstep(depthThreshold, depthThreshold * 2.2, lap);
+  let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.5, uniforms.uInkFade.x * 2.1, near)) * (1.0 - charMask);
 
   let char0 = ffCharOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv, 0.0).a);
   let sx = ox * 1.25;
@@ -530,8 +598,9 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     let worldY = uniforms.uCamPos.y + ray.y * near;
     ink *= 1.0 - smoothstep(0.05, 0.9, uniforms.uWaterLevel.x - worldY) * 0.85;
   }
-  ink *= uniforms.uInkColor.a * (1.0 - exempt);
-  color = mix(color, uniforms.uInkColor.rgb, clamp(ink, 0.0, 1.0));
+  ink *= uniforms.uInkColor.a * (1.0 - exempt) * (1.0 - spriteMask);
+  let localInk = mix(uniforms.uInkColor.rgb, color * 0.32, 0.3);
+  color = mix(color, localInk, clamp(ink, 0.0, 1.0));
   let ungraded = color;
 
   if (uniforms.uGradeExtra.y > 0.0) {

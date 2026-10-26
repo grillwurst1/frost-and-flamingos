@@ -86,7 +86,17 @@ function toWorld(prop: MapProp, x: number, z: number, extraYaw = 0): { x: number
   return { x: prop.position.x + world.x, z: prop.position.z + world.z };
 }
 
-export function drawLighthouse(batch: GeometryBatch): void {
+/**
+ * `painted`: the owner-painted tower shell (map/facades.ts) wraps the stone
+ * base and the striped body, so only the gallery, lantern, dome and spiral
+ * stair are modelled here.
+ */
+export function drawLighthouse(batch: GeometryBatch, painted = false): void {
+  if (!painted) drawLighthouseBody(batch);
+  drawLighthouseTop(batch);
+}
+
+function drawLighthouseBody(batch: GeometryBatch): void {
   const L = LIGHTHOUSE;
   // Stone base
   batch.lathe(
@@ -132,6 +142,10 @@ export function drawLighthouse(batch: GeometryBatch): void {
       batch.box(0, -0.58, 0.05, 0.9, 0.14, 0.2, P.trim, 'wood', 0.02);
     });
   }
+}
+
+function drawLighthouseTop(batch: GeometryBatch): void {
+  const L = LIGHTHOUSE;
   // Gallery deck with brackets, railing posts and rail.
   batch.lathe(
     [
@@ -315,7 +329,22 @@ export function drawPlazaPaving(batch: GeometryBatch): void {
   const inner = PAVILION.basinRadius + 1.0;
   const outer = 24;
   const ringWidth = 0.95;
-  const tones = [P.cobble, P.cobbleWarm, mix(P.cobble, P.cobbleDark, 0.35), mix(P.cobbleWarm, P.cobble, 0.5)];
+  // One continuous cobbled floor: the painted cobblestone tile (~0.4 m stones,
+  // warm grout) carries the stones; the segments only add soft tone washes —
+  // worn mud, snow-melt and mossy patches — instead of a grid of flat slabs.
+  const patch = (x: number, z: number, seed: number): number => {
+    const fx = x * 0.16;
+    const fz = z * 0.16;
+    const ix = Math.floor(fx);
+    const iz = Math.floor(fz);
+    const tx = fx - ix;
+    const tz = fz - iz;
+    const a = hash3(ix, seed, iz);
+    const b = hash3(ix + 1, seed, iz);
+    const c = hash3(ix, seed, iz + 1);
+    const d = hash3(ix + 1, seed, iz + 1);
+    return a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz;
+  };
   const stone = (r0: number, r1: number, a0: number, a1: number, color: RGB, lift: number): void => {
     const corners: V3[] = [
       [Math.sin(a0) * r0, 0, Math.cos(a0) * r0],
@@ -334,21 +363,27 @@ export function drawPlazaPaving(batch: GeometryBatch): void {
     );
   };
   let ring = 0;
-  for (let r0 = inner; r0 + ringWidth <= outer; r0 += ringWidth, ring += 1) {
-    const r1 = r0 + ringWidth - 0.1;
+  for (let r0 = inner; r0 + ringWidth <= outer + 0.01; r0 += ringWidth, ring += 1) {
+    const r1 = Math.min(outer, r0 + ringWidth);
     const mid = (r0 + r1) / 2;
     const count = Math.max(8, Math.round((2 * Math.PI * mid) / 1.05));
-    const gap = 0.09 / mid;
     const phase = (hash3(ring, 3, 1) * 2 * Math.PI) / count;
-    const band = ring % 6 === 5;
     for (let index = 0; index < count; index += 1) {
       const a0 = phase + (index / count) * Math.PI * 2;
-      const a1 = phase + ((index + 1) / count) * Math.PI * 2 - gap;
+      const a1 = phase + ((index + 1) / count) * Math.PI * 2;
       const centre = (a0 + a1) / 2;
-      const sector = ((centre % (Math.PI / 4)) + Math.PI / 4) % (Math.PI / 4);
-      const spoke = Math.min(sector, Math.PI / 4 - sector) < 0.55 / mid;
-      const base = band ? P.cobbleDark : spoke ? mix(P.cobbleWarm, P.sandShade, 0.45) : (tones[Math.floor(hash3(ring, index, 7) * tones.length)] ?? P.cobble);
-      stone(r0, r1, a0, a1, shade(base, 0.92 + hash3(index, ring, 2) * 0.16), 0.05 + hash3(ring, index, 5) * 0.03);
+      const x = Math.sin(centre) * mid;
+      const z = Math.cos(centre) * mid;
+      let color = mix(P.cobble, P.cobbleWarm, patch(x, z, 11));
+      // Worn edges: mud washes and mossy grass creep in from the rim, snow-melt in patches.
+      const rim = Math.max(0, (mid - 15) / 9);
+      const mud = Math.max(0, patch(x + 31, z - 7, 12) - 0.55) * 2.2 * (0.35 + rim);
+      const moss = Math.max(0, patch(x - 13, z + 19, 13) - 0.62) * 2.6 * rim;
+      const melt = Math.max(0, patch(x + 5, z + 41, 14) - 0.6) * 2.4;
+      color = mix(color, mix(P.mud, P.dirt, 0.5), Math.min(0.55, mud));
+      color = mix(color, P.grassShade, Math.min(0.45, moss));
+      color = mix(color, P.snowMid, Math.min(0.6, melt));
+      stone(r0, r1, a0, a1, shade(color, 0.97 + hash3(index, ring, 2) * 0.06), 0.06);
     }
   }
   // Kerb ring of long dark stones.
@@ -360,7 +395,8 @@ export function drawPlazaPaving(batch: GeometryBatch): void {
   }
 }
 
-export function drawClockPavilion(batch: GeometryBatch): void {
+/** `painted`: the hip roof is the owner-painted top view (map/facades.ts); the spire stays. */
+export function drawClockPavilion(batch: GeometryBatch, painted = false): void {
   const C = PAVILION;
   // Round stone fountain basin
   const blocks = 22;
@@ -412,7 +448,8 @@ export function drawClockPavilion(batch: GeometryBatch): void {
   }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) batch.box(sx * (s / 2), yb + C.houseHeight / 2, sz * (s / 2), 0.36, C.houseHeight, 0.36, P.logDark, 'wood', 0.06);
   // Pyramid roof: four sloped faces over overhanging eaves, shingle courses laid
-  // along each face, hip caps, an eave trim and the gold spire.
+  // along each face, hip caps, an eave trim and the gold spire (painted: eave,
+  // trim and spire only).
   const roofBase = yb + C.houseHeight;
   const eave = s / 2 + 0.9;
   const apexY = roofBase + C.roofHeight;
@@ -422,6 +459,9 @@ export function drawClockPavilion(batch: GeometryBatch): void {
   const courses = 8;
   for (let side = 0; side < 4; side += 1) {
     batch.with(Affine.rotationY((side * Math.PI) / 2), () => {
+      batch.log([-eave, roofBase + 0.02, eave + 0.02], [eave, roofBase + 0.02, eave + 0.02], 0.12, P.trim, 'wood', { segments: 5 });
+      // Painted: the owner's hip-roof top view (map/facades.ts) is the roof; only the eave and trim stay modelled.
+      if (painted) return;
       batch.orientedPolygon([[-eave, roofBase, eave], [eave, roofBase, eave], [0, apexY, 0]], [0, eave, C.roofHeight], P.shingle, 'shingle');
       batch.with(Affine.translation(0, apexY, 0).rotateX(pitch), () => {
         for (let course = 0; course < courses; course += 1) {
@@ -433,7 +473,6 @@ export function drawClockPavilion(batch: GeometryBatch): void {
           batch.box(0, 0.02 - (course % 2) * 0.02, along, half * 2, 0.16, slopeLength / courses + 0.14, color, 'shingle', 0.04);
         }
       });
-      batch.log([-eave, roofBase + 0.02, eave + 0.02], [eave, roofBase + 0.02, eave + 0.02], 0.12, P.trim, 'wood', { segments: 5 });
       batch.log([eave, roofBase + 0.08, eave], [0, apexY + 0.05, 0], 0.13, shade(P.shingle, 0.7), 'wood', { segments: 5 });
     });
   }

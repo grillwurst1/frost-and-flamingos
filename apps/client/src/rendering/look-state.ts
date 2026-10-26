@@ -12,7 +12,7 @@ import type { Scene } from '@babylonjs/core/scene';
  * {@link applyLookToAll} once per frame. Materials created before a scene look
  * exists get neutral dummy textures so they always render.
  */
-export type LookRole = 'toon' | 'character' | 'water' | 'sky' | 'cloud';
+export type LookRole = 'toon' | 'character' | 'water' | 'sky' | 'cloud' | 'sprite' | 'painted';
 
 export interface LookValues {
   sunDirection: Vector3;
@@ -39,6 +39,8 @@ export interface LookValues {
   detailParams: Vector4;
   /** x 1/tileA, y 1/tileB, z 1/tileC, w ink strength. */
   detailScale: Vector4;
+  /** Painted colour tiles: x strength (0 = off), y repeats per metre. */
+  colorParams: Vector4;
   inkColor: Color4;
   zenith: Color3;
   horizon: Color3;
@@ -71,6 +73,7 @@ export interface LookTextures {
   detailA: BaseTexture;
   detailB: BaseTexture;
   detailC: BaseTexture;
+  detailColor: BaseTexture;
   sceneDepth: BaseTexture;
   foam: BaseTexture;
   panorama: BaseTexture;
@@ -104,10 +107,10 @@ export function defaultLookValues(sunDirection: Vector3): LookValues {
     cameraPosition: new Vector3(0, 40, -80),
     cameraForward: new Vector3(0, 0, 1),
     time: 0,
-    sunColor: new Color3(1.02, 1.0, 0.97),
+    sunColor: new Color3(1.08, 1.0, 0.88),
     skyFill: new Color3(0.98, 1.0, 1.04),
     groundFill: new Color3(1.04, 0.98, 0.93),
-    shadeCool: new Color3(0.83, 0.905, 0.98),
+    shadeCool: new Color3(0.74, 0.83, 1.0),
     shadeWarm: new Color3(0.97, 0.91, 0.93),
     hazeColor: new Color4(0.7, 0.85, 0.97, 0.62),
     hazeParams: new Vector4(200, 1100, 0, 120),
@@ -117,6 +120,7 @@ export function defaultLookValues(sunDirection: Vector3): LookValues {
     shadowDepth: new Vector4(1, 2, 0, 0),
     detailParams: new Vector4(0, 45, 170, 0),
     detailScale: new Vector4(1 / 4, 1 / 8, 1 / 4, 0.55),
+    colorParams: new Vector4(0, 0.5, 0, 0),
     inkColor: new Color4(0x1b / 255, 0x14 / 255, 0x10 / 255, 1),
     zenith: new Color3(0x3e / 255, 0x8f / 255, 0xe0 / 255),
     horizon: new Color3(0x9f / 255, 0xd3 / 255, 0xf5 / 255),
@@ -153,6 +157,7 @@ export function getLookContext(scene: Scene, sunDirection: Vector3): LookContext
       detailA: grey,
       detailB: grey,
       detailC: grey,
+      detailColor: grey,
       sceneDepth: black,
       foam: grey,
       panorama: grey,
@@ -196,10 +201,21 @@ export function applyLook(material: ShaderMaterial, role: LookRole, context: Loo
       material.setTexture('detailA', textures.detailA);
       material.setTexture('detailB', textures.detailB);
       material.setTexture('detailC', textures.detailC);
+      material.setVector4('uFFColorParams', values.colorParams);
+      material.setTexture('detailColor', textures.detailColor);
       return;
     case 'character':
       // cameraPosition is pushed per character by updateCharacterMaterial.
       applyLighting(material, values, textures);
+      return;
+    case 'sprite':
+      applyLighting(material, values, textures);
+      material.setVector3('cameraPosition', values.cameraPosition);
+      material.setFloat('uTime', values.time);
+      return;
+    case 'painted':
+      applyLighting(material, values, textures);
+      material.setVector3('cameraPosition', values.cameraPosition);
       return;
     case 'water':
       material.setVector3('sunDirection', values.sunDirection);

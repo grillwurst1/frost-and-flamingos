@@ -30,7 +30,11 @@ import {
   type TowerId,
   type Vec3,
 } from '@frost-and-flamingos/shared';
-import { createSkyMaterial, createWaterMaterial } from './materials';
+import type { FacadeAtlas } from './facade-atlas';
+import { createFacadeMaterial, createSkyMaterial, createSpriteMaterial, createToonMaterial, createWaterMaterial } from './materials';
+import type { SpriteAtlas } from './sprite-atlas';
+import { buildFacadeMesh, supportsFacade } from './map/facades';
+import { SPRITE_PROP_KINDS, buildVegetation, type SpriteInstanceHandle } from './map/vegetation';
 import { drawBuilding } from './map/buildings';
 import { BRAKE_LEVER_HINGE, drawBrakeLeverBase, drawBrakeLeverHandle, drawBuildingExtras } from './map/extras';
 import { Affine, GeometryBatch, hash3 } from './map/geometry';
@@ -112,6 +116,12 @@ export interface MapVisuals {
   previewStageMesh: Mesh | null;
   /** Destructible element id (blueprint `destructibleId`) → its own mesh. */
   destructibleMeshes: Map<string, Mesh>;
+  /**
+   * Destructible trees drawn as painted sprites: id → instance handle inside
+   * the shared tree mesh (hide with `setVisible(false)`). Empty when the
+   * procedural fallback draws trees as `destructibleMeshes`.
+   */
+  destructibleSprites: Map<string, SpriteInstanceHandle>;
   towers: Map<TowerId, TowerVisual>;
   /** Static meshes of the map (chunks, routes, clutter) for diagnostics. */
   staticMeshes: Mesh[];
@@ -127,6 +137,8 @@ export interface MapVisuals {
 
 const CHUNK = 100;
 const CLUTTER_LOD_DISTANCE = 150;
+/** Beyond this distance thin railings and slats swap to their solid far stand-ins. */
+const FINE_LOD_DISTANCE = 58;
 
 class ChunkSet {
   readonly batches = new Map<string, GeometryBatch>();
@@ -181,7 +193,7 @@ function towerDressingOf(prop: MapProp): { tower: TowerId; faction: 'alpine' | '
 }
 
 /** Draws one blueprint prop into a batch in prop-local space. Returns false if nothing was drawn. */
-function drawProp(batch: GeometryBatch, prop: MapProp): boolean {
+function drawProp(batch: GeometryBatch, prop: MapProp, painted: boolean): boolean {
   const seed = Math.floor(prop.position.x * 7.3 + prop.position.z * 3.1);
   switch (prop.kind) {
     case 'fir':
@@ -203,19 +215,19 @@ function drawProp(batch: GeometryBatch, prop: MapProp): boolean {
     case 'hangar':
     case 'bamboo_garage':
       if (!prop.building) return false;
-      drawBuilding(batch, prop.building, { variant: prop.variant, seed, snowy: snowAmount(prop.position.x, prop.position.z) > 0.3 });
-      drawBuildingExtras(batch, prop);
+      drawBuilding(batch, prop.building, { variant: prop.variant, seed, snowy: snowAmount(prop.position.x, prop.position.z) > 0.3, facade: painted });
+      drawBuildingExtras(batch, prop, painted);
       return true;
     case 'summit_dairy':
       if (!prop.building) return false;
-      drawBuilding(batch, prop.building, { variant: prop.variant, seed, snowy: true });
+      drawBuilding(batch, prop.building, { variant: prop.variant, seed, snowy: true, facade: painted });
       drawSummitRoof(batch, prop.building.width, prop.building.depth);
       return true;
     case 'harbor_platform':
       drawHarborPlatform(batch, prop);
       return true;
     case 'lighthouse':
-      drawLighthouse(batch);
+      drawLighthouse(batch, painted);
       return true;
     case 'pier':
       drawPier(batch, prop);
@@ -224,7 +236,7 @@ function drawProp(batch: GeometryBatch, prop: MapProp): boolean {
       drawStairs(batch, prop);
       return true;
     case 'clock_pavilion':
-      drawClockPavilion(batch);
+      drawClockPavilion(batch, painted);
       return true;
     case 'bridge_deck':
       drawBridgeDeck(batch, prop);
@@ -279,16 +291,20 @@ function usesPathFrame(prop: MapProp): boolean {
   return prop.kind === 'stone_wall' || prop.kind === 'fence' || prop.kind === 'bunting' || prop.kind === 'walkway';
 }
 
-function drawPropAt(batch: GeometryBatch, prop: MapProp): boolean {
+function drawPropAt(batch: GeometryBatch, prop: MapProp, painted = false): boolean {
   let drawn = false;
   const yaw = usesPathFrame(prop) ? 0 : prop.rotationY;
   batch.at(prop.position.x, prop.position.y, prop.position.z, yaw, () => {
-    drawn = drawProp(batch, prop);
+    drawn = drawProp(batch, prop, painted);
   });
   return drawn;
 }
 
-/** Dense, purely visual ground clutter: grass, flowers, pebbles, shells, driftwood, snow mounds, ferns. */
+/**
+ * Procedural fallback for the painted sprite layer (used only when the sprite
+ * atlas is missing): dense, purely visual ground clutter — grass, flowers,
+ * pebbles, shells, driftwood, snow mounds, ferns.
+ */
 function scatterClutter(chunks: ChunkSet): void {
   const nav = FJORD_MAP.nav.nodes;
   const near = (x: number, z: number): boolean => nav.some((node) => Math.abs(node.position.x - x) < 45 && Math.abs(node.position.z - z) < 45);
@@ -344,7 +360,11 @@ function scatterClutter(chunks: ChunkSet): void {
       });
     }
   }
-  // Reeds around the village pond and along the gorge stream.
+  scatterReeds(chunks);
+}
+
+/** Reeds along the gorge stream (procedural in both the painted and fallback look). */
+function scatterReeds(chunks: ChunkSet): void {
   for (const point of FJORD_MAP.routes.gorgeStream.points) {
     if (hash3(point.x, point.z, 9) > 0.45) continue;
     const side = hash3(point.z, point.x, 3) > 0.5 ? 1 : -1;
@@ -446,11 +466,29 @@ function buildPreviewStage(batch: GeometryBatch): PreviewStage {
   return { position: { x, y: ground + 0.8, z }, radius: 3.7 };
 }
 
-export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVisuals {
+export interface MapArt {
+  /** Painted sprite atlas; null keeps the procedural trees, rocks and clutter. */
+  sprites?: SpriteAtlas | null;
+  /** Painted building facades; buildings without a complete set stay procedural. */
+  facades?: FacadeAtlas | null;
+}
+
+export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: MapArt = {}): MapVisuals {
+  const atlas = art.sprites ?? null;
+  const facades = art.facades ?? null;
+  const painted = new Map<string, NonNullable<ReturnType<FacadeAtlas['forProp']>>>();
+  if (facades) {
+    for (const prop of FJORD_MAP.props) {
+      const set = facades.forProp(prop.id);
+      if (set && supportsFacade(set, prop)) painted.set(prop.id, set);
+    }
+  }
   const skyMaterial = createSkyMaterial(scene, 'sky-material');
   const waterMaterial = createWaterMaterial(scene, 'water-material');
 
-  const terrain = buildTerrainMesh(scene, material);
+  // The terrain paints its own layers (snow, sand, grass, rock, cobble, mud) from the mesh weights.
+  const terrainMaterial = createToonMaterial(scene, 'fjord-terrain-material', { terrain: true });
+  const terrain = buildTerrainMesh(scene, terrainMaterial);
   const water = buildWaterMesh(scene, waterMaterial);
   const staticMeshes: Mesh[] = [];
   const stream = buildStreamMesh(scene, waterMaterial);
@@ -466,6 +504,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
   sky.renderingGroupId = 0;
 
   const chunks = new ChunkSet();
+  const fineDetails: Array<{ id: string; owner: string | null; fine: GeometryBatch | null; far: GeometryBatch | null }> = [];
   const destructibleBatches = new Map<string, GeometryBatch>();
   const towerBatches = new Map<TowerId, GeometryBatch>();
   const dressingBatches = new Map<string, GeometryBatch>();
@@ -473,6 +512,8 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
   for (const id of ['tower_a', 'tower_b', 'tower_c'] as const) towers.set(id, makeTowerVisual(scene, id));
 
   for (const prop of FJORD_MAP.props) {
+    // Painted billboards replace these visuals; their colliders stay in the blueprint.
+    if (atlas && SPRITE_PROP_KINDS.has(prop.kind)) continue;
     const tower = TOWER_PROP[prop.id];
     const dressing = towerDressingOf(prop);
     let batch: GeometryBatch;
@@ -489,7 +530,13 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     } else {
       batch = chunks.at(prop.position.x, prop.position.z);
     }
-    drawPropAt(batch, prop);
+    drawPropAt(batch, prop, painted.has(prop.id));
+    // Static props: thin railings and slats become their own near-LOD mesh
+    // (solid stand-ins far away) so distant balconies do not clot into ink.
+    if (!tower && !dressing) {
+      const detail = batch.takeDetail();
+      if (detail.fine) fineDetails.push({ id: prop.id, owner: prop.destructibleId ?? null, ...detail });
+    }
   }
 
   // Radial cobblestone paving around the Tower B fountain.
@@ -562,7 +609,8 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
   const previewBatch = new GeometryBatch();
   const previewStage = buildPreviewStage(previewBatch);
 
-  scatterClutter(chunks);
+  if (atlas) scatterReeds(chunks);
+  else scatterClutter(chunks);
 
   let vertexCount = terrain.getTotalVertices() + water.getTotalVertices();
   const register = (mesh: Mesh | null, list: Mesh[]): Mesh | null => {
@@ -582,10 +630,25 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
   if (preview) preview.alwaysSelectAsActiveMesh = true;
 
   const destructibleMeshes = new Map<string, Mesh>();
+  const destructibleSprites = new Map<string, SpriteInstanceHandle>();
   const destructibleList: Mesh[] = [];
   for (const [id, batch] of destructibleBatches) {
     const mesh = register(batch.toMesh(scene, `destructible-${id}`, material), destructibleList);
     if (mesh) destructibleMeshes.set(id, mesh);
+  }
+  // Near/far LOD pairs of thin detail; a destructible's pair hangs under its mesh
+  // (identity world matrix) so hiding or disposing the building takes it along.
+  for (const detail of fineDetails) {
+    const owner = detail.owner ? (destructibleMeshes.get(detail.owner) ?? null) : null;
+    const list = owner ? destructibleList : staticMeshes;
+    const near = detail.fine ? register(detail.fine.toMesh(scene, `map-fine-${detail.id}`, material), list) : null;
+    if (!near) continue;
+    const far = detail.far ? register(detail.far.toMesh(scene, `map-fine-far-${detail.id}`, material), list) : null;
+    near.addLODLevel(FINE_LOD_DISTANCE, far);
+    if (owner) {
+      near.parent = owner;
+      if (far) far.parent = owner;
+    }
   }
   for (const [id, batch] of towerBatches) {
     const visual = towers.get(id);
@@ -608,6 +671,40 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     mesh.setEnabled(style === home);
   }
   staticMeshes.push(...buildPosters(scene, FJORD_MAP.props));
+  if (facades && painted.size > 0) {
+    const facadeMaterial = createFacadeMaterial(scene, 'facade-material', facades.texture);
+    for (const prop of FJORD_MAP.props) {
+      const set = painted.get(prop.id);
+      if (!set) continue;
+      const mesh = buildFacadeMesh(scene, facades, facadeMaterial, prop, set);
+      if (!mesh) continue;
+      vertexCount += mesh.getTotalVertices();
+      // Ride along with the building mesh so destruction can hide both at once.
+      const tower = TOWER_PROP[prop.id];
+      const owner = prop.destructibleId ? destructibleMeshes.get(prop.destructibleId) : tower ? towers.get(tower)?.mesh : undefined;
+      if (owner) {
+        mesh.parent = owner;
+        mesh.freezeWorldMatrix();
+      } else {
+        staticMeshes.push(mesh);
+      }
+    }
+  }
+  if (atlas) {
+    const size = { width: atlas.width, height: atlas.height };
+    const vegetation = buildVegetation(
+      scene,
+      atlas,
+      {
+        billboard: createSpriteMaterial(scene, 'sprite-billboard-material', atlas.texture, size, 'billboard'),
+        ground: createSpriteMaterial(scene, 'sprite-ground-material', atlas.texture, size, 'ground'),
+      },
+      FJORD_MAP.props,
+    );
+    vertexCount += vegetation.vertexCount;
+    staticMeshes.push(...vegetation.meshes);
+    for (const [id, handle] of vegetation.destructible) destructibleSprites.set(id, handle);
+  }
   for (const handle of brakeHandles) {
     const mesh = register(handle.batch.toMesh(scene, `cable-brake-lever-${handle.id}`, material), staticMeshes);
     if (!mesh) continue;
@@ -628,6 +725,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial): MapVis
     previewStage,
     previewStageMesh: preview,
     destructibleMeshes,
+    destructibleSprites,
     towers,
     staticMeshes,
     brakeLevers,

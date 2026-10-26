@@ -148,6 +148,50 @@ export class GeometryBatch {
     return this.positions.length / 3;
   }
 
+  /** Thin near detail (balusters, slats, posts) split off by {@link fineDetail}. */
+  private fineBatch: GeometryBatch | null = null;
+  /** Solid far stand-ins for the fine detail (painted panels instead of combs of slats). */
+  private farBatch: GeometryBatch | null = null;
+
+  /**
+   * Draws thin geometry that turns into ink noise at range (railings, slats)
+   * into a separate near-LOD batch, and an optional solid stand-in into a
+   * far-LOD batch. The owner of this batch turns them into LOD meshes with
+   * {@link takeDetail}; batches that never call it keep everything inline.
+   */
+  fineDetail(near: () => void, far?: () => void): void {
+    this.moveInto(near, () => (this.fineBatch ??= this.child()));
+    if (far) this.moveInto(far, () => (this.farBatch ??= this.child()));
+  }
+
+  /** Removes and returns the fine / far detail drawn so far (null when none). */
+  takeDetail(): { fine: GeometryBatch | null; far: GeometryBatch | null } {
+    const detail = { fine: this.fineBatch, far: this.farBatch };
+    this.fineBatch = null;
+    this.farBatch = null;
+    return detail;
+  }
+
+  private child(): GeometryBatch {
+    const batch = new GeometryBatch();
+    batch.jitter = this.jitter;
+    return batch;
+  }
+
+  private moveInto(draw: () => void, target: () => GeometryBatch): void {
+    const firstVertex = this.vertexCount;
+    const firstIndex = this.indices.length;
+    draw();
+    if (this.vertexCount === firstVertex) return;
+    const dest = target();
+    const base = dest.vertexCount;
+    for (const value of this.positions.splice(firstVertex * 3)) dest.positions.push(value);
+    for (const value of this.normals.splice(firstVertex * 3)) dest.normals.push(value);
+    for (const value of this.colors.splice(firstVertex * 4)) dest.colors.push(value);
+    for (const value of this.surfaces.splice(firstVertex)) dest.surfaces.push(value);
+    for (const index of this.indices.splice(firstIndex)) dest.indices.push(index - firstVertex + base);
+  }
+
   /** Runs `draw` with `local` appended to the current transform. */
   with(local: Affine, draw: () => void): void {
     const previous = this.transform;
@@ -650,8 +694,17 @@ export class GeometryBatch {
     return this.indices.length === 0;
   }
 
-  /** Uploads the batch as one static mesh. */
+  /** Uploads the batch as one static mesh (fine detail nobody took stays inline). */
   toMesh(scene: Scene, name: string, material: Material): Mesh | null {
+    const { fine } = this.takeDetail();
+    if (fine) {
+      const base = this.vertexCount;
+      for (const value of fine.positions) this.positions.push(value);
+      for (const value of fine.normals) this.normals.push(value);
+      for (const value of fine.colors) this.colors.push(value);
+      for (const value of fine.surfaces) this.surfaces.push(value);
+      for (const index of fine.indices) this.indices.push(index + base);
+    }
     if (this.isEmpty()) return null;
     const mesh = new Mesh(name, scene);
     const data = new VertexData();

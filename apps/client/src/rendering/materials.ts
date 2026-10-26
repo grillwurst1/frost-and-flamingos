@@ -1,6 +1,6 @@
 import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
 import { ShaderStore } from '@babylonjs/core/Engines/shaderStore';
-import { Color3, Color4, Vector3 } from '@babylonjs/core/Maths/math';
+import { Color3, Color4, Vector2, Vector3, Vector4 } from '@babylonjs/core/Maths/math';
 import { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
@@ -25,6 +25,24 @@ import {
   toonVertexWGSL,
 } from '../shaders/toon';
 import {
+  FACADE_ATTRIBUTES,
+  FACADE_SAMPLERS,
+  FACADE_UNIFORMS,
+  facadeFragmentGLSL,
+  facadeFragmentWGSL,
+  facadeVertexGLSL,
+  facadeVertexWGSL,
+} from '../shaders/facade';
+import {
+  SPRITE_ATTRIBUTES,
+  SPRITE_SAMPLERS,
+  SPRITE_UNIFORMS,
+  spriteFragmentGLSL,
+  spriteFragmentWGSL,
+  spriteVertexGLSL,
+  spriteVertexWGSL,
+} from '../shaders/sprite';
+import {
   waterFragmentGLSL,
   waterFragmentWGSL,
   waterVertexGLSL,
@@ -32,8 +50,12 @@ import {
 } from '../shaders/water';
 import { registerLookMaterial } from './look-state';
 
-/** Direction towards the sun: south-west, ~32° above the horizon (long comic shadows). */
-export const SUN_DIRECTION = new Vector3(-0.6, 0.53, -0.6).normalize();
+/**
+ * Direction towards the sun: south-west, ~40° above the horizon. High enough
+ * that character and prop shadows stay compact contact shapes (paintings)
+ * instead of long streaks across snow and roads.
+ */
+export const SUN_DIRECTION = new Vector3(-0.6, 0.71, -0.6).normalize();
 /** Light aerial haze (was the heavy fog). Starts far so only distant mountains turn blue. */
 export const FOG_COLOR = new Color4(0.66, 0.83, 0.96, 1);
 export const FOG_NEAR = 260;
@@ -174,12 +196,13 @@ export function registerLookPostShaders(): void {
 const toonMaterials = new WeakSet<ShaderMaterial>();
 const characterMaterials = new WeakSet<ShaderMaterial>();
 const waterMaterials = new WeakSet<ShaderMaterial>();
+const facadeMaterials = new WeakSet<ShaderMaterial>();
 
-/** True for the shared toon and character materials (solid, lit, inked). */
+/** True for the shared toon, character and painted facade materials (solid, lit, inked). */
 export function isLookSolidMaterial(material: unknown): boolean {
   return (
     material instanceof ShaderMaterial &&
-    (toonMaterials.has(material) || characterMaterials.has(material))
+    (toonMaterials.has(material) || characterMaterials.has(material) || facadeMaterials.has(material))
   );
 }
 
@@ -195,8 +218,18 @@ export function isWaterMaterial(material: unknown): boolean {
   return material instanceof ShaderMaterial && waterMaterials.has(material);
 }
 
-export function createToonMaterial(scene: Scene, name: string): ShaderMaterial {
+/** Vertex attributes of the painted terrain layers (see shaders/detail.ts, FF_TERRAIN). */
+export const TERRAIN_MIX_A_ATTRIBUTE = 'terrainMixA';
+export const TERRAIN_MIX_B_ATTRIBUTE = 'terrainMixB';
+
+export interface ToonMaterialOptions {
+  /** Terrain variant: painted layer weights from `terrainMixA/B` instead of albedo classification. */
+  terrain?: boolean;
+}
+
+export function createToonMaterial(scene: Scene, name: string, options: ToonMaterialOptions = {}): ShaderMaterial {
   const webgpu = scene.getEngine().isWebGPU;
+  const terrain = options.terrain === true;
   const material = new ShaderMaterial(
     name,
     scene,
@@ -205,7 +238,8 @@ export function createToonMaterial(scene: Scene, name: string): ShaderMaterial {
       fragmentSource: webgpu ? toonFragmentWGSL : toonFragmentGLSL,
     },
     {
-      attributes: ['position', 'normal'],
+      attributes: terrain ? ['position', 'normal', TERRAIN_MIX_A_ATTRIBUTE, TERRAIN_MIX_B_ATTRIBUTE] : ['position', 'normal'],
+      defines: terrain ? ['#define FF_TERRAIN'] : [],
       uniforms: [
         'world',
         'viewProjection',
@@ -422,6 +456,95 @@ export function createCloudMaterial(scene: Scene, name: string, texture: BaseTex
   material.backFaceCulling = false;
   material.disableDepthWrite = true;
   registerLookMaterial(scene, material, 'cloud', SUN_DIRECTION);
+  return material;
+}
+
+/**
+ * Painted sprite material over the shared atlas (rendering/sprite-atlas.ts).
+ * `billboard`: alpha-tested, camera-facing trees/clutter (writes depth, stays
+ * out of the g-buffer, ink-free marker alpha). `ground`: alpha-blended flat
+ * decals and shadow blobs lying on the terrain.
+ */
+export function createSpriteMaterial(
+  scene: Scene,
+  name: string,
+  atlas: BaseTexture,
+  atlasSize: { width: number; height: number },
+  mode: 'billboard' | 'ground',
+): ShaderMaterial {
+  const webgpu = scene.getEngine().isWebGPU;
+  const ground = mode === 'ground';
+  const material = new ShaderMaterial(
+    name,
+    scene,
+    {
+      vertexSource: webgpu ? spriteVertexWGSL : spriteVertexGLSL,
+      fragmentSource: webgpu ? spriteFragmentWGSL : spriteFragmentGLSL,
+    },
+    {
+      attributes: [...SPRITE_ATTRIBUTES],
+      uniforms: [...SPRITE_UNIFORMS, ...LOOK_UNIFORMS],
+      samplers: [...SPRITE_SAMPLERS, ...LOOK_SAMPLERS],
+      defines: ground ? ['#define GROUND'] : [],
+      needAlphaTesting: !ground,
+      needAlphaBlending: ground,
+      shaderLanguage: webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
+      useClipPlane: false,
+    },
+  );
+  material.setTexture('spriteAtlas', atlas);
+  material.setVector2('uAtlasSize', new Vector2(atlasSize.width, atlasSize.height));
+  // x alpha threshold, y sway scale, z (reserved), w lit share inside cast shadow.
+  material.setVector4('uSpriteParams', new Vector4(0.5, 1, 0, 0.3));
+  material.setFloat('uTime', 0);
+  material.backFaceCulling = false;
+  if (ground) {
+    material.disableDepthWrite = true;
+    material.zOffset = -2;
+  }
+  registerLookMaterial(scene, material, 'sprite', SUN_DIRECTION);
+  return material;
+}
+
+/**
+ * ShaderMaterial that exposes its painted atlas as the alpha-test texture, so
+ * Babylon's g-buffer (ink outlines) and shadow-map passes cut the same
+ * silhouettes (gable outlines, pavilion gaps) as the main pass.
+ */
+class AlphaTestedShaderMaterial extends ShaderMaterial {
+  alphaTestTexture: BaseTexture | null = null;
+
+  override getAlphaTestTexture(): BaseTexture | null {
+    return this.alphaTestTexture ?? null;
+  }
+}
+
+/** Painted facade material over the facade atlas (rendering/facade-atlas.ts). */
+export function createFacadeMaterial(scene: Scene, name: string, atlas: BaseTexture): ShaderMaterial {
+  const webgpu = scene.getEngine().isWebGPU;
+  const material = new AlphaTestedShaderMaterial(
+    name,
+    scene,
+    {
+      vertexSource: webgpu ? facadeVertexWGSL : facadeVertexGLSL,
+      fragmentSource: webgpu ? facadeFragmentWGSL : facadeFragmentGLSL,
+    },
+    {
+      attributes: [...FACADE_ATTRIBUTES],
+      uniforms: [...FACADE_UNIFORMS, ...LOOK_UNIFORMS],
+      samplers: [...FACADE_SAMPLERS, ...LOOK_SAMPLERS],
+      needAlphaTesting: true,
+      shaderLanguage: webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
+      useClipPlane: false,
+    },
+  );
+  material.alphaTestTexture = atlas;
+  material.setTexture('facadeAtlas', atlas);
+  // x alpha cutoff, y shade depth, z light level of faces turned from the sun, w lit share in cast shadow.
+  material.setVector4('uFacadeParams', new Vector4(0.5, 0.86, 0.42, 0.38));
+  material.backFaceCulling = true;
+  facadeMaterials.add(material);
+  registerLookMaterial(scene, material, 'painted', SUN_DIRECTION);
   return material;
 }
 

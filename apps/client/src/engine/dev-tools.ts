@@ -21,6 +21,8 @@ export interface MapDevHost {
   visuals(): MapVisuals | null;
   frameDrawCalls(): number;
   setCameraOverride(override: DevCameraOverride | null): void;
+  /** Painted-art boot steps in ms (reported by stats() as `boot_<step>`). */
+  bootTimings?(): Record<string, number>;
 }
 
 export interface MapDevTools {
@@ -28,6 +30,8 @@ export interface MapDevTools {
   camera(px: number, py: number, pz: number, tx: number, ty: number, tz: number): void;
   releaseCamera(): void;
   stats(): Record<string, number>;
+  /** Active meshes this frame grouped by name prefix (draw-call budgeting). */
+  activeMeshGroups(): Record<string, number>;
   /** Comma-free helpers for the capture tool: `view('px py pz tx ty tz')`, `go('x z [y]')`. */
   view(spec: string): void;
   go(spec: string): Promise<unknown>;
@@ -67,6 +71,17 @@ export function installMapDevTools(host: MapDevHost): void {
       const [x = 0, z = 0, y] = spec.trim().split(/\s+/).map(Number);
       return this.teleport(x, z, y);
     },
+    activeMeshGroups() {
+      const groups: Record<string, number> = {};
+      const active = host.scene()?.getActiveMeshes();
+      if (!active) return groups;
+      for (let index = 0; index < active.length; index += 1) {
+        const name = active.data[index]?.name ?? '?';
+        const key = name.replace(/[-_]?[0-9].*$/, '').replace(/-(?:alpine|lagoon)$/, '');
+        groups[key] = (groups[key] ?? 0) + 1;
+      }
+      return groups;
+    },
     stats() {
       const scene = host.scene();
       const visuals = host.visuals();
@@ -77,7 +92,9 @@ export function installMapDevTools(host: MapDevHost): void {
         materials: scene?.materials.length ?? 0,
         mapVertices: visuals?.vertexCount ?? 0,
         destructibleMeshes: visuals?.destructibleMeshes.size ?? 0,
+        destructibleSprites: visuals?.destructibleSprites.size ?? 0,
         fps: Math.round(host.engine()?.getFps() ?? 0),
+        ...Object.fromEntries(Object.entries(host.bootTimings?.() ?? {}).map(([step, ms]) => [`boot_${step}`, ms])),
       };
     },
   };

@@ -359,10 +359,16 @@ function drawBalcony(batch: GeometryBatch, layout: BuildingLayout, style: Buildi
       const outer = (along ? sign : sign) * (d / 2 - 0.08);
       const zRail = along ? outer : outer;
       const balusters = Math.max(4, Math.round(length / 0.3));
-      for (let index = 0; index <= balusters; index += 1) {
-        const x = -length / 2 + (index / balusters) * length;
-        batch.box(x, balcony.railHeight / 2, zRail, 0.16, balcony.railHeight, 0.07, index % 2 === 0 ? style.wood : shade(style.wood, 1.15), 'wood', 0.02);
-      }
+      batch.fineDetail(
+        () => {
+          for (let index = 0; index <= balusters; index += 1) {
+            const x = -length / 2 + (index / balusters) * length;
+            batch.box(x, balcony.railHeight / 2, zRail, 0.16, balcony.railHeight, 0.07, index % 2 === 0 ? style.wood : shade(style.wood, 1.15), 'wood', 0.02);
+          }
+        },
+        // Far away the comb of balusters reads as one painted board.
+        () => batch.box(0, balcony.railHeight / 2, zRail, length, balcony.railHeight, 0.07, shade(style.wood, 1.05), 'wood', 0),
+      );
       batch.box(0, balcony.railHeight + 0.05, zRail, length + 0.1, 0.14, 0.2, shade(style.wood, 0.85), 'wood', 0.04);
       batch.box(0, 0.12, zRail, length + 0.1, 0.1, 0.16, shade(style.wood, 0.85), 'wood', 0.03);
       if (style.flowers) {
@@ -679,11 +685,70 @@ export interface BuildingDrawOptions {
   variant: number;
   seed: number;
   snowy: boolean;
+  /**
+   * A painted facade shell (map/facades.ts) covers the outside: draw only the
+   * structure behind it — floors, ceiling, inner wall lining, door frames and
+   * reveals, stairs, balcony and interior.
+   */
+  facade?: boolean;
+}
+
+/** Inner plank lining of one storey (windows and doors stay open). */
+function drawInnerLining(batch: GeometryBatch, layout: BuildingLayout, floor: BuildingFloor, style: BuildingStyle): void {
+  const t = layout.wallThickness;
+  for (const frame of wallFrames(layout)) {
+    for (const span of wallSpans(layout, floor, true)) {
+      if (span.side !== frame.side) continue;
+      const a = wallPoint(frame, span.from, floor.elevation + span.bottom, -t * 0.32);
+      const b = wallPoint(frame, span.to, floor.elevation + span.top, -t * 0.32);
+      drawWallSlab(batch, frame, a, b, 0.06, shade(style.wood, 0.8), 'wood');
+    }
+  }
+}
+
+/** Jambs and head boards lining each doorway through the wall thickness. */
+function drawDoorReveals(batch: GeometryBatch, layout: BuildingLayout, floor: BuildingFloor, style: BuildingStyle): void {
+  const t = layout.wallThickness;
+  const frames = wallFrames(layout);
+  for (const opening of floor.openings) {
+    if (opening.kind !== 'door' && opening.kind !== 'counter') continue;
+    const frame = frames.find((candidate) => candidate.side === opening.wall);
+    if (!frame) continue;
+    const bottom = floor.elevation + opening.sill;
+    const height = Math.min(floor.height - opening.sill, opening.height);
+    onWall(batch, frame, opening.offset, bottom, 0, () => {
+      for (const side of [-1, 1]) {
+        batch.box(side * (opening.width / 2 + 0.05), height / 2, 0, 0.1, height, t + 0.06, shade(style.wood, 0.7), 'wood', 0.02);
+      }
+      batch.box(0, height + 0.05, 0, opening.width + 0.2, 0.1, t + 0.06, shade(style.wood, 0.7), 'wood', 0.02);
+    });
+  }
+}
+
+function drawFacadeStructure(batch: GeometryBatch, layout: BuildingLayout, style: BuildingStyle, options: BuildingDrawOptions): void {
+  layout.floors.forEach((floor, index) => {
+    drawFloorSlab(batch, layout, floor, index);
+    drawInnerLining(batch, layout, floor, style);
+    drawDoorReveals(batch, layout, floor, style);
+    const doors = { ...floor, openings: floor.openings.filter((opening) => opening.kind === 'door' || opening.kind === 'counter') };
+    drawOpenings(batch, layout, doors, style, options.seed + index * 13);
+  });
+  // Ceiling under the attic (the painted roof is single-sided).
+  const top = roofBase(layout);
+  drawFloorSlab(batch, layout, { elevation: top, height: 0, openings: [] }, 0);
+  drawStairs(batch, layout);
+  drawBalcony(batch, layout, style);
+  drawInterior(batch, layout, options.seed);
+  if (options.snowy && layout.roof.snow) drawWallDrifts(batch, layout, options.seed);
 }
 
 /** Full building shell in building-local space (origin = anchor, +Z = front). */
 export function drawBuilding(batch: GeometryBatch, layout: BuildingLayout, options: BuildingDrawOptions): void {
   const style = styleFor(layout, options.variant);
+  if (options.facade) {
+    drawFacadeStructure(batch, layout, style, options);
+    return;
+  }
   drawPlinth(batch, layout, style);
   layout.floors.forEach((floor, index) => {
     drawFloorSlab(batch, layout, floor, index);

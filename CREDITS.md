@@ -52,11 +52,23 @@ procedural sky, clouds, detail tiles and water foam when one is missing (contrac
 | `wardrobe/palm.png` | `gemini-sheet-trees.webp`, leaning palm | Same cut-out for the Lagoon League wardrobe stage, 166 × 300. |
 | `wardrobe/palm-small.png` | `gemini-sheet-trees.webp`, small palm | Same cut-out, 120 × 128. |
 
-Derived from the same sheets but not shipped in the client bundle until a package uses them, kept
-under `art-src/painted-world/`: `tex/<name>_color.jpg`, the full-colour seamless tiles the grey
-overlays were made from (colour references), and `decals/`, 16 cut-out ground and prop splats
-(`snow-patch-01`…`06`, `mud-patch-01`…`04`, `rock-01`, `rock-02` and `palm-frond-01` from
-`gemini-ground-mixed.webp`; `log-end-01`…`03` from `gemini-tex-logwall.webp`).
+Derived from the same sheets and kept under `art-src/painted-world/`: `tex/<name>_color.jpg`, the
+full-colour seamless tiles the grey overlays were made from, and `decals/`, 16 cut-out ground and
+prop splats (`snow-patch-01`…`06`, `mud-patch-01`…`04`, `rock-01`, `rock-02` and `palm-frond-01`
+from `gemini-ground-mixed.webp`; `log-end-01`…`03` from `gemini-tex-logwall.webp`). The painted
+world (2V) ships byte-identical copies of all eight colour tiles in `public/art/tex/` (the
+`detailColor` atlas of `rendering/detail-textures.ts`) and of the 16 decals in `public/art/decals/`
+(ground decals in the sprite atlas).
+
+### Painted world sprites and facades (2V)
+
+| Files | Source | Processing |
+| --- | --- | --- |
+| `sprites/<id>.png` (46) | `gemini-sheet-trees.webp`, `gemini-sprites-vegetation.webp`, `gemini-sprites-clutter.webp` | Firs, palms, bushes, boulders, tufts and village/beach clutter cut out, keyed and despilled; height, pivot and biome tags per sprite in `sprites/manifest.json`. Packed into one atlas at load (`rendering/sprite-atlas.ts`). |
+| `facades/<building>-<panel>.png` (24) | `gemini-facade-gasthof.webp`, `-bistro`, `-tikialm`, `-towerc`, `-towerb`, `-lighthouse` | Front/side/back/roof panels split from each 2×2 sheet and magenta-keyed (alpha follows the silhouette); panel metrics in `facades/manifest.json`, mapped onto the buildings by `rendering/map/facades.ts`. |
+
+Like the other painted world art these are optional: without the manifests or images the map keeps
+its procedural trees, rocks, clutter and building faces.
 
 ## Painted 3D characters (Meshy)
 

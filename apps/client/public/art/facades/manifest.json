@@ -1,0 +1,344 @@
+{
+ "version": 1,
+ "comment": "Owner-painted facade panels packed into one atlas at load (rendering/facade-atlas.ts) and mapped onto buildings by blueprint prop id (map/facades.ts). Pixel metrics refer to the source PNGs (y down). Gable: wall = building width, ground row, apex [x, y] = top of the ridge, eave [xl, xr, y] = roof tips. Side: wall = building depth, ground row, top = top of the wall band under the eave. Roof: rect of the top view, front = image edge facing the building front. Fortress (Tower C): crop [x0, y0, x1, y1] per storey band, clock house and hanging pine-cone weights (x = local metres). Lighthouse: cx, rows [stripe top, base top, ground] and painted half-widths at those rows. Pavilion (Tower B): roof top view rect.",
+ "buildings": {
+  "chalet_west": "gasthof",
+  "chalet_north": "gasthof",
+  "chalet_east": "bistro",
+  "chalet_south": "tikialm",
+  "tower_c_dairy": "towerc",
+  "tower_a_lighthouse": "lighthouse",
+  "tower_b_pavilion": "towerb"
+ },
+ "sets": {
+  "gasthof": {
+   "kind": "gable",
+   "front": {
+    "file": "gasthof-front.png",
+    "wall": [
+     69,
+     427
+    ],
+    "ground": 330,
+    "apex": [
+     248,
+     4
+    ],
+    "eave": [
+     28,
+     468,
+     142
+    ]
+   },
+   "back": {
+    "file": "gasthof-back.png",
+    "wall": [
+     40,
+     420
+    ],
+    "ground": 328,
+    "apex": [
+     228,
+     6
+    ],
+    "eave": [
+     4,
+     456,
+     142
+    ]
+   },
+   "side": {
+    "file": "gasthof-side.png",
+    "wall": [
+     100,
+     398
+    ],
+    "ground": 330,
+    "top": 146
+   },
+   "roof": {
+    "file": "gasthof-roof.png",
+    "rect": [
+     5,
+     15,
+     388,
+     285
+    ],
+    "front": "bottom"
+   }
+  },
+  "bistro": {
+   "kind": "gable",
+   "front": {
+    "file": "bistro-front.png",
+    "wall": [
+     62,
+     377
+    ],
+    "ground": 322,
+    "apex": [
+     220,
+     4
+    ],
+    "eave": [
+     4,
+     436,
+     132
+    ]
+   },
+   "back": {
+    "file": "bistro-back.png",
+    "wall": [
+     53,
+     374
+    ],
+    "ground": 316,
+    "apex": [
+     214,
+     4
+    ],
+    "eave": [
+     5,
+     423,
+     132
+    ]
+   },
+   "side": {
+    "file": "bistro-side.png",
+    "wall": [
+     149,
+     411
+    ],
+    "ground": 318,
+    "top": 144
+   },
+   "roof": {
+    "file": "bistro-roof.png",
+    "rect": [
+     4,
+     25,
+     403,
+     252
+    ],
+    "front": "bottom"
+   }
+  },
+  "tikialm": {
+   "kind": "gable",
+   "front": {
+    "file": "tikialm-front.png",
+    "wall": [
+     71,
+     376
+    ],
+    "ground": 330,
+    "apex": [
+     224,
+     40
+    ],
+    "eave": [
+     29,
+     418,
+     168
+    ]
+   },
+   "back": {
+    "file": "tikialm-back.png",
+    "wall": [
+     36,
+     359
+    ],
+    "ground": 326,
+    "apex": [
+     197,
+     40
+    ],
+    "eave": [
+     5,
+     390,
+     168
+    ]
+   },
+   "side": {
+    "file": "tikialm-side.png",
+    "wall": [
+     109,
+     383
+    ],
+    "ground": 336,
+    "top": 186
+   },
+   "roof": {
+    "file": "tikialm-roof.png",
+    "rect": [
+     100,
+     25,
+     455,
+     315
+    ],
+    "front": "left"
+   }
+  },
+  "towerc": {
+   "kind": "fortress",
+   "ground": {
+    "front": {
+     "file": "towerc-front.png",
+     "crop": [
+      10,
+      252,
+      452,
+      332
+     ]
+    },
+    "back": {
+     "file": "towerc-back.png",
+     "crop": [
+      8,
+      252,
+      456,
+      330
+     ]
+    },
+    "side": {
+     "file": "towerc-side.png",
+     "crop": [
+      15,
+      252,
+      407,
+      330
+     ]
+    }
+   },
+   "upper": {
+    "front": {
+     "file": "towerc-front.png",
+     "crop": [
+      60,
+      150,
+      402,
+      252
+     ]
+    },
+    "back": {
+     "file": "towerc-back.png",
+     "crop": [
+      40,
+      165,
+      425,
+      252
+     ]
+    },
+    "side": {
+     "file": "towerc-side.png",
+     "crop": [
+      60,
+      168,
+      370,
+      250
+     ]
+    }
+   },
+   "clock": {
+    "front": {
+     "file": "towerc-front.png",
+     "crop": [
+      150,
+      4,
+      312,
+      228
+     ]
+    },
+    "back": {
+     "file": "towerc-back.png",
+     "crop": [
+      176,
+      2,
+      288,
+      145
+     ]
+    },
+    "side": {
+     "file": "towerc-side.png",
+     "crop": [
+      155,
+      60,
+      260,
+      172
+     ]
+    }
+   },
+   "weights": [
+    {
+     "file": "towerc-front.png",
+     "crop": [
+      106,
+      300,
+      166,
+      396
+     ],
+     "x": [
+      3.6,
+      6.9
+     ]
+    },
+    {
+     "file": "towerc-front.png",
+     "crop": [
+      296,
+      300,
+      356,
+      396
+     ],
+     "x": [
+      -6.9,
+      -3.6
+     ]
+    }
+   ]
+  },
+  "lighthouse": {
+   "kind": "lighthouse",
+   "front": {
+    "file": "lighthouse-front.png",
+    "cx": 117.5,
+    "rows": [
+     200,
+     536,
+     650
+    ],
+    "half": [
+     59.5,
+     75,
+     108
+    ]
+   },
+   "side": {
+    "file": "lighthouse-side.png",
+    "cx": 127.5,
+    "rows": [
+     200,
+     536,
+     646
+    ],
+    "half": [
+     60,
+     74.5,
+     104
+    ]
+   }
+  },
+  "towerb": {
+   "kind": "pavilion",
+   "roof": {
+    "file": "towerb-roof.png",
+    "rect": [
+     50,
+     48,
+     264,
+     266
+    ]
+   }
+  }
+ }
+}
