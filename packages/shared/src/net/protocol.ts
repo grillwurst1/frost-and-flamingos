@@ -53,6 +53,7 @@ import {
   PLAYER_STATUS_FLAG,
   type GameEventCodeValue,
 } from './opcodes.js';
+import { readConquestState, writeConquestState } from './conquest-codec.js';
 import { BinaryReader } from './reader.js';
 import { BinaryWriter } from './writer.js';
 
@@ -430,6 +431,8 @@ export function encodeWelcome(welcome: WelcomeMessage): ArrayBuffer {
     .writePosition(welcome.spawn)
     .writeUint8(welcome.protocolVersion);
   writeProfile(writer, welcome.profile);
+  // Protocol 9: spawn facing.
+  writer.writeAngle(welcome.spawnYaw);
   return writer.finish();
 }
 
@@ -442,7 +445,8 @@ export function decodeWelcome(source: ArrayBuffer | ArrayBufferView): WelcomeMes
     const spawn = reader.readPosition();
     const protocolVersion = reader.readUint8();
     const profile = readProfile(reader);
-    return { playerId, serverTick, spawn, protocolVersion, profile };
+    const spawnYaw = reader.readAngle();
+    return { playerId, serverTick, spawn, spawnYaw, protocolVersion, profile };
   });
 }
 
@@ -569,6 +573,9 @@ export function encodeSnapshot(snapshot: WorldSnapshot): ArrayBuffer {
   writer.writeUint8(critters.length);
   for (const critter of critters) writeCritterState(writer, critter);
 
+  // Protocol 9: Climate Conquest block (towers, round phase, timer), after the critter trailer.
+  writeConquestState(writer, snapshot.conquest);
+
   return writer.finish();
 }
 
@@ -664,6 +671,8 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
     const critters: CritterState[] = [];
     for (let index = 0; index < critterCount; index += 1) critters.push(readCritterState(reader));
 
+    const conquest = readConquestState(reader);
+
     return {
       serverTick,
       weatherBalance,
@@ -675,6 +684,7 @@ export function decodeSnapshot(source: ArrayBuffer | ArrayBufferView): WorldSnap
       players,
       vehicles,
       critters,
+      conquest,
     };
   });
 }

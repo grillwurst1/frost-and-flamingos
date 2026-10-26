@@ -10,3 +10,4 @@ export * from './skills.js';
 export * from './mascot.js';
 export * from './drifter.js';
 export * from './vehicles.js';
+export * from './conquest.js';

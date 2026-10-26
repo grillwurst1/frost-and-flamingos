@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ParachuteState, drifterFormForFaction } from '@frost-and-flamingos/shared';
+  import { spawnProtected } from '../../state/conquest';
   import { connection, damageFlash, localPlayer } from '../../state/game';
   import { t } from '../../state/locale';
   import DrifterEmblem from '../DrifterEmblem.svelte';
@@ -36,6 +37,7 @@
 
 <div class="status-wrap" class:is-low={lowHealth} style={`--hit:${hit}`}>
   <div class="status-tags">
+    {#if $spawnProtected && player?.alive}<span class="status-tag is-protected">{$t('combat.protected')}</span>{/if}
     {#if player?.cloaked}<span class="status-tag is-accent">{$t('combat.cloaked')}</span>{/if}
     {#if parachuteOpen}<span class="status-tag is-accent">{$t('hud.parachute')}</span>{/if}
     {#if player?.swimming}<span class="status-tag">{$t('hud.swimming')}</span>{/if}

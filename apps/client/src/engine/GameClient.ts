@@ -20,6 +20,7 @@ import {
   WEAPON_STATS,
   WEAPON_TABLE,
   classStatsFor,
+  wireToSpawnYaw,
   createDefaultProfile,
   mascotFormOf,
   classCapabilities,
@@ -46,6 +47,7 @@ import {
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
 import { audio, type AmbienceKind } from '../audio/synth';
+import type { RoundMusicCue } from '../audio/tracks';
 import { NetworkClient } from '../net/connection';
 import { buildFjordFiesta, type MapVisuals } from '../rendering/map';
 import { createAvatarView, type AvatarPose, type AvatarView } from '../rendering/avatar';
@@ -110,8 +112,10 @@ import {
   getProfile,
   profile as profileStore,
   profileFingerprint,
+  setFaction,
 } from '../state/profile';
 import { setPaintedModels } from '../state/painted-models';
+import { translateNow } from '../state/locale';
 import { CameraRig } from './camera-rig';
 import { installMapDevTools, uninstallMapDevTools, type DevCameraOverride } from './dev-tools';
 import { InputController } from './input';
@@ -119,6 +123,7 @@ import { CritterClient } from './critter-client';
 import { cameraProfileFor, MascotClient } from './mascot-client';
 import { DrifterClient } from './drifter-client';
 import { VehicleClient } from './vehicle-client';
+import { ConquestClient } from './conquest-client';
 
 const INTERPOLATION_DELAY_MS = 110;
 const SNAPSHOT_HISTORY = 40;
@@ -353,6 +358,10 @@ export class GameClient {
   private tracers: TracerFx | null = null;
   /** Rendered feet per player id this frame (local prediction, remote interpolation). */
   private readonly renderedFeet = new Map<number, Vec3>();
+  /** Climate Conquest HUD state, tower visuals and stings. */
+  private conquestClient: ConquestClient | null = null;
+  /** Spawn facing announced by the last local PLAYER_RESPAWNED (applied with the respawn snap). */
+  private pendingRespawnYaw: number | null = null;
   private previewKey: string | null = null;
   private previewYaw = 0.35;
   private previewSpin = true;
@@ -642,6 +651,10 @@ export class GameClient {
       preloadMascotModels(scene);
       preloadMascotTextures(scene);
       installMascotDevHandle(scene, this.mascotFx);
+      this.conquestClient = new ConquestClient(scene, this.visuals, this.toonMaterial, (x, z, top, depth) => {
+        const hit = this.physics?.raycast({ x, y: top, z }, { x: 0, y: -1, z: 0 }, depth);
+        return hit && hit.distance > 0.01 ? hit.point.y : null;
+      });
       this.look?.attachMap(this.visuals);
       if (import.meta.env.DEV) {
         installMapDevTools({
@@ -698,7 +711,7 @@ export class GameClient {
     this.lastFrameAt = performance.now();
     this.cameraRig?.snapToPlayer(toVector3(this.localCharacter.position));
     if (this.currentPhase === 'paused') {
-      audio.setRoundCue(null);
+      audio.setRoundCue(this.roundCue(null));
       setPhase('playing');
       this.input?.requestPointerLock();
       return;
@@ -725,7 +738,7 @@ export class GameClient {
           this.scheduleDeployment(attempt + 1);
           return;
         }
-        audio.setRoundCue(null);
+        audio.setRoundCue(this.roundCue(null));
         this.accumulator = 0;
         this.lastFrameAt = performance.now();
         setPhase('playing');
@@ -812,6 +825,7 @@ export class GameClient {
     }
     audio.setRoundCue(null);
     clearCombatUi();
+    this.conquestClient?.clearUi();
     this.deathKillerId = 0;
     this.deathKillerName = '';
     this.deathAt = 0;
@@ -857,6 +871,7 @@ export class GameClient {
     this.drifters = null;
     this.tracers?.dispose();
     this.tracers = null;
+    this.conquestClient?.dispose();
     audio.setRollRumble(0);
     this.physics?.dispose();
     this.look?.dispose();
@@ -951,6 +966,21 @@ export class GameClient {
     };
   }
 
+  /**
+   * In a match (deploying, playing or paused): conquest stings, pops and toasts may play.
+   */
+  private get inMatch(): boolean {
+    return this.currentPhase === 'playing' || this.currentPhase === 'deploying' || this.currentPhase === 'paused';
+  }
+
+  /**
+   * Music cue for the moment: the results bed owns the whole intermission, so
+   * a respawn, resume or death cue during it must not restart the bed.
+   */
+  private roundCue(cue: RoundMusicCue | null): RoundMusicCue | null {
+    return this.conquestClient?.roundPhase === 'ended' ? 'ended' : cue;
+  }
+
   private handlePointerLockChange(locked: boolean): void {
     if (locked) return;
     if (this.currentPhase === 'playing') {
@@ -1004,9 +1034,9 @@ export class GameClient {
     this.localCharacter?.restore(welcome.spawn, { x: 0, y: 0, z: 0 }, false, 0);
     this.ensureLocalView(welcome.profile);
     this.localView?.setPosition(welcome.spawn);
-    this.localView?.setYaw(0, true);
+    this.localView?.setYaw(welcome.spawnYaw, true);
 
-    this.cameraRig?.resetAngles(0);
+    this.cameraRig?.resetAngles(welcome.spawnYaw);
     this.cameraRig?.snapToPlayer(toVector3(welcome.spawn));
     this.lastFrameAt = performance.now();
     this.accumulator = 0;
@@ -1277,7 +1307,7 @@ export class GameClient {
             respawnSeconds: RESPAWN_DELAY_SECONDS,
             at: now,
           });
-          audio.setRoundCue('dead');
+          audio.setRoundCue(this.roundCue('dead'));
           if (!this.mascots?.playDeath(this.localProfile ?? undefined, victim)) {
             audio.playDeathScream(undefined, this.localProfile?.cosmetics.voicePitch ?? 1);
           }
@@ -1286,8 +1316,31 @@ export class GameClient {
         }
         return;
       }
-      case 'PLAYER_RESPAWNED': {
+      case 'PROFILE_NOTICE': {
         if (event.actorId !== this.localId) return;
+        if (event.paramValue === 1) {
+          notify('wardrobe.appliesOnRespawn');
+          return;
+        }
+        // Moved to the other side at respawn: the wardrobe preference follows the server.
+        const faction: Faction = event.paramX === 0 ? 'alpine' : 'lagoon';
+        this.suppressProfileSend = true;
+        try {
+          setFaction(faction);
+        } finally {
+          this.suppressProfileSend = false;
+        }
+        notify('notifications.teamBalanced', { faction: translateNow(`factions.${faction}.short`) });
+        return;
+      }
+      case 'TURRET_CAPTURED': {
+        this.conquestClient?.onTowerEvent(event, this.localFaction, this.inMatch);
+        return;
+      }
+      case 'PLAYER_RESPAWNED': {
+        this.conquestClient?.onRespawn(event.actorId, event.actorId === this.localId);
+        if (event.actorId !== this.localId) return;
+        this.pendingRespawnYaw = event.paramX === 1 ? wireToSpawnYaw(event.paramValue) : null;
         this.deathKillerId = 0;
         this.deathKillerName = '';
         this.deathAt = 0;
@@ -1295,7 +1348,7 @@ export class GameClient {
         this.pendingRespawnSnap = true;
         deathState.set(null);
         this.cameraRig?.endKillerCam();
-        audio.setRoundCue(null);
+        audio.setRoundCue(this.roundCue(null));
         return;
       }
       case 'SKILL_USED': {
@@ -1337,6 +1390,11 @@ export class GameClient {
       weatherBalance: snapshot.weatherBalance,
       towerStates: snapshot.turretStates,
     });
+    this.conquestClient?.onSnapshot(
+      snapshot,
+      { id: this.localId, faction: this.localFaction, classId: this.localClass },
+      this.inMatch,
+    );
     if (Math.abs(snapshot.weatherBalance - this.appliedWeatherLook) > WEATHER_LOOK_EPSILON) {
       this.appliedWeatherLook = snapshot.weatherBalance;
       this.look?.setWeatherLook(snapshot.weatherBalance);
@@ -1364,7 +1422,7 @@ export class GameClient {
         respawnSeconds: RESPAWN_DELAY_SECONDS,
         at: this.deathAt,
       });
-      audio.setRoundCue('dead');
+      audio.setRoundCue(this.roundCue('dead'));
     } else if (authoritative.alive && this.deathAt > 0) {
       this.deathAt = 0;
       this.deathKillerId = 0;
@@ -1372,7 +1430,7 @@ export class GameClient {
       this.lastDamageAt = 0;
       deathState.set(null);
       this.cameraRig?.endKillerCam();
-      audio.setRoundCue(null);
+      audio.setRoundCue(this.roundCue(null));
       this.pendingRespawnSnap = true;
     } else if (this.deathAt > 0) {
       const killer = snapshot.players.find((player) => player.id === this.deathKillerId);
@@ -1391,6 +1449,12 @@ export class GameClient {
     }
     if (authoritative.alive && this.pendingRespawnSnap) {
       this.pendingRespawnSnap = false;
+      if (this.pendingRespawnYaw !== null) {
+        // Look the way the pad faces: toward the next objective across open ground.
+        this.cameraRig?.resetAngles(this.pendingRespawnYaw);
+        this.localView?.setYaw(this.pendingRespawnYaw, true);
+        this.pendingRespawnYaw = null;
+      }
       this.cameraRig?.snapToPlayer(toVector3(authoritative.position));
     }
     this.reconcile(authoritative);
@@ -1524,6 +1588,7 @@ export class GameClient {
     this.updateDrifters(delta);
     this.tracers?.update(delta);
     this.mascotFx?.update(delta);
+    this.conquestClient?.update(delta, this.localCharacter?.position ?? null, this.latestLocalState?.alive ?? false);
     this.updateAudio(delta);
     this.updateMaterials(now);
     this.updateHud(now);

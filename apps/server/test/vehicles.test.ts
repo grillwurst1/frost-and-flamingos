@@ -41,8 +41,13 @@ describe('vehicle framework (fondue crawler)', () => {
     expect(body).not.toBeNull();
     if (!body) return;
     expect(room.vehicles.lifecycleOf(slot.id)).toBe('active');
-    // The capture-trigger crawler waits for Tower C (no tower held by default).
+    // The capture-trigger crawler follows Tower C (the room wires the conquest towers):
+    // Peak Guard holds C from the round start, so it is there from the first tick.
     const summit = VEHICLE_SLOTS.find((entry) => entry.kind === 'fondue_crawler' && typeof entry.spawn.trigger === 'object');
+    expect(summit && room.vehicles.lifecycleOf(summit.id)).toBe('active');
+    // Without the tower an untouched crawler leaves its pad; it returns with the tower.
+    room.devConquest({ tower: 'tower_c', owner: 'lagoon' });
+    run(room, 31);
     expect(summit && room.vehicles.lifecycleOf(summit.id)).toBe('waiting');
     room.vehicles.setTowerQuery((tower, faction) => tower === 'tower_c' && faction === 'alpine');
     run(room, 31);

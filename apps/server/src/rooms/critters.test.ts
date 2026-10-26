@@ -35,6 +35,7 @@ import {
   type WeaponSlot,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
+import { ClimateConquest } from './conquest';
 import { CritterSystem, type CritterKill, type CritterThreat } from './critters.js';
 import { MatchRoom, type GameSocket } from './match-room.js';
 
@@ -315,6 +316,7 @@ describe('critter snapshot codec', () => {
       players: [],
       vehicles: [],
       critters,
+      conquest: new ClimateConquest().snapshot(),
     };
     const decoded = decodeSnapshot(encodeSnapshot(snapshot));
     if (!decoded) throw new Error('decode failed');

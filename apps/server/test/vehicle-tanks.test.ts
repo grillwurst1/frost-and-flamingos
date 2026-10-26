@@ -19,6 +19,7 @@ import {
   run,
   sendInput,
   slotByKind,
+  slotBySpawn,
 } from './vehicle-helpers';
 
 const { COASTAL_RAMP_POINTS, GLACIER_RUNWAY } = FjordLayout;
@@ -50,7 +51,11 @@ function addRamp(physics: PhysicsWorld, x: number, z: number, yaw: number, angle
 describe('coconut beach tank', () => {
   test('climbs the sandy coastal ramp from the harbour beach', async () => {
     const room = await createRoom();
-    const slot = slotByKind('coconut_tank');
+    // The harbour tank waits at the foot of the ramp while the Lagoon League holds
+    // its home tower A (a capture-gated slot, live from the round start since the
+    // conquest merge); it is the tank that climbs this ramp in play.
+    const slot = slotBySpawn('coconut_tank_harbor');
+    expect(room.vehicles.lifecycleOf(slot.id)).toBe('active');
     const driver = joinPlayer(room, 'lagoon');
     expect(room.vehicles.devEnter(playerOf(room, driver.id) as never, slot.id, 0)).toBe(true);
     const body = room.vehicles.vehicleBody(slot.id);

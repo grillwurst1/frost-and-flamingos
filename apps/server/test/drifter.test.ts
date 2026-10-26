@@ -32,6 +32,7 @@ import {
   type PlayerInput,
   type Vec3,
 } from '@frost-and-flamingos/shared';
+import { ClimateConquest } from '../src/rooms/conquest';
 import {
   aimAt,
   createRoom,
@@ -853,6 +854,7 @@ describe('prediction determinism', () => {
           turretStates: 0,
           vehicles: [],
           critters: [],
+          conquest: new ClimateConquest().snapshot(),
           players: [
             {
               id: 1, faction: 'alpine', classId, position: authoritative.position, velocity: authoritative.velocity,

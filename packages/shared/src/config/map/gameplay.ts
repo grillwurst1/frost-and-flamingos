@@ -70,9 +70,25 @@ function bothFactions(tower: TowerId, zone: ZoneId, positions: readonly Vec3[], 
 }
 
 const A = TOWER_A_POSITION;
-const harborPads: Vec3[] = Array.from({ length: 6 }, (_, index) => {
-  const angle = (index / 6) * Math.PI * 2 + 0.3;
-  return vec3(A.x + Math.sin(angle) * 11.5, HARBOR_DECK_HEIGHT + 0.05, A.z + Math.cos(angle) * 11.5);
+/**
+ * Tower A pads on the piers' solid rest decks (past the two destructible
+ * 6 m segments), 29–34 m from the lighthouse: outside the 16 m capture zone,
+ * so a defender walks in like at Towers B and C, and still standing after
+ * the M6 pier segments are blown away (audited by test/spawn.test.ts).
+ */
+const harborPads: Vec3[] = (
+  [
+    ['pier_ne', 13.5],
+    ['pier_ne', 18.5],
+    ['pier_e', 13.5],
+    ['pier_e', 18.5],
+    ['pier_s', 13.5],
+    ['pier_w', 13.5],
+  ] as const
+).map(([id, along]) => {
+  const layout = PIER_LAYOUTS.find((candidate) => candidate.id === id);
+  const point = layout ? localToWorld(layout.start, layout.yaw, vec3(0, 0, along)) : vec3(A.x, 0, A.z);
+  return vec3(point.x, HARBOR_DECK_HEIGHT + 0.05, point.z);
 });
 const villagePads: Vec3[] = [
   vec3(-20, VILLAGE_HEIGHT + 0.05, 36),
@@ -82,13 +98,16 @@ const villagePads: Vec3[] = [
   vec3(14, VILLAGE_HEIGHT + 0.05, -38),
   vec3(-30, VILLAGE_HEIGHT + 0.05, -38),
 ];
+// Pads keep open sky and camera room: clear of the mountain cable-car station
+// (west of the porch) and of the porch eaves (audited by test/spawn.test.ts).
 const summitPads: Vec3[] = [
-  [0, 18],
+  [-6, 21],
   [-9, 17],
-  [9, 17],
+  [11, 15],
   [-19, 2],
   [19, 2],
-  [0, -16],
+  // Clear of the 16 m capture zone by more than a metre (was exactly on its edge).
+  [0, -18],
 ].map(([lx, lz]) => {
   const world = localToWorld(TOWER_C_POSITION, SUMMIT_YAW, vec3(lx ?? 0, 0, lz ?? 0));
   return ground(world.x, world.z, 0.05);

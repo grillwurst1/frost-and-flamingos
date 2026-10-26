@@ -1,3 +1,5 @@
+import type { ConquestSnapshot } from './conquest.js';
+
 export type Faction = 'alpine' | 'lagoon';
 export type ClassId = 'allrounder' | 'heavy' | 'infiltrator' | 'mascot' | 'drifter';
 /** The mascot class has two physical forms, resolved from the player's faction. */
@@ -378,6 +380,8 @@ export interface WorldSnapshot {
   vehicles: VehicleSnapshot[];
   /** Ambient critters (hens), alive and waiting to respawn. */
   critters: CritterState[];
+  /** Protocol 9: towers, round phase and timer of the Climate Conquest round. */
+  conquest: ConquestSnapshot;
 }
 
 export interface MapStateSync {
@@ -414,6 +418,7 @@ export type GameEventType =
   | 'VEHICLE_DESTROYED'
   | 'VEHICLE_HORN'
   | 'VEHICLE_SEAT'
+  | 'PROFILE_NOTICE'
   | 'CRITTER_KILLED';
 
 export interface GameEvent {
@@ -430,6 +435,8 @@ export interface WelcomeMessage {
   profile: PlayerProfile;
   serverTick: number;
   spawn: Vec3;
+  /** Protocol 7: facing of the spawn pad (toward the next objective, across open ground). */
+  spawnYaw: number;
   protocolVersion: number;
 }
 
@@ -453,3 +460,4 @@ export interface PongPacket {
   serverTick: number;
 }
 export * from './map.js';
+export * from './conquest.js';

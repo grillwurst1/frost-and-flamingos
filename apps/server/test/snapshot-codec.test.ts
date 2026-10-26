@@ -1,9 +1,11 @@
 /**
- * Protocol 9 (3H critters = 7, 3G drifter = 8, 4V vehicles = 9): one merged
- * WorldSnapshot with a drifter (aura bits + uint16 support score), an
- * aura-supplied teammate riding a vehicle, the full 4V vehicle block and the
- * critter trailer survives the binary codec field for field, in the order
- * players -> vehicles -> critters.
+ * Protocol 9 (3H critters = 7, 3G drifter = 8, 4V vehicles + 4T conquest = 9):
+ * one merged WorldSnapshot with a drifter (aura bits + uint16 support score),
+ * an aura-supplied teammate riding a vehicle, the full 4V vehicle block, the
+ * critter trailer and the 4T Climate Conquest block (tower owner, control,
+ * contested, pushing side and head counts, round phase/winner/reason, round
+ * number and clock) survives the binary codec field for field, in the order
+ * players -> vehicles -> critters -> conquest.
  *
  *   bun test apps/server/test/snapshot-codec.test.ts
  */
@@ -15,8 +17,13 @@ import {
   VEHICLE_KIND_TABLE,
   VEHICLES,
   classStatsFor,
+  createDefaultProfile,
   decodeSnapshot,
+  decodeWelcome,
   encodeSnapshot,
+  encodeWelcome,
+  towerOwnerBits,
+  type ConquestSnapshot,
   type CritterState,
   type PlayerState,
   type VehicleSnapshot,
@@ -160,6 +167,38 @@ const critters: CritterState[] = [
   { id: 3, species: 'hen', half: 'lagoon', position: pos(-16000, 160, -12800), yaw: 0, speed: 0, behaviour: 'peck', alive: false, airborne: false },
 ];
 
+/**
+ * A live round: Peak Guard holds A, B is neutral and being pushed by the
+ * Lagoon League, Lagoon holds C under a contested push (head counts at the
+ * 15 wire cap). Control travels as i8 /127 and the clock as u16 tenths.
+ */
+const conquest: ConquestSnapshot = {
+  towers: [
+    { owner: 'alpine', control: -1, pushing: null, contested: false, alpine: 3, lagoon: 0 },
+    { owner: null, control: 54 / 127, pushing: 'lagoon', contested: false, alpine: 1, lagoon: 4 },
+    { owner: 'lagoon', control: 90 / 127, pushing: 'alpine', contested: true, alpine: 15, lagoon: 15 },
+  ],
+  phase: 'live',
+  winner: null,
+  reason: null,
+  round: 3,
+  secondsLeft: 7345 / 10,
+};
+
+/** The 15 s results: Lagoon won on tickets, nobody pushes, the intermission clock runs. */
+const results: ConquestSnapshot = {
+  towers: [
+    { owner: 'lagoon', control: 1, pushing: null, contested: false, alpine: 0, lagoon: 2 },
+    { owner: 'lagoon', control: 127 / 127, pushing: null, contested: false, alpine: 0, lagoon: 0 },
+    { owner: null, control: -33 / 127, pushing: null, contested: false, alpine: 0, lagoon: 0 },
+  ],
+  phase: 'ended',
+  winner: 'lagoon',
+  reason: 'tickets',
+  round: 65535,
+  secondsLeft: 123 / 10,
+};
+
 const snapshot: WorldSnapshot = {
   serverTick: 987654,
   weatherBalance: -0.25,
@@ -167,32 +206,37 @@ const snapshot: WorldSnapshot = {
   windStrength: 128 / 255,
   ticketsAlpine: 47,
   ticketsLagoon: 50,
-  turretStates: 5,
+  // Legacy header byte: 2 owner bits per tower (A alpine = 1, C lagoon = 2 << 4).
+  turretStates: towerOwnerBits(conquest.towers),
   players: [drifter, mate, enemy],
   vehicles,
   critters,
+  conquest,
 };
 
 const HEADER_BYTES = 14;
+/** 4T conquest block: 3 B per tower + round byte + u16 round + u16 clock. */
+const CONQUEST_BYTES = 14;
 /** Non-mascot player record (3G support uint16 included). */
 const PLAYER_BYTES = 43;
 /** 4V vehicle block: 35 B + 2 B per seat. */
 const vehicleBytes = (vehicle: VehicleSnapshot): number => 35 + 2 * vehicle.seats.length;
 
-/** Header, players, vehicle count + blocks, critter count + 12 B each. */
+/** Header, players, vehicle count + blocks, critter count + 12 B each, conquest block. */
 function expectedBytes(value: WorldSnapshot): number {
   const vehicleBlock = value.vehicles.reduce((sum, vehicle) => sum + vehicleBytes(vehicle), 0);
-  return HEADER_BYTES + value.players.length * PLAYER_BYTES + 1 + vehicleBlock + 1 + value.critters.length * 12;
+  return HEADER_BYTES + value.players.length * PLAYER_BYTES + 1 + vehicleBlock + 1 + value.critters.length * 12 + CONQUEST_BYTES;
 }
 
 describe('merged protocol 9 snapshot codec', () => {
-  test('protocol version is 9 (3H critters = 7, 3G drifter = 8, 4V vehicles = 9)', () => {
+  test('protocol version is 9 (3H critters = 7, 3G drifter = 8, 4V vehicles + 4T conquest = 9)', () => {
     expect(PROTOCOL_VERSION).toBe(9);
   });
 
-  test('a drifter, a seated teammate, the vehicle block and critters round-trip with deep equality', () => {
+  test('a drifter, a seated teammate, the vehicle block, critters and the conquest block round-trip with deep equality', () => {
     const bytes = encodeSnapshot(snapshot);
     expect(bytes.byteLength).toBe(expectedBytes(snapshot));
+    expect(snapshot.turretStates).toBe(1 | (2 << 4));
     const decoded = decodeSnapshot(bytes);
     expect(decoded).not.toBeNull();
     expect(decoded).toEqual(snapshot);
@@ -209,6 +253,8 @@ describe('merged protocol 9 snapshot codec', () => {
     expect(decoded?.vehicles).toEqual(vehicles);
     expect(decoded?.vehicles[0]?.seats[0]).toBe(mate.id);
     expect(decoded?.vehicles[0]?.turretYaw).toBeLessThan(0);
+    expect(decoded?.conquest).toEqual(conquest);
+    expect(decoded?.turretStates).toBe(snapshot.turretStates);
     // Re-encoding the decoded snapshot is byte-identical.
     if (!decoded) throw new Error('decode failed');
     expect(new Uint8Array(encodeSnapshot(decoded))).toEqual(new Uint8Array(bytes));
@@ -223,12 +269,15 @@ describe('merged protocol 9 snapshot codec', () => {
     const bytes = new Uint8Array(encodeSnapshot(snapshot));
     expect(decodeSnapshot(bytes.slice(0, bytes.length - 1))).toBeNull();
     // A snapshot that stops after the vehicles (no critter trailer) fails, not half-reads.
-    expect(decodeSnapshot(bytes.slice(0, expectedBytes({ ...snapshot, critters: [] }) - 1))).toBeNull();
+    const vehicleEnd = HEADER_BYTES + snapshot.players.length * PLAYER_BYTES + 1 + vehicles.reduce((sum, vehicle) => sum + vehicleBytes(vehicle), 0);
+    expect(decodeSnapshot(bytes.slice(0, vehicleEnd))).toBeNull();
+    // One that stops after the critters (no conquest block) fails too.
+    expect(decodeSnapshot(bytes.slice(0, bytes.length - CONQUEST_BYTES))).toBeNull();
     // A protocol-8 style vehicle record (13 B, no motor state) cannot pass for protocol 9.
     expect(decodeSnapshot(bytes.slice(0, HEADER_BYTES + snapshot.players.length * PLAYER_BYTES + 1 + 13))).toBeNull();
   });
 
-  test('wire order is players, then vehicles, then critters', () => {
+  test('wire order is players, then vehicles, then critters, then the conquest block', () => {
     const bytes = new Uint8Array(encodeSnapshot(snapshot));
     const vehicleCountAt = HEADER_BYTES + snapshot.players.length * PLAYER_BYTES;
     expect(bytes[vehicleCountAt]).toBe(vehicles.length);
@@ -239,10 +288,45 @@ describe('merged protocol 9 snapshot codec', () => {
     expect(bytes[vehicleCountAt + 3]).toBe(tank.type);
     const critterCountAt = vehicleCountAt + 1 + vehicles.reduce((sum, vehicle) => sum + vehicleBytes(vehicle), 0);
     expect(bytes[critterCountAt]).toBe(critters.length);
-    expect(critterCountAt + 1 + critters.length * 12).toBe(bytes.byteLength);
+    const conquestAt = critterCountAt + 1 + critters.length * 12;
+    expect(conquestAt + CONQUEST_BYTES).toBe(bytes.byteLength);
+    // Tower A flags: owner alpine (1), no push, not contested; control i8 -127; counts 3 | 0 << 4.
+    expect(bytes[conquestAt]).toBe(1);
+    expect(bytes[conquestAt + 1]).toBe(0x81);
+    expect(bytes[conquestAt + 2]).toBe(3);
+    // Tower C: owner lagoon (2) | pushing alpine (1 << 2) | contested (1 << 4); counts 15 | 15 << 4.
+    expect(bytes[conquestAt + 6]).toBe(2 | (1 << 2) | (1 << 4));
+    expect(bytes[conquestAt + 8]).toBe(0xff);
+    // Round byte: live, no winner, no reason.
+    expect(bytes[conquestAt + 9]).toBe(0);
   });
 
-  test('an empty vehicle list and an empty critter trailer still round-trip', () => {
+  test('the results intermission (winner, reason, clock, u16 round) round-trips', () => {
+    const ended: WorldSnapshot = { ...snapshot, turretStates: towerOwnerBits(results.towers), conquest: results };
+    const bytes = encodeSnapshot(ended);
+    expect(bytes.byteLength).toBe(expectedBytes(ended));
+    expect(decodeSnapshot(bytes)).toEqual(ended);
+    const raw = new Uint8Array(bytes);
+    // Round byte: ended (1) | winner lagoon (2 << 1) | reason tickets (1 << 3).
+    expect(raw[raw.length - 5]).toBe(1 | (2 << 1) | (1 << 3));
+  });
+
+  test('the welcome carries the spawn facing after the profile', () => {
+    const welcome = {
+      playerId: 9,
+      profile: { ...createDefaultProfile('Pad Tester', 'heavy'), faction: 'lagoon' as const },
+      serverTick: 4321,
+      spawn: pos(1000, 1440, -3240),
+      spawnYaw: angle(41000),
+      protocolVersion: PROTOCOL_VERSION,
+    };
+    const decoded = decodeWelcome(encodeWelcome(welcome));
+    expect(decoded?.spawnYaw).toBe(welcome.spawnYaw);
+    expect(decoded?.spawn).toEqual(welcome.spawn);
+    expect(decoded?.protocolVersion).toBe(9);
+  });
+
+  test('an empty vehicle list and an empty critter trailer (conquest block still present) round-trip', () => {
     const bare: WorldSnapshot = { ...snapshot, players: [drifter], vehicles: [], critters: [] };
     const bytes = encodeSnapshot(bare);
     expect(bytes.byteLength).toBe(expectedBytes(bare));

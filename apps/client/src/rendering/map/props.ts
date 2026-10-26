@@ -569,10 +569,48 @@ function drawIceRink(batch: GeometryBatch, radius: number, frozenPond: boolean):
   }
 }
 
-export function drawSpawnPad(batch: GeometryBatch, faction: 'alpine' | 'lagoon'): void {
-  const color = faction === 'alpine' ? P.peakBlue : P.coral;
-  batch.lathe([[1.5, 0.02], [1.6, 0.08], [1.5, 0.12]], 16, color, 'plain', { capTop: true });
-  batch.lathe([[1.0, 0.12], [1.05, 0.15]], 16, P.white, 'plain', { capTop: true });
+/** Spawn plate look: a team's own (alpine stone / lagoon teak) or a neutral tower's plain stone. */
+export type SpawnPadStyle = 'alpine' | 'lagoon' | 'neutral';
+
+/**
+ * Painted spawn plate, flush with the ground: the Peak Guard's grey-blue
+ * stone slab with a painted ring and an edelweiss, the Lagoon League's teak
+ * deck with a coral rim and a little sun, or a plain stone for a neutral
+ * tower. Muted colours on purpose; the brief spawn-protection glow is drawn
+ * on top at runtime.
+ */
+export function drawSpawnPad(batch: GeometryBatch, style: SpawnPadStyle): void {
+  if (style === 'lagoon') {
+    batch.lathe([[1.3, 0], [1.34, 0.05], [1.28, 0.1]], 18, P.plank, 'wood', { capTop: true, wobble: 0.025, seed: 5 });
+    for (let index = -2; index <= 2; index += 1) {
+      const x = index * 0.46;
+      const half = Math.sqrt(Math.max(0, 1.24 * 1.24 - x * x));
+      batch.box(x, 0.103, 0, 0.035, 0.008, half * 2, P.logDark, 'wood', 0);
+    }
+    batch.lathe([[1.08, 0.104], [1.12, 0.112], [1.18, 0.104]], 24, shade(P.coral, 0.86), 'cloth');
+    batch.cylinder(0.22, 0.22, 0.012, 12, P.yellow, 'cloth', { y: 0.104 });
+    for (let ray = 0; ray < 8; ray += 1) {
+      const angle = (ray / 8) * Math.PI * 2;
+      batch.with(Affine.translation(Math.sin(angle) * 0.36, 0.11, Math.cos(angle) * 0.36).rotateY(angle), () => {
+        batch.box(0, 0, 0, 0.05, 0.008, 0.12, shade(P.orange, 0.95), 'cloth', 0);
+      });
+    }
+    return;
+  }
+  const stone = style === 'alpine' ? mix(P.cobble, P.snowShade, 0.3) : P.cobbleWarm;
+  batch.lathe([[1.32, 0], [1.36, 0.05], [1.28, 0.1]], 18, stone, 'stone', { capTop: true, wobble: 0.05, seed: 11 });
+  if (style === 'neutral') {
+    batch.lathe([[1.06, 0.102], [1.1, 0.108], [1.15, 0.102]], 24, shade(P.cream, 0.92), 'stone');
+    return;
+  }
+  batch.lathe([[1.06, 0.102], [1.1, 0.11], [1.16, 0.102]], 24, shade(P.peakBlue, 0.82), 'cloth');
+  for (let petal = 0; petal < 6; petal += 1) {
+    const angle = (petal / 6) * Math.PI * 2;
+    batch.with(Affine.translation(Math.sin(angle) * 0.2, 0.108, Math.cos(angle) * 0.2).rotateY(angle), () => {
+      batch.blob(0, 0, 0, 0.07, 0.012, 0.14, P.flowerWhite, 'cloth', { segments: 6, rings: 2 });
+    });
+  }
+  batch.cylinder(0.08, 0.08, 0.014, 10, P.flowerYellow, 'cloth', { y: 0.108 });
 }
 
 /** Dispatches small dressing props; returns false when the kind is drawn elsewhere. */

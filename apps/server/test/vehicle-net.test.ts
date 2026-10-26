@@ -12,6 +12,7 @@ import {
   type VehicleSnapshot,
   type WorldSnapshot,
 } from '@frost-and-flamingos/shared';
+import { ClimateConquest } from '../src/rooms/conquest';
 import { createRoom, internals, joinPlayer, parkVehicle, placePlayer, playerOf, run, sendInput, slotByKind, slotBySpawn } from './vehicle-helpers';
 
 const { GLACIER_RUNWAY } = FjordLayout;
@@ -71,6 +72,7 @@ describe('vehicle networking', () => {
       players: [],
       vehicles: [vehicle],
       critters: [],
+      conquest: new ClimateConquest().snapshot(),
     };
     const decoded = decodeSnapshot(encodeSnapshot(snapshot))?.vehicles[0];
     expect(decoded).toBeDefined();

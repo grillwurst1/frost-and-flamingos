@@ -230,10 +230,15 @@ export class VehicleManager<P extends VehicleOccupant> {
 
   /**
    * Tower ownership for `{ capture }` spawn triggers. Package 4T (conquest)
-   * passes its real query; until then no tower counts as held.
+   * passes its real query (MatchRoom.isTowerHeldBy); without one no tower
+   * counts as held. Slots the new query activates spawn at once, so the
+   * forward vehicles of the round-start towers are there from the first tick.
    */
   setTowerQuery(query: TowerHeldQuery): void {
     this.towerHeld = query;
+    for (const record of this.records) {
+      if (record.lifecycle === 'waiting' && record.respawnAtTick === 0 && vehicleSlotActive(record.slot, query)) this.spawn(record);
+    }
   }
 
   /** Round reset: every vehicle respawns polished at its start position. */

@@ -13,12 +13,14 @@ import {
   MASCOT_SHOCKWAVE,
   MASCOT_STATUS,
   MAX_INPUT_BACKLOG,
+  captureZoneIndexAt,
   MAX_PLAYERS,
   PHYSICS_TICK_RATE,
   WATER_LEVEL,
   PROTOCOL_VERSION,
   RESPAWN_DELAY_SECONDS,
   SKILLS,
+  SPAWN_PROTECTION_SECONDS,
   SNAPSHOT_INTERVAL,
   STATUS_BOOST_SCALE,
   STATUS_SLOW_SCALE,
@@ -35,9 +37,11 @@ import {
   encodeProfileMessage,
   encodeSnapshot,
   normalizeProfile,
-  randomSpawnForFaction,
   resolveClassForFaction,
   sampleMapHeight,
+  selectConquestSpawn,
+  spawnYawToWire,
+  towerOwnerBits,
   sanitizeDisplayName,
   skillsForClass,
   weaponForSlot,
@@ -57,6 +61,7 @@ import {
   type ProfileMessage,
   type ServerHello,
   type SkillDefinition,
+  type TowerId,
   type Vec3,
   type WeaponId,
   type WeaponSlot,
@@ -81,6 +86,9 @@ import {
 import { CritterSystem, type CritterKill, type CritterThreat } from './critters.js';
 import { mascotBotButtons, type MascotBotMemory } from './mascot-bot.js';
 import { VehicleManager, type VehicleStatus } from './vehicle-manager.js';
+import { ClimateConquest, countTowerPresence, type ConquestEvent, type ConquestStatus } from './conquest.js';
+import { ConquestBots } from './conquest-bots.js';
+import { SpawnFacingCache, spawnObjective } from './spawn-facing.js';
 
 export interface GameSocket {
   send(data: string | ArrayBuffer | Uint8Array): unknown;
@@ -108,6 +116,8 @@ interface BotState {
   nextStrafeTick: number;
   strafeDirection: number;
   aimError: number;
+  /** Horizontal aim error of precision single-shot weapons (sniper, crossbow); 0 otherwise. */
+  aimYawError: number;
   patrolYaw: number;
   /** Probability of playing the mascot on each respawn (0 = never). */
   mascotChance: number;
@@ -155,6 +165,18 @@ interface PlayerConnection {
   spawnProtectionUntil: number;
   killerId: number;
   lastAttackerId: number;
+  /** A class/loadout change (or any change while dead) waiting for the next respawn. */
+  pendingProfile: PlayerProfile | null;
+  /** Feet at the last (re)spawn, and whether the player was hurt since: "fresh at the spawn". */
+  spawnPosition: Vec3;
+  hurtSinceSpawn: boolean;
+  /** Fired, used a skill or a mascot move since the last (re)spawn. */
+  actedSinceSpawn: boolean;
+  /**
+   * Sent an input with any button down since the last (re)spawn. A client
+   * still in the menu (connected, spawned, not deployed) sends only idle input.
+   */
+  pressedSinceSpawn: boolean;
   skillCooldowns: [number, number, number];
   speedUntilTick: number;
   shieldUntilTick: number;
@@ -288,6 +310,7 @@ export interface RoomStatus {
   mapId: string;
   tickets: { alpine: number; lagoon: number };
   weatherBalance: number;
+  conquest: ConquestStatus;
   mascots: {
     active: number;
     rams: number;
@@ -315,7 +338,17 @@ export interface RoomStatus {
 
 const PROFILE_UPDATE_COOLDOWN_MS = 120;
 const RESPAWN_DELAY_TICKS = RESPAWN_DELAY_SECONDS * PHYSICS_TICK_RATE;
-const SPAWN_PROTECTION_TICKS = 2 * PHYSICS_TICK_RATE;
+const SPAWN_PROTECTION_TICKS = SPAWN_PROTECTION_SECONDS * PHYSICS_TICK_RATE;
+/**
+ * Bot aim with precision single-shot weapons (sniper 65, crossbow 55 damage):
+ * total aim error in both axes. Without it the Lagoon infiltrator bot's
+ * sniper went 55 kills / 16 deaths in a 25-minute soak and decided rounds.
+ */
+const BOT_PRECISION_DAMAGE = 45;
+/** Total aim error (rad); FF_BOT_PRECISION_AIM overrides it for balance probes. */
+const BOT_PRECISION_AIM_ERROR = Number(process.env.FF_BOT_PRECISION_AIM ?? 0.045);
+/** Bots ignore rivals out of sight beyond this range and keep playing the objective. */
+const BOT_OBJECTIVE_CHASE_RANGE = 40;
 const LAG_HISTORY_TICKS = 2 * PHYSICS_TICK_RATE;
 const MAX_LAG_REWIND_TICKS = 30;
 const BOT_COUNT = 4;
@@ -429,9 +462,12 @@ export class MatchRoom {
   private lastFrameTime = 0;
   private accumulator = 0;
   private readonly startedAt = Date.now();
-  private ticketsAlpine = 50;
-  private ticketsLagoon = 50;
-  private weatherBalance = 0;
+  /** Climate Conquest: towers, tickets, weather balance and round flow. */
+  private readonly conquest = new ClimateConquest();
+  private readonly conquestBots = new ConquestBots();
+  private readonly spawnFacing: SpawnFacingCache;
+  /** Conquest state as of the last tick (bots read it without re-snapshotting). */
+  private conquestView = this.conquest.snapshot();
   private windAngle = 0.6;
   private windStrength = 0;
   /** Drivable vehicles (package 4V); see vehicle-manager.ts. */
@@ -439,6 +475,10 @@ export class MatchRoom {
 
   private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean) {
     this.physics = physics;
+    // Static geometry only: a parked vehicle or a player must not bend a cached facing.
+    this.spawnFacing = new SpawnFacingCache({
+      raycast: (origin, direction, maxDistance) => physics.raycastStatic(origin, direction, maxDistance),
+    });
     this.vehicles = new VehicleManager<PlayerConnection>(physics, {
       physicsTick: () => this.physicsTick,
       snapshotTick: () => this.snapshotTick,
@@ -456,6 +496,8 @@ export class MatchRoom {
       },
       killCrittersInSphere: (center, radius, killerId, weaponId) => this.critters.killInSphere(center, radius, killerId, weaponId, null),
     });
+    // Capture-gated slots (`{ capture: TowerId }`) follow the Climate Conquest towers.
+    this.vehicles.setTowerQuery((tower, faction) => this.isTowerHeldBy(tower, faction));
     this.critters = new CritterSystem(physics, {
       seed: critterSeed,
       enabled: critters,
@@ -470,7 +512,8 @@ export class MatchRoom {
     // Tests are reproducible: a fixed seed unless one is given.
     const seed = options.critterSeed ?? (testRun ? 0x3e9 : Math.floor(Math.random() * 0xffffffff));
     const room = new MatchRoom(physics, seed, critters);
-    room.spawnBots(options.bots ?? BOT_COUNT);
+    // Local capture tooling: FF_NO_BOTS=1 starts an empty resort (no AI vacationers).
+    if (process.env.FF_NO_BOTS !== '1') room.spawnBots(options.bots ?? BOT_COUNT);
     return room;
   }
 
@@ -557,6 +600,7 @@ export class MatchRoom {
       if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
     }
     this.updateProjectiles();
+    this.stepConquest();
     this.recordLagHistory();
 
     if (this.physicsTick % SNAPSHOT_INTERVAL === 0) {
@@ -646,7 +690,7 @@ export class MatchRoom {
   private currentWind(): { angle: number; strength: number } {
     return {
       angle: this.windAngle + (this.physicsTick % 7200) * 0.00012,
-      strength: Math.min(1, Math.abs(this.weatherBalance)) * 0.65,
+      strength: Math.min(1, Math.abs(this.conquest.weatherBalance)) * 0.65,
     };
   }
 
@@ -654,25 +698,35 @@ export class MatchRoom {
    * Spawn point for a faction (the playtest arena when configured). Map spawns
    * skip pads another living player is standing on.
    */
-  private spawnFor(faction: Faction, selfId = 0): { position: Vec3 } {
+  private spawnFor(faction: Faction, selfId = 0): { position: Vec3; yaw: number } {
     if (!this.arena) {
-      return randomSpawnForFaction(faction, Math.random, (position) =>
+      // Pads around the towers the faction holds; the main base when it holds none.
+      const spawn = selectConquestSpawn(faction, this.conquest.heldTowers(faction), Math.random, (position) =>
         this.isSpawnOccupied(position, selfId),
       );
+      const objective = spawnObjective(spawn.position, faction, this.conquest.snapshot().towers);
+      const yaw = this.spawnFacing.yawFor(spawn.id, spawn.position, objective.index, objective.point);
+      return { position: { ...spawn.position }, yaw };
     }
     const side = faction === 'alpine' ? -1 : 1;
     const x = this.arena.x + side * 9 + (Math.random() - 0.5) * 6;
     const z = this.arena.z + (Math.random() - 0.5) * 6;
-    return { position: { x, y: sampleMapHeight(x, z) + 0.4, z } };
+    return { position: { x, y: sampleMapHeight(x, z) + 0.4, z }, yaw: side < 0 ? Math.PI / 2 : -Math.PI / 2 };
   }
 
   private respawn(player: PlayerConnection): void {
+    this.applyPendingProfile(player);
     const spawn = this.spawnFor(player.profile.faction, player.id);
+    player.spawnPosition = { ...spawn.position };
+    player.hurtSinceSpawn = false;
+    player.actedSinceSpawn = false;
+    player.pressedSinceSpawn = false;
     if (player.bot) this.rollBotClass(player, spawn.position);
     const classId = player.profile.cosmetics.classId;
     player.character.setColliderEnabled(true);
     player.character.teleport(spawn.position);
     player.character.restore(spawn.position, ZERO_VELOCITY, false, 0);
+    player.character.setHeading(spawn.yaw);
     player.hp = classStatsFor(classId, player.profile.faction).maxHp;
     player.shield = 0;
     player.alive = true;
@@ -696,7 +750,8 @@ export class MatchRoom {
     player.inputQueue.length = 0;
     player.fireQueue.length = 0;
     player.previousButtons = 0;
-    player.lastInput = idleInput(player.lastProcessedInput, 0, 0, 1);
+    player.lastInput = idleInput(player.lastProcessedInput, spawn.yaw, 0, 1);
+    this.conquestBots.forget(player.id);
     if (player.bot) {
       player.bot.targetId = 0;
       player.bot.nextThinkTick = this.physicsTick;
@@ -710,10 +765,108 @@ export class MatchRoom {
       eventType: 'PLAYER_RESPAWNED',
       actorId: player.id,
       targetId: 0,
-      paramX: 0,
+      paramX: 1,
       paramZ: 0,
-      paramValue: 0,
+      paramValue: spawnYawToWire(spawn.yaw),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Climate Conquest hooks (rules live in conquest.ts, bot objectives in conquest-bots.ts)
+  // ---------------------------------------------------------------------------
+
+  /** Capture zones, tickets, weather and round flow: once per physics tick, after combat. */
+  private stepConquest(): void {
+    const candidates = [...this.players.values()].map((player) => ({
+      faction: player.profile.faction,
+      classId: player.profile.cosmetics.classId,
+      // A freshly spawned (immune) player does not tip a zone until the protection ends.
+      alive: player.alive && this.physicsTick >= player.spawnProtectionUntil,
+      position: player.character.position,
+    }));
+    for (const event of this.conquest.step(countTowerPresence(candidates))) this.handleConquestEvent(event);
+    this.conquestView = this.conquest.snapshot();
+  }
+
+  private handleConquestEvent(event: ConquestEvent): void {
+    if (event.type === 'captured' || event.type === 'neutralised') {
+      this.broadcastEvent({
+        eventType: 'TURRET_CAPTURED',
+        actorId: 0,
+        targetId: 0,
+        paramX: event.index,
+        paramZ: event.type === 'captured' ? 1 : 2,
+        paramValue: event.faction === 'alpine' ? 1 : 2,
+      });
+      return;
+    }
+    if (event.type === 'round_reset') this.resetRound();
+  }
+
+  /**
+   * New round (the conquest state is already reset): everyone respawns at the
+   * round-start towers with a clean score; shots and puddles in flight vanish.
+   * Vehicles reset first, so nobody is still seated when the respawn loop
+   * moves them, and capture-gated hulls follow the round-start towers.
+   */
+  private resetRound(): void {
+    this.projectiles.length = 0;
+    this.puddles.length = 0;
+    this.conquestBots.reset();
+    this.vehicles.resetAll();
+    for (const player of this.players.values()) {
+      player.kills = 0;
+      player.deaths = 0;
+      // Drifter support points are a per-round score like kills.
+      player.support = 0;
+      player.supportVitality = 0;
+      player.supportMagazines = 0;
+      this.respawn(player);
+    }
+  }
+
+  /**
+   * True during the 15 s results intermission: no damage, no captures, no
+   * tickets. Vehicles, critters and map toys should skip their damage while it holds.
+   */
+  isCeasefire(): boolean {
+    return !this.conquest.isLive;
+  }
+
+  /** Tower ownership query for map toys and vehicle spawns (`{ capture: TowerId }` triggers). */
+  isTowerHeldBy(tower: TowerId, faction: Faction): boolean {
+    return this.conquest.isTowerHeldBy(tower, faction);
+  }
+
+  /** Where a bot without a fight should walk: a hold waypoint of its target tower. */
+  private botObjectiveGoal(player: PlayerConnection): Vec3 | null {
+    const bots = [...this.players.values()]
+      .filter((other) => other.isBot && other.alive)
+      .map((other) => ({ id: other.id, faction: other.profile.faction, position: other.character.position }));
+    return this.conquestBots.goalFor(
+      { id: player.id, faction: player.profile.faction, position: player.character.position },
+      this.conquestView.towers,
+      bots,
+      this.physicsTick,
+      Math.random,
+    );
+  }
+
+  private botHoldingZone(player: PlayerConnection): boolean {
+    return this.conquestBots.isHolding(
+      { id: player.id, faction: player.profile.faction, position: player.character.position },
+      this.conquestView.towers,
+    );
+  }
+
+  /**
+   * DEV-only (FF_DEV_TOOLS=1): stage a tower (`owner` alpine | lagoon | neutral,
+   * optional control −1..1) or set a team's tickets (0 ends the round next tick).
+   */
+  devConquest(command: { tower?: TowerId; owner?: Faction | null; control?: number; faction?: Faction; tickets?: number }): ConquestStatus {
+    if (command.tower && command.owner !== undefined) this.conquest.devSetTower(command.tower, command.owner, command.control);
+    if (command.faction && command.tickets !== undefined) this.conquest.devSetTickets(command.faction, command.tickets);
+    return this.conquest.status();
   }
 
   /** True when another living player stands on (or right next to) a spawn pad. */
@@ -822,6 +975,7 @@ export class MatchRoom {
     }
 
     player.lastFireTick = this.physicsTick;
+    player.actedSinceSpawn = true;
     this.broadcastEvent({
       eventType: 'WEAPON_FIRED',
       actorId: player.id,
@@ -976,6 +1130,8 @@ export class MatchRoom {
     if (!target.alive || baseDamage <= 0) return;
     // Untouchable: no hit, no marker, no vignette, no kill.
     if (!capabilitiesOf(target).damageable) return;
+    // The results intermission is a ceasefire (shots, splash, rams, wrecks alike).
+    if (this.isCeasefire()) return;
     if (attacker && attacker.profile.faction === target.profile.faction) return;
     if (this.physicsTick < target.spawnProtectionUntil) return;
     target.lastDamagedTick = this.physicsTick;
@@ -990,6 +1146,7 @@ export class MatchRoom {
     target.shield = Math.max(0, target.shield - absorbed);
     damage -= absorbed;
     target.hp = Math.max(0, target.hp - damage);
+    target.hurtSinceSpawn = true;
     target.lastAttackerId = attacker?.id ?? 0;
 
     this.broadcastEvent({
@@ -1025,6 +1182,7 @@ export class MatchRoom {
     target.fireQueue.length = 0;
     target.cloakUntilTick = 0;
     if (attacker && attacker.id !== target.id) attacker.kills += 1;
+    this.conquest.recordDeath(target.profile.faction);
 
     this.broadcastEvent({
       eventType: 'KILL_RAGDOLL',
@@ -1067,6 +1225,7 @@ export class MatchRoom {
     const skill = skillsForClass(player.profile.cosmetics.classId, player.profile.faction)[index];
     if (!skill) return;
     player.skillCooldowns[index] = skill.cooldownSeconds;
+    player.actedSinceSpawn = true;
     this.applySkill(player, skill);
     this.broadcastEvent({
       eventType: 'SKILL_USED',
@@ -1156,7 +1315,7 @@ export class MatchRoom {
         continue;
       }
       const owner = this.players.get(projectile.ownerId);
-      if (!owner || !owner.alive) {
+      if (!owner || !owner.alive || !classCapabilities(owner.profile.cosmetics.classId).armed) {
         this.projectiles.splice(index, 1);
         continue;
       }
@@ -1231,6 +1390,7 @@ export class MatchRoom {
     const form = player.character.form;
     if (!form || !player.alive) return;
     if (event.type === 'move') {
+      player.actedSinceSpawn = true;
       this.broadcastEvent({
         eventType: 'SKILL_USED',
         actorId: player.id,
@@ -1837,6 +1997,7 @@ export class MatchRoom {
         classId,
         faction: entry.faction,
       });
+      character.setHeading(spawn.yaw);
       const player: PlayerConnection = {
         id,
         socket: null,
@@ -1845,7 +2006,7 @@ export class MatchRoom {
         character,
         inputQueue: [],
         fireQueue: [],
-        lastInput: idleInput(0, Math.random() * Math.PI * 2, -0.05, 1),
+        lastInput: idleInput(0, spawn.yaw, -0.05, 1),
         lastProcessedInput: 0,
         previousButtons: 0,
         hp: classStatsFor(classId, entry.faction).maxHp,
@@ -1877,6 +2038,11 @@ export class MatchRoom {
         auraResupplied: false,
         auraActive: false,
         lastProfileUpdateAt: 0,
+        pendingProfile: null,
+        spawnPosition: { ...spawn.position },
+        hurtSinceSpawn: false,
+        actedSinceSpawn: false,
+        pressedSinceSpawn: false,
         bot: {
           mascotChance: entry.mascotChance,
           humanClass: entry.classId,
@@ -1892,6 +2058,7 @@ export class MatchRoom {
           nextStrafeTick: 0,
           strafeDirection: Math.random() < 0.5 ? -1 : 1,
           aimError: 0,
+          aimYawError: 0,
           patrolYaw: Math.random() * Math.PI * 2,
           route: createBotRoute(),
         },
@@ -1917,7 +2084,7 @@ export class MatchRoom {
     }
 
     const target = bot.targetId > 0 ? this.players.get(bot.targetId) : null;
-    const live = target && target.alive ? target : null;
+    const live = target && target.alive && classCapabilities(target.profile.cosmetics.classId).targetable ? target : null;
     if (player.character.form) return this.mascotBotInput(player, bot, live);
 
     const classId = player.profile.cosmetics.classId;
@@ -1940,7 +2107,7 @@ export class MatchRoom {
       const dy = targetPoint.y - origin.y;
       const dz = targetPoint.z - origin.z;
       const horizontal = Math.hypot(dx, dz);
-      yaw = Math.atan2(dx, dz);
+      yaw = Math.atan2(dx, dz) + bot.aimYawError;
       pitch = Math.atan2(dy, Math.max(0.001, horizontal)) + bot.aimError;
       const distance = Math.hypot(horizontal, dy);
       const targetDirection = normalizeDirection({ x: dx, y: dy, z: dz });
@@ -1955,7 +2122,13 @@ export class MatchRoom {
         // Routed movement has its own stuck escalation (hop, sidestep, re-plan).
         bot.stuckTicks = 0;
         bot.detourUntilTick = 0;
-        routeTowards(route, feet, live.character.position, this.physicsTick);
+        // A rival out of sight and far away (or one outside the zone a bot is holding) is
+        // not worth leaving the objective for.
+        const objective =
+          !route.seesTarget && (this.botHoldingZone(player) || distance > BOT_OBJECTIVE_CHASE_RANGE)
+            ? this.botObjectiveGoal(player)
+            : null;
+        routeTowards(route, feet, objective ?? live.character.position, this.physicsTick);
         const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
         let chaseButtons = InputButton.Forward;
         if (steer.sprint) chaseButtons |= InputButton.Sprint;
@@ -1968,7 +2141,8 @@ export class MatchRoom {
       // Line of sight, refreshed every 12 ticks (firing re-checks it below).
       const visible = route.seesTarget;
       const detouring = this.physicsTick < bot.detourUntilTick;
-      const charging = distance > Math.max(9, weapon.range * 0.45);
+      // Holding a zone that is not secured yet: fight from inside it instead of charging out.
+      const charging = !this.botHoldingZone(player) && distance > Math.max(9, weapon.range * 0.45);
       if (detouring) {
         // Walk sideways around the prop that blocked the charge, hopping onto ledges.
         yaw += (bot.detourSide * Math.PI) / 2;
@@ -2010,7 +2184,11 @@ export class MatchRoom {
             interval +
             (weapon.automatic ? 0 : 5) +
             Math.floor(Math.random() * 9);
-          bot.aimError = (Math.random() - 0.5) * 0.045;
+          // A bot's precision rifle shot (one hit = most of a life) wobbles in both
+          // axes; rapid-fire weapons keep the small vertical-only error.
+          const precision = !weapon.automatic && weapon.fireMode === 'hitscan' && weapon.damage >= BOT_PRECISION_DAMAGE;
+          bot.aimError = (Math.random() - 0.5) * (precision ? BOT_PRECISION_AIM_ERROR : 0.045);
+          bot.aimYawError = precision ? (Math.random() - 0.5) * BOT_PRECISION_AIM_ERROR : 0;
         }
 
         if (
@@ -2050,9 +2228,11 @@ export class MatchRoom {
         bot.detourUntilTick = this.physicsTick + BOT_DETOUR_TICKS;
       }
     } else {
-      // Patrol the waypoint graph towards a tower or a random landmark.
+      // Play the objective: route to (and around) the bot's target tower.
       bot.stuckTicks = 0;
       bot.detourUntilTick = 0;
+      const goal = this.botObjectiveGoal(player);
+      if (goal) routeTowards(route, feet, goal, this.physicsTick);
       const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
       yaw = steer.yaw;
       bot.patrolYaw = yaw;
@@ -2114,7 +2294,11 @@ export class MatchRoom {
         );
       }
       if (!route.seesTarget || this.physicsTick < route.chaseUntilTick) {
-        routeTowards(route, feet, target.character.position, this.physicsTick);
+        const objective =
+          !route.seesTarget && (this.botHoldingZone(player) || distance > BOT_OBJECTIVE_CHASE_RANGE)
+            ? this.botObjectiveGoal(player)
+            : null;
+        routeTowards(route, feet, objective ?? target.character.position, this.physicsTick);
         pursue = null;
       } else if (Math.hypot(dx, dz) > 6) {
         if (engagementBlocked(route, feet, this.physicsTick)) {
@@ -2129,6 +2313,10 @@ export class MatchRoom {
     let pivot = false;
     const swimming = player.character.swimming;
     if (!pursue) {
+      if (!target) {
+        const goal = this.botObjectiveGoal(player);
+        if (goal) routeTowards(route, feet, goal, this.physicsTick);
+      }
       const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
       bot.patrolYaw = steer.yaw;
       if (steer.jump) routeButtons |= InputButton.Jump;
@@ -2233,6 +2421,7 @@ export class MatchRoom {
     };
     const spawn = this.spawnFor(faction);
     const character = this.physics.createCharacter({ position: spawn.position, classId, faction });
+    character.setHeading(spawn.yaw);
     const player: PlayerConnection = {
       id,
       socket,
@@ -2241,7 +2430,7 @@ export class MatchRoom {
       character,
       inputQueue: [],
       fireQueue: [],
-      lastInput: idleInput(0, 0, 0, 1),
+      lastInput: idleInput(0, spawn.yaw, 0, 1),
       lastProcessedInput: 0,
       previousButtons: 0,
       hp: classStatsFor(classId, faction).maxHp,
@@ -2273,6 +2462,11 @@ export class MatchRoom {
       auraResupplied: false,
       auraActive: false,
       lastProfileUpdateAt: 0,
+      pendingProfile: null,
+      spawnPosition: { ...spawn.position },
+      hurtSinceSpawn: false,
+      actedSinceSpawn: false,
+      pressedSinceSpawn: false,
       bot: null,
     };
     this.players.set(id, player);
@@ -2293,6 +2487,7 @@ export class MatchRoom {
         profile,
         serverTick: this.snapshotTick,
         spawn: { ...spawn.position },
+        spawnYaw: spawn.yaw,
         protocolVersion: PROTOCOL_VERSION,
       },
       mapState: {
@@ -2322,6 +2517,7 @@ export class MatchRoom {
     if (player.inputQueue.length >= MAX_INPUT_BACKLOG) {
       player.inputQueue.shift();
     }
+    if (input.buttons !== 0) player.pressedSinceSpawn = true;
     player.inputQueue.push(input);
   }
 
@@ -2342,9 +2538,17 @@ export class MatchRoom {
   }
 
   /**
-   * Applies a validated cosmetic/class/loadout change. Faction stays
-   * server-assigned; a class change rebuilds the capsule at the same feet
-   * position and restores full class health.
+   * A validated wardrobe change. Faction stays server-assigned. Cosmetics and
+   * name apply live and never touch health, life or spawn protection. A class
+   * or loadout change applies at once only while the player is still fresh
+   * on the spawn pad (spawn-protected, within 4 m, unhurt, no shot, skill or
+   * move yet, outside every capture zone) or during the results
+   * intermission; it keeps the health fraction, the running cooldowns and
+   * the ammo of unchanged weapons. Otherwise it waits for the next respawn
+   * (the owner gets a notice). A move from a class that does not count
+   * toward team balance to one that does always waits for the respawn, where
+   * the balance is re-run. While dead, the change is only stored. (Earlier
+   * this revived the dead and refilled health and immunity on every update.)
    */
   handleProfileUpdate(socket: GameSocket, incoming: PlayerProfile): void {
     const playerId = this.sockets.get(socket);
@@ -2366,42 +2570,147 @@ export class MatchRoom {
       loadout: normalized.loadout,
     };
 
-    const classChanged = classId !== player.profile.cosmetics.classId;
-    if (classChanged) {
+    if (!player.alive) {
+      player.pendingProfile = profile;
+      return;
+    }
+    const live = player.profile;
+    const kitChanged =
+      classId !== live.cosmetics.classId ||
+      profile.loadout.primary !== live.loadout.primary ||
+      profile.loadout.secondary !== live.loadout.secondary ||
+      profile.loadout.gimmick !== live.loadout.gimmick;
+    if (!kitChanged) {
+      player.pendingProfile = null;
+      player.profile = profile;
+      this.broadcastProfile(player);
+      return;
+    }
+    const liveCaps = classCapabilities(live.cosmetics.classId);
+    const rebalances = !liveCaps.countsTowardBalance && classCapabilities(classId).countsTowardBalance;
+    if (rebalances && !liveCaps.damageable) {
+      // An untouchable class (the drifter) never dies, so "next respawn" would mean
+      // the round reset. There is no fight to escape: redeploy now through respawn(),
+      // which applies the change, re-runs the team balance and picks a pad.
+      player.pendingProfile = profile;
+      this.respawn(player);
+      return;
+    }
+    if (rebalances || !(this.isCeasefire() || this.freshAtSpawn(player))) {
+      player.pendingProfile = profile;
+      // Name and cosmetics still apply live (on the current class); the owner keeps its
+      // wardrobe choice, so the echo goes to everyone else only.
+      if (classId === live.cosmetics.classId) {
+        player.profile = { ...live, displayName: profile.displayName, cosmetics: { ...profile.cosmetics, classId: live.cosmetics.classId } };
+        this.broadcastProfile(player, true);
+      } else if (profile.displayName !== live.displayName) {
+        player.profile = { ...live, displayName: profile.displayName };
+        this.broadcastProfile(player, true);
+      }
+      this.sendProfileNotice(player, 1);
+      return;
+    }
+    player.pendingProfile = null;
+    this.applyKit(player, profile);
+    this.broadcastProfile(player);
+  }
+
+  /**
+   * Still on the spawn pad as spawned: protected, within 4 m of it, unhurt,
+   * no shot, skill or mascot move yet, and outside every capture zone.
+   */
+  private freshAtSpawn(player: PlayerConnection): boolean {
+    if (player.hurtSinceSpawn || player.actedSinceSpawn) return false;
+    // The protection window binds only once the player pressed something: a
+    // client still in the menu wardrobe has not deployed yet.
+    if (player.pressedSinceSpawn && this.physicsTick >= player.spawnProtectionUntil) return false;
+    const feet = player.character.position;
+    if (captureZoneIndexAt(feet) !== -1) return false;
+    const spawn = player.spawnPosition;
+    return Math.hypot(feet.x - spawn.x, feet.z - spawn.z) <= 4 && Math.abs(feet.y - spawn.y) <= 3;
+  }
+
+  /** A wardrobe notice for one player (see GameEventCode.PROFILE_NOTICE). */
+  private sendProfileNotice(player: PlayerConnection, kind: 1 | 2): void {
+    player.socket?.send(
+      encodeGameEvent({
+        eventType: 'PROFILE_NOTICE',
+        actorId: player.id,
+        targetId: 0,
+        paramX: player.profile.faction === 'alpine' ? 0 : 1,
+        paramZ: 0,
+        paramValue: kind,
+      }),
+    );
+  }
+
+  /**
+   * Switches class/loadout in place: the capsule is rebuilt at the same feet,
+   * the health fraction and the running skill cooldowns are kept, unchanged
+   * weapons keep their ammo. Life and spawn protection stay as they are;
+   * timed effects the new class has no skill for (cloak, speed boost, armour
+   * shield) end with the old class.
+   */
+  private applyKit(player: PlayerConnection, profile: PlayerProfile): void {
+    const previous = player.profile;
+    const oldMax = classStatsFor(previous.cosmetics.classId, previous.faction).maxHp;
+    const newMax = classStatsFor(profile.cosmetics.classId, profile.faction).maxHp;
+    const classChanged = profile.cosmetics.classId !== previous.cosmetics.classId;
+    if (classChanged || profile.faction !== previous.faction) {
       const position = player.character.position;
+      const heading = player.character.heading;
       this.physics.removeCharacter(player.character);
       player.character = this.physics.createCharacter({
         position,
-        classId,
-        faction: player.profile.faction,
+        classId: profile.cosmetics.classId,
+        faction: profile.faction,
       });
+      player.character.setHeading(heading);
     }
-
+    if (classChanged) {
+      const kinds = new Set(skillsForClass(profile.cosmetics.classId, profile.faction).map((skill) => skill.kind));
+      if (!kinds.has('cloak')) player.cloakUntilTick = 0;
+      if (!kinds.has('speed')) player.speedUntilTick = 0;
+      if (!kinds.has('shield')) {
+        player.shield = 0;
+        player.shieldUntilTick = 0;
+      }
+    }
+    const slots: WeaponSlot[] = [1, 2, 3];
+    const fresh = createAmmo(profile.loadout);
+    player.ammo = slots.map((slot, index) => {
+      const same = weaponForSlot(profile.loadout, slot) === weaponForSlot(previous.loadout, slot);
+      return (same ? player.ammo[index] : undefined) ?? fresh[index] ?? { magazine: 0, reserve: 0 };
+    });
     player.profile = profile;
-    player.hp = classStatsFor(classId, profile.faction).maxHp;
-    player.shield = 0;
-    player.alive = true;
-    player.respawnAtTick = 0;
-    player.killerId = 0;
-    player.ammo = createAmmo(profile.loadout);
+    player.hp = Math.max(1, Math.min(newMax, Math.round((player.hp / Math.max(1, oldMax)) * newMax)));
     player.activeSlot = 1;
     player.reloadEndsTick = 0;
     player.lastFireTick = -999;
-    player.skillCooldowns = [0, 0, 0];
-    player.speedUntilTick = 0;
-    player.shieldUntilTick = 0;
-    player.cloakUntilTick = 0;
-    player.slowUntilTick = 0;
-    player.dazedUntilTick = 0;
-    player.ramCooldowns.clear();
-    player.lastDamagedTick = NEVER_DAMAGED_TICK;
+    // Drifter resupply carry-over belongs to the old magazines.
     player.supplyAmmo = [0, 0, 0];
-    player.spawnProtectionUntil = this.physicsTick + SPAWN_PROTECTION_TICKS;
     player.inputQueue.length = 0;
     player.fireQueue.length = 0;
-    player.previousButtons = 0;
-    player.character.setColliderEnabled(true);
+  }
+
+  /**
+   * Applies a stored wardrobe change at respawn (before the spawn is chosen).
+   * A move from a class that does not count toward team balance to one that
+   * does re-runs the balance without this player: if their side is ahead,
+   * they switch to the smaller side and spawn by its rules.
+   */
+  private applyPendingProfile(player: PlayerConnection): void {
+    const pending = player.pendingProfile;
+    if (!pending) return;
+    player.pendingProfile = null;
+    const wasCounted = classCapabilities(player.profile.cosmetics.classId).countsTowardBalance;
+    const counts = classCapabilities(pending.cosmetics.classId).countsTowardBalance;
+    const faction = !wasCounted && counts ? this.pickFaction(player.profile.faction, pending.cosmetics.classId, player.id) : player.profile.faction;
+    const moved = faction !== player.profile.faction;
+    this.applyKit(player, { ...pending, faction });
+    this.conquestBots.forget(player.id);
     this.broadcastProfile(player);
+    if (moved) this.sendProfileNotice(player, 2);
   }
 
   broadcastEvent(event: GameEvent): void {
@@ -2411,9 +2720,10 @@ export class MatchRoom {
     }
   }
 
-  private broadcastProfile(player: PlayerConnection): void {
+  private broadcastProfile(player: PlayerConnection, exceptOwner = false): void {
     const packet = encodeProfileMessage({ playerId: player.id, profile: player.profile });
     for (const other of this.players.values()) {
+      if (exceptOwner && other.id === player.id) continue;
       other.socket?.send(packet);
     }
   }
@@ -2474,17 +2784,19 @@ export class MatchRoom {
       });
     }
     const wind = this.currentWind();
+    const conquest = this.conquest.snapshot();
     return {
       serverTick: this.snapshotTick,
-      weatherBalance: this.weatherBalance,
+      weatherBalance: this.conquest.weatherBalance,
       windAngle: wind.angle,
       windStrength: wind.strength,
-      ticketsAlpine: this.ticketsAlpine,
-      ticketsLagoon: this.ticketsLagoon,
-      turretStates: 0,
+      ticketsAlpine: this.conquest.ticketsOf('alpine'),
+      ticketsLagoon: this.conquest.ticketsOf('lagoon'),
+      turretStates: towerOwnerBits(conquest.towers),
       players,
       vehicles: this.vehicles.snapshot(),
       critters: this.critters.states(),
+      conquest,
     };
   }
 
@@ -2492,8 +2804,9 @@ export class MatchRoom {
    * Balances the teams; on a tie the player's wardrobe preference wins. A
    * class that adds no combat strength (the drifter) is neither balanced nor
    * counted: she joins her preferred side, or the side whose form exists.
+   * `excludeId` leaves one player out of the count (a re-balance at respawn).
    */
-  private pickFaction(preferred: Faction, classId: ClassId): Faction {
+  private pickFaction(preferred: Faction, classId: ClassId, excludeId = 0): Faction {
     if (!classCapabilities(classId).countsTowardBalance) {
       if (classAvailableForFaction(classId, preferred)) return preferred;
       const other: Faction = preferred === 'alpine' ? 'lagoon' : 'alpine';
@@ -2502,6 +2815,7 @@ export class MatchRoom {
     let alpine = 0;
     let lagoon = 0;
     for (const player of this.players.values()) {
+      if (player.id === excludeId) continue;
       if (!capabilitiesOf(player).countsTowardBalance) continue;
       if (player.profile.faction === 'alpine') alpine += 1;
       else lagoon += 1;
@@ -2534,8 +2848,9 @@ export class MatchRoom {
       uptimeSeconds: Math.floor((Date.now() - this.startedAt) / 1000),
       protocolVersion: PROTOCOL_VERSION,
       mapId: MAP_ID,
-      tickets: { alpine: this.ticketsAlpine, lagoon: this.ticketsLagoon },
-      weatherBalance: this.weatherBalance,
+      tickets: { alpine: this.conquest.ticketsOf('alpine'), lagoon: this.conquest.ticketsOf('lagoon') },
+      weatherBalance: this.conquest.weatherBalance,
+      conquest: this.conquest.status(),
       mascots: {
         active: [...this.players.values()].filter((player) => player.character.form !== null).length,
         rams: this.mascotStats.rams,

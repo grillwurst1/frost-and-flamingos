@@ -5,7 +5,10 @@
  * 8: drifter class (CLASS_CODE 4), aura status bits and a uint16 support score
  *    per snapshot player (3G), on top of the protocol-7 critter trailer.
  * 9: vehicle block in the snapshot (between the players and the critter
- *    trailer) and the VEHICLE_* events (4V), on top of 8.
+ *    trailer) and the VEHICLE_* events (4V), on top of 8; plus the Climate
+ *    Conquest block after the critter trailer, spawnYaw in Welcome and the
+ *    PROFILE_NOTICE event (4T). 9 was never published on its own, so the
+ *    integrated layout keeps the number.
  */
 export const PROTOCOL_VERSION = 9;
 

@@ -12,6 +12,9 @@ import type { DrivableVehicleKind } from '../config/vehicles.js';
 export const WORLD_COLLISION_GROUP = 0x00010007;
 /** Membership bit 2 = player bodies, filter accepts world and player bodies. */
 export const PLAYER_COLLISION_GROUP = 0x00020003;
+/** Ray groups that see only the static world (membership bit 1, filter bit 1). */
+const STATIC_WORLD_RAY_GROUPS = 0x00010001;
+
 /**
  * Membership bit 3 = untouchable drifter bodies, filter accepts the world
  * only: no contact pair with any player or mascot exists in either direction.
@@ -327,6 +330,26 @@ export class PhysicsWorld {
         x: origin.x + (direction.x / length) * hit.timeOfImpact,
         y: origin.y + (direction.y / length) * hit.timeOfImpact,
         z: origin.z + (direction.z / length) * hit.timeOfImpact,
+      },
+    };
+  }
+
+  /**
+   * Ray against the static world only (terrain, props, boundary walls): never
+   * players, vehicles or any other body outside WORLD_COLLISION_GROUP. For
+   * results that are cached as a property of the map (spawn facings).
+   */
+  raycastStatic(origin: Vec3, direction: Vec3, maxDistance: number): RayHit | null {
+    const length = Math.hypot(direction.x, direction.y, direction.z) || 1;
+    const unit = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
+    const hit = this.world.castRay(new RAPIER.Ray(origin, unit), maxDistance, true, undefined, STATIC_WORLD_RAY_GROUPS);
+    if (!hit) return null;
+    return {
+      distance: hit.timeOfImpact,
+      point: {
+        x: origin.x + unit.x * hit.timeOfImpact,
+        y: origin.y + unit.y * hit.timeOfImpact,
+        z: origin.z + unit.z * hit.timeOfImpact,
       },
     };
   }
