@@ -14,11 +14,9 @@ import {
  * files that the generated `public/models/manifest.json` lists, so classes
  * whose model has not arrived yet keep the procedural rig without a 404.
  *
- * The models wear their painted default outfit. Torso, legs and feet are part
- * of the painted body and cannot change; headgear, face, back and hands items
- * are attached to bones when the player picks something else. A player who
- * changes torso, legs or feet away from the painted outfit gets the fully
- * procedural (mix-and-match) rig instead.
+ * Soldier GLBs supply the animation skeleton and clips. Their visible body
+ * is a single modular skinned mesh representing every wardrobe selection.
+ * Fixed-look extras (cosmetics=false) retain the original painted body.
  */
 export type PaintedModelKey = `${Faction}-${Exclude<ClassId, 'mascot'>}`;
 
@@ -332,7 +330,7 @@ const defaultsFor = createDefaultCosmetics as (classId: ClassId, faction?: Facti
 
 export type OutfitSlot = 'headgear' | 'face' | 'torso' | 'back' | 'hands' | 'legs' | 'feet';
 
-/** Slots baked into the painted body: changing them needs the procedural rig. */
+/** Clothing slots restored by the wardrobe standard-clothing action. */
 export const FIXED_SLOTS: readonly OutfitSlot[] = ['torso', 'legs', 'feet'];
 export const ATTACHABLE_SLOTS: readonly OutfitSlot[] = ['headgear', 'face', 'back', 'hands'];
 
@@ -347,12 +345,12 @@ export function wearsNative(profile: PlayerProfile, spec: PaintedModelSpec, slot
   return value === defaults[slot];
 }
 
-/** The painted model can represent this profile (torso/legs/feet as painted). */
+/** Modular soldiers support every outfit; fixed-look extras retain their own outfit. */
 export function outfitFitsPaintedModel(profile: PlayerProfile, spec: PaintedModelSpec): boolean {
-  return FIXED_SLOTS.every((slot) => wearsNative(profile, spec, slot));
+  return spec.cosmetics !== false || FIXED_SLOTS.every((slot) => wearsNative(profile, spec, slot));
 }
 
-/** Class-default torso/legs/feet for "wear the painted outfit" in the wardrobe. */
+/** Class-default torso/legs/feet for the wardrobe standard-clothing action. */
 export function paintedOutfitReset(profile: PlayerProfile): Pick<Cosmetics, 'torso' | 'legs' | 'feet'> {
   const defaults = defaultsFor(profile.cosmetics.classId, profile.faction);
   return { torso: defaults.torso, legs: defaults.legs, feet: defaults.feet };

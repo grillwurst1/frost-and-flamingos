@@ -73,8 +73,8 @@ export function createAvatarView(
     if (options.preview) return new MascotPreviewPair(scene, shadowMaterial, profile);
     return new MascotView(scene, shadowMaterial, profile, options.fx ?? null);
   }
-  // The owner's painted Meshy models, when one exists for this faction and
-  // class and the outfit matches the painting; otherwise the procedural rig.
+  // Reuse the owner's Meshy animation rig for every soldier outfit.
+  // A missing rig keeps the procedural loading fallback.
   const painted = createPaintedAvatarView(scene, shadowMaterial, profile, options.priority ?? false);
   if (painted) return painted;
   return new CharacterView(scene, shadowMaterial, profile);

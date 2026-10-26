@@ -204,7 +204,7 @@ export interface HeadFrame {
   radius: number;
 }
 
-const headCache = new WeakMap<RigInfo, HeadFrame | null>();
+const headCache = new WeakMap<object, HeadFrame | null>();
 
 /**
  * Head centre and mouth point for a painted model. The mouth is the front
@@ -212,10 +212,11 @@ const headCache = new WeakMap<RigInfo, HeadFrame | null>();
  * mesh below the head centre, so it fits big hair and small faces alike.
  */
 export function headFrame(rig: RigInfo, mesh: Mesh | null, head: { y: number; z: number; radius: number }): HeadFrame | null {
-  if (headCache.has(rig)) return headCache.get(rig) ?? null;
+  const cacheKey = mesh ?? rig;
+  if (headCache.has(cacheKey)) return headCache.get(cacheKey) ?? null;
   const bind = bindWorldTransform(rig, 'Head');
   if (!bind) {
-    headCache.set(rig, null);
+    headCache.set(cacheKey, null);
     return null;
   }
   const centre = new Vector3(0, head.y, head.z);
@@ -238,6 +239,6 @@ export function headFrame(rig: RigInfo, mesh: Mesh | null, head: { y: number; z:
     mouth: new Vector3(0, mouthY, front + 0.012).subtractInPlace(bind.position).rotateByQuaternionToRef(inverse, new Vector3()),
     radius: head.radius,
   };
-  headCache.set(rig, frame);
+  headCache.set(cacheKey, frame);
   return frame;
 }

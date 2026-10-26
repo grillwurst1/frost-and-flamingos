@@ -36,6 +36,7 @@
   } from '@frost-and-flamingos/shared';
   import { audio } from '../audio/synth';
   import {
+    getProfile,
     randomizeProfile,
     resetProfile,
     setBack,
@@ -114,7 +115,8 @@
   }
 
   function cycleHair(direction: number): void {
-    setHairStyle((hairIndex + direction + HAIR_STYLE_IDS.length) % HAIR_STYLE_IDS.length);
+    const current = getProfile().cosmetics.hairStyleIndex;
+    setHairStyle((current + direction + HAIR_STYLE_IDS.length) % HAIR_STYLE_IDS.length);
     audio.playUi('tick');
   }
 
@@ -263,7 +265,8 @@
             <button
               class="swatch"
               type="button"
-              aria-label={$t('wardrobe.skinTone')}
+              aria-label={$t('wardrobe.skinToneChoice', { index: index + 1 })}
+              title={$t('wardrobe.skinToneChoice', { index: index + 1 })}
               aria-pressed={cosmetics.skinToneIndex === index}
               style={`background:${tone}`}
               on:click={() => { setSkinTone(index); audio.playUi('tick'); }}
@@ -279,7 +282,8 @@
             <button
               class="swatch"
               type="button"
-              aria-label={$t('wardrobe.hairColor')}
+              aria-label={$t('wardrobe.hairColorChoice', { index: index + 1 })}
+              title={$t('wardrobe.hairColorChoice', { index: index + 1 })}
               aria-pressed={cosmetics.hairColorIndex === index}
               style={`background:${colour}`}
               on:click={() => { setHairColor(index); audio.playUi('tick'); }}
@@ -333,9 +337,7 @@
         <div class="painted-note" data-state={$paintedOutfit}>
           <span class="hud-chip">{$t($paintedOutfit === 'painted' ? 'wardrobe.paintedTitle' : 'wardrobe.customTitle')}</span>
           <p class="field-hint">{$t($paintedOutfit === 'painted' ? 'wardrobe.paintedHint' : 'wardrobe.customHint')}</p>
-          {#if $paintedOutfit === 'custom'}
-            <button class="btn-ghost" type="button" on:click={wearPainted}>{$t('wardrobe.wearPainted')}</button>
-          {/if}
+          <button class="btn-ghost" type="button" on:click={wearPainted}>{$t('wardrobe.wearPainted')}</button>
         </div>
       {/if}
 

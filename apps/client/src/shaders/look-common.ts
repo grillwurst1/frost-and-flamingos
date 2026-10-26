@@ -66,7 +66,7 @@ float ffShadow(vec3 worldPos, vec3 normal, float ndl) {
   float texel = uFFShadowParams.x;
   float slope = 1.0 - clamp(ndl, 0.0, 1.0);
   float offsetLen = uFFShadowParams.y * (0.8 + 2.6 * slope);
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   // Painted characters are thinner than the offset; cap it so self-shadows
   // from brims and arms stay attached instead of jumping in coarse cells.
   offsetLen = min(offsetLen, 0.12);
@@ -129,7 +129,7 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   float ndl = dot(normal, light);
   float shadow = ffShadow(worldPos, normal, ndl);
 
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   // Painted skinned characters: widen the hard bands by the screen-space
   // derivative so dense meshes and normal maps do not alias into speckles.
   float bandAA = max(0.16, fwidth(ndl) * 1.5);
@@ -138,7 +138,7 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
 #endif
   float terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uFFToonParams.z);
   float full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uFFToonParams.z);
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   // Sculpted forms need a continuous light gradient, rather than flat cel islands.
   float lightLevel = smoothstep(-0.35, 1.0, ndl + uFFToonParams.z) * shadow;
 #else
@@ -147,7 +147,7 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
 
   float skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
   vec3 fill = mix(uFFGroundFill, uFFSkyFill, skyMix);
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   // Painted albedo already carries its own soft shading: no extra deepening.
   vec3 shade = base * ffShadeTint(base) * fill;
 #else
@@ -215,7 +215,7 @@ fn ffShadow(worldPos : vec3f, normal : vec3f, ndl : f32) -> f32 {
   let texel = uniforms.uFFShadowParams.x;
   let slope = 1.0 - clamp(ndl, 0.0, 1.0);
   var offsetLen = uniforms.uFFShadowParams.y * (0.8 + 2.6 * slope);
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   offsetLen = min(offsetLen, 0.12);
 #endif
   let offsetPos = worldPos + normal * offsetLen;
@@ -277,12 +277,12 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let shadow = ffShadow(worldPos, normal, ndl);
 
   var bandAA = 0.12;
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   bandAA = max(0.16, fwidth(ndl) * 1.5);
 #endif
   let terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uniforms.uFFToonParams.z);
   let full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uniforms.uFFToonParams.z);
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   let lightLevel = smoothstep(-0.35, 1.0, ndl + uniforms.uFFToonParams.z) * shadow;
 #else
   let lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
@@ -290,7 +290,7 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
 
   let skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
   let fill = mix(uniforms.uFFGroundFill, uniforms.uFFSkyFill, skyMix);
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   let shade = base * ffShadeTint(base) * fill;
 #else
   let deep = pow(max(base, vec3f(0.001)), vec3f(1.35));

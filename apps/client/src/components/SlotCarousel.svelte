@@ -14,8 +14,14 @@
 
   function step(direction: number): void {
     if (ids.length === 0) return;
-    const next = ids[(index + direction + ids.length) % ids.length];
-    if (next) onChange(next);
+    const currentIndex = Math.max(0, ids.indexOf(value));
+    const next = ids[(currentIndex + direction + ids.length) % ids.length];
+    if (next) {
+      // Advance immediately, including a second click before Svelte flushes
+      // the parent's store update back into this prop.
+      value = next;
+      onChange(next);
+    }
   }
 </script>
 

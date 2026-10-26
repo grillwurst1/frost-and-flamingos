@@ -1,10 +1,10 @@
 import { Color4 } from '@babylonjs/core/Maths/math';
-import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder';
 import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
@@ -31,6 +31,7 @@ import {
   type CharacterMaterialState,
 } from './materials';
 import { mergeParts } from './mesh-utils';
+import { Affine, GeometryBatch } from './map/geometry';
 
 const MODEL_HEIGHT = 1.88;
 const SPINE_Y = 0.88;
@@ -55,6 +56,42 @@ interface MeshOptions {
 }
 
 type PartList = Mesh[];
+
+/** Preserve semantic regions while merging the authored wardrobe parts. */
+function tagParts(parts: readonly Mesh[], tag: number): void {
+  for (const part of parts) {
+    const data = new Float32Array(part.getTotalVertices() * 2);
+    for (let i = 0; i < data.length; i += 2) data[i] = tag;
+    part.setVerticesData('uv2', data, false, 2);
+  }
+}
+
+function shapedPart(scene: Scene, name: string, width: number, height: number, depth: number): Mesh {
+  const batch = new GeometryBatch();
+  batch.jitter = 0;
+  const organic = /^(chest|waist|hip|dirndl-blouse)$|-(upper-arm|forearm|thigh|shin|lederhosen|boardshort|boot|ski-boot|sock)$/.test(name);
+  if (name === 'sculpted-head') {
+    batch.with(Affine.scaling(1, 1, depth / width), () => batch.lathe([
+      [0.045, -0.215], [0.115, -0.195], [0.155, -0.14], [0.18, -0.075],
+      [0.198, 0], [0.20, 0.075], [0.185, 0.14], [0.145, 0.195], [0.06, 0.22], [0.001, 0.225],
+    ], 28, [1, 1, 1], 'plain', { capBottom: true }));
+  } else if (organic) {
+    const torso = /^(chest|waist|hip)$/.test(name);
+    const profile: Array<[number, number]> = [
+      [width * (torso ? 0.43 : 0.34), -height / 2],
+      [width * 0.49, -height * 0.35], [width * 0.5, height * 0.12],
+      [width * 0.47, height * 0.4], [width * 0.42, height / 2],
+    ];
+    batch.with(Affine.scaling(1, 1, depth / width), () =>
+      batch.lathe(profile, 20, [1, 1, 1], 'plain', { capTop: true, capBottom: true }));
+  } else batch.box(0, 0, 0, width, height, depth, [1, 1, 1], 'plain', Math.min(0.026, width * 0.2, height * 0.2, depth * 0.2));
+  const mesh = new Mesh(name, scene);
+  const data = new VertexData();
+  data.positions = new Float32Array(batch.positions); data.normals = new Float32Array(batch.normals); data.indices = new Uint32Array(batch.indices);
+  data.uvs = new Float32Array(batch.vertexCount * 2);
+  data.applyToMesh(mesh, false);
+  return mesh;
+}
 
 function paint(mesh: Mesh, color: Color4, skin: boolean): Mesh {
   const tinted = skin ? new Color4(color.r, color.g, color.b, 1) : new Color4(color.r, color.g, color.b, 0);
@@ -84,7 +121,7 @@ function box(
   color: Color4,
   options: MeshOptions = {},
 ): Mesh {
-  const mesh = CreateBox(name, { width, height, depth }, scene);
+  const mesh = shapedPart(scene, name, width, height, depth);
   mesh.position.set(x, y, z);
   if (options.rotationX) mesh.rotation.x = options.rotationX;
   if (options.rotationY) mesh.rotation.y = options.rotationY;
@@ -108,7 +145,7 @@ function sphere(
   color: Color4,
   options: MeshOptions = {},
 ): Mesh {
-  const mesh = CreateSphere(name, { diameter, segments: options.segments ?? 8 }, scene);
+  const mesh = CreateSphere(name, { diameter, segments: Math.max(8, options.segments ?? 12) }, scene);
   mesh.position.set(x, y, z);
   if (options.rotationX) mesh.rotation.x = options.rotationX;
   if (options.rotationY) mesh.rotation.y = options.rotationY;
@@ -136,7 +173,7 @@ function cylinder(
 ): Mesh {
   const mesh = CreateCylinder(
     name,
-    { height, diameterTop: top, diameterBottom: bottom, tessellation: options.segments ?? 8 },
+    { height, diameterTop: top, diameterBottom: bottom, tessellation: Math.max(12, options.segments ?? 12) },
     scene,
   );
   mesh.position.set(x, y, z);
@@ -269,7 +306,7 @@ export class CharacterView {
     const hairHex = HAIR_COLORS[cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
     const bodyType = Math.min(1, Math.max(0, cosmetics.bodyType));
     const shoulderWidth = lerp(0.62, 0.5, bodyType);
-    const hipWidth = lerp(0.34, 0.46, bodyType);
+    const hipWidth = lerp(0.46, 0.34, bodyType);
     const waistWidth = lerp(0.46, 0.38, bodyType);
     const chestDepth = lerp(0.34, 0.3, bodyType);
 
@@ -294,18 +331,14 @@ export class CharacterView {
       cosmetics.torso === 'torso_barrel_armor';
 
     // Torso silhouette morphs continuously with bodyType.
-    box(scene, body, 'chest', shoulderWidth * 0.88, 0.36, chestDepth, 0, 0.36, 0, torsoPrimary);
-    box(scene, body, 'waist', waistWidth, 0.24, chestDepth * 0.9, 0, 0.1, 0, torsoPrimary);
-    box(scene, body, 'hip', hipWidth + 0.05, 0.18, chestDepth * 0.92, 0, -0.04, 0, torsoPrimary);
+    box(scene, body, 'chest', shoulderWidth * 0.88, 0.36, chestDepth, 0, 0.36, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
+    box(scene, body, 'waist', waistWidth, 0.24, chestDepth * 0.9, 0, 0.1, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
+    box(scene, body, 'hip', hipWidth + 0.05, 0.18, chestDepth * 0.92, 0, -0.04, 0, hexToColor4(LEGS_PALETTES[cosmetics.legs].primary));
     cylinder(scene, body, 'neck', 0.14, 0.16, 0.18, 0, 0.6, 0, skinColor, { skin: true });
 
     // Head, face and ears.
-    sphere(scene, body, 'head', HEAD_RADIUS * 2, 0, HEAD_Y, 0, skinColor, {
-      skin: true,
-      segments: 12,
-      scaleY: 1.06,
-      scaleZ: 0.98,
-    });
+    const headStart = body.length;
+    box(scene, body, 'sculpted-head', HEAD_RADIUS * 2, 0.44, 0.41, 0, HEAD_Y, 0, skinColor, { skin: true });
     sphere(scene, body, 'ear-left', 0.085, -HEAD_RADIUS * 0.98, HEAD_Y, 0, skinColor, {
       skin: true,
       segments: 6,
@@ -314,24 +347,35 @@ export class CharacterView {
       skin: true,
       segments: 6,
     });
-    sphere(scene, body, 'eye-left', 0.072, -0.078, HEAD_Y + 0.035, 0.185, WHITE, { segments: 6 });
-    sphere(scene, body, 'eye-right', 0.072, 0.078, HEAD_Y + 0.035, 0.185, WHITE, { segments: 6 });
-    sphere(scene, body, 'pupil-left', 0.038, -0.078, HEAD_Y + 0.035, 0.218, EYE, { segments: 6 });
-    sphere(scene, body, 'pupil-right', 0.038, 0.078, HEAD_Y + 0.035, 0.218, EYE, { segments: 6 });
-    sphere(scene, body, 'glint-left', 0.014, -0.09, HEAD_Y + 0.052, 0.233, WHITE, { segments: 5 });
-    sphere(scene, body, 'glint-right', 0.014, 0.066, HEAD_Y + 0.052, 0.233, WHITE, { segments: 5 });
-    box(scene, body, 'brow-left', 0.09, 0.026, 0.03, -0.08, HEAD_Y + 0.105, 0.2, EYE, {
+    sphere(scene, body, 'eye-left', 0.058, -0.078, HEAD_Y + 0.035, 0.174, WHITE, { segments: 12 });
+    sphere(scene, body, 'eye-right', 0.058, 0.078, HEAD_Y + 0.035, 0.174, WHITE, { segments: 12 });
+    sphere(scene, body, 'glint-left', 0.009, -0.085, HEAD_Y + 0.043, 0.210, WHITE, { segments: 8 });
+    sphere(scene, body, 'glint-right', 0.009, 0.071, HEAD_Y + 0.043, 0.210, WHITE, { segments: 8 });
+    box(scene, body, 'brow-left', 0.09, 0.026, 0.03, -0.08, HEAD_Y + 0.105, 0.2, hexToColor4(hairHex), {
       rotationZ: -0.12,
     });
-    box(scene, body, 'brow-right', 0.09, 0.026, 0.03, 0.08, HEAD_Y + 0.105, 0.2, EYE, {
+    box(scene, body, 'brow-right', 0.09, 0.026, 0.03, 0.08, HEAD_Y + 0.105, 0.2, hexToColor4(hairHex), {
       rotationZ: 0.12,
     });
     sphere(scene, body, 'nose', 0.082, 0, HEAD_Y - 0.015, 0.205, skinColor, {
       skin: true,
       segments: 6,
     });
-    box(scene, body, 'mouth', 0.085, 0.018, 0.012, 0, HEAD_Y - 0.105, 0.2, EYE);
-    box(scene, body, 'chin', 0.11, 0.035, 0.03, 0, HEAD_Y - 0.15, 0.175, skinColor, { skin: true });
+    box(scene, body, 'mouth', 0.085, 0.012, 0.012, 0, HEAD_Y - 0.105, 0.174, EYE);
+    const shadowSkin = new Color4(skinColor.r * 0.7, skinColor.g * 0.65, skinColor.b * 0.63, 1);
+    for (const side of [-1, 1]) {
+      sphere(scene, body, 'cheek', 0.13, side * 0.11, HEAD_Y - 0.05, 0.135, skinColor,
+        { skin: true, scaleY: 0.85, scaleZ: 0.5, segments: 12 });
+      sphere(scene, body, 'ear-inner', 0.045, side * 0.224, HEAD_Y - 0.005, 0.012, shadowSkin,
+        { scaleX: 0.35, scaleY: 1.2, segments: 10 });
+      sphere(scene, body, 'iris', 0.035, side * 0.078, HEAD_Y + 0.035, 0.198, hexToColor4('#476d68'), { scaleZ: 0.3, segments: 12 });
+      sphere(scene, body, 'pupil-detail', 0.019, side * 0.078, HEAD_Y + 0.035, 0.204, EYE, { scaleZ: 0.35, segments: 12 });
+      sphere(scene, body, 'nostril', 0.015, side * 0.023, HEAD_Y - 0.031, 0.242, shadowSkin, { scaleY: 0.65, scaleZ: 0.5 });
+    }
+    sphere(scene, body, 'nose-bridge', 0.052, 0, HEAD_Y + 0.016, 0.19, skinColor,
+      { skin: true, scaleY: 1.65, scaleX: 0.7, segments: 12 });
+    sphere(scene, body, 'lower-lip', 0.064, 0, HEAD_Y - 0.123, 0.171, shadowSkin, { scaleY: 0.3, scaleZ: 0.5, segments: 12 });
+    tagParts(body.slice(headStart), 1);
 
     this.buildTorsoDetails(scene, body, cosmetics.torso, {
       torsoPrimary,
@@ -342,10 +386,20 @@ export class CharacterView {
       shoulderWidth,
       waistWidth,
     });
+    const belt = hexToColor4(LEGS_PALETTES[cosmetics.legs].secondary);
+    box(scene, body, 'waist-belt', waistWidth + 0.025, 0.05, chestDepth + 0.025, 0, 0.015, 0, belt);
+    box(scene, body, 'belt-buckle', 0.075, 0.06, 0.018, 0, 0.015, chestDepth / 2 + 0.025, GOLD);
+    box(scene, body, 'belt-buckle-inset', 0.042, 0.032, 0.022, 0, 0.015, chestDepth / 2 + 0.035, belt);
+    const backStart = body.length;
     this.buildBackItem(scene, body, cosmetics.back);
+    tagParts(body.slice(backStart), 2);
+    const faceStart = body.length;
     this.buildFace(scene, body, cosmetics.face, HEAD_Y, skinColor, hairHex);
     this.buildHair(scene, body, cosmetics.hairStyleIndex, HEAD_Y, hairHex);
-    this.buildHeadgear(scene, body, cosmetics.headgear, HEAD_Y, hairHex);
+    const hatLift = [0, 0.1, 0.025, 0.025, 0.025, 0.07, 0][cosmetics.hairStyleIndex] ?? 0;
+    this.buildHeadgear(scene, body, cosmetics.headgear, HEAD_Y + hatLift);
+    tagParts(body.slice(faceStart), 1);
+    for (const part of body) if (!part.isVerticesDataPresent('uv2')) tagParts([part], 0);
 
     const bodyMesh = mergeParts(scene, 'character-body-mesh', body, this.material);
     if (bodyMesh) {
@@ -363,9 +417,10 @@ export class CharacterView {
     this.leftShoulder.rotation.z = 0.07;
     this.rightShoulder.rotation.z = -0.07;
 
-    const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left');
+    const limbBulk = lerp(1.14, 0.92, bodyType);
+    const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', limbBulk);
     leftArm.parent = this.leftShoulder;
-    const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right');
+    const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', limbBulk);
     rightArm.parent = this.rightShoulder;
 
     this.leftHip = new TransformNode('left-hip', scene);
@@ -375,9 +430,9 @@ export class CharacterView {
     this.rightHip.parent = this.root;
     this.rightHip.position.set(hipWidth / 2, 0.86, 0);
 
-    const leftLeg = this.buildLeg(scene, cosmetics.legs, cosmetics.feet, skinColor, 'left');
+    const leftLeg = this.buildLeg(scene, cosmetics.legs, cosmetics.feet, skinColor, 'left', limbBulk);
     leftLeg.parent = this.leftHip;
-    const rightLeg = this.buildLeg(scene, cosmetics.legs, cosmetics.feet, skinColor, 'right');
+    const rightLeg = this.buildLeg(scene, cosmetics.legs, cosmetics.feet, skinColor, 'right', limbBulk);
     rightLeg.parent = this.rightHip;
 
     this.shadow = CreateDisc('character-shadow', { radius: 0.55, tessellation: 20 }, scene);
@@ -470,6 +525,10 @@ export class CharacterView {
         });
       }
       box(scene, body, 'tracht-collar', 0.2, 0.05, 0.04, 0, 0.53, front, torsoAccent);
+      for (const side of [-1, 1]) {
+        box(scene, body, 'tracht-collar-fold', 0.105, 0.09, 0.025, side * 0.065, 0.49, front + 0.016, WHITE, { rotationZ: side * 0.5 });
+        box(scene, body, 'suspender-clasp', 0.042, 0.028, 0.026, side * 0.14, 0.22, front + 0.016, GOLD);
+      }
       box(scene, body, 'tracht-suspenders-left', 0.035, 0.36, 0.02, -0.14, 0.35, front, torsoSecondary);
       box(scene, body, 'tracht-suspenders-right', 0.035, 0.36, 0.02, 0.14, 0.35, front, torsoSecondary);
     } else if (torso === 'torso_dirndl_vest') {
@@ -529,13 +588,6 @@ export class CharacterView {
         segments: 5,
       });
     } else if (torso === 'torso_bare_suspenders') {
-      // The torso itself is skin. Redraw the chest and waist with the skin mask.
-      box(scene, body, 'bare-chest', shoulderWidth * 0.86, 0.34, chestDepth + 0.005, 0, 0.37, 0, skinColor, {
-        skin: true,
-      });
-      box(scene, body, 'bare-waist', waistWidth * 0.98, 0.22, chestDepth * 0.92, 0, 0.1, 0, skinColor, {
-        skin: true,
-      });
       box(scene, body, 'suspender-left', 0.04, 0.42, 0.025, -0.14, 0.32, front, torsoSecondary);
       box(scene, body, 'suspender-right', 0.04, 0.42, 0.025, 0.14, 0.32, front, torsoSecondary);
     } else if (torso === 'torso_barrel_armor') {
@@ -659,11 +711,13 @@ export class CharacterView {
     const hairColor = hexToColor4(hair);
 
     if (face === 'face_full_beard') {
-      box(scene, body, 'beard-jaw', 0.3, 0.18, 0.12, 0, headY - 0.14, 0.13, hairColor);
-      box(scene, body, 'beard-chin', 0.18, 0.16, 0.1, 0, headY - 0.24, 0.12, hairColor);
-      box(scene, body, 'beard-left', 0.08, 0.18, 0.1, -0.13, headY - 0.08, 0.14, hairColor);
-      box(scene, body, 'beard-right', 0.08, 0.18, 0.1, 0.13, headY - 0.08, 0.14, hairColor);
-      box(scene, body, 'beard-mustache', 0.16, 0.04, 0.04, 0, headY - 0.055, 0.21, hairColor);
+      for (let tuft = -3; tuft <= 3; tuft++) {
+        sphere(scene, body, 'beard-lock', 0.095, tuft * 0.043,
+          headY - 0.20 + Math.abs(tuft) * 0.028, 0.16 - Math.abs(tuft) * 0.012, hairColor,
+          { scaleY: 1.6, scaleZ: 0.8, rotationZ: -tuft * 0.06, segments: 12 });
+      }
+      for (const side of [-1, 1]) sphere(scene, body, 'beard-mustache', 0.10,
+        side * 0.047, headY - 0.055, 0.215, hairColor, { scaleX: 1.2, scaleY: 0.38, scaleZ: 0.45, rotationZ: side * 0.16 });
     } else if (face === 'face_mustache') {
       cylinder(scene, body, 'mustache-left', 0.16, 0.025, 0.035, -0.07, headY - 0.045, 0.205, hairColor, {
         rotationZ: Math.PI / 2.4,
@@ -819,7 +873,6 @@ export class CharacterView {
     body: PartList,
     headgear: PlayerProfile['cosmetics']['headgear'],
     headY: number,
-    hairHex: string,
   ): void {
     if (headgear === 'head_none') return;
     const palette = HEADGEAR_PALETTES[headgear];
@@ -916,12 +969,6 @@ export class CharacterView {
       sphere(scene, body, 'diving-bolt-right', 0.06, 0.27, headY + 0.2, 0, secondary, { segments: 5 });
     }
 
-    // A few hats intentionally show a tuft of hair at the back.
-    if (headgear !== 'head_diving_bell' && headgear !== 'head_fondue_pot') {
-      sphere(scene, body, 'hat-hair-tuft', 0.14, 0, headY + 0.06, -0.2, hexToColor4(hairHex), {
-        segments: 5,
-      });
-    }
   }
 
   private buildArm(
@@ -931,9 +978,12 @@ export class CharacterView {
     skin: Color4,
     bare: boolean,
     side: 'left' | 'right',
+    bulk: number,
   ): Mesh {
     const parts: PartList = [];
     const armColor = bare ? skin : sleeve;
+    sphere(scene, parts, `${side}-deltoid`, 0.17, 0, -0.035, 0, armColor,
+      { skin: bare, segments: 12, scaleY: 1.15 });
     box(scene, parts, `${side}-upper-arm`, 0.13, 0.32, 0.14, 0, -0.16, 0, armColor, {
       skin: bare,
     });
@@ -977,11 +1027,19 @@ export class CharacterView {
         segments: 7,
       });
     } else {
-      sphere(scene, parts, `${side}-hand`, 0.15, 0, -0.66, 0.01, skin, {
+      sphere(scene, parts, `${side}-hand`, 0.13, 0, -0.65, 0.01, skin, {
         skin: true,
-        segments: 6,
+        segments: 12,
         scaleY: 1.1,
+        scaleZ: 0.65,
       });
+      for (let finger = 0; finger < 4; finger++) {
+        const x = -0.043 + finger * 0.029;
+        sphere(scene, parts, `${side}-finger`, 0.036, x, -0.721 + Math.abs(finger - 1.5) * 0.007, 0.018, skin,
+          { skin: true, scaleY: 1.8, scaleZ: 0.9, segments: 8 });
+      }
+      sphere(scene, parts, `${side}-thumb`, 0.043, side === 'left' ? 0.069 : -0.069, -0.655, 0.035, skin,
+        { skin: true, scaleY: 1.55, rotationZ: side === 'left' ? -0.4 : 0.4, segments: 10 });
       if (hands === 'hands_gold_watch') {
         torus(scene, parts, `${side}-watch`, 0.13, 0.022, 0, -0.6, 0, handPrimary, {
           rotationX: Math.PI / 2,
@@ -993,6 +1051,7 @@ export class CharacterView {
       }
     }
 
+    for (const part of parts) { part.position.x *= bulk; part.position.z *= bulk; part.scaling.x *= bulk; part.scaling.z *= bulk; }
     const merged = mergeParts(scene, `${side}-arm-mesh`, parts, this.material);
     if (!merged) throw new Error('Failed to build character arm.');
     merged.parent = side === 'left' ? this.leftShoulder : this.rightShoulder;
@@ -1006,28 +1065,26 @@ export class CharacterView {
     feet: PlayerProfile['cosmetics']['feet'],
     skin: Color4,
     side: 'left' | 'right',
+    bulk: number,
   ): Mesh {
     const parts: PartList = [];
     const palette = LEGS_PALETTES[legs];
     const primary = hexToColor4(palette.primary);
     const secondary = hexToColor4(palette.secondary);
     const accent = hexToColor4(palette.accent);
-    const shorts =
-      legs === 'legs_lederhosen' ||
-      legs === 'legs_boardshorts' ||
-      legs === 'legs_long_johns';
     const thighSkin = legs === 'legs_lederhosen' || legs === 'legs_boardshorts';
     const thighColor = thighSkin ? skin : primary;
     const shinColor = thighSkin ? skin : primary;
 
-    box(scene, parts, `${side}-thigh`, 0.16, shorts ? 0.3 : 0.4, 0.18, 0, shorts ? -0.15 : -0.2, 0, thighColor, {
+    box(scene, parts, `${side}-thigh`, 0.16, 0.4, 0.18, 0, -0.2, 0, thighColor, {
       skin: thighSkin,
     });
     sphere(scene, parts, `${side}-knee`, 0.14, 0, -0.4, 0, shinColor, {
       skin: thighSkin,
       segments: 6,
     });
-    box(scene, parts, `${side}-shin`, 0.145, 0.34, 0.16, 0, -0.58, 0, shinColor, {
+    const peg = feet === 'feet_peg_leg' && side === 'right';
+    if (!peg) box(scene, parts, `${side}-shin`, 0.145, 0.34, 0.16, 0, -0.58, 0, shinColor, {
       skin: thighSkin,
     });
 
@@ -1037,16 +1094,22 @@ export class CharacterView {
       }
     } else if (legs === 'legs_olive_pants') {
       box(scene, parts, `${side}-cargo-pocket`, 0.05, 0.12, 0.13, side === 'left' ? -0.1 : 0.1, -0.28, 0.02, secondary);
-      box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
+      if (!peg) box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
     } else if (legs === 'legs_lederhosen') {
-      box(scene, parts, `${side}-lederhosen`, 0.17, 0.14, 0.19, 0, -0.07, 0, primary);
-      box(scene, parts, `${side}-sock`, 0.15, 0.12, 0.16, 0, -0.72, 0, secondary);
-      box(scene, parts, `${side}-sock-stripe`, 0.155, 0.03, 0.165, 0, -0.66, 0, accent);
+      box(scene, parts, `${side}-lederhosen`, 0.18, 0.30, 0.20, 0, -0.15, 0, primary);
+      if (!peg) {
+        box(scene, parts, `${side}-sock`, 0.15, 0.12, 0.16, 0, -0.72, 0, secondary);
+        box(scene, parts, `${side}-sock-stripe`, 0.155, 0.03, 0.165, 0, -0.66, 0, accent);
+      }
+      for (const x of [-0.05, 0.05]) {
+        box(scene, parts, `${side}-embroidered-seam`, 0.009, 0.22, 0.012, x, -0.15, 0.105, accent);
+        sphere(scene, parts, `${side}-breeches-button`, 0.022, x, -0.27, 0.112, GOLD);
+      }
     } else if (legs === 'legs_boardshorts') {
-      box(scene, parts, `${side}-boardshort`, 0.175, 0.16, 0.19, 0, -0.08, 0, primary);
+      box(scene, parts, `${side}-boardshort`, 0.18, 0.34, 0.20, 0, -0.17, 0, primary);
       box(scene, parts, `${side}-boardshort-stripe`, 0.18, 0.035, 0.195, 0, -0.03, 0, secondary);
     } else if (legs === 'legs_long_johns') {
-      box(scene, parts, `${side}-longjohn-cuff`, 0.15, 0.05, 0.17, 0, -0.73, 0, WHITE);
+      if (!peg) box(scene, parts, `${side}-longjohn-cuff`, 0.15, 0.05, 0.17, 0, -0.73, 0, WHITE);
       box(scene, parts, `${side}-longjohn-dot`, 0.04, 0.04, 0.02, 0, -0.2, 0.09, accent);
     }
 
@@ -1055,18 +1118,21 @@ export class CharacterView {
     const footSecondary = hexToColor4(feetPalette.secondary);
     const footAccent = hexToColor4(feetPalette.accent);
 
-    if (feet === 'feet_peg_leg' && side === 'right') {
-      cylinder(scene, parts, 'peg-leg', 0.34, 0.06, 0.09, 0, -0.7, 0, footPrimary, {
+    if (peg) {
+      cylinder(scene, parts, 'peg-leg', 0.42, 0.06, 0.09, 0, -0.67, 0, footPrimary, {
         segments: 7,
       });
       cylinder(scene, parts, 'peg-foot', 0.06, 0.02, 0.16, 0, -0.87, 0.02, footSecondary, {
         segments: 7,
       });
+      cylinder(scene, parts, 'peg-knee-band', 0.06, 0.13, 0.13, 0, -0.48, 0, METAL);
     } else if (feet === 'feet_dive_flippers') {
+      sphere(scene, parts, `${side}-flipper-foot`, 0.16, 0, -0.78, 0.04, skin, { skin: true, scaleY: 0.5, scaleZ: 1.45 });
       box(scene, parts, `${side}-flipper`, 0.19, 0.055, 0.5, 0, -0.81, 0.17, footPrimary, {
         rotationX: -0.06,
       });
       box(scene, parts, `${side}-flipper-sole`, 0.2, 0.02, 0.5, 0, -0.84, 0.17, footSecondary);
+      box(scene, parts, `${side}-flipper-strap`, 0.18, 0.035, 0.07, 0, -0.74, 0.06, footSecondary);
     } else if (feet === 'feet_ski_boots') {
       box(scene, parts, `${side}-ski-boot`, 0.2, 0.22, 0.3, 0, -0.77, 0.05, footPrimary);
       box(scene, parts, `${side}-ski-sole`, 0.21, 0.04, 0.32, 0, -0.89, 0.05, footSecondary);
@@ -1080,8 +1146,13 @@ export class CharacterView {
       box(scene, parts, `${side}-boot`, 0.19, 0.17, 0.28, 0, -0.79, 0.04, footPrimary);
       box(scene, parts, `${side}-boot-sole`, 0.2, 0.05, 0.3, 0, -0.89, 0.04, footSecondary);
       box(scene, parts, `${side}-boot-cuff`, 0.2, 0.04, 0.2, 0, -0.7, 0.01, footAccent);
+      for (let lace = 0; lace < 4; lace++) {
+        for (const direction of [-1, 1]) box(scene, parts, `${side}-boot-lace`, 0.09, 0.012, 0.012,
+          0, -0.735 - lace * 0.029, 0.185, footAccent, { rotationZ: direction * 0.32 });
+      }
     }
 
+    for (const part of parts) { part.position.x *= bulk; part.position.z *= bulk; part.scaling.x *= bulk; part.scaling.z *= bulk; }
     const merged = mergeParts(scene, `${side}-leg-mesh`, parts, this.material);
     if (!merged) throw new Error('Failed to build character leg.');
     merged.parent = side === 'left' ? this.leftHip : this.rightHip;

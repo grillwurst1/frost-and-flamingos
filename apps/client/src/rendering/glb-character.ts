@@ -5,14 +5,12 @@ import { BoundingInfo } from '@babylonjs/core/Culling/boundingInfo';
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
-import { SubMesh } from '@babylonjs/core/Meshes/subMesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   CLASS_STATS,
-  HAIR_COLORS,
   ParachuteState,
   WEAPON_STATS,
   type PlayerProfile,
@@ -21,12 +19,11 @@ import {
 } from '@frost-and-flamingos/shared';
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
+import { buildModularBody, modularRollBoxes } from './glb/modular-body';
 import { createShadowMaterial, type CharacterMaterialState } from './materials';
 import {
   PAINTED_MODELS,
-  outfitFitsPaintedModel,
   paintedModelSpec,
-  wearsNative,
   type ClipRole,
   type PaintedModelSpec,
 } from './glb/catalog';
@@ -39,7 +36,6 @@ import {
   type BakedClip,
   type PaintedModelAsset,
 } from './glb/library';
-import { buildBackAttachment, buildHandAttachment, buildHeadAttachment, HEAD_UNIT } from './glb/cosmetics';
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { buildCanopyProp, buildWeaponProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
 import { closestOnSegment, fistTargets, groundLift, headFrame, keepOutZ, segmentReach, supportPoints, type HandSide, type HeadFrame } from './glb/hold';
@@ -75,6 +71,15 @@ type GlbPose = AvatarPose;
  * it reversed.
  */
 type BindingRole = ClipRole | 'crouchRun' | 'runBack';
+type AvatarAsset = { asset: PaintedModelAsset; textures: PaintedTextures | null };
+
+/** Soldiers only need the animation rig; fixed-look drifters keep their paint. */
+async function loadAvatarModel(scene: Scene, key: string): Promise<AvatarAsset | null> {
+  const library = paintedModelLibrary(scene);
+  if (PAINTED_MODELS[key]?.cosmetics === false) return library.loadWithTextures(key);
+  const asset = await library.load(key);
+  return asset ? { asset, textures: null } : null;
+}
 
 const LOOPING: Readonly<Record<BindingRole, boolean>> = {
   crouchRun: true,
@@ -278,6 +283,7 @@ export class GlbCharacterView implements AvatarView {
   private readonly entries: InstantiatedEntries;
   private readonly armature: TransformNode;
   private readonly bodyMesh: Mesh;
+  readonly renderedCosmetics: PlayerProfile['cosmetics'];
   private readonly material: ShaderMaterial;
   private readonly propMaterial: ShaderMaterial;
   private readonly shadow: Mesh;
@@ -373,10 +379,11 @@ export class GlbCharacterView implements AvatarView {
     shadowMaterial: StandardMaterial,
     profile: PlayerProfile,
     asset: PaintedModelAsset,
-    textures: PaintedTextures,
+    textures: PaintedTextures | null,
   ) {
     registerHeroWeaponProps();
     this.scene = scene;
+    this.renderedCosmetics = { ...profile.cosmetics };
     this.asset = asset;
     this.shadowMaterial = shadowMaterial;
     const spec = asset.spec;
@@ -426,8 +433,8 @@ export class GlbCharacterView implements AvatarView {
     this.material = createGlbMaterial(
       scene,
       `glb-${spec.key}-${profile.displayName}`,
-      textures,
-      spec.photoreal ? { photoreal: true } : {},
+      spec.cosmetics === false ? textures : null,
+      spec.cosmetics === false ? (spec.photoreal ? { photoreal: true } : {}) : { soft: true },
     );
     this.propMaterial = createGlbMaterial(scene, `glb-props-${profile.displayName}`, null);
 
@@ -486,7 +493,14 @@ export class GlbCharacterView implements AvatarView {
     const hipsNode = nodes.get('Hips');
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
-    this.head = headFrame(asset, mesh, spec.head);
+    if (spec.cosmetics !== false) {
+      this.bodyMesh = buildModularBody(scene, profile, asset, mesh, this.material);
+      mesh.isVisible = false;
+      const box = this.bodyMesh.getBoundingInfo();
+      this.bodyMesh.setBoundingInfo(new BoundingInfo(box.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), box.maximum.add(new Vector3(1.2, 0.5, 1.2))));
+      this.hatHidden = profile.cosmetics.headgear === 'head_none';
+    }
+    this.head = headFrame(asset, this.bodyMesh, spec.head);
     const fist = (side: HandSide): Array<{ node: TransformNode; fist: Quaternion; trigger: boolean }> =>
       fistTargets(asset, side).flatMap((target) => {
         const node = nodes.get(target.joint);
@@ -536,7 +550,7 @@ export class GlbCharacterView implements AvatarView {
       }
     }
 
-    if (spec.cosmetics !== false) this.attachCosmetics(profile, nodes);
+    // The modular body already contains all seven selected wardrobe slots.
 
     this.weaponAnchor = new TransformNode('glb-weapon-anchor', scene);
     this.weaponAnchor.parent = this.armature;
@@ -570,6 +584,9 @@ export class GlbCharacterView implements AvatarView {
     }
     return {
       model: this.asset.spec.key,
+      renderer: this.asset.spec.cosmetics === false ? 'painted-fixed' : 'modular-skinned',
+      cosmetics: this.renderedCosmetics,
+      geometry: { vertices: this.bodyMesh.getTotalVertices(), triangles: this.bodyMesh.getTotalIndices() / 3 },
       view: this.shadowMaterial.name,
       enabled: this.root.isEnabled(true),
       position: this.root.getAbsolutePosition().asArray().map((value) => Math.round(value * 100) / 100),
@@ -589,90 +606,6 @@ export class GlbCharacterView implements AvatarView {
         armatureRot: this.armature.rotationQuaternion?.asArray().map((value) => Math.round(value * 1000) / 1000),
       },
     };
-  }
-
-  /**
-   * Headgear/face/back/hands items that differ from the painting go on bones.
-   * The painted headgear comes off when another item (or a hair cap for "no
-   * headgear") replaces it; painted beards and hair always stay.
-   */
-  private attachCosmetics(profile: PlayerProfile, nodes: ReadonlyMap<string, TransformNode>): void {
-    const spec = this.asset.spec;
-    const cosmetics = profile.cosmetics;
-    const hairHex = HAIR_COLORS[cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
-    const removableHat = this.asset.hatSplit !== null;
-    let headgear: string | null = null;
-    if (!wearsNative(profile, spec, 'headgear')) {
-      if (cosmetics.headgear !== 'head_none') headgear = cosmetics.headgear;
-      else if (removableHat) headgear = 'hair_cap';
-      if (headgear && removableHat) {
-        this.bodyMesh.subMeshes.splice(1);
-        this.hatHidden = true;
-      }
-    }
-    if (removableHat && !this.hatHidden && this.bodyMesh.subMeshes.length > 1) {
-      // Hat worn: one draw for body and hat (the split only exists to drop it).
-      const total = this.bodyMesh.subMeshes.reduce((sum, sub) => sum + sub.indexCount, 0);
-      this.bodyMesh.subMeshes = [];
-      new SubMesh(0, 0, this.bodyMesh.getTotalVertices(), 0, total, this.bodyMesh);
-    }
-    const face = !wearsNative(profile, spec, 'face') && cosmetics.face !== 'face_none' ? cosmetics.face : null;
-    const head = buildHeadAttachment(this.scene, headgear, face, hairHex, this.propMaterial);
-    if (head) {
-      this.attach(head, nodes, 'Head', new Vector3(0, spec.head.y, spec.head.z), spec.head.radius / HEAD_UNIT, true);
-      if (!head.isDisposed()) this.headAttachment = head;
-    }
-
-    if (!wearsNative(profile, spec, 'back') && cosmetics.back !== 'back_none') {
-      const back = buildBackAttachment(this.scene, cosmetics.back, this.propMaterial);
-      const chest = this.asset.bindPositions.get('Spine2');
-      if (back && chest) {
-        // On the measured back surface (spec.backZ only for unmeasured models).
-        const backZ = this.asset.torso ? this.asset.torso.back - 0.005 : chest.z + spec.backZ;
-        this.attach(back, nodes, 'Spine2', new Vector3(chest.x, chest.y, backZ), 0.9, true);
-        back.scaling.x *= spec.bulk;
-      }
-    }
-    if (!wearsNative(profile, spec, 'hands') && cosmetics.hands !== 'hands_bare') {
-      for (const side of ['Left', 'Right'] as const) {
-        const item = buildHandAttachment(this.scene, cosmetics.hands, side === 'Right', this.propMaterial);
-        if (item) this.attach(item, nodes, `${side}Hand`, null, spec.bulk > 1.1 ? 1.2 : 1, false);
-      }
-    }
-  }
-
-  /**
-   * Parents an attachment to a joint. With `upright`, the item keeps the
-   * armature's upright/forward orientation at `at` (bind pose); otherwise it
-   * sits in the joint's own space (hands: +Y along the fingers).
-   */
-  private attach(
-    mesh: Mesh,
-    nodes: ReadonlyMap<string, TransformNode>,
-    joint: string,
-    at: Vector3 | null,
-    scale: number,
-    upright: boolean,
-  ): void {
-    const node = nodes.get(joint);
-    const bind = bindWorldTransform(this.asset, joint);
-    if (!node || !bind) {
-      mesh.dispose();
-      return;
-    }
-    mesh.parent = node;
-    mesh.isPickable = false;
-    mesh.scaling.setAll(scale);
-    if (upright) {
-      const inverse = Quaternion.Inverse(bind.rotation);
-      const offset = (at ?? bind.position).subtract(bind.position);
-      mesh.position.copyFrom(offset.rotateByQuaternionToRef(inverse, new Vector3()));
-      mesh.rotationQuaternion = inverse;
-    } else {
-      mesh.position.setAll(0);
-      mesh.rotationQuaternion = Quaternion.Identity();
-    }
-    this.attachments.push(mesh);
   }
 
   private bind(role: BindingRole, clip: BakedClip, isUpper: (name: string) => boolean, ordered: readonly string[]): void {
@@ -1305,6 +1238,15 @@ export class GlbCharacterView implements AvatarView {
       const local = Vector3.TransformCoordinates(point, toModel);
       out.push([local.y * scale, local.z * scale, radius * scale]);
     };
+    const boxes = modularRollBoxes(this.bodyMesh);
+    if (boxes.length) {
+      for (const box of boxes) {
+        const position = rig.position(box.joint), rotation = rig.rotation(box.joint);
+        if (!position || !rotation) continue;
+        for (const corner of box.corners) add(position.add(corner.rotateByQuaternionToRef(rotation, new Vector3())), 0.015);
+      }
+      return out;
+    }
     for (const joint of ['Spine2', 'LeftShoulder', 'RightShoulder'] as const) {
       const position = rig.position(joint);
       if (position) add(position, 0.06);
@@ -1775,7 +1717,7 @@ const LAZY_CHECK_INTERVAL = 0.25;
 
 /**
  * Stand-in while the painted model is not loaded: shows the procedural rig,
- * requests the model (GLB and textures) once the character is actually on
+ * requests its rig (plus textures for fixed-look extras) once it is on
  * screen (or shown in the wardrobe preview), and swaps to the painted view
  * in place. If the model turns out to be unavailable, the stand-in stays.
  */
@@ -1784,7 +1726,7 @@ class PendingPaintedView implements AvatarView {
   private painted = false;
   private disposed = false;
   private requested = false;
-  private loaded: { asset: PaintedModelAsset; textures: PaintedTextures } | null = null;
+  private loaded: { asset: PaintedModelAsset; textures: PaintedTextures | null } | null = null;
   /** The stand-in shows nothing (model already loaded), so it may swap at any time. */
   private readonly placeholder: boolean;
   private checkIn = 0;
@@ -1810,7 +1752,7 @@ class PendingPaintedView implements AvatarView {
     shadowMaterial: StandardMaterial,
     private readonly profile: PlayerProfile,
     /** Already loaded: show nothing for the frame or two until the swap budget allows. */
-    preloaded: { asset: PaintedModelAsset; textures: PaintedTextures } | null = null,
+    preloaded: { asset: PaintedModelAsset; textures: PaintedTextures | null } | null = null,
     priority = false,
   ) {
     this.current = preloaded ? new EmptyAvatarView(scene, shadowMaterial) : new CharacterView(scene, shadowMaterial, profile);
@@ -1845,10 +1787,8 @@ class PendingPaintedView implements AvatarView {
     this.requested = true;
     const key = this.key;
     const label = this.label;
-    const library = paintedModelLibrary(this.scene);
     debugEvent(`request ${label} ${key}`);
-    void library
-      .loadWithTextures(key)
+    void loadAvatarModel(this.scene, key)
       .then((loaded) => {
         if (this.disposed) {
           debugEvent(`pending ${label} disposed before ${key} loaded`);
@@ -1965,9 +1905,8 @@ class PendingPaintedView implements AvatarView {
 }
 
 /**
- * Factory hook used by createAvatarView: a painted view for profiles the
- * painted model can represent, a pending stand-in while models load, or null
- * (procedural rig) when no painted model exists or the outfit is custom.
+ * Factory hook used by createAvatarView: a configurable skinned view, a
+ * pending stand-in while its rig loads, or null when no rig is available.
  */
 export function createPaintedAvatarView(
   scene: Scene,
@@ -1976,8 +1915,8 @@ export function createPaintedAvatarView(
   priority = false,
 ): AvatarView | null {
   const spec = paintedModelSpec(profile);
-  if (!spec || !outfitFitsPaintedModel(profile, spec)) {
-    debugEvent(`procedural ${shadowMaterial.name} ${spec ? 'custom outfit' : 'no painted model'}`);
+  if (!spec) {
+    debugEvent(`procedural ${shadowMaterial.name} no painted model`);
     return null;
   }
   const library = paintedModelLibrary(scene);
@@ -1986,8 +1925,8 @@ export function createPaintedAvatarView(
   if (status === 'missing' || status === 'failed') return null;
   const asset = library.get(spec.key);
   if (asset && !asset.skinned) return null;
-  const textures = library.loadedTexturesOf(spec.key);
-  if (asset && textures) {
+  const textures = spec.cosmetics === false ? library.loadedTexturesOf(spec.key) : null;
+  if (asset && (textures || spec.cosmetics !== false)) {
     // Same budget as the stand-in swaps: at most one painted view is built
     // per frame (N remotes joining at once queue up, one per frame).
     if (!takeSwapBudget(scene)) return new PendingPaintedView(scene, shadowMaterial, profile, { asset, textures }, priority);
@@ -2003,7 +1942,7 @@ export function createPaintedAvatarView(
 
 /**
  * Boot prefetch: reads the manifest and downloads the local player's painted
- * model (GLB and textures) so it is ready before the first spawn. Every other
+ * rig (and fixed-look extras' textures) before the first spawn. Every other
  * model loads lazily when its character first appears on screen. Resolves
  * once the prefetch settled.
  */
@@ -2013,7 +1952,7 @@ export async function preloadPaintedModels(scene: Scene, profile: PlayerProfile 
   const library = lastLibrary;
   await library.available();
   const spec = profile ? paintedModelSpec(profile) : null;
-  if (spec && library.status(spec.key) !== 'missing') await library.loadWithTextures(spec.key);
+  if (spec && library.status(spec.key) !== 'missing') await loadAvatarModel(scene, spec.key);
 }
 
 /**

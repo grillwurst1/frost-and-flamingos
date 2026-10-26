@@ -61,6 +61,8 @@ export const LOOK_MASK_CHARACTER = 0;
 export const LOOK_MASK_WORLD = 1;
 
 export interface GlbMaterialOptions {
+  /** Continuous lighting for the detailed, fully configurable skinned body. */
+  soft?: boolean;
   /** Scene-alpha look mask: {@link LOOK_MASK_CHARACTER} (default) or {@link LOOK_MASK_WORLD}. */
   lookMask?: number;
   /** Physically based shading instead of the cel bands (textured only). */
@@ -102,7 +104,7 @@ export function createGlbMaterial(
       samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : [...LOOK_SAMPLERS],
       defines: textured
         ? ['#define FF_TEXTURED', ...(options.photoreal ? ['#define FF_PHOTOREAL'] : [])]
-        : [],
+        : options.soft ? ['#define FF_SOFT_CHARACTER'] : [],
       shaderLanguage: webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
     },
   );
