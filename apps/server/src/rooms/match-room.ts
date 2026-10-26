@@ -404,9 +404,15 @@ export class MatchRoom {
       player: (id) => this.players.get(id),
       damagePlayer: (target, attacker, damage, weaponId, headshot) =>
         this.damagePlayer(target, attacker, damage, weaponId, headshot),
-      explode: (owner, position, damage, radius) => this.explode(owner, position, damage, radius),
+      explode: (owner, position, damage, radius, weaponId) => this.explode(owner, position, damage, radius, weaponId),
       combatTargets: (owner, clientTick) => this.combatTargets(owner, clientTick),
       broadcastEvent: (event) => this.broadcastEvent(event),
+      // Hens (package 3H): vehicle shells, harpoons, splash and run-overs.
+      critterRaycast: (origin, direction, maxDistance) => this.critters.raycast(origin, direction, maxDistance, null),
+      killCritter: (critterId, killerId, weaponId) => {
+        this.critters.kill(critterId, killerId, weaponId);
+      },
+      killCrittersInSphere: (center, radius, killerId, weaponId) => this.critters.killInSphere(center, radius, killerId, weaponId, null),
     });
     this.critters = new CritterSystem(physics, {
       seed: critterSeed,
@@ -1151,9 +1157,9 @@ export class MatchRoom {
       const distance = distance3(position, other.character.position);
       if (distance > radius) continue;
       const falloff = Math.max(0.3, 1 - (distance / radius) * 0.7);
-      this.damagePlayer(other, owner, damage * falloff, null, false);
+      this.damagePlayer(other, owner, damage * falloff, weaponId, false);
     }
-    this.vehicles.explode(owner, position, damage, radius);
+    this.vehicles.explode(owner, position, damage, radius, weaponId);
     this.broadcastEvent({
       eventType: 'PROP_EXPLODE',
       actorId: owner.id,

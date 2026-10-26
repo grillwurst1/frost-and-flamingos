@@ -64,10 +64,14 @@ export interface VehicleRoomHooks<P extends VehicleOccupant> {
   players(): Iterable<P>;
   player(id: number): P | undefined;
   damagePlayer(target: P, attacker: P | null, damage: number, weaponId: WeaponId | null, headshot: boolean): void;
-  /** Room splash for players (skips the owner's faction, broadcasts PROP_EXPLODE). */
-  explode(owner: P, position: Vec3, damage: number, radius: number): void;
+  /** Room splash for players and critters (skips the owner's faction, broadcasts PROP_EXPLODE). */
+  explode(owner: P, position: Vec3, damage: number, radius: number, weaponId: WeaponId | null): void;
   combatTargets(owner: P, clientTick: number): CombatTarget[];
   broadcastEvent(event: GameEvent): void;
+  /** Ambient critters (hens): nearest hit along a ray, kills (CRITTER_KILLED with the weapon). */
+  critterRaycast?(origin: Vec3, direction: Vec3, maxDistance: number): { critterId: number; distance: number } | null;
+  killCritter?(critterId: number, killerId: number, weaponId: WeaponId | null): void;
+  killCrittersInSphere?(center: Vec3, radius: number, killerId: number, weaponId: WeaponId | null): void;
 }
 
 export type SeatResult = 'none' | 'seated' | 'hands';
@@ -999,15 +1003,18 @@ export class VehicleManager<P extends VehicleOccupant> {
       const targets = this.hooks.combatTargets(owner, this.hooks.snapshotTick());
       const playerHit = raycastTargets(from, direction, reach, targets);
       const vehicleHit = this.raycast(from, direction, reach, projectile.vehicleId);
+      const critterHit = this.hooks.critterRaycast?.(from, direction, reach) ?? null;
       const playerDistance = playerHit ? playerHit.distance : Number.POSITIVE_INFINITY;
       const vehicleDistance = vehicleHit ? vehicleHit.distance : Number.POSITIVE_INFINITY;
-      const nearest = Math.min(worldDistance, playerDistance, vehicleDistance);
+      const critterDistance = critterHit ? critterHit.distance : Number.POSITIVE_INFINITY;
+      const nearest = Math.min(worldDistance, playerDistance, vehicleDistance, critterDistance);
       if (Number.isFinite(nearest) && nearest <= step + projectile.weapon.radius) {
         const point = {
           x: from.x + direction.x * nearest,
           y: from.y + direction.y * nearest,
           z: from.z + direction.z * nearest,
         };
+        if (critterHit && nearest === critterDistance) this.hooks.killCritter?.(critterHit.critterId, owner.id, projectile.weapon.id);
         this.impact(projectile, owner, point, nearest === playerDistance ? playerHit?.id ?? 0 : 0, nearest === vehicleDistance ? vehicleHit?.id ?? 0 : 0);
         this.projectiles.splice(index, 1);
         continue;
@@ -1038,7 +1045,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       const previous = this.splashExclude;
       this.splashExclude = vehicleId;
       // The room splash also reaches vehicles through its explode hook.
-      this.hooks.explode(owner, point, weapon.splashDamage, weapon.splashRadius);
+      this.hooks.explode(owner, point, weapon.splashDamage, weapon.splashRadius, weapon.id);
       this.splashExclude = previous;
     }
   }
@@ -1096,7 +1103,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     if (destroyer) {
       const previous = this.splashExclude;
       this.splashExclude = record.slot.id;
-      this.hooks.explode(destroyer, { x: position.x, y: position.y + 1, z: position.z }, VEHICLE_WRECK_BLAST.damage, VEHICLE_WRECK_BLAST.radius);
+      this.hooks.explode(destroyer, { x: position.x, y: position.y + 1, z: position.z }, VEHICLE_WRECK_BLAST.damage, VEHICLE_WRECK_BLAST.radius, 'vehicle_blast');
       this.splashExclude = previous;
     }
   }
@@ -1180,8 +1187,19 @@ export class VehicleManager<P extends VehicleOccupant> {
     // Credit needs a driver who is still in the match (a disconnected one gives none).
     const driver = this.hooks.player(seatedDriver || graceDriver);
     const driverId = driver?.id ?? 0;
-    const team = this.vehicleTeam(record);
+    // A grace credit rams for the bailed driver's side, whoever boarded since.
+    const team = !seatedDriver && driver ? driver.profile.faction : this.vehicleTeam(record);
     const half = definition.halfExtents;
+    // A driven hull runs over the hens in its path (credited like a ram).
+    if (driver && moved > 1 && this.hooks.killCrittersInSphere) {
+      const radius = half.x + 0.2;
+      const steps = Math.max(1, Math.ceil((half.z * 2) / (radius * 1.5)));
+      for (let step = 0; step <= steps; step += 1) {
+        const along = -half.z + ((half.z * 2) * step) / steps;
+        const center = vehicleLocalToWorld(position, body.yaw, { x: 0, y: half.y, z: along });
+        this.hooks.killCrittersInSphere(center, radius, driver.id, ram.weaponId);
+      }
+    }
     for (const player of this.hooks.players()) {
       if (!player.alive || this.seatOf.has(player.id)) continue;
       // Untouchable characters (the drifter) pass straight through hulls.
