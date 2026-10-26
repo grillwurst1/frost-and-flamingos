@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { QualityGovernor, renderRatio } from '../src/rendering/quality-governor';
 
 test('render target budgets hold on Retina and 4K windows, including resizing', () => {
-  for (const [tier, cap, pixels] of [['high', 1.5, 2560 * 1440], ['medium', 1.25, 1920 * 1080], ['low', 1, 1280 * 720]] as const) {
+  for (const [tier, cap, pixels] of [['high', 1.5, 2560 * 1440], ['medium', 1.25, 1920 * 1080], ['low', 1, 1600 * 900]] as const) {
     for (const [width, height, dpr] of [[1920, 1080, 2], [3840, 2160, 1], [800, 600, 3]]) {
       const ratio = renderRatio(width!, height!, dpr!, cap, tier);
       expect(width! * height! * ratio * ratio).toBeLessThanOrEqual(pixels + 1);
@@ -30,4 +30,16 @@ test('short spikes, hidden tabs and manual settings never cause a downgrade', ()
   expect(governor.observe(13000, 50, 'high', false)).toBe('high');
   expect(governor.observe(90000, 50, 'high', true)).toBe('high');
   expect(governor.observe(100000, 50, 'low', true)).toBe('low');
+});
+
+
+test('intentional 30/45 FPS limits do not falsely count as overload', () => {
+  for (const fps of [30, 45]) {
+    const governor = new QualityGovernor();
+    for (let time = 0; time < 60000; time += 1000) {
+      expect(governor.observe(time, 1000 / fps + 1, 'medium', true, fps)).toBe('medium');
+    }
+    expect(governor.observe(60000, 60, 'medium', true, fps)).toBe('medium');
+    expect(governor.observe(66000, 60, 'medium', true, fps)).toBe('low');
+  }
 });

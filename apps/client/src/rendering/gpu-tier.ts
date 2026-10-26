@@ -26,7 +26,7 @@ export interface GpuClass {
 
 const SOFTWARE_GPU = /swiftshader|subzero|llvmpipe|lavapipe|softpipe|software|basic render|\bwarp\b/;
 const INTEGRATED_GPU =
-  /intel|iris|uhd|hd graphics|mali|adreno|powervr|radeon\(tm\) graphics|radeon graphics|vega \d+ graphics/;
+  /apple|intel|iris|uhd|hd graphics|mali|adreno|powervr|radeon\(tm\) graphics|radeon graphics|vega \d+ graphics/;
 /** Discrete Intel Arc parts share the "intel" vendor string. */
 const DISCRETE_INTEL_GPU = /arc\(tm\)|\barc a\d|xe-hpg/;
 /** Intel Gen9.5 and older: "HD/UHD Graphics 520/620/630", "HD Graphics 4600", WebGPU arch "gen-9". */

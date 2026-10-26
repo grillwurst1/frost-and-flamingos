@@ -45,7 +45,7 @@ function flatNormalTexture(scene: Scene): RawTexture {
   return texture;
 }
 
-const PAINT_PARAMS = new Vector4(0.25, 1.0, 1.0, 0.28);
+const PAINT_PARAMS = new Vector4(0.12, 1.0, 1.0, 0.12);
 const PROP_PARAMS = new Vector4(0, 1, 1, 0.12);
 
 /**
@@ -108,7 +108,7 @@ export function createGlbMaterial(
   );
   material.setVector3('lightDirection', SUN_DIRECTION);
   material.setVector3('cameraPosition', Vector3.Zero());
-  material.setFloat('rimStrength', 0.5);
+  material.setFloat('rimStrength', 0.32);
   material.setFloat('uBattleDamage', 0);
   material.setFloat('uCharredState', 0);
   material.setFloat('uFrozenState', 0);

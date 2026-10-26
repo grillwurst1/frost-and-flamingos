@@ -329,3 +329,19 @@ describe('dodge roll', () => {
     });
   }
 });
+
+
+test('local avatar requests its detailed model while hidden behind the menu', async () => {
+  const scene = makeScene();
+  try {
+    fakeTextures(scene);
+    const library = paintedModelLibrary(scene);
+    const view = createPaintedAvatarView(scene, new StandardMaterial('local-priority-shadow', scene), profileOf('alpine-allrounder'), true);
+    if (!view) throw new Error('missing local avatar');
+    view.root.setEnabled(false);
+    expect(library.requested('alpine-allrounder')).toBe(true);
+    const asset = await library.load('alpine-allrounder');
+    expect(asset?.skinned).toBe(true);
+    view.dispose();
+  } finally { scene.dispose(); scene.getEngine().dispose(); }
+});

@@ -349,14 +349,19 @@ export const de: TranslationDictionary = {
   },
   graphics: {
     title: 'Bildqualität',
-    subtitle: 'Pinselstrich-Malpass, Tuschekonturen, Schatten, Oberflächendetails und Renderauflösung.',
     auto: 'Automatisch',
     high: 'Hoch',
     medium: 'Mittel',
     low: 'Niedrig',
     active: 'Aktuell: {tier}',
     activeAuto: 'Aktuell: {tier} (passend für dieses Gerät gewählt)',
-    hint: 'Automatisch wählt eine Stufe für deinen Grafikchip und schaltet einmal herunter, wenn das Menü ruckelt. Deine Wahl wird auf diesem Gerät gespeichert.',
+    subtitle: 'Klare 3D-Beleuchtung, weiche Schatten, scharfe Texturen und glatte Silhouetten.',
+    hint: 'Automatisch passt sich im Spiel an. Modell- und Texturdetails bleiben erhalten; zusätzliche Rendereffekte werden zuerst reduziert.',
+    frameLimit: 'Bildrate / Energieverbrauch',
+    frames30: '30 FPS · sparsam',
+    frames45: '45 FPS · ausgewogen',
+    frames60: '60 FPS · flüssig',
+    frameHint: '45 FPS ist der effiziente Standard. 30 FPS senkt Wärmeentwicklung und schont den Akku. Menüs laufen mit höchstens 30 FPS.',
   },
   classNames: {
     alpine: {

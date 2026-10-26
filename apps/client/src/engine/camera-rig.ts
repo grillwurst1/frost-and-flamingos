@@ -17,8 +17,8 @@ const MAX_DISTANCE = 8.2;
 const SHOULDER_OFFSET = 1.02;
 const PLAYER_PIVOT_HEIGHT = 1.46;
 const PLAYER_DISTANCE = 3.9;
-/** Vertical FOV while playing (72 deg); menu, wardrobe and killer cam keep the tele framing. */
-const PLAYER_FOV = 1.2566;
+/** Vertical FOV while playing (62 deg); menu, wardrobe and killer cam keep the tele framing. */
+const PLAYER_FOV = 1.0821;
 const SHOWCASE_FOV = 0.88;
 
 export type PreviewCameraMode = 'menu' | 'wardrobe';

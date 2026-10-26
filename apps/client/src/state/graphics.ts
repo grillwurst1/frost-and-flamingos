@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { VisualQuality } from '../rendering/scene-look';
+import type { FrameLimit, VisualQuality } from '../rendering/render-profile';
 
 /**
  * Picture-quality setting. 'auto' lets GameClient pick the tier from the GPU
@@ -44,4 +44,18 @@ export function chooseVisualQuality(setting: VisualQualitySetting): void {
   } catch {
     // Storage may be unavailable (private mode); the setting still applies.
   }
+}
+
+const FRAME_KEY = 'frost-and-flamingos.frameLimit';
+function initialFrameLimit(): FrameLimit {
+  try {
+    const value = Number(window.localStorage.getItem(FRAME_KEY));
+    if (value === 30 || value === 45 || value === 60) return value;
+  } catch { /* Non-browser and private storage use the efficient default. */ }
+  return 45;
+}
+export const frameLimit = writable<FrameLimit>(initialFrameLimit());
+export function chooseFrameLimit(value: FrameLimit): void {
+  frameLimit.set(value);
+  try { window.localStorage.setItem(FRAME_KEY, String(value)); } catch { /* Session choice still applies. */ }
 }

@@ -4,6 +4,8 @@ import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import '@babylonjs/core/Rendering/geometryBufferRendererSceneComponent';
 import type { Camera } from '@babylonjs/core/Cameras/camera';
 import { renderRatio } from './quality-governor';
+import { RENDER_PROFILES as QUALITY, type VisualQuality } from './render-profile';
+export type { VisualQuality } from './render-profile';
 import { Constants } from '@babylonjs/core/Engines/constants';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
@@ -23,7 +25,7 @@ import { GeometryBufferRenderer } from '@babylonjs/core/Rendering/geometryBuffer
 import type { Scene } from '@babylonjs/core/scene';
 import type { Nullable } from '@babylonjs/core/types';
 import { WATER_LEVEL } from '@frost-and-flamingos/shared';
-import { COMIC_SAMPLERS, COMIC_UNIFORMS, PAINT_UNIFORMS } from '../shaders/post';
+import { COMIC_SAMPLERS, COMIC_UNIFORMS } from '../shaders/post';
 import { PANORAMA_HORIZON_V, PANORAMA_RADIANS_PER_V, artUrl, loadArtImage, probeArt } from './art-assets';
 import { createDetailTextures, type DetailTextureSet } from './detail-textures';
 import { applyLookToAll, getLookContext, type LookContext, type LookValues } from './look-state';
@@ -49,13 +51,10 @@ import {
  *   shadows     one ShadowGenerator map (R32F/R16F) fitted around the camera
  *               every frame, texel-snapped; toon + character shaders sample it
  *               with their own PCF and land shadows in the tinted shade band.
- *   g-buffer    GeometryBufferRenderer (view depth + view normals) of every
+ *   g-buffer    Half-resolution GeometryBufferRenderer (view depth + normals) of every
  *               solid mesh. Feeds the ink outlines and the water depth foam.
- *   post        ffPaint (generalized Kuwahara, high/medium) -> ffComic (ink,
- *               paper grain, grading, vignette; every tier) -> FXAA (every
- *               tier). Scene MSAA lives on the first pass's render target;
- *               the swapchain has none. Scene alpha 0 marks character pixels
- *               (see shaders/post.ts).
+ *   post        one subtle contour/grade pass -> FXAA. No full-screen paint,
+ *               grain, sharpen or MSAA. Model textures retain their detail.
  *   sky/water   uniforms + optional painted panorama/cloud billboards.
  *
  * Quality tiers: high / medium / low via {@link SceneLook.setVisualQuality}.
@@ -64,87 +63,10 @@ import {
  * the effective device pixel ratio.
  * Weather: {@link SceneLook.setWeatherLook} (-1 icy, 0 azure, +1 golden).
  */
-export type VisualQuality = 'high' | 'medium' | 'low';
-
-const SHADOW_FRUSTUM = 130;
 const SHADOW_DEPTH_RANGE = 420;
-/** Painted cloud ring radius: behind every map silhouette, inside the 1600 m sky. */
 const CLOUD_RING_DISTANCE = 1550;
-/** The cloud layout widths below were authored for a 1350 m ring. */
 const CLOUD_WIDTH_SCALE = CLOUD_RING_DISTANCE / 1350;
 const CLOUD_FILES = ['01', '02', '03', '04', '05', '06', '07', '08'].map((id) => `clouds/cloud-${id}.png`);
-
-interface QualityProfile {
-  paint: boolean;
-  paintRings: number;
-  /** Kuwahara radius in pixels at a 1080 px tall render. */
-  paintRadius1080: number;
-  paintStrength: number;
-  detailMode: number;
-  hatch: number;
-  grain: number;
-  sharpen: number;
-  shadowSize: number;
-  /** 2 = 12-tap filtered PCF, 1 = 4-tap bilinear PCF. */
-  shadowFilter: number;
-  /** Scene MSAA on the first post-process target (WebGPU only knows 1 or 4). */
-  msaa: number;
-  wobble: number;
-  /** Cap on the effective device pixel ratio (render scale on HiDPI panels). */
-  maxPixelRatio: number;
-}
-
-const QUALITY: Record<VisualQuality, QualityProfile> = {
-  high: {
-    paint: true,
-    paintRings: 3,
-    paintRadius1080: 3.4,
-    paintStrength: 1,
-    detailMode: 2,
-    hatch: 0.16,
-    grain: 0.05,
-    sharpen: 0.55,
-    shadowSize: 2048,
-    shadowFilter: 2,
-    msaa: 1,
-    wobble: 1.6,
-    maxPixelRatio: 1.5,
-  },
-  medium: {
-    paint: true,
-    paintRings: 2,
-    paintRadius1080: 2.6,
-    paintStrength: 0.85,
-    detailMode: 1,
-    hatch: 0.12,
-    grain: 0.04,
-    sharpen: 0.4,
-    shadowSize: 1024,
-    shadowFilter: 1,
-    // No MSAA: WebGPU would round 2x up to 4x, and the ink pass redraws most
-    // geometric edges from the single-sample g-buffer anyway.
-    msaa: 1,
-    wobble: 1.2,
-    maxPixelRatio: 1.25,
-  },
-  low: {
-    // No Kuwahara pass, but the painted surface tiles stay: they are what makes
-    // the ground and walls read as the owner's paintings (single-axis sampling).
-    paint: false,
-    paintRings: 1,
-    paintRadius1080: 0,
-    paintStrength: 0,
-    detailMode: 1,
-    hatch: 0.1,
-    grain: 0,
-    sharpen: 0,
-    shadowSize: 1024,
-    shadowFilter: 1,
-    msaa: 1,
-    wobble: 0,
-    maxPixelRatio: 1,
-  },
-};
 
 interface WeatherPreset {
   zenith: Color3;
@@ -192,7 +114,7 @@ const WEATHER_NEUTRAL: WeatherPreset = {
   waterShallow: hex('#3FE0D0'),
   waterMid: hex('#1FB5C9'),
   waterDeep: hex('#0E6FA8'),
-  grade: new Vector4(1.0, 1.18, 1.08, 0.28),
+  grade: new Vector4(1.0, 1.06, 1.02, 0.12),
   shadowTone: new Color3(-0.015, 0.0, 0.04),
   highlightTone: new Color3(0.012, 0.004, -0.006),
   tint: new Color3(1, 1, 1),
@@ -288,7 +210,6 @@ export class SceneLook {
   private shadowGenerator: ShadowGenerator | null = null;
   private readonly geometryBuffer: GeometryBufferRenderer | null;
   private readonly detail: DetailTextureSet;
-  private paintPass: PostProcess | null = null;
   private comicPass: PostProcess | null = null;
   /**
    * Final FXAA on every tier: the ink is drawn after the MSAA resolve from a
@@ -302,7 +223,7 @@ export class SceneLook {
   private readonly gradeExtra = new Vector4(0.2, 0.05, 1, 1);
   private readonly shadowTone = new Color3(0, 0, 0);
   private readonly highlightTone = new Color3(0, 0, 0);
-  private readonly inkParams = new Vector4(1.35, 0.06, 0.32, 1.6);
+  private readonly inkParams = new Vector4(0.6, 0.06, 0.52, 0);
   private readonly inkFade = new Vector4(28, 240, 0.5, 0.5);
   private readonly gbufferList: AbstractMesh[] = [];
   private cloudRoot: TransformNode | null = null;
@@ -339,7 +260,7 @@ export class SceneLook {
     this.sun.intensity = 1.15;
     this.sun.autoUpdateExtends = false;
     this.sun.autoCalcShadowZBounds = false;
-    this.sun.shadowFrustumSize = SHADOW_FRUSTUM;
+    this.sun.shadowFrustumSize = QUALITY[this.quality].shadowFrustum;
     this.sun.shadowMinZ = 0;
     this.sun.shadowMaxZ = SHADOW_DEPTH_RANGE;
     this.fill = new HemisphericLight('ff-sky-fill', new Vector3(0, 1, 0), scene);
@@ -352,7 +273,7 @@ export class SceneLook {
     this.context.textures.detailColor = this.detail.detailColor;
 
     // Slim g-buffer: linear view depth in R32F, view normals in RGBA16F.
-    const gbr = scene.enableGeometryBufferRenderer(1, Constants.TEXTUREFORMAT_DEPTH24_STENCIL8, {
+    const gbr = scene.enableGeometryBufferRenderer(0.5, Constants.TEXTUREFORMAT_DEPTH24_STENCIL8, {
       [GeometryBufferRenderer.DEPTH_TEXTURE_TYPE]: {
         textureType: Constants.TEXTURETYPE_FLOAT,
         textureFormat: Constants.TEXTUREFORMAT_R,
@@ -401,15 +322,16 @@ export class SceneLook {
     this.quality = tier;
     const profile = QUALITY[tier];
     const values = this.context.values;
-    values.detailParams.set(profile.detailMode > 0 ? 0.62 : 0, 45, 170, profile.detailMode);
+    values.detailParams.set(0.28, 35, 120, profile.detailMode);
     // Painted colour tiles on wood, logs, shingles and cobbles (~1 repeat per 2 m).
-    values.colorParams.set(profile.detailMode > 0 ? 0.9 : 0, 0.5, 0, 0);
-    values.toonParams.w = profile.hatch;
-    this.gradeExtra.y = profile.grain;
-    this.inkParams.w = profile.wobble;
+    values.colorParams.set(0.55, 0.5, 0, 0);
+    values.toonParams.w = 0;
+    this.gradeExtra.y = 0;
+    this.inkParams.w = 0;
+    this.sun.shadowFrustumSize = profile.shadowFrustum;
     this.ensureShadows(profile.shadowSize);
     values.shadowParams.w = profile.shadowFilter;
-    this.ensurePostProcesses(profile);
+    this.ensurePostProcesses();
     this.applyPixelRatio(profile.maxPixelRatio);
   }
 
@@ -583,7 +505,7 @@ export class SceneLook {
     const dy = center.y - origin.y;
     const dz = center.z - origin.z;
     // +1 m covers the texel snap between the stored and the snapped centre.
-    const half = SHADOW_FRUSTUM * 0.5 + radius + 1;
+    const half = QUALITY[this.quality].shadowFrustum * 0.5 + radius + 1;
     const right = this.shadowRight;
     if (Math.abs(dx * right.x + dy * right.y + dz * right.z) > half) return false;
     const up = this.shadowUp;
@@ -626,7 +548,7 @@ export class SceneLook {
     generator.onAfterShadowMapRenderObservable.add(() => {
       values.lightMatrix.copyFrom(generator.getTransformMatrix());
     });
-    values.shadowParams.set(1 / size, (SHADOW_FRUSTUM / size) * 1.6, 1, 1);
+    values.shadowParams.set(1 / size, (QUALITY[this.quality].shadowFrustum / size) * 1.6, 1, 1);
     this.shadowGenerator = generator;
   }
 
@@ -637,10 +559,10 @@ export class SceneLook {
     const flat = this.shadowFlat.set(forward.x, 0, forward.z);
     if (flat.lengthSquared() < 0.0001) flat.set(0, 0, 1);
     flat.normalize();
-    const center = this.shadowCenter.copyFrom(camera.globalPosition).addInPlace(flat.scaleInPlace(SHADOW_FRUSTUM * 0.32));
+    const center = this.shadowCenter.copyFrom(camera.globalPosition).addInPlace(flat.scaleInPlace(QUALITY[this.quality].shadowFrustum * 0.32));
     // Snap the centre to whole shadow texels in light space to stop shimmering.
     const size = this.shadowGenerator?.mapSize ?? 2048;
-    const texel = SHADOW_FRUSTUM / size;
+    const texel = QUALITY[this.quality].shadowFrustum / size;
     const right = Vector3.CrossToRef(Vector3.UpReadOnly, direction, this.shadowRight).normalize();
     const up = Vector3.CrossToRef(direction, right, this.shadowUp).normalize();
     const cx = Math.round(Vector3.Dot(center, right) / texel) * texel;
@@ -653,55 +575,20 @@ export class SceneLook {
     );
   }
 
-  private ensurePostProcesses(profile: QualityProfile): void {
-    const wantPaint = profile.paint;
-    if (!this.comicPass || wantPaint !== (this.paintPass !== null)) {
-      // Rebuild the stack when ffPaint comes or goes: a detached pass would keep
-      // its MSAA targets alive, and new passes only attach at the chain's end.
-      this.disposePostProcesses();
-      registerLookPostShaders();
-      if (wantPaint) this.paintPass = this.createPaintPass();
-      this.comicPass = this.createComicPass();
-      this.fxaaPass = new FxaaPostProcess('ff-fxaa', 1, this.camera, Constants.TEXTURE_BILINEAR_SAMPLINGMODE, this.scene.getEngine());
-    }
-    const comic = this.comicPass;
-    if (!comic) return;
-    if (this.paintPass) {
-      this.paintPass.samples = profile.msaa;
-      comic.samples = 1;
-    } else {
-      comic.samples = profile.msaa;
-    }
+  private ensurePostProcesses(): void {
+    // Stable two-pass stack: changing quality never recreates full-screen targets.
+    if (this.comicPass) return;
+    registerLookPostShaders();
+    this.comicPass = this.createComicPass();
+    this.comicPass.samples = 1;
+    this.fxaaPass = new FxaaPostProcess('ff-fxaa', 1, this.camera, Constants.TEXTURE_BILINEAR_SAMPLINGMODE, this.scene.getEngine());
   }
 
   private disposePostProcesses(): void {
     this.fxaaPass?.dispose(this.camera);
     this.fxaaPass = null;
-    this.paintPass?.dispose(this.camera);
-    this.paintPass = null;
     this.comicPass?.dispose(this.camera);
     this.comicPass = null;
-  }
-
-  private createPaintPass(): PostProcess {
-    const engine = this.scene.getEngine();
-    const pass = new PostProcess('ff-paint', 'ffPaint', {
-      uniforms: [...PAINT_UNIFORMS],
-      samplers: [],
-      size: 1,
-      camera: this.camera,
-      samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
-      engine,
-      shaderLanguage: this.webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
-    });
-    pass.onApplyObservable.add((effect) => {
-      const current = QUALITY[this.quality];
-      const height = engine.getRenderHeight();
-      const radius = Math.max(1, (current.paintRadius1080 * height) / 1080);
-      effect.setFloat2('uTexel', 1 / Math.max(1, engine.getRenderWidth()), 1 / Math.max(1, height));
-      effect.setFloat4('uPaintParams', radius, current.paintRings, 260, current.paintStrength);
-    });
-    return pass;
   }
 
   private createComicPass(): PostProcess {
@@ -730,7 +617,7 @@ export class SceneLook {
     effect.setFloat4('uInkColor', ink.r, ink.g, ink.b, this.geometryBuffer ? 1 : 0);
     effect.setFloat4(
       'uInkParams',
-      Math.max(1.1, this.inkParams.x * Math.max(0.62, scale) * 1.85),
+      Math.max(0.65, this.inkParams.x * Math.max(0.8, scale)),
       this.inkParams.y,
       this.inkParams.z,
       this.inkParams.w * Math.max(0.6, scale) * 1.4,
@@ -751,7 +638,7 @@ export class SceneLook {
     effect.setVector4('uGradeExtra', this.gradeExtra);
     effect.setColor3('uShadowTone', this.shadowTone);
     effect.setColor3('uHighlightTone', this.highlightTone);
-    effect.setFloat4('uSharpen', QUALITY[this.quality].sharpen, QUALITY[this.quality].paint ? 1 : 0, 0, 0);
+    effect.setFloat4('uSharpen', 0, 0, 0, 0);
     const gbr = this.geometryBuffer;
     const fallback: BaseTexture = this.context.textures.sceneDepth;
     if (gbr) {

@@ -23,7 +23,7 @@ import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
  *
  * Fidelity details for the dense Meshy UV atlases (1800-2500 islands):
  * the painted textures are sampled at an explicit, slightly sharpened mip
- * level (min(natural, max(1.5, natural - 1))) so trilinear filtering never
+ * level (min(natural, max(1.5, natural - 0.25))) so trilinear filtering never
  * bleeds neighbouring islands into eyes and brows, and the output alpha is 0
  * to mark character pixels for the post stack (less paint smear, no normal
  * ink or sharpen on characters; see shaders/post.ts).
@@ -165,24 +165,25 @@ void main(void) {
   if (!gl_FrontFacing) normal = -normal;
 
 #ifdef FF_TEXTURED
-  // Explicit mip level: never blurrier than natural, at most one level
+  // Explicit mip level: never blurrier than natural, at most a quarter level
   // sharper, and never below 1.5 where box mips start mixing UV islands.
   vec2 texSize = vec2(textureSize(albedoSampler, 0));
   vec2 gx = dFdx(vUV) * texSize;
   vec2 gy = dFdy(vUV) * texSize;
   float lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
-  float lod = clamp(min(lodNatural, max(1.5, lodNatural - 1.0)), 0.0, 12.0);
+  float lod = clamp(min(lodNatural, max(1.5, lodNatural - 0.25)), 0.0, 12.0);
   vec3 base = texture2DLodEXT(albedoSampler, vUV, lod).rgb;
   // The normal map is smaller (1024 vs 2048, or the 1×1 flat fallback):
   // same UV footprint as the albedo, so the level and the 1.5 island floor
   // both shift by the size ratio.
   float normalShift = log2(max(texSize.x / max(float(textureSize(normalSampler, 0).x), 1.0), 1.0));
-  float lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 1.0)), 0.0, 12.0);
+  float lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 0.25)), 0.0, 12.0);
   vec3 mapNormal = texture2DLodEXT(normalSampler, vUV, lodNormal).xyz * 2.0 - 1.0;
   mapNormal.xy *= uPaintParams.x;
   normal = ffPerturbNormal(normal, vWorldPosition, vUV, normalize(mapNormal));
   float gloss = 0.0;
-  float grain = ffValueNoise(vUV * 96.0);
+  float grain = 0.0;
+  if (uBattleDamage > 0.001) grain = ffValueNoise(vUV * 96.0);
 #else
   vec3 base = vColor.rgb;
   float gloss = 0.3;
@@ -348,16 +349,17 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let gx = dpdx(input.vUV) * texSize;
   let gy = dpdy(input.vUV) * texSize;
   let lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
-  let lod = clamp(min(lodNatural, max(1.5, lodNatural - 1.0)), 0.0, 12.0);
+  let lod = clamp(min(lodNatural, max(1.5, lodNatural - 0.25)), 0.0, 12.0);
   var base = textureSampleLevel(albedoSampler, albedoSamplerSampler, input.vUV, lod).rgb;
   let normalSize = vec2f(textureDimensions(normalSampler, 0));
   let normalShift = log2(max(texSize.x / max(normalSize.x, 1.0), 1.0));
-  let lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 1.0)), 0.0, 12.0);
+  let lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 0.25)), 0.0, 12.0);
   var mapNormal = textureSampleLevel(normalSampler, normalSamplerSampler, input.vUV, lodNormal).xyz * 2.0 - 1.0;
   mapNormal = vec3f(mapNormal.xy * uniforms.uPaintParams.x, mapNormal.z);
   normal = ffPerturbNormal(normal, input.vWorldPosition, input.vUV, normalize(mapNormal));
   let gloss = 0.0;
-  let grain = ffValueNoise(input.vUV * 96.0);
+  var grain = 0.0;
+  if (uniforms.uBattleDamage > 0.001) { grain = ffValueNoise(input.vUV * 96.0); }
 #else
   var base = input.vColor.rgb;
   let gloss = 0.3;

@@ -260,8 +260,8 @@ export function buildTerrainMesh(scene: Scene, material: Material): Mesh {
       const b = a + 1; // (x1, z0)
       const c = a + GRID_POINTS + 1; // (x1, z1)
       const d = a + GRID_POINTS; // (x0, z1)
-      // Diagonal (x0, z0)–(x1, z1) like `sampleMapHeight`; Babylon front-face winding.
-      indices.set([a, b, c, a, c, d], cursor);
+      // Match Rapier's (x1, z0)–(x0, z1) diagonal: feet must meet the visible ground.
+      indices.set([a, b, d, b, c, d], cursor);
       cursor += 6;
     }
   }

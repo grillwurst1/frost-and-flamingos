@@ -347,14 +347,19 @@ export const en = {
   },
   graphics: {
     title: 'Picture quality',
-    subtitle: 'Brush-stroke paint pass, ink outlines, shadows, surface detail and render resolution.',
     auto: 'Auto',
     high: 'High',
     medium: 'Medium',
     low: 'Low',
     active: 'Rendering now: {tier}',
     activeAuto: 'Rendering now: {tier} (picked for this device)',
-    hint: 'Auto picks a tier for your graphics chip and steps down once if the menu runs slowly. Your choice is saved on this device.',
+    subtitle: 'Clean 3D lighting, soft shadows, clear textures and smooth silhouettes.',
+    hint: 'Auto adjusts during gameplay. Model and texture detail stay intact; extra render effects scale down first.',
+    frameLimit: 'Frame rate / energy use',
+    frames30: '30 FPS · quiet',
+    frames45: '45 FPS · balanced',
+    frames60: '60 FPS · fluid',
+    frameHint: '45 FPS is the efficient default. Choose 30 FPS for lower heat and longer battery life. Menus use at most 30 FPS.',
   },
   classNames: {
     alpine: {

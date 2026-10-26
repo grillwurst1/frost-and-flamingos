@@ -1,3 +1,5 @@
+import { frameLimit } from '../state/graphics';
+import { renderFrameLimit, type FrameLimit } from '../rendering/render-profile';
 import { QualityGovernor } from '../rendering/quality-governor';
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine';
 import { Engine } from '@babylonjs/core/Engines/engine';
@@ -420,6 +422,8 @@ export class GameClient {
   private readonly unsubscribeSpin: () => void;
   private readonly unsubscribeEffect: () => void;
   private readonly unsubscribeQuality: () => void;
+  private readonly unsubscribeFrameLimit: () => void;
+  private frameLimit: FrameLimit = 45;
   /*
    * Every new canvas size makes each post-process allocate a fresh MSAA target
    * set that Babylon keeps for ~100 frames, so a drag-resize that resized every
@@ -471,6 +475,7 @@ export class GameClient {
         this.qualityGovernor.reset();
       }
       this.currentPhase = next;
+      this.applyFrameLimit();
       if (next !== 'playing' && next !== 'deploying') scoreboardOpen.set(false);
       this.look?.setBooting(next === 'booting');
       audio.setScene(
@@ -502,6 +507,10 @@ export class GameClient {
       this.previewEffect = effect;
       this.applyPreviewEffects();
     });
+    this.unsubscribeFrameLimit = frameLimit.subscribe((limit) => {
+      this.frameLimit = limit;
+      this.applyFrameLimit();
+    });
     this.unsubscribeQuality = visualQualitySetting.subscribe((setting) => {
       this.qualitySetting = setting;
       this.applyVisualQuality();
@@ -518,9 +527,9 @@ export class GameClient {
         return;
       }
       this.engine = engine;
-      // High-refresh displays should not multiply the cost of every world,
-      // shadow and post-process pass. Simulation still runs at fixed 60 Hz.
-      engine.maxFPS = 60;
+      // Use the saved energy budget; menus run at most 30 FPS.
+      // Simulation still runs at fixed 60 Hz.
+      this.applyFrameLimit();
       setRenderer(renderer);
       setLoadingProgress(0.2);
 
@@ -804,11 +813,15 @@ export class GameClient {
     activeVisualQuality.set(tier);
   }
 
+  private applyFrameLimit(): void {
+    if (this.engine) this.engine.maxFPS = renderFrameLimit(this.frameLimit, this.currentPhase === 'playing');
+  }
+
   /** Adapt throughout a session, including sustained combat load and thermal throttling. */
   private updateQualityGovernor(now: number): void {
     const active = this.currentPhase === 'menu' || this.currentPhase === 'playing' || this.currentPhase === 'paused';
     const tier = this.qualityGovernor.observe(now, this.smoothedFrameMs, this.autoQuality,
-      this.qualitySetting === 'auto' && active && document.visibilityState === 'visible');
+      this.qualitySetting === 'auto' && active && document.visibilityState === 'visible', this.engine?.maxFPS ?? 45);
     if (tier !== this.autoQuality) {
       this.autoQuality = tier;
       this.applyVisualQuality();
@@ -852,6 +865,7 @@ export class GameClient {
     this.unsubscribeSpin();
     this.unsubscribeEffect();
     this.unsubscribeQuality();
+    this.unsubscribeFrameLimit();
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     if (import.meta.env.DEV) uninstallMapDevTools();
     window.removeEventListener('resize', this.handleResize);
@@ -1000,7 +1014,7 @@ export class GameClient {
       // on screen. Views made before their model arrives show the procedural
       // rig and swap in place.
       const scene = this.scene;
-      void preloadPaintedModels(scene, getProfile()).then(() => {
+      void preloadPaintedModels(scene, welcome.profile).then(() => {
         if (!this.disposed) setPaintedModels(paintedModelsAvailable(scene));
       });
     }
@@ -1145,7 +1159,7 @@ export class GameClient {
     const yaw = this.localCharacter?.yaw ?? 0;
     this.localView?.dispose();
     const shadow = createShadowMaterial(this.scene, `character-shadow-local-${this.nextViewSerial()}`);
-    this.localView = createAvatarView(this.scene, shadow, profile, { fx: this.mascotFx });
+    this.localView = createAvatarView(this.scene, shadow, profile, { fx: this.mascotFx, priority: true });
     this.localViewKey = key;
     this.localView.setPosition(position);
     this.localView.setYaw(yaw, true);

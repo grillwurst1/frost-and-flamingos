@@ -1,12 +1,18 @@
 <script lang="ts">
   import {
+    frameLimit,
+    chooseFrameLimit,
     VISUAL_QUALITY_SETTINGS,
     activeVisualQuality,
     chooseVisualQuality,
     visualQualitySetting,
     type VisualQualitySetting,
   } from '../state/graphics';
+  import type { FrameLimit } from '../rendering/render-profile';
   import { t } from '../state/locale';
+
+  const limits: FrameLimit[] = [30, 45, 60];
+  const frameKeys = {30: 'graphics.frames30', 45: 'graphics.frames45', 60: 'graphics.frames60'} as const;
 
   type QualityLabelKey = 'graphics.auto' | 'graphics.high' | 'graphics.medium' | 'graphics.low';
 
@@ -45,6 +51,13 @@
     </p>
   {/if}
   <p class="field-hint">{$t('graphics.hint')}</p>
+  <div class="section-heading"><span>{$t('graphics.frameLimit')}</span></div>
+  <div class="quality-choices" role="group" aria-label={$t('graphics.frameLimit')}>
+    {#each limits as limit}
+      <button class="btn-ghost" type="button" aria-pressed={$frameLimit === limit} on:click={() => chooseFrameLimit(limit)}>{$t(frameKeys[limit])}</button>
+    {/each}
+  </div>
+  <p class="field-hint">{$t('graphics.frameHint')}</p>
 </div>
 
 <style>

@@ -54,6 +54,8 @@ export interface AvatarView {
 export interface AvatarOptions {
   /** Shared mascot FX layer (dust, popups); omit for previews. */
   fx?: MascotFx | null;
+  /** Local player: request the model immediately, even behind the menu. */
+  priority?: boolean;
   /** Wardrobe/menu preview: mascots show both forms side by side. */
   preview?: boolean;
 }
@@ -73,7 +75,7 @@ export function createAvatarView(
   }
   // The owner's painted Meshy models, when one exists for this faction and
   // class and the outfit matches the painting; otherwise the procedural rig.
-  const painted = createPaintedAvatarView(scene, shadowMaterial, profile);
+  const painted = createPaintedAvatarView(scene, shadowMaterial, profile, options.priority ?? false);
   if (painted) return painted;
   return new CharacterView(scene, shadowMaterial, profile);
 }

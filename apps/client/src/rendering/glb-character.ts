@@ -1811,6 +1811,7 @@ class PendingPaintedView implements AvatarView {
     private readonly profile: PlayerProfile,
     /** Already loaded: show nothing for the frame or two until the swap budget allows. */
     preloaded: { asset: PaintedModelAsset; textures: PaintedTextures } | null = null,
+    priority = false,
   ) {
     this.current = preloaded ? new EmptyAvatarView(scene, shadowMaterial) : new CharacterView(scene, shadowMaterial, profile);
     this.placeholder = preloaded !== null;
@@ -1822,6 +1823,7 @@ class PendingPaintedView implements AvatarView {
     pendingViews.add(this);
     installGlbDebugHandle();
     debugEvent(`pending ${this.label}`);
+    if (priority) this.request();
   }
 
   /** True when the stand-in is enabled, near enough and inside the camera frustum. */
@@ -1971,6 +1973,7 @@ export function createPaintedAvatarView(
   scene: Scene,
   shadowMaterial: StandardMaterial,
   profile: PlayerProfile,
+  priority = false,
 ): AvatarView | null {
   const spec = paintedModelSpec(profile);
   if (!spec || !outfitFitsPaintedModel(profile, spec)) {
@@ -1987,7 +1990,7 @@ export function createPaintedAvatarView(
   if (asset && textures) {
     // Same budget as the stand-in swaps: at most one painted view is built
     // per frame (N remotes joining at once queue up, one per frame).
-    if (!takeSwapBudget(scene)) return new PendingPaintedView(scene, shadowMaterial, profile, { asset, textures });
+    if (!takeSwapBudget(scene)) return new PendingPaintedView(scene, shadowMaterial, profile, { asset, textures }, priority);
     try {
       return new GlbCharacterView(scene, shadowMaterial, profile, asset, textures);
     } catch (error) {
@@ -1995,7 +1998,7 @@ export function createPaintedAvatarView(
       return null;
     }
   }
-  return new PendingPaintedView(scene, shadowMaterial, profile);
+  return new PendingPaintedView(scene, shadowMaterial, profile, null, priority);
 }
 
 /**

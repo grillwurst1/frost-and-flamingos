@@ -132,9 +132,9 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
 #ifdef FF_TEXTURED
   // Painted skinned characters: widen the hard bands by the screen-space
   // derivative so dense meshes and normal maps do not alias into speckles.
-  float bandAA = fwidth(ndl) * 1.5;
+  float bandAA = max(0.16, fwidth(ndl) * 1.5);
 #else
-  float bandAA = 0.0;
+  float bandAA = 0.12;
 #endif
   float terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uFFToonParams.z);
   float full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uFFToonParams.z);
@@ -147,7 +147,7 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   vec3 shade = base * ffShadeTint(base) * fill;
 #else
   vec3 deep = pow(max(base, vec3(0.001)), vec3(1.35));
-  vec3 shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
+  vec3 shade = mix(base, deep, 0.3) * ffShadeTint(base) * fill;
 #endif
   // Lit snow and ice stay blue-white like the paintings (sky bounce).
   vec3 lit = base * uFFSunColor * mix(vec3(1.0), vec3(0.86, 0.95, 1.07), ffCoolMask(base) * 0.85);
@@ -271,9 +271,9 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let ndl = dot(normal, light);
   let shadow = ffShadow(worldPos, normal, ndl);
 
-  var bandAA = 0.0;
+  var bandAA = 0.12;
 #ifdef FF_TEXTURED
-  bandAA = fwidth(ndl) * 1.5;
+  bandAA = max(0.16, fwidth(ndl) * 1.5);
 #endif
   let terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uniforms.uFFToonParams.z);
   let full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uniforms.uFFToonParams.z);
@@ -285,7 +285,7 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let shade = base * ffShadeTint(base) * fill;
 #else
   let deep = pow(max(base, vec3f(0.001)), vec3f(1.35));
-  let shade = mix(base, deep, 0.8) * ffShadeTint(base) * fill;
+  let shade = mix(base, deep, 0.3) * ffShadeTint(base) * fill;
 #endif
   let lit = base * uniforms.uFFSunColor * mix(vec3f(1.0), vec3f(0.86, 0.95, 1.07), ffCoolMask(base) * 0.85);
   var color = mix(shade, lit, lightLevel);
