@@ -1,7 +1,10 @@
 /**
  * Climate Conquest (4T) x vehicles (4V) x hens (3H) x drifter (3G) after the
  * merge: the 15 s results ceasefire also holds for hulls, rams and hens; a
- * hull parked on a spawn pad makes the pad occupied.
+ * hull parked on a spawn pad makes the pad occupied; the round reset empties
+ * every seat before anyone respawns and clears drifter support; a class
+ * change that applies in a seat frees it (drifters, mascots) or re-seats the
+ * new body.
  *
  *   bun test apps/server/test/conquest-vehicles.test.ts
  */
@@ -10,13 +13,31 @@ import {
   FJORD_TOWERS,
   FjordLayout,
   INTERMISSION_TICKS,
+  VEHICLES,
+  createDefaultProfile,
+  distanceToHull,
   sampleMapHeight,
   vehicleLocalToWorld,
+  type ClassId,
   type CritterState,
+  type Faction,
   type Vec3,
 } from '@frost-and-flamingos/shared';
 import { MatchRoom } from '../src/rooms/match-room';
-import { InputButton, createRoom, joinPlayer, parkVehicle, placePlayer, playerOf, run, sendInput, slotByKind, slotBySpawn } from './vehicle-helpers';
+import {
+  InputButton,
+  createRoom,
+  joinPlayer,
+  parkVehicle,
+  placePlayer,
+  playerOf,
+  run,
+  sendInput,
+  slotByKind,
+  slotBySpawn,
+  tap,
+  type TestPlayer,
+} from './vehicle-helpers';
 
 const { GLACIER_RUNWAY } = FjordLayout;
 const W = InputButton.Forward;
@@ -32,6 +53,27 @@ interface RoomProbe {
 
 function probe(room: MatchRoom): RoomProbe {
   return room as unknown as RoomProbe;
+}
+
+/** Room-side fields of a player these tests read beyond the shared helpers. */
+interface PlayerProbe {
+  profile: { faction: Faction; cosmetics: { classId: ClassId } };
+  spawnPosition: Vec3;
+  kills: number;
+  support: number;
+  supportVitality: number;
+  supportMagazines: number;
+  character: { position: Vec3; collider: { isEnabled(): boolean } };
+}
+
+function inner(room: MatchRoom, player: TestPlayer): PlayerProbe {
+  return playerOf(room, player.id) as unknown as PlayerProbe;
+}
+
+/** A wardrobe change from the player's client. */
+function wardrobe(room: MatchRoom, player: TestPlayer, classId: ClassId): void {
+  const faction = inner(room, player).profile.faction;
+  room.handleProfileUpdate(player.socket, { ...createDefaultProfile(`Swap ${player.id}`, classId), faction });
 }
 
 /** Ends the live round on tickets; the next tick starts the results intermission. */
@@ -127,6 +169,78 @@ describe('spawn pads x parked hulls', () => {
     expect(room.vehicles.devPark(crawler.id, pad.position.x + 30, pad.position.z + 30, 0)).toBe(true);
     run(room, 2);
     expect(probe(room).isSpawnOccupied(pad.position, 0)).toBe(false);
+    room.stop();
+  });
+});
+
+describe('round reset x vehicles and drifters', () => {
+  test('every seat is empty before the respawn loop; hulls go home; drifter support restarts at 0', async () => {
+    const room = await createRoom();
+    const tank = slotByKind('coconut_tank');
+    const driver = joinPlayer(room, 'lagoon', 'allrounder', 'Driver');
+    expect(room.vehicles.devEnter(playerOf(room, driver.id) as never, tank.id, 0)).toBe(true);
+    const home = tank.spawn.position;
+    expect(room.vehicles.devPark(tank.id, home.x + 25, home.z + 18, 0.4)).toBe(true);
+    const drifter = joinPlayer(room, 'alpine', 'drifter', 'Drifter');
+    const support = inner(room, drifter);
+    expect(support.profile.cosmetics.classId).toBe('drifter');
+    support.support = 12;
+    support.supportVitality = 1234;
+    support.supportMagazines = 7.5;
+
+    endRound(room);
+    run(room, INTERMISSION_TICKS + 2);
+    expect(room.isCeasefire()).toBe(false);
+
+    expect(room.vehicles.seatFor(driver.id)).toBeNull();
+    const body = room.vehicles.vehicleBody(tank.id);
+    if (!body) throw new Error('tank missing after the reset');
+    expect(Math.hypot(body.position.x - home.x, body.position.z - home.z)).toBeLessThan(1);
+    // The respawn put the driver on a pad and nothing moved them afterwards
+    // (an eject after the respawn would leave them beside the old hull).
+    const feet = inner(room, driver).character.position;
+    const pad = inner(room, driver).spawnPosition;
+    expect(Math.hypot(feet.x - pad.x, feet.z - pad.z)).toBeLessThan(0.5);
+    expect(distanceToHull(VEHICLES.coconut_tank, body.position, body.yaw, feet)).toBeGreaterThan(2);
+    expect(inner(room, driver).character.collider.isEnabled()).toBe(true);
+
+    expect(support.support).toBe(0);
+    expect(support.supportVitality).toBe(0);
+    expect(support.supportMagazines).toBe(0);
+    expect(support.kills).toBe(0);
+    room.stop();
+  });
+});
+
+describe('class changes x seats', () => {
+  test('a class change that applies in a seat frees it for a drifter or mascot and re-seats a soldier', async () => {
+    const room = await createRoom();
+    const crawler = slotByKind('fondue_crawler');
+    const driver = joinPlayer(room, 'alpine', 'allrounder', 'Driver');
+    const gunner = joinPlayer(room, 'alpine', 'heavy', 'Gunner');
+    expect(room.vehicles.devEnter(playerOf(room, driver.id) as never, crawler.id, 0)).toBe(true);
+    expect(room.vehicles.devEnter(playerOf(room, gunner.id) as never, crawler.id, 1)).toBe(true);
+    run(room, 2);
+    // During the results a wardrobe change applies at once (4T rule).
+    endRound(room);
+    wardrobe(room, driver, 'drifter');
+    wardrobe(room, gunner, 'infiltrator');
+    expect(inner(room, driver).profile.cosmetics.classId).toBe('drifter');
+    expect(inner(room, gunner).profile.cosmetics.classId).toBe('infiltrator');
+    run(room, 1);
+    // The drifter may never ride: her seat is freed and she stands beside the hull.
+    expect(room.vehicles.seatFor(driver.id)).toBeNull();
+    expect(inner(room, driver).character.collider.isEnabled()).toBe(true);
+    // The infiltrator keeps the gunner seat with the rebuilt (collider-free) body.
+    expect(room.vehicles.seatFor(gunner.id)).toEqual({ vehicleId: crawler.id, seat: 1 });
+    expect(inner(room, gunner).character.collider.isEnabled()).toBe(false);
+    // F next to the hull never seats a drifter.
+    tap(room, driver, InputButton.Interact);
+    run(room, 2);
+    expect(room.vehicles.seatFor(driver.id)).toBeNull();
+    expect(room.vehicles.devEnter(playerOf(room, driver.id) as never, crawler.id, 0)).toBe(true);
+    run(room, 1);
+    expect(room.vehicles.seatFor(driver.id)).toBeNull();
     room.stop();
   });
 });
