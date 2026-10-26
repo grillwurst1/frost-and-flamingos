@@ -127,7 +127,13 @@ export class VehicleView {
     if (this.loadRequested) return;
     const distance = Math.hypot(position.x - cameraPosition.x, position.y - cameraPosition.y, position.z - cameraPosition.z);
     const camera = this.scene.activeCamera;
-    const onScreen = distance < LAZY_ON_SCREEN_RANGE && !!camera && !!this.fallback && camera.isInFrustum(this.fallback);
+    let onScreen = false;
+    if (distance < LAZY_ON_SCREEN_RANGE && camera && this.fallback) {
+      this.root.computeWorldMatrix(true);
+      this.tilt.computeWorldMatrix(true);
+      this.fallback.computeWorldMatrix(true);
+      onScreen = camera.isInFrustum(this.fallback);
+    }
     if (distance > LAZY_LOAD_RANGE && !onScreen) return;
     this.loadRequested = true;
     void this.load();
@@ -213,12 +219,13 @@ export class VehicleView {
    */
   update(deltaSeconds: number, pose: VehicleViewPose, ground: VehicleGroundProbe | null, cameraPosition: Vector3): void {
     if (this.disposed) return;
-    this.requestModel(pose.position, cameraPosition);
     const dt = Math.min(0.1, Math.max(0, deltaSeconds));
     this.time += dt;
     Object.assign(this.lastPose, pose);
     this.root.position.set(pose.position.x, pose.position.y, pose.position.z);
     this.root.rotation.set(0, pose.yaw, 0);
+    // After placing the root, so the on-screen test sees the hull where it is.
+    this.requestModel(pose.position, cameraPosition);
 
     let targetPitch = 0;
     let targetRoll = 0;

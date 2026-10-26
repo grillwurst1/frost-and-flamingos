@@ -567,7 +567,8 @@ export class GameClient {
       this.mascotFx = new MascotFx(scene, groundProbe);
       this.mascots = new MascotClient(this.mascotFx);
       this.vehicles = new VehicleClient(scene, physics, this.mascotFx, this.input);
-      this.vehicles.factionOf = (id) => this.profiles.get(id)?.faction ?? null;
+      // The own profile is not in `profiles`: the local id resolves to the local faction.
+      this.vehicles.factionOf = (id) => (id === this.localId ? this.localFaction : this.profiles.get(id)?.faction ?? null);
       // Visual vehicle shots end at a living enemy avatar they pass (direct
       // hits), the local one included; friends and corpses let them through.
       this.vehicles.avatarHit = (origin, direction, maxDistance, shooterFaction) => {
@@ -577,7 +578,7 @@ export class GameClient {
         if (this.localView && this.localId !== null) candidates.push({ id: this.localId, root: this.localView.root });
         for (const { id, root } of candidates) {
           if (!root.isEnabled()) continue;
-          if (shooterFaction && this.profiles.get(id)?.faction === shooterFaction) continue;
+          if (shooterFaction && this.vehicles?.factionOf?.(id) === shooterFaction) continue;
           if (players.find((player) => player.id === id)?.alive === false) continue;
           const feet = root.getAbsolutePosition();
           const centre = { x: feet.x, y: feet.y + 0.9, z: feet.z };
