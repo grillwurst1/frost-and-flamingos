@@ -1,10 +1,10 @@
 # Frost & Flamingos — Bedienungsanleitung
 
-**Bullets, Fondue & Coconuts** · Milestone 4: Waffen, Kampf, Bots & Audio
-Stand: 24. Oktober 2026 · Zielplattform: macOS
+**Bullets, Fondue & Coconuts** · Test-Build „M5-Kern“: Klima-Eroberung, Fahrzeuge, Wanderinnen, Hühner & gemalte Welt
+Stand: 26. Oktober 2026 · Zielplattform: macOS
 
 Diese Anleitung beschreibt die lokale Playtest-Version. Sie richtet sich an alle, die das
-Projekt auf einem Mac starten, spielen, aktualisieren und wieder sauber beenden wollen.
+Projekt auf einem Mac starten, spielen, testen, aktualisieren und wieder sauber beenden wollen.
 
 ---
 
@@ -15,18 +15,33 @@ Klimakrieg-Komödie. Zwei Urlaubsresorts kämpfen um denselben Fjord: die **Gipf
 will ewigen Schnee, Fondue und alpine Ruhe; die **Lagunen-Liga** will endlosen Sommer,
 Flamingo-Schwimmringe und barfüßigen Chaos-Urlaub.
 
-**Milestone 4 (M4)** ist der Kampf-, Bots- und Audio-Meilenstein:
+Die Meilensteine M1 bis M4 sind fertig (Bewegung, Klassen und Garderobe, Waffen, Kampf, Bots
+und Audio). Dieser **Test-Build „M5-Kern“** ist der Kern von Milestone 5 plus die neuen Grafik-
+und Figurenpakete. Nach diesem Build ruht die Arbeit, bis der Projektinhaber getestet hat.
+Neu sind:
 
-- drei Waffenslots pro Klasse, sieben Haupt- und sechs Gimmick-Waffen,
-- autoritatives Schießen mit Streuung, Schrot, Projektilen, Kopfschüssen und Schilden,
-- neun Klassenskills, Treffer-Rollback und 10 Sekunden lange Killer-Kamera,
-- vier benannte KI-Bots, Kill-Feed, Treffermarker, Fadenkreuz und Schadens-Vignette,
-- vier cartoonige Todesarten und vollständig prozedurale Kampf-Sounds und Stimmen,
-- alle drei Waffenslots im HUD mit Munition, Nachladen und Skill-Abklingzeiten,
+- **Klima-Eroberung:** drei Wettertürme, 50 Urlaubstickets pro Team, Ticketverlust für das
+  Team mit weniger Türmen, ein Klima, das Himmel, Licht und Wasser färbt, 20-Minuten-Runden,
+  15 s Ergebnis-Banner mit Waffenruhe und automatischer Neustart (Abschnitt 8),
+- **vier Fahrzeuge:** Fondue-Raupe, Kokosnuss-Strandpanzer, Taktischer Badi-Flamingo und
+  Seitenwagen-Motorrad (Abschnitt 9),
+- **zwei neue Klassen:** das **Maskottchen** (Alpenkuh / Kampf-Kokosnuss) und die
+  unberührbare **Wanderin** (Gruseliges Bergmädchen / Hot Beach Girl) mit Versorgungs-Aura
+  (Abschnitt 7),
+- **gemalte Soldaten:** alle sechs Soldaten (drei Klassen × zwei Fraktionen) sind gemalte,
+  geriggte 3D-Modelle, die der Projektinhaber mit Meshy erzeugt hat; dazu 13 Heldenwaffen mit
+  passenden Haltungen,
+- **die neu gebaute, gemalte Fjord Fiesta:** 257 × 257 Höhenpunkte, Lagune im Südwesten, Dorf
+  in der Mitte, Gipfel im Nordosten; gemalte Bäume, Büsche, Fassaden, Bodentexturen und
+  Decals, ein Hügelkranz hinter dem Kartenrand und ein gemalter Comic-Look mit Tuschekonturen,
+- **frei laufende Hühner** auf beiden Kartenhälften, die man abschießen kann (Abschnitt 10),
+- Comic-HUD und Comic-Menüs, Punktetafel (`Tab`) und eine Einstellung für die Bildqualität,
 - vollständige deutsche und englische Texte für alle neuen Oberflächen.
 
-**Noch nicht enthalten:** Wettertürme, Fahrzeuge, Zerstörung, Krater, Decals, Meta-Ökonomie
-und Kur-Pass. Diese Systeme folgen in M5 bis M7.
+**Noch nicht enthalten:** Seilbahn, Schlepplift, Alpine Coaster, Hängematten-Katapult und die
+NPC-Kuh, Doppeldecker, Ruderboot und Gondel, das Reparieren von Fahrzeugen, Zerstörung,
+Krater, Decal-Ringpuffer, Meta-Ökonomie und Kur-Pass. Diese Systeme folgen im Rest von M5 und
+in M6 bis M7. Details in Abschnitt 16.
 
 ---
 
@@ -126,14 +141,22 @@ Alpen gegen Strand, einen gestreiften Ladebalken und wechselnde Tipps. Er zeigt 
 Das Hauptmenü liegt über dem gemalten Titelbild des Resorts: links stehen Logo,
 **„Jetzt spielen“**, Garderobe, Einstellungen und die Profilkarten (Klasse, Fraktion, Stimme).
 Wenn in der Statuspille unten **VERBUNDEN** steht, ist alles bereit. Steht dort **OFFLINE**,
-läuft der Server nicht oder Port 3000 ist blockiert (siehe Abschnitt 13); eine Hinweiskarte mit
+läuft der Server nicht oder Port 3000 ist blockiert (siehe Abschnitt 17); eine Hinweiskarte mit
 **„Neu verbinden“** erscheint dann direkt unter den Knöpfen.
 
 Optionaler Server-Test im Browser:
 
 **<http://127.0.0.1:3000/api/health>**
 
-Dort müssen `status: "ok"`, `online: true` und `mapId: "fjord_fiesta"` erscheinen.
+Dort müssen `status: "ok"`, `online: true`, `mapId: "fjord_fiesta"` und
+`protocolVersion: 9` erscheinen; der Block `conquest` zeigt Runde, Tickets und Türme.
+
+Auf dem Server spielen automatisch vier KI-Bots mit. Wer in Ruhe ohne Bots testen will,
+startet den Stack so:
+
+```bash
+FF_NO_BOTS=1 bun run dev
+```
 
 ---
 
@@ -143,41 +166,76 @@ Dort müssen `status: "ok"`, `online: true` und `mapId: "fjord_fiesta"` erschein
 2. Der Browser fängt die Maus ein (Pointer Lock). Die Kamera folgt nun der Maus.
 3. Nach dem Klick erscheint kurz der **Einsatzbildschirm** mit Zielort, Einteilung und einem
    Ladebalken. In dieser Zeit läuft der Runden-Track „Skiing the Sandbar“.
-4. Danach landet der Charakter im Fjord Fiesta und das HUD erscheint.
+4. Danach steht der Charakter auf einem Spawn-Pad an einem Turm seines Teams und das HUD
+   erscheint. Zu Rundenbeginn hält die Lagunen-Liga den Lagunen-Hafen (A), die Gipfel-Garde
+   die Gipfel-Käserei (C); der Dorfplatz (B) ist neutral. Die ersten 2 Sekunden bist du
+   geschützt.
 
 Falls der Browser die Maus nicht einfängt, erscheint ein Hinweis. Dann einfach noch einmal
 auf die Spielfläche klicken. Manche Browser verlangen eine direkte Benutzeraktion.
 
+Beim allerersten Start laden die gemalten Figuren- und Fahrzeugmodelle nach und nach; ein
+Fahrzeug erscheint kurz als einfacher Platzhalter, bis sein Modell geladen ist.
+
 ---
 
 ## 6. Steuerung
+
+### Zu Fuß (Allrounder, Heavy, Infiltrator)
 
 | Aktion | Taste / Eingabe |
 | --- | --- |
 | Bewegen | `W` `A` `S` `D` oder Pfeiltasten |
 | Umsehen | Maus |
 | Springen | `Leertaste` |
-| Notfallschirm öffnen / abwerfen | `Leertaste` im Fall |
+| Notfallschirm öffnen / abwerfen | `Leertaste` im Fall (abwerfen auch mit `C`) |
 | Sprinten | `Shift` (halten) |
 | Ducken (umschalten) | `C` |
 | Ducken (halten) | `Ctrl` |
-| Hechtsprung | `C` während des Sprintens |
-| Kamera über die andere Schulter | `V` |
-| Kameradistanz | Mausrad |
+| Ausweichrolle | `C` während des Vorwärtssprints |
+| Feuern | linke Maustaste |
 | Waffen-Slots | `1` `2` `3` oder Mausrad |
-| Zoom | `Alt` + Mausrad |
-| Interagieren / Heilen / Reparieren | `F` / `Q` / `E` |
 | Nachladen | `R` |
-| Spot / Taunt | `T` |
+| Klassenfähigkeiten | `Q` `E` `T` |
+| Interagieren / Fahrzeug betreten | `F` |
+| Spotthymne (Taunt) | `G` |
+| Punktetafel | `Tab` halten |
+| Kamera über die andere Schulter | `V` |
+| Kameraabstand | `Alt` + Mausrad |
 | Maus freigeben / Pause | `Esc` |
 | Telemetrie ein-/ausblenden | `F1` |
+
+### Im Fahrzeug
+
+| Aktion | Taste / Eingabe |
+| --- | --- |
+| Einsteigen / Aussteigen | `F` (höchstens 2,4 m vom Fahrzeug entfernt) |
+| Fahren | `W` `A` `S` `D` |
+| Platz wechseln | `C` |
+| Hupe | `H` |
+| Fahrzeugwaffe (Panzerkanone, Flamingo-Harpune) | linke Maustaste, zielen mit der Maus |
+| Stöpsel-Turbo (Badi-Flamingo, nur auf dem Wasser) | `Shift` |
+| Handbremsdrift (Seitenwagen) | `Leertaste` |
+
+Auf dem zweiten Platz der Panzer (Kommandanten- bzw. Kokosnuss-Luke) und im Seitenwagen
+schießt man mit den eigenen Waffen.
+
+### Maskottchen und Wanderin
+
+- **Alpenkuh:** `W`/`S` Gas, Bremse und rückwärts, `A`/`D` lenken, `Shift` + `W`
+  galoppieren (leert die Galoppleiste), `Leertaste` hüpfen; die Kamera kreist frei.
+- **Kampf-Kokosnuss:** `W` `A` `S` `D` rollt relativ zur Kamera, `Leertaste` springt, zweimal
+  `Leertaste` ergibt einen Doppelsprung; Gefälle macht sie schneller.
+- Beide lösen ihre drei Moves mit `Q` `E` `T` aus (oder `1` `2` `3` + Klick).
+- **Wanderin:** nur `W` `A` `S` `D` und die Maus – kein Springen, Sprinten, Ducken, keine
+  Waffen und keine Spotthymne.
 
 ### Bewegung im Detail
 
 - **Vorwärts** 100 %, **seitwärts** 85 %, **rückwärts** 70 % der Klassengeschwindigkeit.
 - **Sprinten** erhöht das Tempo um 35 %, nur vorwärts und nicht geduckt.
 - **Ducken** reduziert das Tempo auf 55 % und verkleinert die Kapsel.
-- **Hechtsprung:** während des Sprintens `C` drücken; 0,6 s Rolle plus 0,4 s Erholung.
+- **Ausweichrolle:** während des Vorwärtssprints `C` drücken; 0,6 s Rolle plus 0,4 s Erholung.
 - **Schwimmen:** tiefes Wasser startet automatisch den Schwimmmodus. Nur ein Sturz unter
   `Y = -12` führt zum Respawn.
 - **Klettern:** Sprung an eine 0,55–1,6 m hohe Kante löst automatisch die Kletteranimation aus.
@@ -196,15 +254,146 @@ auf die Spielfläche klicken. Manche Browser verlangen eine direkte Benutzerakti
 | Allrounder | Geissen-Major | Yacht-Kapitän | 150 | 7,0 m/s | Flexibler Alleskönner |
 | Heavy | Senn-Koloss | Hafen-Hüne | 220 | 5,6 m/s | Langsamer, robuster Anker |
 | Infiltrator | Gämsen-Jäger | Riff-Schmuggler | 110 | 8,1 m/s | Schneller, fragiler Flanker |
+| Maskottchen | Alpenkuh | Kampf-Kokosnuss | 260 / 200 | 6,4 / 10,5 m/s | Rammt statt zu schießen |
+| Wanderin | Gruseliges Bergmädchen | Hot Beach Girl | – | 2,4 m/s | Unberührbare Versorgerin |
 
-Die Klasse bestimmt HP, Kapselgröße, Bewegung und das Standard-Loadout. Jede Klasse kann
-alle Kosmetik-Items tragen.
+Bei den drei Soldatenklassen bestimmt die Klasse HP, Kapselgröße, Bewegung und das
+Standard-Loadout; sie können alle Kosmetik-Items tragen. Ihre Fähigkeiten auf `Q` `E` `T`:
+
+- **Allrounder:** Fondue-Snack, Ramm-Sprint, Schlacht-Jodel
+- **Heavy:** Käsepanzerung, Fass-Explosion, Bodenslam
+- **Infiltrator:** Riff-Tarnung, Rauchbombe, Enterhaken-Sprint
+
+### Maskottchen
+
+Die Fraktion bestimmt die Form: Die Gipfel-Garde spielt die **Alpenkuh** (260 Vitalität,
+Trab 6,4 m/s, Galopp 11,5 m/s), die Lagunen-Liga die **Kampf-Kokosnuss** (200 Vitalität,
+rollt aus eigener Kraft bis 10,5 m/s, bergab schneller). Maskottchen tragen ein festes
+Kostüm und keine Schusswaffen; sie rammen Gegner mit Schwung um, Teamkollegen bekommen nur
+einen freundlichen Schubser. Moves auf `Q` `E` `T`:
+
+- **Alpenkuh:** Hörner-Ansturm, Hufstampfer, Kuhglocken-Klang
+- **Kampf-Kokosnuss:** Turbo-Rolle, Kokos-Plumps (nur in der Luft), Kokosmilch-Pfütze
+
+Die Kuh trägt eine schwingende Glocke und einen federnden Schwanz und blinzelt; die
+Kokosnuss rollt und zeigt eines von 12 gemalten Gesichtern. Maskottchen können Türme
+erobern, aber nicht in Fahrzeuge steigen.
+
+### Wanderin
+
+Die Gipfel-Garde bringt das **Gruselige Bergmädchen**, die Lagunen-Liga das **Hot Beach
+Girl**. Beide funktionieren gleich:
+
+- **Unberührbar:** Kugeln, Explosionen, Rammstöße und Körper gehen einfach durch sie hindurch.
+  Bots lassen sie in Ruhe, und die Hühner fliehen nicht vor ihr.
+- **Geht nur:** 2,4 m/s, kein Springen, Sprinten, Ducken, keine Waffen und keine
+  Fähigkeiten. Über Wasser schwebt sie knapp über der Oberfläche; aus großer Höhe sinkt sie
+  langsam herab.
+- **Versorgungs-Aura:** Mitspieler im Umkreis von **6 m** erhalten **8 Vitalität pro
+  Sekunde**, sobald sie **3 s** keinen Schaden genommen haben, und ihre Reservemunition füllt
+  sich **alle 4 s um ein Magazin pro Waffenslot** auf. Mehrere Wanderinnen addieren sich nicht.
+- **Support-Punkte:** je 10 geheilte Vitalität und jedes aufgefüllte Magazin bringen einen
+  Punkt; sie stehen auf der Punktetafel (`Tab`).
+- Sie kann **keine Türme erobern**, zählt **nicht für den Teamausgleich** und kann **nicht in
+  Fahrzeuge** steigen. Ihr Aussehen ist fest, nur das Rufzeichen lässt sich ändern.
+- Wechselst du von der Wanderin zu einer anderen Klasse, wirst du sofort neu eingesetzt;
+  dabei kann dich der Server ins kleinere Team setzen. Dann erscheint der Hinweis „Du spielst
+  jetzt für die …, damit die Teams ausgeglichen bleiben.“
 
 ---
 
-## 8. Garderobe und Profil
+## 8. Klima-Eroberung
 
-Die Garderobe ist über das Hauptmenü und das Pausenmenü erreichbar.
+Drei Wettertürme entscheiden über das Klima: **A Lagunen-Hafen** (Leuchtturm), **B Dorfplatz**
+und **C Gipfel-Käserei**. Die Regeln in Kürze:
+
+- Jedes Team startet mit **50 Urlaubstickets**.
+- **Zone:** 16 m Radius um den Turm, von 4,5 m unter bis 16 m über dem Turm. Es zählen
+  lebende Spieler, die erobern können (nicht die Wanderin), außer während des Spawnschutzes.
+- Die Seite mit mehr Spielern in der Zone bewegt die Kontrolle; bei Gleichstand passiert
+  nichts („Umkämpft!“).
+- **Einnehmen** neutral → eigen: **8 / 6 / 4 s** bei einer Überzahl von 1 / 2 / 3 und mehr.
+- **Neutralisieren** eigen → neutral (auch das Zurückdrehen einer gegnerischen
+  Teileinnahme): **4 / 3 / 2 s**. Einen gegnerischen Turm ganz zu übernehmen dauert also
+  12 / 9 / 6 s.
+- Eine leere Zone kehrt in **24 s** zum Besitzer (oder zu neutral) zurück.
+- Jeder Tod kostet das Team des Opfers **1 Ticket**.
+- Das Team mit weniger Türmen verliert **alle 6 s pro fehlendem Turm 1 Ticket** (bei 2
+  fehlenden alle 3 s, bei 3 alle 2 s).
+- **Wetter:** Jeder gehaltene Turm verschiebt das Klima um 0,015 pro Sekunde (netto;
+  Lagunen-Liga Richtung Sonne, Gipfel-Garde Richtung Frost), begrenzt auf ±1, zu jeder Runde
+  wieder 0. Das Wetter färbt Himmel, Licht und Wasser und verstärkt den Wind am Fallschirm.
+- Die Runde endet, wenn ein Team 0 Tickets hat (beide im selben Tick = Unentschieden) oder
+  nach **20:00** Minuten (mehr Tickets gewinnt; Gleichstand = Unentschieden).
+- Danach **15 s Waffenruhe** mit Ergebnis-Banner: kein Schaden, keine Einnahmen, keine
+  Tickets; auch Fahrzeuge und Hühner bleiben verschont.
+- **Neustart:** 50 : 50 Tickets; A Lagunen-Liga, C Gipfel-Garde, B neutral; Wetter 0; alle
+  spawnen neu mit Abschüssen und Toden auf 0, alle Fahrzeuge stehen wieder an ihrem Platz.
+
+### Spawns
+
+- Kein Spawn-Menü. Nach der 10-s-Killer-Cam wählt der Server ein zufälliges freies Pad an
+  einem Turm deines Teams, ohne Turm die Hauptbasis.
+- Die Pads liegen außerhalb aller Zonen: an Turm A auf den festen Ruhedecks der Stege
+  (29–34 m vom Leuchtturm), an Turm B am Platzrand, an Turm C auf den Gipfelterrassen.
+- **2 s Spawnschutz:** immun und in Zonen nicht mitgezählt, sichtbar als sanftes Leuchten auf
+  dem Pad und als Hinweis „Geschützt“.
+- Du schaust zum nächsten Turm, den dein Team nicht sicher hält (sonst zur Kartenmitte),
+  entlang der freiesten Linie.
+- **Übergangsweise, bis die Seilbahn kommt:** Solange die Gipfel-Garde Turm C hält, starten
+  85 % ihrer Turm-C-Spawns auf drei Platten auf dem Schluchtboden direkt unter der
+  Seilbahn-Mittelstation. Von dort führt der südliche Schluchtpfad hinauf zum Dorfplatz.
+
+### Klasse wechseln
+
+Klassen- und Ausrüstungswechsel aus der Garderobe gelten sofort, solange du noch frisch auf
+dem Spawn-Pad stehst, vor dem ersten Einsatz aus dem Menü und während des Ergebnis-Banners.
+Sonst gelten sie ab dem nächsten Respawn, und es erscheint der Hinweis „Neue Klasse und
+Ausrüstung gelten ab deinem nächsten Respawn.“ Name und Kosmetik der aktuellen Klasse
+wechseln sofort.
+
+---
+
+## 9. Fahrzeuge
+
+| Fahrzeug | HP | Tempo | Plätze | Waffe | Neu nach |
+| --- | ---: | --- | --- | --- | ---: |
+| Fondue-Raupe | 650 | 9,5 m/s | Fahrer & Kanone · Kommandantenluke (eigene Waffen) | Fondue-Kanone, 85 Treffer + 50 Splash (5 m) | 30 s |
+| Kokosnuss-Strandpanzer | 650 | 9,5 m/s | Fahrer & Kanone · Kokosnuss-Luke (eigene Waffen) | Bambus-Kokosmörser, 85 Treffer + 50 Splash (5 m) | 30 s |
+| Taktischer Badi-Flamingo | 450 | 12 m/s, Turbo 2,5× | Steuer · Harpunenschütze | Harpunenkanone, Dauerfeuer | 20 s |
+| Seitenwagen-Motorrad | 280 | 19 m/s | Fahrer · Seitenwagen (eigene Waffen) | – | 15 s |
+
+- **Wem gehört was:** Fahrzeuge der Basen gehören der eigenen Fraktion. Die Fahrzeuge auf der
+  Karte (zwei Flamingos am Hafen und am Oststrand, zwei Seitenwagen im Dorf) darf jeder
+  nehmen; ein besetztes Fahrzeug aber nur das Team der Besatzung.
+- **Vorgeschobene Panzer:** Die Fondue-Raupe an Turm C gibt es nur, solange die Gipfel-Garde
+  C hält; den Kokosnuss-Strandpanzer am Hafenstrand nur, solange die Lagunen-Liga A hält.
+- **Rammen:** Wer überfahren wird, nimmt je nach Tempo viel Schaden und fliegt davon
+  („BOING!“). Kugeln richten an Fahrzeugen weniger aus als Explosionen.
+- **Boote:** Der Badi-Flamingo gleitet auf flache Strände und kommt im Seichten rückwärts
+  wieder frei. Der Stöpsel-Turbo (`Shift`, 2,5 s, danach 7 s Pause) funktioniert nur auf dem
+  Wasser. Ein leeres, gestrandetes Boot lässt nach 10 s die Luft raus und erscheint neu.
+- Zerstörte Fahrzeuge explodieren, werfen die Besatzung ab und erscheinen nach der oben
+  genannten Zeit wieder. Ein leeres Fahrzeug weit weg von seinem Platz wird nach 75 s
+  zurückgebracht.
+- Maskottchen und Wanderinnen können nicht einsteigen. **Reparieren geht noch nicht.**
+
+---
+
+## 10. Hühner
+
+Auf jeder Kartenhälfte laufen drei weiße Hühner herum, am liebsten im Dorf, am Strand und am
+Hafen. Sie picken, scharren und schauen sich um und flattern davon, wenn Spieler, Schüsse oder
+Explosionen in die Nähe kommen. Man kann sie abschießen, überfahren oder wegsprengen: Dann
+fliegen die Federn, und im Kill-Feed steht „… hat ein Huhn erlegt“. Nach 45 s kommt ein neues
+Huhn. Hühner bringen keine Punkte und kosten keine Tickets. Vor der Wanderin fliehen sie nicht.
+
+---
+
+## 11. Garderobe und Profil
+
+Die Garderobe ist über das Hauptmenü und das Pausenmenü erreichbar. Für die drei
+Soldatenklassen gilt:
 
 - **Körpertyp:** stufenlos von 0,0 (breiter) bis 1,0 (schmaler). Die Hitbox bleibt identisch.
 - **Hauttöne:** 12 kuratierte Farben.
@@ -216,6 +405,12 @@ Die Garderobe ist über das Hauptmenü und das Pausenmenü erreichbar.
 - **Effekte:** Vorschau von Kampfspuren/Ruß, verkohlt und gefroren.
 - **Zufällig / Zurücksetzen:** mischt das Aussehen oder stellt die Klassen-Standardwerte her.
 
+Maskottchen und Wanderinnen haben ein festes Aussehen und keine Waffen; ihre Karte in der
+Garderobe zeigt Form, Moves bzw. Aura. Wann ein Klassenwechsel greift, steht in Abschnitt 8.
+
+Die Soldaten zeigen das gemalte Modell ihrer Klasse und Fraktion. Weicht das Outfit stark von
+der Malerei ab, erscheint stattdessen die einfachere prozedurale Figur.
+
 Das Profil wird im Browser unter `frost-and-flamingos.profile` gespeichert und beim Verbinden
 an den Server gesendet. Der Server prüft und normalisiert es und verteilt es an alle Spieler.
 Die Fraktion im Menü ist eine **Präferenz**; der Server weist im Match die ausbalancierte
@@ -223,7 +418,7 @@ Fraktion zu.
 
 ---
 
-## 9. Audio
+## 12. Audio
 
 Die komplette Audio-Kette läuft über Web Audio:
 
@@ -252,7 +447,7 @@ wartet bei Bedarf kurz, bis der Runden-Track dekodiert ist.
 
 ---
 
-## 10. HUD und Telemetrie
+## 13. HUD und Telemetrie
 
 Das HUD ist im Comic-Stil der Referenzbilder gestaltet:
 
@@ -261,10 +456,21 @@ Das HUD ist im Comic-Stil der Referenzbilder gestaltet:
   in einem blauen (Alpen) und einem roten (Strand) Kästchen mit „VS“ dazwischen – ein kleiner
   Pfeil markiert die eigene Seite – und rechts die rote Klimaleiste mit Schneeflocke bzw.
   Sonne am Ende (je voller, desto sonniger).
-- **Uhr oben in der Mitte:** Messinguhr mit Klimazeiger und den Turm-Abzeichen A, B und C.
+- **Uhr oben in der Mitte:** Messinguhr mit Klimazeiger, den Turm-Abzeichen A, B und C in der
+  Farbe ihres Besitzers und der verbleibenden Rundenzeit.
+- **Eroberungsbalken:** In einer Turmzone zeigt ein Balken den Fortschritt und die Kopfzahl
+  beider Seiten („… wird erobert“, „Umkämpft!“, „… gesichert“). Kann deine Klasse nicht
+  erobern, steht dort „Deine Klasse kann keine Türme erobern“.
 - **Oben links:** Wappen, Klasse, aktueller Kartenbereich (z. B. „Lagunen-Hafen“) sowie
   Abschüsse und Tode.
-- **Oben rechts:** Kill-Feed als Comic-Bänder mit Wappen und Waffe.
+- **Oben rechts:** Kill-Feed als Comic-Bänder mit Wappen und Waffe, dazu Turm-Meldungen
+  („… erobert …“) und erlegte Hühner.
+- **Fahrzeug-Karte:** im Fahrzeug Rumpf, Platz, Tempo, Waffe bzw. Turbo und die Tasten.
+- **Maskottchen- und Wanderin-Karte:** Vitalität, Galopp bzw. Schwung oder Aura und
+  Support-Punkte.
+- **Rundenende:** Ergebnis-Banner mit „Sieg!“, „Niederlage!“ oder „Unentschieden“, dem Grund,
+  den Tickets und dem Countdown zur nächsten Runde.
+- **Punktetafel:** `Tab` halten zeigt Abschüsse, Tode und Support aller Spieler.
 - **Unten rechts:** Waffendock mit gemalten Kacheln für die Slots 1–3, Munition, Nachladen
   und die Fähigkeiten Q / E / T mit Abklingzeit.
 - **Mitte:** Fadenkreuz, Treffermarker und Comic-Wörter wie BOING!, PLING!, PENG! oder PLATSCH!
@@ -280,7 +486,7 @@ Der aktive Renderer steht außerdem auf dem Ladebildschirm.
 
 ---
 
-## 11. Sprache
+## 14. Sprache
 
 Oben rechts im Fenster steht der Umschalter **EN | DE** – im Menü, auf dem Ladebildschirm und
 in der Pause (während des Spiels gehört die Ecke dem Kill-Feed). Die Umschaltung wirkt sofort
@@ -289,18 +495,55 @@ Telemetrie. Die Auswahl wird im Browser gespeichert und beim nächsten Öffnen w
 
 ---
 
-## 12. Pause und Menü
+## 15. Pause, Menü und Einstellungen
 
 - `Esc` gibt die Maus frei und öffnet die Pause.
 - **„Zurück zum Fjord“** setzt das Spiel fort und fängt die Maus erneut ein.
 - **„Hauptmenü“** beendet die Runde und kehrt zum Menü zurück.
-- Im Pausenmenü lassen sich Garderobe, Audio-Einstellungen und das Feldhandbuch öffnen.
+- Im Pausenmenü lassen sich Garderobe, Audio-Einstellungen, Bildqualität und das Feldhandbuch
+  öffnen. Das Feldhandbuch zeigt die Tasten passend zur gewählten Klasse.
 - Der Sprache-Schalter ist in der Garderobe ausgeblendet, damit er den Schließen-Button
   nicht überdeckt. Wird die Garderobe aus der Pause geöffnet, ist auch das HUD ausgeblendet.
+- **Bildqualität** (Einstellungen im Hauptmenü und in der Pause): **Automatisch**, **Hoch**,
+  **Mittel** oder **Niedrig**. Sie regelt Pinselstrich-Malpass, Tuschekonturen, Schatten,
+  Oberflächendetails und Renderauflösung. „Automatisch“ wählt eine Stufe passend zum
+  Grafikchip und schaltet einmal herunter, wenn das Menü ruckelt. Die Wahl wird auf dem Gerät
+  gespeichert.
 
 ---
 
-## 13. Fehlerbehebung
+## 16. Bekannte Einschränkungen
+
+Dieser Build ist ein Test-Build. Bewusst **noch nicht** enthalten:
+
+- **Rest von M5:** Seilbahn- und Schleppliftfahrt, Alpine Coaster, Hängematten-Katapult, das
+  Verhalten der NPC-Kuh sowie Doppeldecker, Ruderboot und Gondel. Stationen, Masten und Bahn
+  stehen schon als Kulisse in der Karte. Die großen Verwandlungen der Wettertürme und
+  Wettereffekte wie Schneegrenze und Schneesturm folgen später.
+- **Fahrzeuge reparieren** geht noch nicht.
+- **Neue prozedurale Ersatzfiguren (Paket 1E)** wurden zurückgestellt; jede Klasse zeigt
+  bereits ihr gemaltes Modell.
+- **Hot Beach Girl:** Ihre vollständige Ausnahme vom gemalten Nachbearbeitungs-Look fehlt
+  noch; sie bekommt weiterhin die Silhouetten-Tusche und die Farbabstimmung.
+- **Zerstörung (M6)** und **Meta-Systeme (M7)** sind noch nicht begonnen.
+
+Bekannte Fehler:
+
+- Kollisionsboden und sichtbares Gelände teilen steile Geländezellen entlang
+  unterschiedlicher Diagonalen (bis zu etwa 3,7 m Unterschied). An steilen Hängen können
+  Füße deshalb schweben oder einsinken.
+- Das Startdeck des Alpine Coasters ragt etwa 2,5 m in die Panzerstraße.
+- Ein Boot, das ganz aufs trockene Sandufer gefahren wurde, bleibt stecken. Aussteigen: Nach
+  10 s lässt es die Luft raus und erscheint neu.
+- Reine Bot-Runden fallen eher für die Lagunen-Liga aus (etwa 6 : 14 Runden im Dauertest).
+- Hält die Lagunen-Liga Turm C, sieht man von ihren Gipfel-Pads auf die Basis-Pads der
+  Gipfel-Garde.
+- Die Karte ist aufwendig (über 1,3 Millionen Dreiecke) und kann auf schwächeren Grafikchips
+  ruckeln. Dann die Bildqualität auf **Niedrig** stellen (oder `?quality=low` anhängen).
+
+---
+
+## 17. Fehlerbehebung
 
 ### Das Menü zeigt OFFLINE
 
@@ -326,17 +569,39 @@ Telemetrie. Die Auswahl wird im Browser gespeichert und beim nächsten Öffnen w
 - Mit `?renderer=webgl2` erzwingen: <http://localhost:5173/?renderer=webgl2>.
 - Browser und Grafiktreiber aktualisieren.
 
+### Das Spiel ruckelt
+
+- In den Einstellungen die **Bildqualität** auf **Mittel** oder **Niedrig** stellen.
+- Für einen schnellen Vergleich ohne die gespeicherte Wahl zu ändern:
+  <http://localhost:5173/?quality=low>.
+
+### Test-Optionen in der Adresszeile
+
+Diese Zusätze an <http://localhost:5173/> helfen beim Eingrenzen von Grafikfehlern (mehrere
+mit `&` verbinden, z. B. `?renderer=webgl2&quality=low`):
+
+| Zusatz | Wirkung |
+| --- | --- |
+| `?renderer=webgl2` | WebGL2 statt WebGPU |
+| `?quality=auto`, `high`, `medium` oder `low` | Bildqualität nur für diese Sitzung |
+| `?painted=0` | ohne gemalte Modelle: Soldaten als prozedurale Figur, Fahrzeuge als Platzhalter |
+| `?mascotModels=off` | prozedurale Kuh und Kokosnuss statt der Meshy-Modelle |
+| `?coconutShell=painted`, `meshy` oder `vertex` | Variante der Kokosnuss-Schale (Standard `painted`) |
+| `?lei=procedural` | prozedurale statt gemalter Blumenkette an der Kokosnuss |
+| `?cowWalk=clip` | Meshy-Laufanimation der Kuh statt des berechneten Gangs |
+
 ### Ports sind belegt
 
 ```bash
 bun run stop
 ```
 
-### Build oder Typecheck schlägt fehl
+### Build, Typecheck oder Tests schlagen fehl
 
 ```bash
 bun run typecheck
 bun run build
+bun run test
 ```
 
 Die erwartete einzige Warnung ist Rapiers Hinweis zu Initialisierungsparametern; er ist
@@ -344,13 +609,33 @@ harmlos.
 
 ---
 
-## 14. Projektstruktur
+## 18. Fehler melden
+
+Damit sich ein Fehler nachstellen lässt, hilft beim Melden:
+
+- **Was** ist passiert, und was hättest du erwartet?
+- **Wo:** der Kartenbereich oben links im HUD (z. B. „Dorfplatz“) und, falls möglich, die
+  Position aus der Telemetrie (`F1`).
+- **Womit:** Klasse und Fraktion, ob du in einem Fahrzeug gesessen hast, und welcher Turm wem
+  gehörte.
+- **Technik:** Renderer (WebGPU oder WebGL2, steht in der Telemetrie und auf dem
+  Ladebildschirm), Bildqualität, Browser und eventuelle URL-Zusätze.
+- Ein **Screenshot** der Szene und der Telemetrie (`F1`) sowie rote Meldungen aus der
+  Browser-Konsole (Chrome/Edge: `Cmd` + `Option` + `J`; Safari: `Cmd` + `Option` + `C`, wenn
+  das Entwickler-Menü aktiviert ist).
+- Bei Grafikfehlern: Tritt er auch mit `?renderer=webgl2`, `?quality=low` oder `?painted=0`
+  auf?
+
+---
+
+## 19. Projektstruktur
 
 ```text
-apps/client/      Svelte 5, Vite, Babylon.js, prozedurales Web Audio
-apps/server/      Bun-Server, autoritative Simulation, Binärprotokoll
+apps/client/      Svelte 5, Vite, Babylon.js, prozedurales Web Audio, gemalte Modelle und Grafiken
+apps/server/      Bun-Server, autoritative Simulation, Binärprotokoll, Tests
 packages/shared/  Konfiguration, Physik, Protokoll, Typen, EN/DE-i18n
-scripts/          Startskript für Server und Client
+scripts/          Startskript, Modell-Optimierer (`bun run models`), Skript-Tests
+art-src/          unveränderte Quellen des Projektinhabers (Meshy, Gemini, gemalte Welt)
 ```
 
 Weitere Dokumente:
@@ -361,17 +646,23 @@ Weitere Dokumente:
 
 ---
 
-## 15. Lizenz und Assets
+## 20. Lizenz und Assets
 
 Dieses Projekt ist ein Original-Clean-Room-Projekt. Es enthält keine Battlefield/EA- oder
-sonstigen Fremd-Assets, Namen, Karten, Sounds oder kopierten Kompositionen. Charaktere, Props,
-Waffen, Fahrzeuge und Effekte werden prozedural erzeugt. Die einzigen externen Dateien stammen
-vom Projektinhaber:
+sonstigen Fremd-Assets, Namen, Karten, Sounds oder kopierten Kompositionen. Gelände, Gebäude,
+Props, Heldenwaffen und Effekte werden prozedural erzeugt. Die einzigen externen Dateien
+stammen vom Projektinhaber:
 
 - die fünf Musikstücke in `apps/client/public/audio/`,
-- KI-generierte 2D-UI-Grafik in `apps/client/public/art/` (Titelbild, Ladebildschirm-Motive,
-  gemalte Waffen- und Fähigkeitskacheln, Comic-Wörter, Fraktionswappen); fehlt eine Datei,
-  zeichnet das Spiel stattdessen SVG-Symbole bzw. CSS-Schrift,
+- KI-generierte 2D-Grafik in `apps/client/public/art/` (Titelbild, Ladebildschirm-Motive,
+  gemalte Waffen- und Fähigkeitskacheln, Comic-Wörter, Fraktionswappen, Kokosnuss-Gesichter
+  sowie die Sprites, Fassaden, Bodentexturen, Decals, das Panorama und die Wolken der gemalten
+  Welt); fehlt eine Datei, zeichnet das Spiel stattdessen prozedurale Grafik, SVG-Symbole bzw.
+  CSS-Schrift,
+- die mit Meshy erzeugten 3D-Modelle in `apps/client/public/models/` (Soldaten, Wanderinnen,
+  Maskottchen, Huhn und Fahrzeuge; Quellen in `art-src/meshy/`); fehlt ein Soldaten-,
+  Maskottchen- oder Fahrzeugmodell, erscheint die prozedurale Figur bzw. ein Platzhalter (die
+  Wanderinnen gibt es nur als gemalte Modelle),
 - sowie die eingebundenen Schriften Luckiest Guy (Apache 2.0) und Fredoka (SIL OFL 1.1).
 
 Die vollständige Liste steht in [`CREDITS.md`](CREDITS.md).

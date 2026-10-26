@@ -1,7 +1,8 @@
 # Frost & Flamingos — Bullets, Fondue & Coconuts
 
-**Current milestone:** M4 — Weapons, Combat, Bots & Audio (complete)
-**Next milestone:** M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys
+**Current build:** M5-Kern test build — the core of M5 (Climate Conquest, four vehicles) plus
+painted world, painted soldiers, drifters, mascots and hens. Paused for the owner's playtest.
+**Next:** the rest of M5 (map toys and the remaining vehicles), after the owner's test.
 
 A clean-room, browser-based third-person multiplayer action-cartoon shooter built with
 **Bun**, **Svelte 5**, **Babylon.js 8** and **Rapier3D**. Two absurd holiday resorts fight
@@ -24,6 +25,9 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
 >   combat audio, AI bots, kill feed, live killer cam and random spawning.
 > - [ ] **M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys:** full map, three weather
 >   towers, global weather shader, 50-ticket conquest loop and ten networked vehicles.
+>   *In the M5-Kern test build:* rebuilt 257 × 257 Fjord Fiesta, Climate Conquest (towers,
+>   tickets, weather balance, rounds) and four drivable vehicles. *Still open:* cable car,
+>   T-bar, coaster, hammock, NPC cow, biplane, rowboat, gondola and vehicle repair.
 > - [ ] **M6 — Destruction, Craters, Decal Ring Buffer & Match Sync:** three-stage buildings,
 >   real terrain craters, repairable bridges, felled trees, billboards, 4,096-decal ring
 >   buffer, deterministic round reset and late-join map sync.
@@ -38,30 +42,48 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
 
 ## What is playable right now
 
-- **Two resorts, one map.** Explore snow, village, beach, harbour, water and cliff terrain.
-- **Three classes** with different HP, speed, capsule size and default loadouts.
+- **Climate Conquest.** Three weather towers (A Lagoon Harbor, B Village Square, C Summit
+  Dairy) with 16 m capture zones, 50 vacation tickets per team, a ticket drain for the side
+  holding fewer towers, a weather balance that tints sky, light and water, 20-minute rounds,
+  a 15 s results ceasefire and an automatic round reset. Hold `Tab` for the scoreboard.
+- **Fjord Fiesta, rebuilt and painted.** 800 m × 800 m on a 257 × 257 heightfield: lagoon and
+  beach in the south-west, village and waterfall gorge in the middle, snowy summit in the
+  north-east, both faction bases. Painted billboard trees, bushes and clutter, painted
+  facades, painted terrain layers and ground decals, a foothill ring beyond the map edge and a
+  painterly comic post pass with ink outlines.
+- **Five classes.** Allrounder, Heavy and Infiltrator as painted, rigged soldiers (six Meshy
+  models, one per class and faction); the **Mascot** — Alpine Cow (Peak Guard) or Battle
+  Coconut (Lagoon League) — that rams instead of shooting; and the untouchable **Drifter** —
+  Creepy Mountain Girl or Hot Beach Girl — who only walks and supplies her team with an aura.
+- **Four vehicles.** Fondue Crawler, Coconut Beach Tank, Tactical Badi-Flamingo boat and
+  Sidecar Motorcycle, two seats each, server-authoritative and predicted for the driver.
+- **Wandering hens** on both halves of the map: they scatter from people and gunfire and can
+  be shot (feather burst and a kill-feed line, no score).
 - **Live wardrobe:** body type, 12 skin tones, 8 hair colours, 7 hairstyles, 7 cosmetic slots,
   loadout selectors, voice preview and freeze/charred/soot preview effects.
 - **Persistent identity:** your profile is stored in `localStorage` and synchronised to every
   other player through the authoritative server.
 - **Movement:** walk, sprint, crouch, dodge roll, jump, mantle, swim, low-friction ice
   sliding and an emergency parachute with wind drift, steering and a faction-specific canopy.
-- **Ice rinks:** two authored frozen patches (village pond and summit rink) use the shared
-  `ice_patch` surface tag for gliding, flailing movement and ice-slide audio.
+- **Ice rinks:** three authored frozen patches (village pond, summit rink, glacier tongue)
+  use the shared `ice_patch` surface tag for gliding, flailing movement and ice-slide audio.
 - **Multiplayer:** 60 Hz authoritative physics, 30 Hz binary snapshots, client prediction,
   reconciliation and remote interpolation.
-- **Combat:** three weapon slots per class, six gimmick weapons, server-side hitbox rollback,
-  headshots, shields, reloads, projectile splash damage, nine class skills and a 10-second
-  live killer cam before random-faction respawn.
-- **Bots and feedback:** four named AI bots, kill feed, adaptive crosshair, hit markers,
-  damage vignette, comic popups, procedural combat SFX/voice and four cartoon death outcomes.
+- **Combat:** three weapon slots per class drawn as 13 hero weapons with hold poses, six
+  gimmick weapons, server-side hitbox rollback, headshots, shields, reloads, projectile splash
+  damage, nine class skills, 2 s spawn protection and a 10-second live killer cam.
+- **Bots and feedback:** four named AI bots that play the towers, kill feed, adaptive
+  crosshair, hit markers, damage vignette, comic popups, procedural combat SFX/voice and four
+  cartoon death outcomes.
 - **Audio:** fully procedural Web Audio graph (SFX, voice, ambience, limiter and 3D panning)
   plus the project owner's supplied music beds. No external samples.
-- **UI:** cover-inspired main menu, boot/deployment loading screens, full combat HUD, pause
-  menu, wardrobe, audio settings, debug telemetry and a live EN/DE switcher.
+- **UI:** comic cover-art main menu, boot/deployment loading screens, full combat and conquest
+  HUD, round results banner, pause menu, wardrobe, audio and picture-quality settings, debug
+  telemetry and a live EN/DE switcher.
 
-Vehicles, weather towers, terrain destruction, the 4,096-decal ring buffer and the
-meta/economy layer are gated behind M5–M7.
+The remaining M5 map toys and vehicles, terrain destruction, the 4,096-decal ring buffer and
+the meta/economy layer are gated behind the rest of M5, M6 and M7 (see
+[Known limitations](#known-limitations)).
 
 ---
 
@@ -84,15 +106,34 @@ Useful commands:
 | `bun run dev` | Start the authoritative server and Vite client together. |
 | `bun run typecheck` | Strict TypeScript and Svelte diagnostics for all workspaces. |
 | `bun run build` | Build shared, client and server bundles. |
+| `bun run test` | Run the script, server and client test suites (`bun test`). |
+| `bun run models` | Rebuild the painted models in `apps/client/public/models/` from the Meshy downloads in `art-src/meshy/` (uses `bunx`, needs network on first use). |
 | `bun run preview` | Preview the production client build. |
 | `bun run stop` | Free ports 5173, 3000 and 4173. |
 | `bun run clean` | Remove build output and caches. |
 
-Force the WebGL2 fallback with <http://localhost:5173/?renderer=webgl2>.
+The painted models are committed, so `bun run models` is only needed after changing a source
+model. For a quiet local server, start it with `FF_NO_BOTS=1 bun run dev` (no AI bots).
+
+### URL options
+
+Append these to <http://localhost:5173/> for testing (for example `?renderer=webgl2&quality=low`):
+
+| Option | Effect |
+| --- | --- |
+| `?renderer=webgl2` | Force the WebGL2 fallback instead of WebGPU. |
+| `?quality=auto\|high\|medium\|low` | Picture quality for this session only (the saved setting is untouched). |
+| `?painted=0` | Skip the painted Meshy models: soldiers use the procedural character, vehicles their stand-in hull. |
+| `?mascotModels=off` | Keep the procedural cow and coconut instead of the Meshy mascot models. |
+| `?coconutShell=painted\|meshy\|vertex` | Coconut shell variant (default `painted`). |
+| `?lei=procedural` | Procedural flower lei on the coconut instead of the painted one. |
+| `?cowWalk=clip` | Play the Meshy cow walk clip instead of the default solver walk. |
 
 ---
 
 ## Controls
+
+On foot (Allrounder, Heavy, Infiltrator):
 
 | Action | Input |
 | --- | --- |
@@ -100,15 +141,39 @@ Force the WebGL2 fallback with <http://localhost:5173/?renderer=webgl2>.
 | Look | Mouse |
 | Jump / deploy parachute | `Space` |
 | Sprint | `Shift` |
-| Crouch toggle / dodge roll while sprinting | `C` |
+| Crouch toggle / dodge roll while sprinting forward | `C` |
 | Crouch hold | `Ctrl` |
-| Shoulder swap | `V` |
-| Camera distance | Mouse wheel |
+| Fire | Left mouse button |
 | Weapon slots | `1` `2` `3` / mouse wheel |
-| Zoom | `Alt` + mouse wheel |
-| Interact / heal / repair / reload / taunt | `F` `Q` `E` `R` `T` |
-| Pause | `Esc` |
+| Reload | `R` |
+| Class skills | `Q` `E` `T` |
+| Interact / enter a vehicle | `F` |
+| Taunt | `G` |
+| Scoreboard | hold `Tab` |
+| Shoulder swap | `V` |
+| Camera distance | `Alt` + mouse wheel |
+| Pause / release mouse | `Esc` |
 | Telemetry | `F1` |
+
+In a vehicle:
+
+| Action | Input |
+| --- | --- |
+| Enter / leave | `F` (within reach of the hull) |
+| Drive | `W` `A` `S` `D` |
+| Switch seat | `C` |
+| Horn | `H` |
+| Vehicle gun (tank cannon, flamingo harpoon) | Left mouse button, aim with the mouse |
+| Plug turbo (Badi-Flamingo, afloat) | `Shift` |
+| Handbrake drift (Sidecar) | `Space` |
+
+The commander/hatch seat of the tanks and the sidecar passenger fire their own weapons. Mascots
+and drifters cannot board vehicles; base vehicles are reserved for their own faction.
+
+Mascot: the cow drives with `W`/`S` (throttle, brake and reverse) and `A`/`D` (steer),
+gallops with `Shift` + `W` and hops with `Space`; the coconut rolls with `WASD` relative to the
+camera and jumps twice with `Space`. Both use `Q` `E` `T` (or `1` `2` `3` + click) for their
+three moves. Drifter: `W` `A` `S` `D` and the mouse only — no jump, sprint, crouch or weapons.
 
 While falling faster than 6.5 m/s with enough ground clearance, the emergency parachute
 opens automatically after 1.2 s or immediately with `Space`. Steer with `WASD`; `Space` or
@@ -124,25 +189,32 @@ apps/
   server/     Bun authoritative game server and binary WebSocket protocol
 packages/
   shared/     config, physics, protocol codecs, domain types, EN/DE i18n
-scripts/      dev stack launcher
+scripts/      dev stack launcher, model optimiser, script tests
+art-src/      untouched owner sources (Meshy downloads, Gemini sheets, painted-world tiles)
 ```
 
 - **One character motor** in `packages/shared/src/physics/character.ts`; the client predicts
-  with it and the server simulates it at 60 Hz.
+  with it and the server simulates it at 60 Hz. Vehicles share one motor in
+  `packages/shared/src/physics/vehicle.ts`.
+- **Climate Conquest rules** in `packages/shared/src/config/conquest.ts` (numbers) and
+  `apps/server/src/rooms/conquest.ts` (fixed-step simulation); protocol version **9**.
 - **One map blueprint** in `packages/shared/src/config/map-fjord.ts`; client visuals and
   server colliders derive from it.
 - **Binary protocol only.** Changing packet layout requires a `PROTOCOL_VERSION` bump.
 - **No hardcoded UI copy.** English is the master dictionary; German is typed against it.
-- **Owner-generated 3D characters only.** The painted, rigged soldier and drifter models in
-  `apps/client/public/models/` were generated by the project owner with Meshy from the owner's
-  own art (sources in `art-src/meshy/`, see [`CREDITS.md`](CREDITS.md)). Each model is optional:
-  a missing file falls back to the procedural character, and `?painted=0` turns them off. No
-  downloaded or stock meshes, heightmaps or audio samples; the map, props and effects are
-  procedural. The only external audio is the supplied music beds in `apps/client/public/audio/`,
-  used with the project owner's permission.
-- **Owner-supplied 2D UI art only.** Menu key art, loading scenes, painted slot and skill
-  tiles, comic stickers and faction crests in `apps/client/public/art/` were supplied by the
-  project owner (AI-generated). Each one is optional and has a CSS/SVG fallback. See
+- **Owner-generated 3D models only.** The painted, rigged soldier and drifter models, the hen,
+  the four vehicles and the mascots (`models/mascots/`) in `apps/client/public/models/` were
+  generated by the project owner with Meshy from the owner's own art (sources in
+  `art-src/meshy/`, see [`CREDITS.md`](CREDITS.md)). Soldier, mascot and vehicle models are
+  optional: a missing file falls back to the procedural character or a stand-in hull, and
+  `?painted=0` turns the painted models off. The drifters exist only as their painted models.
+  No downloaded or stock meshes, heightmaps or audio samples; the terrain, buildings, hero
+  weapons and effects are procedural. The only external audio is the supplied music beds in
+  `apps/client/public/audio/`, used with the project owner's permission.
+- **Owner-supplied 2D art only.** Menu key art, loading scenes, painted slot and skill
+  tiles, comic stickers, faction crests and the painted-world sprites, facades, terrain tiles,
+  decals, panorama and clouds in `apps/client/public/art/` come from the project owner's
+  (AI-generated) sheets. Each one is optional and has a CSS/SVG or procedural fallback. See
   [`CREDITS.md`](CREDITS.md).
 
 See [`game-decisions.md`](game-decisions.md) for the full design and decision record,
@@ -151,16 +223,49 @@ See [`game-decisions.md`](game-decisions.md) for the full design and decision re
 
 ---
 
+## Known limitations
+
+This is a test build. Deliberately **not** in it:
+
+- **Rest of M5:** no cable car or T-bar ride, alpine coaster, hammock catapult or NPC cow
+  behaviour, and no biplane, rowboat or gondola. Until the cable car exists, Peak Guard gets
+  interim spawn plates on the gorge floor below the cable-car mid station while it holds
+  Tower C. Weather towers change hands and the weather balance tints sky, light and water,
+  but the big tower transformations (unfolding snow cannon, spraying flamingos) come later.
+- **No vehicle repair** yet.
+- **Procedural fallback characters (1E)** — the planned rewrite is deferred; every class
+  already shows its painted model, and the procedural rig only appears as a fallback.
+- **Hot Beach Girl:** her full exemption from the painterly post pass is open; she still gets
+  the silhouette ink and the colour grading.
+- **M6 destruction and M7 meta** are not started.
+
+Known issues:
+
+- The terrain collider and the rendered terrain split steep cells along opposite diagonals
+  (up to ~3.7 m), so feet can float above or sink into steep slopes.
+- The alpine coaster's start deck intrudes ~2.5 m into the tank road.
+- A boat driven fully onto dry sand stays stuck; get out and it deflates after 10 s and
+  respawns.
+- Bot-only rounds lean toward the Lagoon League (about 6:14 rounds in soak tests).
+- While the Lagoon League holds Tower C, its summit spawn pads can see the Peak Guard base pads.
+- The map is heavy (~1.3 million triangles and more) and may run slowly on weak GPUs; lower
+  the picture quality in Settings (or use `?quality=low`).
+
+---
+
 ## Asset and IP policy
 
 This is an original clean-room project. It contains no Battlefield/EA or other third-party
-assets, names, maps, sounds or copied compositions. All characters, props, weapons, vehicles
+assets, names, maps, sounds or copied compositions. Terrain, buildings, props, hero weapons
 and effects are generated procedurally. The only external files are owner-supplied:
 
 - the five music beds in `apps/client/public/audio/`;
-- AI-generated 2D UI art in `apps/client/public/art/` (menu key art and cover, loading
-  scenes, painted weapon and skill tiles, comic popup stickers, faction crests). The HUD
-  falls back to procedural SVG pictograms and CSS lettering whenever a file is missing;
+- AI-generated 2D art in `apps/client/public/art/` (menu key art and cover, loading
+  scenes, painted weapon and skill tiles, comic popup stickers, faction crests, mascot faces
+  and the painted-world sprites, facades, tiles, decals, panorama and clouds). Every file has
+  a procedural, SVG or CSS fallback;
+- the owner's Meshy 3D models in `apps/client/public/models/` (soldiers, drifters, mascots,
+  hen and vehicles; see above for the fallbacks);
 - the bundled Luckiest Guy (Apache 2.0) and Fredoka (SIL OFL 1.1) fonts.
 
 [`CREDITS.md`](CREDITS.md) lists every file, its use and the font licences.
@@ -173,8 +278,11 @@ Before each milestone is pushed:
 
 1. `bun run typecheck` — 0 errors, 0 warnings.
 2. `bun run build` — shared, client and server build.
-3. Menu reaches **Connected** and **Play Now** enters the round.
-4. Movement, camera, wardrobe, profile persistence and audio are exercised in the browser.
-5. Two browser tabs see each other and exchange cosmetics.
-6. WebGL2 fallback is tested with `?renderer=webgl2`.
-7. No uncaught exceptions; only Rapier's harmless deprecation warning is expected.
+3. `bun run test` — script, server and client suites pass.
+4. Menu reaches **Connected** and **Play Now** enters the round.
+5. Movement, camera, wardrobe, profile persistence and audio are exercised in the browser.
+6. Towers capture, tickets drain, vehicles board and drive, drifter and mascot play, hens
+   scatter.
+7. Two browser tabs see each other and exchange cosmetics.
+8. WebGL2 fallback is tested with `?renderer=webgl2`.
+9. No uncaught exceptions; only Rapier's harmless deprecation warning is expected.

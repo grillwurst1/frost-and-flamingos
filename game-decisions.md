@@ -6,8 +6,8 @@
 **Platform:** Browser (WebGPU with WebGL2 fallback), local macOS playtest target  
 **Engine:** Babylon.js v8 · Rapier3D · Bun · Svelte 5  
 **Languages:** English (master dictionary) and German (fully typed translation)  
-**Status:** Milestones 1–4 complete; Milestone 5 next  
-**Last updated:** 24 October 2026
+**Status:** Milestones 1–4 complete; M5-Kern test build (core of Milestone 5) waiting for the owner's playtest  
+**Last updated:** 26 October 2026
 
 This document is the single written record of the game’s direction, content, systems, technical contracts and scope decisions. It intentionally separates **what is implemented**, **what is being implemented**, and **what is a design reference for later milestones**. When the code and this document disagree, the code is the current truth and this document must be corrected.
 
@@ -209,15 +209,37 @@ Also delivered in the completed milestone:
 - Emergency parachute state machine, canopy visual, wind drift and audio.
 - Per-frame draw-call telemetry, full typecheck and production build.
 
-### 5.3 Not implemented (design reference or later)
+### 5.3 Milestone 3 — complete
 
-- Weapons firing, damage, hit registration, lag compensation, kill feed and kill cam.
-- Bots and matchmaking.
-- Vehicles, aircraft, cable car, ski lift, coaster, rowboats, cow and hammock catapult.
-- Destruction stages, terrain craters, bridge repair, falling trees, explosive silos, billboards and decal ring buffer.
-- Dynamic weather balance and its visual/gameplay effects.
-- Full 257×257 map rebuild and the master map orientation.
-- End screen, podium, scoreboard, armory shop, VIP pass, ads and custom lobbies.
+Tactical sprint, crouch with a 35 % shorter hitbox, ledge mantle, dodge roll, swimming, authored ice patches and the emergency parachute on the shared deterministic motor.
+
+### 5.4 Milestone 4 — complete
+
+Three weapon slots, six gimmick weapons, authoritative fire with server hitbox rollback (two-second lag history), nine class skills, four named AI bots, kill feed, 10-second live killer cam and procedural combat audio.
+
+### 5.5 M5-Kern test build — implemented, waiting for the owner's test
+
+On 25 October the owner asked to stop after the next playable milestone and test it before work resumes. The build that answers this is the core of M5 plus the art and character packages that landed with it:
+
+- **1A painterly comic look:** brush-stroke paint pass, ink outlines, shadows; picture quality Auto / High / Medium / Low (`?quality=` overrides it for one session).
+- **1B comic HUD and menus:** cover-art menu, paper panels, painted slot/skill tiles, comic stickers, faction crests, each with a CSS/SVG fallback.
+- **1C / 3M mascot class:** Alpine Cow (Peak Guard) and Battle Coconut (Lagoon League), see §7.6; animated Meshy cow (gaits, bell, spring tail, eyelids) and coconut (12 painted faces, rolling), comic deaths. URL options `?mascotModels=off`, `?coconutShell=painted|meshy|vertex`, `?lei=procedural`, `?cowWalk=clip`.
+- **1D rebuilt Fjord Fiesta:** typed 257 × 257 blueprint (3.125 m cells) in the master orientation (lagoon south-west, summit north-east), three towers, suspension bridge, routes and both bases.
+- **2V painted world:** billboard sprite vegetation and clutter cut from the owner's paintings, painted facades, painted terrain layers, ground decals, a foothill ring beyond the map edge and a closer camera.
+- **3C painted soldiers:** owner-generated, rigged Meshy GLB models for all six soldiers (three classes × two factions), cadence-capped gaits; `bun run models` rebuilds them, `?painted=0` skips the painted models (soldiers fall back to the procedural rig, vehicles to stand-in hulls); `bun run test` covers the pipeline.
+- **3H wandering hens:** three per map half, server-authoritative; they flee people, gunfire and blasts, can be shot (feather burst, kill-feed line, no score) and respawn after 45 s. Drifters do not scare them.
+- **3G drifter class:** Creepy Mountain Girl / Hot Beach Girl, see §7.7.
+- **4W hero weapons:** 13 procedural hero weapons (3 primaries, 4 secondaries, 6 gimmicks) with hold poses for the painted soldiers; the umbrella only opens overhead in a long fall (visual pose).
+- **4V vehicles:** Fondue Crawler, Coconut Beach Tank, Tactical Badi-Flamingo and Sidecar Motorcycle, see §13.8.
+- **4T Climate Conquest:** towers, tickets, weather balance, rounds and spawns, see §14.1 and §10.6.
+- **Protocol 9** (§17.2); EN/DE keys for every new surface.
+
+### 5.6 Not implemented (design reference or later)
+
+- **Deferred from the M5-Kern build:** the 1E rewrite of the procedural fallback characters (unreviewed, conflicts with 3C/4W; every class already shows its painted model) and the Hot Beach Girl's full post-process exemption.
+- **Rest of M5:** cable car ride, T-bar ride, alpine coaster, hammock catapult, NPC cow behaviour, biplane, rowboat and gondola, vehicle repair, the heavy tower weather transformations (unfolding snow cannon, spraying flamingos, icicles) and the weather's effect on the snowline, particles and ice patches (§11.5). Weather currently grades sky, light and water and scales the parachute wind.
+- **M6:** destruction stages, terrain craters, bridge repair, falling trees, explosive silos, billboards, decal ring buffer and late-join map sync.
+- **M7:** end screen and podium, armory shop, VIP pass, ads, custom lobbies and matchmaking.
 
 ---
 
@@ -245,7 +267,7 @@ Also delivered in the completed milestone:
 
 - A profile stores a **faction preference**.
 - The **server assigns the actual faction** at join time to keep teams balanced.
-- Current server rule: pick the faction with fewer players; on a tie, pick randomly. The preference is not currently guaranteed.
+- Current server rule: pick the faction with fewer players (bots count, drifters do not); on a tie the preference wins. The preference is not guaranteed. A drifter is not balanced: she joins her preferred side. Leaving the drifter class redeploys the player at once through the respawn, which re-runs the balance and may move them to the smaller side (toast "You now play for … to keep the teams even").
 - The server never accepts a client-side faction change after join. Profile updates keep the server-assigned faction.
 - HUD colours, spawn points and class flavour names follow the server-assigned faction.
 
@@ -255,7 +277,7 @@ This keeps match balance authoritative and prevents faction stacking. If prefere
 
 ## 7. Classes
 
-There are three classes. Every class can use every cosmetic item; class only controls the capsule, health, movement feel and default loadout.
+There are five classes (wire codes 0–4, append only): the three soldier classes below, the **Mascot** (§7.6) and the **Drifter** (§7.7). Every soldier class can use every cosmetic item; class only controls the capsule, health, movement feel and default loadout. Mascots and drifters have a fixed look. What a class may do is one flag table, `CLASS_CAPABILITIES` in `packages/shared/src/config/classes.ts` (armed, skills, damageable, targetable, canCapture, countsTowardBalance, botsMayPick); gameplay code asks these flags instead of comparing class ids.
 
 ### 7.1 Shared class contract
 
@@ -309,9 +331,37 @@ Jump speed 7.9 with gravity −24 produces roughly a **1.3 m** jump height. Air 
 ### 7.5 Class switching
 
 - Class is part of the profile (`cosmetics.classId`) and is synchronised to the server.
-- Changing class rebuilds the server capsule at the same feet position, restores full class HP and clears the input queue.
+- **When a change applies (M5-Kern):** a class or loadout change from the wardrobe applies at once while the player is still fresh on the spawn pad (protected, within 4 m of the pad, unhurt, no shot or skill yet, outside every capture zone), before the first deployment from the menu, and during the 15 s results ceasefire. Otherwise it is stored and applies at the next respawn, and the player sees the notice "New class and loadout apply at your next respawn." Name and cosmetics of the current class still apply live. A drifter (who never dies) redeploys at once instead (§6.3).
+- Applying a change rebuilds the server capsule at the same feet position, keeps the health fraction and running skill cooldowns, keeps the ammo of unchanged weapons and clears the input queue.
 - The client must rebuild its local prediction capsule and character view when the class changes.
 - Cosmetics do not reset when switching class unless the player explicitly resets the profile. The current profile store uses class default cosmetics on class change; this is a convenience choice and should be reviewed if players expect outfits to persist across classes.
+
+### 7.6 Mascot
+
+| Faction | Form | Vitality | Movement |
+| --- | --- | ---: | --- |
+| Alpine | **Alpine Cow / Alpenkuh** | 260 | W/S throttle, brake and reverse, A/D steer; trot 6.4 m/s, gallop (Shift + W, drains a meter) 11.5 m/s; Space hop. |
+| Lagoon | **Battle Coconut / Kampf-Kokosnuss** | 200 | Rolls with WASD relative to the camera, 10.5 m/s under its own power (slopes add more); Space jump and double jump. |
+
+- Fixed suit, no firearms (`armed: false`), no soldier skills; fights by ramming at speed (teammates only get a friendly bump).
+- Three moves on Q / E / T (or 1 / 2 / 3 + click): cow **Horn Charge**, **Hoof Stomp**, **Cowbell Clang**; coconut **Turbo Roll**, **Ground Pound** (air only), **Coconut Milk Splash**.
+- Can capture towers, counts toward team balance; bots may play it (one bot per side may roll the mascot).
+- Cannot board vehicles (§13.8).
+- Visuals: the owner's Meshy cow (gait solver, bell pendulum, spring tail, ear flicks, blinking eyelids) and Meshy/painted coconut shell with 12 painted face expressions and a painted lei.
+
+### 7.7 Drifter
+
+| Faction | Form |
+| --- | --- |
+| Alpine | **Creepy Mountain Girl / Gruseliges Bergmädchen** |
+| Lagoon | **Hot Beach Girl** |
+
+- **Untouchable:** cannot be hurt, launched, slowed or blocked; shots, blasts, rams and bodies pass through her (own collision group). Bots never target her.
+- **Unarmed and walk-only:** no weapons, skills, jump, sprint, crouch or taunt. Walk 2.4 m/s (strafe 85 %, backward 65 %); long falls become a slow drift (at most 3.2 m/s down); over water she hovers just above the surface (no swimming).
+- **Supply aura** (passive, both forms identical, `DRIFTER_AURA`): teammates within **6 m** heal **8 vitality/s** once they have taken no damage for **3 s**, and their reserve ammo refills by **one magazine per weapon slot every 4 s**. Each teammate is supplied by one drifter only (no stacking); enemies and the drifter herself are never affected. Mascots get the heal but no ammo.
+- **Support points:** one per 10 vitality healed and one per magazine handed out; shown on the Tab scoreboard (kills, deaths, support) and reset each round.
+- **Rules:** cannot capture towers (the capture bar says so), does not count toward team balance, cannot board vehicles, never appears in the kill feed. Hens do not flee from her.
+- Fixed appearance: only the call sign can be changed. She only exists as her painted model (never the procedural rig; until it loads only her contact shadow shows). The Hot Beach Girl is the photoreal exception (PBR shading on the character mask); her full exemption from the painterly post pass is still open.
 
 ---
 
@@ -515,17 +565,19 @@ The input mask is a shared network contract. Never reorder bits.
 | 2 | `Left` | A / Arrow Left |
 | 3 | `Right` | D / Arrow Right |
 | 4 | `Jump` | Space |
-| 5 | `Crouch` | C toggle, Ctrl hold |
-| 6 | `Sprint` | Shift |
-| 7 | `FirePrimary` | LMB |
-| 8 | `FireSecondary` | RMB |
+| 5 | `Crouch` | C toggle, Ctrl hold; a short C pulse = dodge roll (sprinting) or seat switch (vehicle) |
+| 6 | `Sprint` | Shift (also the Badi-Flamingo plug turbo) |
+| 7 | `FirePrimary` | LMB (also the vehicle gun) |
+| 8 | `FireSecondary` | RMB (sent, currently unused by gameplay) |
 | 9 | `Reload` | R |
-| 10 | `Interact` | F |
-| 11 | `Heal` | Q |
-| 12 | `Wrench` | E |
-| 13 | `Skill1` | 1 |
-| 14 | `Skill2` | 2 |
-| 15 | `Skill3OrTaunt` | 3 / T |
+| 10 | `Interact` | F (also enter / leave a vehicle) |
+| 11 | `Heal` | H — carries the vehicle horn |
+| 12 | `Wrench` | unbound (reserved for repairs) |
+| 13 | `Skill1` | Q |
+| 14 | `Skill2` | E |
+| 15 | `Skill3OrTaunt` | T |
+
+Weapon slots (1 / 2 / 3, wheel) travel in the input frame's slot field, not in the mask. The taunt (`G`, local animation and voice) and the Tab scoreboard are client-side only.
 
 ### 9.4 Current control map
 
@@ -539,18 +591,31 @@ The input mask is a shared network contract. Never reorder bits.
 | Dodge roll | Tap C while sprinting forward |
 | Swap shoulder | V |
 | Camera distance | Alt + mouse wheel |
-| Weapon slot | Mouse wheel or 4 / 5 / 6 |
-| Fire primary / secondary | LMB / RMB |
+| Weapon slot | 1 / 2 / 3 or mouse wheel |
+| Fire | LMB |
 | Reload | R |
-| Interact | F |
-| Heal snack | Q |
-| Wrench / repair | E |
-| Class skills | 1 / 2 / 3 |
-| Taunt | T |
+| Interact / enter a vehicle | F |
+| Class skills | Q / E / T (skill 1 / 2 / 3; E is skill 2 on foot) |
+| Taunt | G |
+| Scoreboard | Hold Tab (in a round only; elsewhere Tab moves the keyboard focus) |
 | Pause / release mouse | Esc |
 | Telemetry | F1 |
 
-**Decision:** `C` is the crouch toggle and the sprint-roll gesture; `Ctrl` is hold-to-crouch. `V` is shoulder swap, not knife. The knife is a secondary weapon mode on the Infiltrator’s pistol slot.
+**In a vehicle:**
+
+| Action | Input |
+| --- | --- |
+| Enter / leave | F (within 2.4 m of the hull) |
+| Drive | W / S throttle and reverse, A / D steer |
+| Switch seat | C (a tap; crouch is cleared on the way in and out) |
+| Horn | H (0.9 s cooldown) |
+| Vehicle gun (tank cannon, flamingo harpoon) | LMB, aim with the mouse |
+| Plug turbo (Badi-Flamingo, afloat) | Shift |
+| Handbrake drift (Sidecar) | Space |
+
+**Mascot and drifter:** the cow uses W/S throttle, A/D steer, Shift + W gallop, Space hop; the coconut rolls with WASD relative to the camera and double-jumps with Space; both use Q / E / T (or 1 / 2 / 3 + click) for their moves. The drifter only has WASD and the mouse.
+
+**Decision:** `C` is the crouch toggle and the sprint-roll gesture (and the seat switch in a vehicle); `Ctrl` is hold-to-crouch. `V` is shoulder swap, not knife. The knife is its own secondary weapon (`knife`). `Q` / `E` / `T` are the three class skills; the heal snack is the Allrounder's skill 1, and there is no separate wrench key in this build.
 
 ### 9.5 Camera
 
@@ -567,16 +632,16 @@ The map is called **Fjord Fiesta**. It is a single 800 m × 800 m vertical playg
 
 ### 10.1 Master dimensions
 
-| Property | Master spec | Current prototype |
+| Property | Master spec | Current build (1D rebuild) |
 | --- | --- | --- |
 | World size | 800 m × 800 m (`X/Z −400…+400`) | 800 m × 800 m |
-| Heightfield | 257 × 257 vertices (~3.125 m cells) | 160 × 160 segments (161 × 161 vertices, 5 m cells) |
+| Heightfield | 257 × 257 vertices (~3.125 m cells) | 257 × 257 vertices (`MAP_SEGMENTS = 256`, 3.125 m cells) |
 | Water level | `Y = 0.0` | `Y = 0.0` |
-| Lagoon floor | Down to `Y = −4.5` | Approximate analytic terrain |
+| Lagoon floor | Down to `Y = −4.5` | `LAGOON_FLOOR = −4.5` |
 | Fall respawn | Below the world | `Y < −12` |
-| Orientation | Southwest lagoon, centre village, northeast summit | **Currently reversed:** summit southwest, harbour northeast |
+| Orientation | Southwest lagoon, centre village, northeast summit | As the master spec |
 
-The full 257×257 rebuild and orientation correction are part of the later map milestone. The current prototype is a simplified but walkable version of the same idea.
+The 1D rebuild made the map a typed blueprint under `packages/shared/src/config/map/` (layout, terrain, structures, buildings, routes, gameplay, scatter), re-exported by `map-fjord.ts`. A foothill ring beyond the playable square is purely visual (2V). Known gap: the Rapier heightfield splits each cell along the other diagonal than the rendered mesh and `sampleMapHeight`, so on steep cells the collider and the visible ground differ by up to ~3.7 m (`colliderHeightAt` in `physics/world.ts` gives the collider height).
 
 ### 10.2 Vertical drama
 
@@ -623,17 +688,22 @@ The current shared blueprint includes chalets, beach bars, summit lodges, docks,
 
 ### 10.6 Spawns
 
-- **No manual spawn selection menu.**
-- After a **10.0 s live killer cam**, the server respawns the player at a random eligible spawn point (team-protected, free-raycast checked). There is no separate respawn countdown: the 10-second live view is the countdown.
-- Eligible spawns are the protected spawn pads around towers currently held by the player’s team. If the team holds **zero towers**, the faction main base is used.
-- The random roll happens on the server; the client cannot request a spawn.
-- The current prototype uses `randomSpawnForFaction` with pre-authored spawn points. Full tower-based spawning arrives with the match-flow milestone.
+Implemented in the M5-Kern build (`selectConquestSpawn` in `packages/shared/src/config/conquest.ts`, facing in `apps/server/src/rooms/spawn-facing.ts`):
+
+- **No spawn menu.** After the **10 s live killer cam** the server picks a random free pad (no living player or parked hull on it) at a tower your team holds, or at your main base if your team holds none. There is no separate respawn countdown: the 10-second live view is the countdown. The client cannot request a spawn.
+- **Pads sit outside every capture zone:** Tower A on the piers’ solid rest decks, 29–34 m from the lighthouse (past the destructible 6 m segments); Tower B on the plaza edge; Tower C on the summit terraces. Each tower has a pad set per faction; only the holder’s set is eligible, and the plates show it.
+- **2 s spawn protection** (`SPAWN_PROTECTION_SECONDS`): immune and not counted in capture zones, shown as a soft glow on the pad and a “Protected” tag.
+- **Facing:** you face the nearest tower your team does not safely hold (enemy or neutral, contested, or being pushed by the rivals), otherwise the map centre, along the most open line of sight with room for the camera.
+- **INTERIM until the cable car exists:** while Peak Guard holds Tower C, **85 %** of its Tower C spawns use three plates on the gorge floor right below the cable-car mid station, at `(54, 70)`, `(50, 74)` and `(54, 76)`: out of sight of every rival Tower B pad, at least 45 m from them; bots climb out by the south gorge trail. Delete `INTERIM_CABLE_CAR_SPAWNS` and its branch in `selectConquestSpawn` when the cable car lands.
+- **Wardrobe:** class and loadout changes apply at once on the spawn pad, before the first deployment and during the results; otherwise at the next respawn, with a notice (§7.5).
+- **Balance note:** time to the Tower B zone (`apps/server/test/time-to-b.ts`): on the original layout Peak Guard needed 88.5 s vs 33.6 s for the Lagoon League (bot rounds 0:7). With the pad moves and the 85 % share, a 150-minute bot soak measured 43.2 s vs 44.2 s and rounds 6:14 (still Lagoon-leaning from bot combat; the knob is `BOT_PRECISION_AIM_ERROR` = 0.045, `FF_BOT_PRECISION_AIM` overrides it).
+- **Known:** while the Lagoon League holds Tower C, its summit pads can see the Peak Guard base pads (base pads are only live while Peak Guard holds no tower).
 
 ---
 
 ## 11. Destruction, terrain craters and weather
 
-This is a master reference for the destruction/weather milestone. None of it is implemented in the current M2 slice.
+This is a master reference for the destruction milestone (M6) and the weather part of M5. Nothing in §11.1–11.4 or §11.6 is implemented yet. For §11.5, the M5-Kern build simulates `weatherBalance` on the server (§14.1) and the client grades sky, light, haze and water between the icy and golden presets; it also scales the parachute wind. The snowline shift, global particles and ice-patch timing in the table are not implemented yet.
 
 ### 11.1 Destructible buildings
 
@@ -703,7 +773,7 @@ Each held **Peak Guard** tower shifts the balance **−0.015/s** toward frost. E
 
 ## 12. Weapons, skills and combat
 
-This is a master reference for the combat milestone. None of it is implemented in M2. The current server accepts fire packets but intentionally ignores them.
+This is the master reference for combat. M4 implemented the three-slot system, the weapons, class skills and combat feedback; the M5-Kern build draws the 13 weapons as procedural hero weapons with hold poses (4W). Where the numbers below differ from `packages/shared/src/config/weapons.ts` and `skills.ts`, the code is the current truth. In particular the class skills in play are the nine of `CLASS_SKILLS` on **Q / E / T** (Allrounder: Fondue snack, Ram sprint, Battle yodel; Heavy: Cheese armour, Barrel blast, Ground slam; Infiltrator: Reef cloak, Smoke bomb, Grapple dash), not the §12.4 table, and there is no separate Q heal / E wrench widget (§12.5).
 
 ### 12.1 Three-slot weapon system
 
@@ -856,13 +926,13 @@ All classes can equip any gimmick in the wardrobe/armory.
 
 ### 12.7 Combat scope decision
 
-Combat is **not** part of M2. The server currently accepts and ignores `C2S_FIRE_WEAPON`. Do not add damage, hit registration, bots or kill flow before the combat milestone brief. The weapon tables exist now only so profiles, loadouts and the wardrobe can be validated against the final ID contract.
+Combat shipped with M4 (authoritative fire, server hitbox rollback against a two-second lag history, skills, bots, kill feed, killer cam). The M5-Kern build adds vehicle weapons and rams (§13.8), hens as shootable critters, the untouchable drifter (shots pass through her) and the results ceasefire (§14.1). Weapon-driven destruction (craters, burning buildings, bridge damage) stays M6.
 
 ---
 
 ## 13. Vehicles, aircraft and map toys
 
-This is a master reference for the vehicle milestone. None of it is implemented yet.
+This is the master reference for the vehicles and map toys of M5. The M5-Kern build implements the four drivable vehicles of §13.2–13.5 with the values in §13.8; the biplane, rowboat, cable car, T-bar, coaster, hammock and cow (§13.6–13.7) are not implemented yet.
 
 ### 13.1 The ten vehicles and map toys
 
@@ -942,11 +1012,23 @@ This is a master reference for the vehicle milestone. None of it is implemented 
 
 ### 13.8 Vehicle system decisions
 
-- Server-authoritative Rapier3D rigid bodies with client-side interpolation.
-- Enter/exit with `F`; seat switching with `C` / `F1`–`F2`; horn with `H`.
-- Vehicle health, seat occupancy, turret yaw and boost state are server-owned.
-- Vehicle routes and spawns are data, not hand-placed per client.
-- Vehicles are not part of M2.
+Implemented in the M5-Kern build (data in `packages/shared/src/config/vehicles.ts`, shared motor `packages/shared/src/physics/vehicle.ts`, server `apps/server/src/rooms/vehicle-manager.ts`, client `apps/client/src/engine/vehicle-client.ts`):
+
+- **Authority:** kinematic Rapier hulls simulated by the server with the shared vehicle motor; remote vehicles are interpolated, the local driver predicts with the same motor. Health, seats, turret aim, boost and wrecks are server-owned; vehicles travel in a snapshot block (protocol 9).
+- **Controls:** enter / exit with `F` within 2.4 m of the hull (E stays the class skill); switch seat with `C` (a tap; there is no F1/F2 seat key, F1 stays the telemetry); horn with `H` (on the Heal bit, 0.9 s cooldown, comic “HONK! HONK!”); `LMB` fires the vehicle gun, aimed with the mouse; `Shift` fires the Badi-Flamingo’s plug turbo (only afloat); `Space` is the Sidecar’s handbrake drift. Boarding swings the camera behind the hull.
+- **Who may ride:** only armed, damageable classes (`classMayUseVehicles`): mascots and drifters cannot board, and switching a seated player to one of them frees the seat. Base vehicles are reserved for their faction; map vehicles are open to everyone, but a crewed vehicle only takes its crew’s team.
+
+| Vehicle | HP | Top speed | Seats | Weapon | Respawn |
+| --- | ---: | --- | --- | --- | ---: |
+| Fondue Crawler | 650 | 9.5 m/s, reverse 4.5 | driver & cheese cannon (inside) · commander in the pot (own weapons) | cannon 85 direct + 50 splash in 5 m, 3 s, 42 m/s | 30 s |
+| Coconut Beach Tank | 650 | 9.5 m/s, reverse 4.5 | driver & coconut mortar (inside) · coconut-hatch gunner (own weapons) | mortar, same values | 30 s |
+| Tactical Badi-Flamingo | 450 | 12 m/s; plug turbo 2.5× for 2.5 s, 7 s cooldown | pilot · harpoon gunner | harpoon gun 28 per hit, automatic, 85 m/s | 20 s |
+| Sidecar Motorcycle | 280 | 19 m/s, reverse 5 | driver · sidecar passenger (own weapons) | — | 15 s |
+
+- **Rams:** run-overs deal Fondue/Coconut 95–120, Flamingo “BOING!” 65–110, Sidecar 75–120 by speed, with a launch. Bullets do reduced damage to hulls (tanks 25 %, boat 50 %, sidecar 60 %); explosives full. A destroyed vehicle blasts 55 damage in 6 m and ejects its crew; the flamingo zooms off as a deflating balloon.
+- **Spawns (data, `FJORD_VEHICLE_SPAWNS`):** Lagoon base flamingo, coconut tank and sidecar; Peak Guard base crawler and sidecar; two map flamingos (harbour pier, east beach) and two map sidecars (village east and west). **Capture-gated:** the forward Fondue Crawler at Tower C spawns only while Peak Guard holds Tower C, the forward Coconut Tank at the harbour beach only while the Lagoon League holds Tower A; an unused one parked at its pad leaves when the tower falls. A round reset empties every seat first, then respawns all vehicles at their start positions.
+- **Boats:** float on the water, slide up gentle beaches and can reverse or rudder off while water is still under the hull. An empty, beached boat deflates after 10 s. An empty vehicle more than 25 m from its spawn is towed back after 75 s.
+- **Not built yet:** vehicle repair (the wrench), craters and burning buildings from vehicle shells (M6), the sidecar passenger’s first-person `V` camera, and vehicles 5–10 (§13.6–13.7). Known: a boat driven fully onto dry sand stays stuck while crewed; the coaster start deck intrudes ~2.5 m into the serpentine tank road.
 
 ---
 
@@ -954,13 +1036,21 @@ This is a master reference for the vehicle milestone. None of it is implemented 
 
 ### 14.1 Mode: 8v8 Climate Conquest
 
-- Two teams of up to 8 players; missing slots may later be filled with AI bots.
-- Each team starts with **50 Vacation Tickets**.
-- A weather tower is captured when more living players/bots of one faction are inside its **16 m capture radius** than the other faction.
-- Capture time: **8.0 s** with one player, **4.0 s** with three or more.
-- Holding towers shifts `weatherBalance` and contributes to the team’s climate control.
-- A team loses tickets when the enemy controls the climate/towers (full ticket-drain rules are part of the match-flow milestone).
-- The match ends when a team reaches **0 tickets** or the round timer expires.
+Implemented in the M5-Kern build: numbers in `CONQUEST_RULES` (`packages/shared/src/config/conquest.ts`), simulation in integer units per fixed tick in `apps/server/src/rooms/conquest.ts`, so a round replays bit-identically. Two teams of up to 8 (`TEAM_SIZE`); four named AI bots play the towers.
+
+- **50 tickets** per team.
+- **Zone:** 16 m radius, from 4.5 m below to 16 m above the tower; living, capture-capable players count (not the drifter), except while spawn-protected.
+- The side with more players inside moves the control; equal numbers stall (contested).
+- **Capture** neutral → owned: **8 / 6 / 4 s** at an advantage of 1 / 2 / 3+.
+- **Neutralise** owned → neutral (also undoing a rival’s partial capture): **4 / 3 / 2 s**. A full enemy flip therefore takes 12 / 9 / 6 s.
+- An empty zone drifts back to its owner (or to neutral) over **24 s**.
+- Each death costs the victim’s team **1 ticket**.
+- The team holding fewer towers loses **1 ticket every 6 s per tower of deficit** (every 3 s at a deficit of 2, every 2 s at 3).
+- **Weather:** ±0.015/s per held tower (net: Lagoon League towers push toward +1, Peak Guard towers toward −1), clamped to ±1, reset to 0 each round.
+- The round ends when a team reaches **0 tickets** (both in the same tick = draw) or after **20:00** (more tickets wins; equal = draw).
+- Then a **15 s results ceasefire:** no damage, captures or tickets; hulls, rams and hens hold fire too (`MatchRoom.isCeasefire()`).
+- **Reset:** 50 : 50 tickets; A Lagoon League, C Peak Guard, B neutral; weather 0; everyone respawns with K/D 0 (drifter support points too); vehicles reset first; shots and puddles in flight vanish.
+- HUD: tower badges and round clock on the clock medallion, the capture bar inside a zone, tower feed lines and “TOWER TAKEN!” / “TOWER LOST!” pops, the results banner with the next-round countdown and the Tab scoreboard (kills, deaths, support).
 
 ### 14.2 Round flow
 
@@ -972,6 +1062,8 @@ This is a master reference for the vehicle milestone. None of it is implemented 
 6. **Victory:** winner podium cinematic in the map centre, top three scorers of the winning team on the steps, confetti, golden talers and palm leaves.
 7. **Scoreboard:** kills, deaths, tower captures, bridge repairs, earned Alpen-Taler / Resort Crowns.
 8. **Next match / return to menu.**
+
+In the M5-Kern build steps 6–8 are the 15 s results banner (winner, reason, tickets, next-round countdown) followed by an automatic reset into the next round on the same server; the podium, rewards and end-of-match scoreboard remain M7 work. The live Tab scoreboard (kills, deaths, support) exists already.
 
 ### 14.3 End screen decisions
 
@@ -1205,9 +1297,12 @@ M2 implements the audio engine, buses, limiter, 3D panner, footsteps, swim/jump/
 
 ### 17.2 Protocol version
 
-**Current version: 2.**
+**Current version: 9** (`PROTOCOL_VERSION` in `packages/shared/src/constants.ts`).
 
-Version 2 was bumped because HELLO/WELCOME layouts changed from `displayName`/`faction`/`classId` to full profiles.
+- 2: HELLO/WELCOME carry full profiles instead of `displayName`/`faction`/`classId`.
+- 7: ambient critter trailer in the snapshot and the `CRITTER_KILLED` event (3H).
+- 8: drifter class (`CLASS_CODE` 4), aura status bits and a uint16 support score per snapshot player (3G).
+- 9: vehicle block in the snapshot (between the players and the critter trailer) and the `VEHICLE_*` events (4V); the Climate Conquest block after the critter trailer, `spawnYaw` in Welcome and the `PROFILE_NOTICE` event (4T). Game event codes are unique across all packages (`apps/server/test/event-codes.test.ts`); the merged snapshot has round-trip codec tests.
 
 Any packet layout change requires a `PROTOCOL_VERSION` bump and matching encode/decode changes on both sides.
 
@@ -1233,7 +1328,7 @@ Any packet layout change requires a `PROTOCOL_VERSION` bump and matching encode/
 
 1. Display name (string, max 32 bytes on the wire; sanitised to 24 characters).
 2. Faction code (0 = alpine, 1 = lagoon).
-3. Class code (0 = allrounder, 1 = heavy, 2 = infiltrator).
+3. Class code (0 = allrounder, 1 = heavy, 2 = infiltrator, 3 = mascot, 4 = drifter).
 4. `bodyType` quantised to 8 bits (`*255`).
 5. Skin tone index (8 bits).
 6. Hair colour index (8 bits).
@@ -1261,7 +1356,8 @@ Snapshots carry:
 - Tickets for both factions.
 - Turret/capture states.
 - Players: id, faction, class, position, velocity, yaw, HP, max HP, grounded/alive/crouched/swimming/sprinting/rolling flags, last processed input.
-- Vehicles: id, type, position, yaw, health (empty in M2).
+- Vehicles (protocol 9): one block per active vehicle (kind, pose, health, seats, aim, flags).
+- Critters (protocol 7) and the Climate Conquest block (protocol 9: tower owners, control, push and contest state, round phase, winner, timer).
 
 ### 17.6 Server rules
 
@@ -1430,21 +1526,33 @@ Classes, persistent profiles, loadouts, wardrobe/cosmetics, server profile sync,
 - EN/DE complete, typecheck and build clean, runtime-tested with two clients.
 - `CLAUDE.md` and `BEDIENUNGSANLEITUNG.md` updated.
 
-### M3 — Weapons & Combat (next)
+The numbering below matches the README (it replaces an older draft numbering in which weapons were M3 and vehicles M4).
 
-Weapons, firing, damage, hit registration, lag compensation, skills, kill cam, death screen, combat VFX, bots maybe.
+### M3 — Core Movement, Extended Actions & Physics (complete)
 
-### M4 — Vehicles & Aircraft (later)
+Tactical sprint, crouch, mantle, dodge roll, swimming, ice patches, emergency parachute, shared deterministic motor.
 
-Ten vehicles/toys, seats, vehicle physics, repairs, horns, cable car, ski lift, coaster, cow.
+### M4 — Weapons, Combat, Bots & Audio (complete)
 
-### M5 — Destruction, Craters & Weather (later)
+Weapons, firing, damage, hit registration, lag compensation, skills, killer cam, combat VFX and audio, four AI bots.
 
-Eight destructible buildings, 12 bridge segments, 60 trees, 16 silos, 6 billboards, decal ring buffer, terrain craters, dynamic weather, late-join map sync, deterministic reset, full 257×257 map and orientation correction.
+### M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys (M5-Kern test build, paused)
 
-### M6 — Meta, Economy & Live Features (later)
+Full 257×257 map in the master orientation, three weather towers, weather balance, 50-ticket Climate Conquest and the vehicles/map toys of §13. **M5-Kern (done, §5.5):** map rebuild, Climate Conquest, Fondue Crawler, Coconut Beach Tank, Badi-Flamingo, Sidecar. **Rest of M5 (after the owner's test):** cable car, T-bar, coaster, hammock, NPC cow, biplane, rowboat, gondola, vehicle repair, full tower transformations and weather effects.
+
+### M6 — Destruction, Craters, Decal Ring Buffer & Match Sync (later)
+
+Eight destructible buildings, 12 bridge segments, 60 trees, 16 silos, 6 billboards, 4,096-decal ring buffer, terrain craters, late-join map sync, deterministic map reset.
+
+### M7 — Meta, Economy, Monetisation & Live Features (later)
 
 Accounts, progression, Alpen-Taler, armory rentals, VIP, custom lobbies, ads/rewarded ads, end screen/podium, matchmaking, analytics.
+
+### M8 — Final Polish, QA & Deployment (later)
+
+Performance, netcode, audio and typecheck pass, final manual, deployment.
+
+**Stop rule (25 October 2026):** the owner tests the M5-Kern build before work resumes; nothing continues until the owner says so.
 
 **Do not implement ahead of the gate.** If a feature is written in this document but belongs to a later milestone, it is a reference, not an instruction.
 
@@ -1454,20 +1562,21 @@ Accounts, progression, Alpen-Taler, armory rentals, VIP, custom lobbies, ads/rew
 
 These are the current gaps between the master design and the repository. They are tracked so nobody mistakes a design reference for shipped behaviour.
 
-1. **Map orientation is reversed.** The master spec puts the lagoon southwest and the summit northeast. The current prototype has the summit southwest and the harbour northeast. A full map rework is not started.
-2. **Heightfield resolution is 160×160 segments (161×161 vertices, 5 m cells)**, not the master 257×257 (~3.125 m cells).
-3. **The current map is a simplified playable slice.** Towers, chalets, lighthouse, docks, gorge, waterfall and prop layout are approximations, not the full master layout.
-4. **No destruction, craters, weather balance or late-join map sync.** The packet exists but carries empty arrays.
-5. **No combat.** Fire packets are ignored. Weapon tables are data-only until M3.
-6. **No vehicles, bots, match tickets or capture logic.** Tickets are static 50/50 in snapshots.
-7. **Faction preference is not honoured.** The server balances teams and may override the profile preference.
+1. **Terrain collider vs rendered terrain.** The Rapier heightfield splits each cell along the other diagonal than the rendered mesh, so on steep cells the two differ by up to ~3.7 m: feet can float above or sink into steep slopes (§10.1).
+2. **The map toys of M5 are not built yet** (cable car, T-bar, coaster, hammock, NPC cow) and neither are the biplane, rowboat and gondola. Their stations, masts and tracks stand as scenery. Until the cable car exists, Peak Guard uses the interim gorge plates (§10.6).
+3. **No destruction, craters or late-join map sync** (M6). The packet exists but carries empty arrays. The weather balance is simulated and grades the look, but has no snowline, particle or ice-patch effect yet (§11.5).
+4. **No vehicle repair**; the `Wrench` input bit is unbound.
+5. **A boat driven fully onto dry sand stays stuck** while crewed (empty, it deflates after 10 s and respawns). **The coaster start deck intrudes ~2.5 m into the serpentine tank road.**
+6. **Bot balance leans Lagoon** (about 6:14 rounds in bot soaks, §10.6), and while the Lagoon League holds Tower C its summit pads can see the Peak Guard base pads.
+7. **Faction preference is not guaranteed.** The server balances teams and may override the profile preference (§6.3).
 8. **Class change resets cosmetics to class defaults** in the client profile store. This is a convenience decision, not a final UX rule.
 9. **No accounts or server-side persistence.** The profile is device-local and sent on connect.
-10. **The HUD still shows M2 training copy and a no-combat note.** The full combat HUD belongs to M3/M6.
-11. **The character rig is typechecked and rendered locally, but remote avatar appearance has only been verified at the profile-data level.** A visual two-client check remains on the M3 test pass.
-12. **The emergency parachute uses transitional separate `parachuteState` and wind bytes.** M3 will migrate to the packed `stateFlags` bits and `windPacked` nibble from the supplementary deep-dive.
-13. **The UI/HUD master specification is only partially implemented.** M2 ships the menu, loading, wardrobe, pause, settings and basic HUD; the full combat HUD, armory, VIP, podium and ad surfaces are M3–M6 work.
-14. **The latest map/weapons/vehicles/UI master specs are design references.** Their full implementation is gated by the milestone in which the underlying system exists.
+10. **Performance:** the painted map is heavy (~1.3 million triangles and more) and may run slowly on weak GPUs; the picture quality setting (Auto / High / Medium / Low) is the lever.
+11. **Hot Beach Girl:** she uses PBR shading on the character mask, but her full exemption from the painterly post pass is open (she still gets the silhouette ink and the grading).
+12. **The emergency parachute uses transitional separate `parachuteState` and wind bytes.** A later pass may migrate to the packed `stateFlags` bits and `windPacked` nibble from the supplementary deep-dive.
+13. **The UI/HUD master specification is only partially implemented.** The combat and conquest HUD, results banner and Tab scoreboard ship; armory, VIP, podium and ad surfaces are M7 work.
+14. **The procedural fallback characters are the M2 rig.** The 1E rewrite was deferred from the M5-Kern build; every class shows its painted model, and the procedural rig only appears as a fallback (`?painted=0`, custom torso/legs/feet outfits, the first seconds while a model loads).
+15. **The latest map/weapons/vehicles/UI master specs are design references.** Their full implementation is gated by the milestone in which the underlying system exists.
 
 ---
 
@@ -1484,7 +1593,13 @@ These are the current gaps between the master design and the repository. They ar
 | `packages/shared/src/config/profile.ts` | Profile defaults, sanitisation, normalisation, appearance key. |
 | `packages/shared/src/config/classes.ts` | Class IDs, stats, faction theme, default loadouts. |
 | `packages/shared/src/config/weapons.ts` | Weapon ID tables, main/gimmick definitions. |
-| `packages/shared/src/config/map-fjord.ts` | Map dimensions, analytic terrain, height sampling, zones, spawns, props, surface tags. |
+| `packages/shared/src/config/map-fjord.ts` | Map dimensions, analytic terrain, height sampling, zones, spawns, props, surface tags (blueprint parts under `config/map/`). |
+| `packages/shared/src/config/conquest.ts` | Climate Conquest rules, capture zone test, interim cable-car spawns. |
+| `packages/shared/src/config/vehicles.ts` | Vehicle definitions, seats, weapons, slots, ride rules. |
+| `packages/shared/src/config/drifter.ts` | Drifter forms, walk tuning and supply aura. |
+| `packages/shared/src/config/mascot.ts` | Cow and coconut tuning, mascot rams. |
+| `packages/shared/src/config/critters.ts` | Hen species stats and behaviour weights. |
+| `packages/shared/src/physics/vehicle.ts` | The shared vehicle motor (server simulation, driver prediction). |
 | `packages/shared/src/net/opcodes.ts` | Opcodes, faction/class codes, player flags, event codes. |
 | `packages/shared/src/net/protocol.ts` | All binary encode/decode functions, including profile codec. |
 | `packages/shared/src/physics/character.ts` | The single deterministic kinematic character motor. |
@@ -1497,7 +1612,11 @@ These are the current gaps between the master design and the repository. They ar
 | File | Responsibility |
 | --- | --- |
 | `apps/server/src/index.ts` | HTTP endpoints, WebSocket upgrade, handshake, packet dispatch. |
-| `apps/server/src/rooms/match-room.ts` | Authoritative simulation, profiles, snapshots, respawns, join/leave. |
+| `apps/server/src/rooms/match-room.ts` | Authoritative simulation, profiles, snapshots, respawns, join/leave, drifter aura. |
+| `apps/server/src/rooms/conquest.ts` | Fixed-step towers, tickets, weather and round flow. |
+| `apps/server/src/rooms/vehicle-manager.ts` | Vehicle spawns, seats, driving, weapons, rams, wrecks. |
+| `apps/server/src/rooms/critters.ts` | Wandering hens. |
+| `apps/server/src/rooms/spawn-facing.ts` | Spawn objective and facing. |
 
 ### Client
 
@@ -1530,7 +1649,7 @@ These are the current gaps between the master design and the repository. They ar
 Before committing any milestone:
 
 1. `bun run typecheck` — 0 errors, 0 warnings.
-2. `bun run build` — shared, client and server build.
+2. `bun run build` — shared, client and server build; `bun run test` — script, server and client suites pass.
 3. `bun run dev`, open the client and confirm the menu reaches **Connected**.
 4. Click **Play Now**, confirm the HUD appears and the renderer line says WebGPU (or WebGL2).
 5. Move with WASD, jump with Space, sprint with Shift, crouch with C/Ctrl, roll with C while sprinting, swap shoulder with V, zoom with Alt+wheel.
@@ -1541,7 +1660,7 @@ Before committing any milestone:
 10. Switch EN/DE live; check menu, HUD, pause, wardrobe, loading and debug copy.
 11. Test `?renderer=webgl2` to exercise the fallback shader path.
 12. Confirm no shader compilation errors or uncaught exceptions in the browser console.
-13. Confirm no external audio/model/heightmap files were added.
+13. Confirm no external audio, model or heightmap files were added beyond the owner-supplied ones allowed by §3 (and listed in `CREDITS.md`).
 14. Update `CLAUDE.md` and `BEDIENUNGSANLEITUNG.md` with the new milestone state.
 
 The only expected console warning is Rapier’s deprecation notice about initialization parameters; it is harmless and originates inside `@dimforge/rapier3d-compat`.
