@@ -223,6 +223,8 @@ export const TERRAIN_MIX_B_ATTRIBUTE = 'terrainMixB';
 export interface ToonMaterialOptions {
   /** Terrain variant: painted layer weights from `terrainMixA/B` instead of albedo classification. */
   terrain?: boolean;
+  /** Painted cobbles, directly textured over matching displaced geometry. */
+  paving?: boolean;
 }
 
 export function createToonMaterial(scene: Scene, name: string, options: ToonMaterialOptions = {}): ShaderMaterial {
@@ -237,7 +239,7 @@ export function createToonMaterial(scene: Scene, name: string, options: ToonMate
     },
     {
       attributes: terrain ? ['position', 'normal', TERRAIN_MIX_A_ATTRIBUTE, TERRAIN_MIX_B_ATTRIBUTE] : ['position', 'normal'],
-      defines: terrain ? ['#define FF_TERRAIN'] : [],
+      defines: terrain ? ['#define FF_TERRAIN'] : options.paving ? ['#define FF_PAVING'] : [],
       uniforms: [
         'world',
         'viewProjection',

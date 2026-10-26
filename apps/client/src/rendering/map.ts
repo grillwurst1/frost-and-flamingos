@@ -622,7 +622,8 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
     return mesh;
   };
   for (const [key, batch] of chunks.batches) register(batch.toMesh(scene, `map-chunk-${key}`, material), staticMeshes);
-  for (const mesh of buildPavingRelief(scene, material)) register(mesh, staticMeshes);
+  const pavingMaterial = createToonMaterial(scene, 'painted-paving-relief', { paving: true });
+  for (const mesh of buildPavingRelief(scene, pavingMaterial)) register(mesh, staticMeshes);
   for (const [key, batch] of chunks.clutter) {
     const mesh = register(batch.toMesh(scene, `map-clutter-${key}`, material), staticMeshes);
     if (mesh) mesh.addLODLevel(CLUTTER_LOD_DISTANCE, null);

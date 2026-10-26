@@ -80,7 +80,15 @@ void main(void) {
   float gloss;
   float hatch;
   vec3 normal = normalize(vWorldNormal);
-#ifdef FF_TERRAIN
+#ifdef FF_PAVING
+  // Same two-metre tile and orientation as map/paving-height.ts.
+  vec2 uv = vWorldPosition.xz * 0.5;
+  vec3 paint = ffColorTile(uv, dFdx(uv), dFdy(uv), 3.0);
+  vec3 albedo = vColor.rgb * mix(vec3(1.0), clamp(paint * 2.0, 0.0, 1.8), 0.85);
+  float reliefWeight = 0.025;
+  gloss = 0.0;
+  hatch = 1.0;
+#elif defined(FF_TERRAIN)
   float reliefWeight = dot(vTerrainMixA, vec4(0.05, 0.035, 0.02, 0.07)) + dot(vTerrainMixB, vec4(0.12, 0.025, 0.01, 0.02));
   vec3 albedo = ffTerrainSurface(vColor, vTerrainMixA, vTerrainMixB, vWorldPosition, normal, gloss, hatch);
 #else
@@ -158,7 +166,13 @@ varying vTerrainMixB : vec4f;
 
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
-#ifdef FF_TERRAIN
+#ifdef FF_PAVING
+  let uv = input.vWorldPosition.xz * 0.5;
+  let paint = ffColorTile(uv, dpdx(uv), dpdy(uv), 3.0);
+  let surface = FFSurface(input.vColor.rgb * mix(vec3f(1.0), clamp(paint * 2.0, vec3f(0.0), vec3f(1.8)), 0.85), 0.0, 1.0);
+  let reliefWeight = 0.025;
+  let normal = normalize(input.vWorldNormal);
+#elif defined(FF_TERRAIN)
   let reliefWeight = dot(input.vTerrainMixA, vec4f(0.05, 0.035, 0.02, 0.07)) + dot(input.vTerrainMixB, vec4f(0.12, 0.025, 0.01, 0.02));
   let dpx = dpdx(input.vWorldPosition);
   let dpy = dpdy(input.vWorldPosition);
