@@ -16,6 +16,7 @@ import {
   type ClassCapabilities,
   type ClassId,
   type Faction,
+  type PlayerInput,
   type PlayerProfile,
 } from '@frost-and-flamingos/shared';
 import { addDummy, createConquestRoom, place, ticks, type ConquestHarness, type ConquestTestPlayer } from './conquest-harness';
@@ -46,6 +47,20 @@ function walkAway(player: ConquestTestPlayer): void {
 }
 
 const RESPAWN_TICKS = RESPAWN_DELAY_SECONDS * PHYSICS_TICK_RATE;
+
+/** One client input with a button down (the player has deployed). */
+function press(harness: ConquestHarness, player: ConquestTestPlayer): void {
+  const socket = player.socket;
+  if (!socket) throw new Error('Dummy without socket.');
+  const input: PlayerInput = {
+    sequence: player.lastProcessedInput + 1,
+    buttons: 1,
+    yaw: player.character.heading,
+    pitch: 0,
+    weaponSlot: 1,
+  };
+  (harness.room as unknown as { handleInput(socket: unknown, input: PlayerInput): void }).handleInput(socket, input);
+}
 
 /** Room members these tests poke beyond the shared harness view. */
 function internals(harness: ConquestHarness): {
@@ -147,6 +162,28 @@ describe('immediate kit swaps are narrow', () => {
     expect(drifter.profile.faction).toBe('alpine');
   });
 
+  test('an untouchable drifter switching to a combat class redeploys at once, rebalanced', async () => {
+    const harness = await createConquestRoom(false);
+    override('infiltrator', { countsTowardBalance: false, damageable: false, targetable: false });
+    addDummy(harness, 'alpine');
+    addDummy(harness, 'lagoon');
+    addDummy(harness, 'lagoon');
+    const drifter = addDummy(harness, 'lagoon', 'infiltrator');
+    ticks(harness, 20);
+    walkAway(drifter);
+    ticks(harness, 4 * PHYSICS_TICK_RATE);
+    const deaths = drifter.deaths;
+    wardrobe(harness, drifter, 'allrounder');
+    expect(drifter.alive).toBe(true);
+    expect(drifter.pendingProfile).toBeNull();
+    expect(drifter.profile.cosmetics.classId).toBe('allrounder');
+    expect(drifter.profile.faction).toBe('alpine');
+    expect(drifter.deaths).toBe(deaths);
+    const feet = drifter.character.position;
+    expect(Math.hypot(feet.x - drifter.spawnPosition.x, feet.z - drifter.spawnPosition.z)).toBeLessThan(0.5);
+    expect(harness.room.isCeasefire()).toBe(false);
+  });
+
   test('a drifter switching during the results waits for the reset and rebalances', async () => {
     const harness = await createConquestRoom(false);
     override('infiltrator', { countsTowardBalance: false });
@@ -180,10 +217,25 @@ describe('immediate kit swaps are narrow', () => {
     expect(heavy.skillCooldowns).toEqual(cooldowns);
 
     const fresh = addDummy(harness, 'lagoon', 'allrounder');
+    press(harness, fresh);
     ticks(harness, 130);
     wardrobe(harness, fresh, 'heavy');
     expect(fresh.profile.cosmetics.classId).toBe('allrounder');
     expect(fresh.pendingProfile?.cosmetics.classId).toBe('heavy');
+  });
+
+  test('a class picked in the menu wardrobe applies before Play, long after the join', async () => {
+    const harness = await createConquestRoom(false);
+    const player = addDummy(harness, 'lagoon', 'allrounder');
+    ticks(harness, 5 * PHYSICS_TICK_RATE);
+    wardrobe(harness, player, 'heavy');
+    expect(player.pendingProfile).toBeNull();
+    expect(player.profile.cosmetics.classId).toBe('heavy');
+    // Play Now sends nothing; the first pressed input then plays the new class.
+    press(harness, player);
+    ticks(harness, 2);
+    expect(player.profile.cosmetics.classId).toBe('heavy');
+    expect(player.alive).toBe(true);
   });
 
   test('a swap that does apply keeps the cooldowns and ends the old class cloak', async () => {

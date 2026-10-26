@@ -164,6 +164,11 @@ interface PlayerConnection {
   hurtSinceSpawn: boolean;
   /** Fired, used a skill or a mascot move since the last (re)spawn. */
   actedSinceSpawn: boolean;
+  /**
+   * Sent an input with any button down since the last (re)spawn. A client
+   * still in the menu (connected, spawned, not deployed) sends only idle input.
+   */
+  pressedSinceSpawn: boolean;
   skillCooldowns: [number, number, number];
   speedUntilTick: number;
   shieldUntilTick: number;
@@ -602,6 +607,7 @@ export class MatchRoom {
     player.spawnPosition = { ...spawn.position };
     player.hurtSinceSpawn = false;
     player.actedSinceSpawn = false;
+    player.pressedSinceSpawn = false;
     if (player.bot) this.rollBotClass(player, spawn.position);
     const classId = player.profile.cosmetics.classId;
     player.character.setColliderEnabled(true);
@@ -1664,6 +1670,7 @@ export class MatchRoom {
         spawnPosition: { ...spawn.position },
         hurtSinceSpawn: false,
         actedSinceSpawn: false,
+        pressedSinceSpawn: false,
         bot: {
           mascotChance: entry.mascotChance,
           humanClass: entry.classId,
@@ -2074,6 +2081,7 @@ export class MatchRoom {
       spawnPosition: { ...spawn.position },
       hurtSinceSpawn: false,
       actedSinceSpawn: false,
+      pressedSinceSpawn: false,
       bot: null,
     };
     this.players.set(id, player);
@@ -2124,6 +2132,7 @@ export class MatchRoom {
     if (player.inputQueue.length >= MAX_INPUT_BACKLOG) {
       player.inputQueue.shift();
     }
+    if (input.buttons !== 0) player.pressedSinceSpawn = true;
     player.inputQueue.push(input);
   }
 
@@ -2190,8 +2199,16 @@ export class MatchRoom {
       this.broadcastProfile(player);
       return;
     }
-    const rebalances =
-      !classCapabilities(live.cosmetics.classId).countsTowardBalance && classCapabilities(classId).countsTowardBalance;
+    const liveCaps = classCapabilities(live.cosmetics.classId);
+    const rebalances = !liveCaps.countsTowardBalance && classCapabilities(classId).countsTowardBalance;
+    if (rebalances && !liveCaps.damageable) {
+      // An untouchable class (the drifter) never dies, so "next respawn" would mean
+      // the round reset. There is no fight to escape: redeploy now through respawn(),
+      // which applies the change, re-runs the team balance and picks a pad.
+      player.pendingProfile = profile;
+      this.respawn(player);
+      return;
+    }
     if (rebalances || !(this.isCeasefire() || this.freshAtSpawn(player))) {
       player.pendingProfile = profile;
       // Name and cosmetics still apply live (on the current class); the owner keeps its
@@ -2217,7 +2234,9 @@ export class MatchRoom {
    */
   private freshAtSpawn(player: PlayerConnection): boolean {
     if (player.hurtSinceSpawn || player.actedSinceSpawn) return false;
-    if (this.physicsTick >= player.spawnProtectionUntil) return false;
+    // The protection window binds only once the player pressed something: a
+    // client still in the menu wardrobe has not deployed yet.
+    if (player.pressedSinceSpawn && this.physicsTick >= player.spawnProtectionUntil) return false;
     const feet = player.character.position;
     if (captureZoneIndexAt(feet) !== -1) return false;
     const spawn = player.spawnPosition;
