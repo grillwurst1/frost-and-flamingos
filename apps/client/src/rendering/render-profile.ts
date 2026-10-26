@@ -7,13 +7,21 @@ export interface RenderProfile {
   shadowFilter: number;
   shadowFrustum: number;
   maxPixelRatio: number;
+  sceneSamples: number;
 }
 
 export const RENDER_PROFILES: Readonly<Record<VisualQuality, RenderProfile>> = {
-  high: { detailMode: 1, shadowSize: 2048, shadowFilter: 2, shadowFrustum: 100, maxPixelRatio: 1.5 },
-  medium: { detailMode: 1, shadowSize: 1024, shadowFilter: 1, shadowFrustum: 80, maxPixelRatio: 1.25 },
-  low: { detailMode: 1, shadowSize: 512, shadowFilter: 1, shadowFrustum: 60, maxPixelRatio: 1 },
+  high: { detailMode: 1, shadowSize: 2048, shadowFilter: 2, shadowFrustum: 100, maxPixelRatio: 1.5, sceneSamples: 2 },
+  medium: { detailMode: 1, shadowSize: 1024, shadowFilter: 1, shadowFrustum: 80, maxPixelRatio: 1.25, sceneSamples: 2 },
+  low: { detailMode: 1, shadowSize: 512, shadowFilter: 1, shadowFrustum: 60, maxPixelRatio: 1, sceneSamples: 1 },
 };
+
+/** WebGPU supports 1 or 4 samples; never request an invalid two-sample target. */
+export function sceneSampleCount(quality: VisualQuality, webgpu: boolean, maximum: number): number {
+  const requested = RENDER_PROFILES[quality].sceneSamples;
+  const samples = webgpu && requested > 1 ? 4 : requested;
+  return maximum >= samples ? samples : 1;
+}
 
 export type FrameLimit = 30 | 45 | 60;
 

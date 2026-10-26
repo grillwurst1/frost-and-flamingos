@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { classifyGpu } from '../src/rendering/gpu-tier';
-import { RENDER_PROFILES, renderFrameLimit } from '../src/rendering/render-profile';
+import { RENDER_PROFILES, renderFrameLimit, sceneSampleCount } from '../src/rendering/render-profile';
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine';
 
 test('Apple GPUs start with the balanced tier, software rasterizers remain low', () => {
@@ -8,6 +8,14 @@ test('Apple GPUs start with the balanced tier, software rasterizers remain low',
   expect(classifyGpu(engine('Apple M4')).tier).toBe('medium');
   expect(classifyGpu(engine('ANGLE Metal Renderer: Apple M4 Pro')).tier).toBe('medium');
   expect(classifyGpu(engine('SwiftShader')).tier).toBe('low');
+});
+
+test('silhouette antialiasing uses supported sample counts and low stays single-sampled', () => {
+  expect(sceneSampleCount('medium', false, 4)).toBe(2);
+  expect(sceneSampleCount('medium', true, 4)).toBe(4);
+  expect(sceneSampleCount('high', true, 1)).toBe(1);
+  expect(sceneSampleCount('low', true, 4)).toBe(1);
+  expect(sceneSampleCount('low', false, 0)).toBe(1);
 });
 
 test('quiet frame limits preserve menu and gameplay budgets', () => {

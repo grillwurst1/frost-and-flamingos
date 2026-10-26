@@ -411,7 +411,7 @@ describe('walk-only motor', () => {
     dismiss(players);
   });
 
-  test('across steep shore cells (collider under water, sampled height dry) she never wades under', () => {
+  test('across steep shores and the former diagonal-gap cells she never wades under', () => {
     const players = cast([['Ghost', 'drifter', 'alpine']]);
     const ghostJ = players[0]!;
     const ghost = ghostJ.player;

@@ -45,7 +45,7 @@ function flatNormalTexture(scene: Scene): RawTexture {
   return texture;
 }
 
-const PAINT_PARAMS = new Vector4(0.12, 1.0, 1.0, 0.12);
+const PAINT_PARAMS = new Vector4(0.4, 1.0, 1.0, 0.04);
 const PROP_PARAMS = new Vector4(0, 1, 1, 0.12);
 
 /**

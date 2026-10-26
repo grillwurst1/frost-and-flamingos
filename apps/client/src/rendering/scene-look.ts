@@ -4,7 +4,7 @@ import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import '@babylonjs/core/Rendering/geometryBufferRendererSceneComponent';
 import type { Camera } from '@babylonjs/core/Cameras/camera';
 import { renderRatio } from './quality-governor';
-import { RENDER_PROFILES as QUALITY, type VisualQuality } from './render-profile';
+import { RENDER_PROFILES as QUALITY, sceneSampleCount, type VisualQuality } from './render-profile';
 export type { VisualQuality } from './render-profile';
 import { Constants } from '@babylonjs/core/Engines/constants';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
@@ -54,7 +54,7 @@ import {
  *   g-buffer    Half-resolution GeometryBufferRenderer (view depth + normals) of every
  *               solid mesh. Feeds the ink outlines and the water depth foam.
  *   post        one subtle contour/grade pass -> FXAA. No full-screen paint,
- *               grain, sharpen or MSAA. Model textures retain their detail.
+ *               grain or sharpen. Two scene samples on medium/high cover thin silhouettes.
  *   sky/water   uniforms + optional painted panorama/cloud billboards.
  *
  * Quality tiers: high / medium / low via {@link SceneLook.setVisualQuality}.
@@ -223,8 +223,8 @@ export class SceneLook {
   private readonly gradeExtra = new Vector4(0.2, 0.05, 1, 1);
   private readonly shadowTone = new Color3(0, 0, 0);
   private readonly highlightTone = new Color3(0, 0, 0);
-  private readonly inkParams = new Vector4(0.6, 0.06, 0.52, 0);
-  private readonly inkFade = new Vector4(28, 240, 0.5, 0.5);
+  private readonly inkParams = new Vector4(0.5, 0.08, 0.65, 0);
+  private readonly inkFade = new Vector4(18, 110, 0.4, 0.18);
   private readonly gbufferList: AbstractMesh[] = [];
   private cloudRoot: TransformNode | null = null;
   private hasPainterlyClouds = false;
@@ -286,6 +286,14 @@ export class SceneLook {
     this.geometryBuffer = gbr && gbr.isSupported ? gbr : null;
     if (this.geometryBuffer) {
       this.geometryBuffer.renderTransparentMeshes = false;
+      // Smooth reconstruction of the half-resolution edge buffer, rather than
+      // copying its two-pixel staircase over otherwise antialiased silhouettes.
+      for (const texture of this.geometryBuffer.getGBuffer().textures) {
+        const caps = scene.getEngine().getCaps();
+        const canFilter = texture.textureType === Constants.TEXTURETYPE_FLOAT
+          ? caps.textureFloatLinearFiltering : caps.textureHalfFloatLinearFiltering;
+        if (canFilter) texture.updateSamplingMode(Constants.TEXTURE_BILINEAR_SAMPLINGMODE);
+      }
       this.geometryBuffer.getGBuffer().getCustomRenderList = (_pass, defaultList, length) =>
         this.filterGeometryBuffer(defaultList, length);
       values.waterParams.x = 1;
@@ -332,6 +340,7 @@ export class SceneLook {
     this.ensureShadows(profile.shadowSize);
     values.shadowParams.w = profile.shadowFilter;
     this.ensurePostProcesses();
+    if (this.comicPass) this.comicPass.samples = sceneSampleCount(tier, this.webgpu, this.scene.getEngine().getCaps().maxMSAASamples);
     this.applyPixelRatio(profile.maxPixelRatio);
   }
 
@@ -614,7 +623,7 @@ export class SceneLook {
     const ink = this.context.values.inkColor;
     const scale = height / 1080;
     effect.setFloat2('uTexel', 1 / width, 1 / height);
-    effect.setFloat4('uInkColor', ink.r, ink.g, ink.b, this.geometryBuffer ? 1 : 0);
+    effect.setFloat4('uInkColor', ink.r, ink.g, ink.b, this.geometryBuffer ? 0.45 : 0);
     effect.setFloat4(
       'uInkParams',
       Math.max(0.65, this.inkParams.x * Math.max(0.8, scale)),
@@ -823,6 +832,7 @@ export class SceneLook {
         shadowCasters: this.shadowGenerator?.getShadowMap()?.renderList?.length ?? 0,
         shadowMapSize: this.shadowGenerator?.mapSize ?? 0,
         gbuffer: Boolean(this.geometryBuffer),
+        sceneSamples: this.comicPass?.samples ?? 1,
         postProcesses: this.camera._postProcesses.filter(Boolean).map((pass) => pass?.name),
         painterlyClouds: this.hasPainterlyClouds,
         panorama: this.hasPanorama,

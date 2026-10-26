@@ -233,9 +233,10 @@ export const STEEP_SHORE_REPROS: ReadonlyArray<{ x: number; z: number }> = [
 ];
 
 /**
- * Steep shore points where the terrain collider lies under the water while
- * sampleMapHeight (the other cell diagonal) reads dry land well above it:
- * the verification repros first, then map-wide finds `spacing` m apart.
+ * Steep shore crossings: the historical diagonal-gap repros first, then
+ * shallow submerged points with dry banks within 1.5 m. The terrain sampler
+ * now agrees with the collider, so a same-point height mismatch is no longer
+ * a valid way of discovering additional banks.
  */
 export function findSteepShores(count: number, spacing = 16): Array<{ x: number; z: number }> {
   const shores = [...STEEP_SHORE_REPROS];
@@ -243,7 +244,9 @@ export function findSteepShores(count: number, spacing = 16): Array<{ x: number;
     for (let z = -390; z <= 390 && shores.length < count; z += 1.5) {
       const collider = colliderHeightAt(x, z);
       if (collider >= WATER_LEVEL - 0.02 || collider < WATER_LEVEL - 0.8) continue;
-      if (sampleMapHeight(x, z) < WATER_LEVEL + 0.25) continue;
+      const bank = Math.max(sampleMapHeight(x - 1.5, z), sampleMapHeight(x + 1.5, z),
+        sampleMapHeight(x, z - 1.5), sampleMapHeight(x, z + 1.5));
+      if (bank < WATER_LEVEL + 0.25) continue;
       if (shores.some((shore) => Math.hypot(shore.x - x, shore.z - z) < spacing)) continue;
       shores.push({ x, z });
     }

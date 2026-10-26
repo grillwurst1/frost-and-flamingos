@@ -5,7 +5,9 @@
  * own colliders in prop-local space; the client renders the same entries.
  */
 import type { Vec3 } from '../../types/index.js';
+import { MAP_HALF_SIZE } from '../../constants.js';
 import type { BuildingLayout, MapPropKind, PropCollider, SurfaceTag } from '../../types/map.js';
+import { crateStackColliders, fenceColliders } from './solids.js';
 import {
   beachBarLayout,
   boxCollider,
@@ -96,7 +98,6 @@ function building(
 }
 
 function crateStack(id: string, x: number, z: number, rotationY: number, variant: number, y?: number): PropSeed {
-  const height = variant % 3 === 0 ? 2.4 : variant % 3 === 1 ? 1.2 : 1.8;
   return {
     id,
     kind: 'crate_stack',
@@ -105,7 +106,7 @@ function crateStack(id: string, x: number, z: number, rotationY: number, variant
     y: y ?? ground(x, z),
     rotationY,
     variant,
-    colliders: [boxCollider(1.25, height / 2, 0.75, 0, height / 2, 0)],
+    colliders: crateStackColliders(variant),
   };
 }
 
@@ -1343,7 +1344,7 @@ function routeDressingSeeds(): PropSeed[] {
       const z = a.z + nz * offset;
       path.push(vec3(x, ground(x, z), z));
     }
-    if (path.length >= 2) seeds.push(polylineProp(id, 'fence', path, variant));
+    if (path.length >= 2) seeds.push(polylineProp(id, 'fence', path, variant, fenceColliders(path)));
   };
   const ramp = FJORD_ROUTES.coastalRamp.points;
   fenceAlong('ramp_fence_left', ramp, 8.2, 2, ramp.length - 4, 0);
@@ -1415,6 +1416,32 @@ function siloSeeds(): PropSeed[] {
   }));
 }
 
+/** Mark the existing hard world limit with red guardrails on land and sea buoys. */
+function boundarySeeds(): PropSeed[] {
+  const seeds: PropSeed[] = [];
+  const rim = MAP_HALF_SIZE - 0.5;
+  for (let side = 0; side < 4; side++) {
+    let path: Vec3[] = [];
+    const flush = (): void => {
+      if (path.length >= 2) seeds.push(polylineProp(`boundary_fence_${side}_${seeds.length}`, 'fence', path, 4));
+      path = [];
+    };
+    for (let along = -rim; along <= rim + 0.01; along += rim * 2 / 64) {
+      const x = side === 0 ? -rim : side === 1 ? rim : along;
+      const z = side === 2 ? -rim : side === 3 ? rim : along;
+      const y = ground(x, z);
+      if (y > 0.5) path.push(vec3(x, y, z));
+      else {
+        flush();
+        if (Math.round((along + rim) / (rim * 2 / 64)) % 2 === 0)
+          seeds.push(simple(`boundary_buoy_${side}_${seeds.length}`, 'buoy', x, z, 0, 1, [], 0));
+      }
+    }
+    flush();
+  }
+  return seeds;
+}
+
 export function authoredStructureSeeds(): PropSeed[] {
   return [
     ...harborSeeds(),
@@ -1425,5 +1452,6 @@ export function authoredStructureSeeds(): PropSeed[] {
     ...transportSeeds(),
     ...routeDressingSeeds(),
     ...siloSeeds(),
+    ...boundarySeeds(),
   ];
 }

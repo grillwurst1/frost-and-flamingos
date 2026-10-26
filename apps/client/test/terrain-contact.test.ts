@@ -5,7 +5,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { Ray } from '@babylonjs/core/Culling/ray';
 import { Vector3 } from '@babylonjs/core/Maths/math';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { PhysicsWorld } from '@frost-and-flamingos/shared';
+import { PhysicsWorld, sampleMapHeight } from '@frost-and-flamingos/shared';
 import { buildTerrainMesh } from '../src/rendering/map/terrain-mesh';
 
 test('visible slopes meet the actual Rapier ground at sub-cell positions', async () => {
@@ -23,6 +23,7 @@ test('visible slopes meet the actual Rapier ground at sub-cell positions', async
       expect(hit.hit).toBe(true);
       expect(collider).not.toBeNull();
       expect(hit.pickedPoint!.y).toBeCloseTo(180 - collider!.timeOfImpact, 3);
+      expect(sampleMapHeight(x!, z!)).toBeCloseTo(180 - collider!.timeOfImpact, 3);
     }
   } finally {
     scene.dispose(); engine.dispose(); physics.dispose();

@@ -138,7 +138,12 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
 #endif
   float terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uFFToonParams.z);
   float full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uFFToonParams.z);
+#ifdef FF_TEXTURED
+  // Sculpted forms need a continuous light gradient, rather than flat cel islands.
+  float lightLevel = smoothstep(-0.35, 1.0, ndl + uFFToonParams.z) * shadow;
+#else
   float lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
+#endif
 
   float skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
   vec3 fill = mix(uFFGroundFill, uFFSkyFill, skyMix);
@@ -277,7 +282,11 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
 #endif
   let terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uniforms.uFFToonParams.z);
   let full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uniforms.uFFToonParams.z);
+#ifdef FF_TEXTURED
+  let lightLevel = smoothstep(-0.35, 1.0, ndl + uniforms.uFFToonParams.z) * shadow;
+#else
   let lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
+#endif
 
   let skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
   let fill = mix(uniforms.uFFGroundFill, uniforms.uFFSkyFill, skyMix);

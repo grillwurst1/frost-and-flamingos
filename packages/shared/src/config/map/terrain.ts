@@ -582,7 +582,7 @@ export function gridHeight(column: number, row: number): number {
 
 /**
  * Height of the triangulated heightfield. Each cell is split along the
- * (x0, z0)–(x1, z1) diagonal like the client mesh, so the walkable surface,
+ * (x0, z1)–(x1, z0) diagonal used by Rapier and the client mesh, so the walkable surface,
  * the rendered surface and this query agree.
  */
 export function sampleMapHeight(x: number, z: number): number {
@@ -596,8 +596,8 @@ export function sampleMapHeight(x: number, z: number): number {
   const h10 = BASE_HEIGHTS[(column + 1) * GRID_POINTS + row] ?? 0;
   const h01 = BASE_HEIGHTS[column * GRID_POINTS + row + 1] ?? 0;
   const h11 = BASE_HEIGHTS[(column + 1) * GRID_POINTS + row + 1] ?? 0;
-  if (fx >= fz) return h00 + fx * (h10 - h00) + fz * (h11 - h10);
-  return h00 + fz * (h01 - h00) + fx * (h11 - h01);
+  if (fx + fz <= 1) return h00 + fx * (h10 - h00) + fz * (h01 - h00);
+  return h11 + (1 - fx) * (h01 - h11) + (1 - fz) * (h10 - h11);
 }
 
 export function terrainNormalAt(x: number, z: number): Vec3 {

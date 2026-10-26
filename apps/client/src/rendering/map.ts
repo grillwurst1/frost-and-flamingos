@@ -34,7 +34,8 @@ import type { FacadeAtlas } from './facade-atlas';
 import { createFacadeMaterial, createSkyMaterial, createSpriteMaterial, createToonMaterial, createWaterMaterial } from './materials';
 import type { SpriteAtlas } from './sprite-atlas';
 import { buildFacadeMesh, supportsFacade } from './map/facades';
-import { SPRITE_PROP_KINDS, buildVegetation, type SpriteInstanceHandle } from './map/vegetation';
+import { buildVegetation, type SpriteInstanceHandle } from './map/vegetation';
+import { SOLID_NATURE_KINDS, buildSolidNature } from './map/solid-nature';
 import { drawBuilding } from './map/buildings';
 import { BRAKE_LEVER_HINGE, drawBrakeLeverBase, drawBrakeLeverHandle, drawBuildingExtras } from './map/extras';
 import { Affine, GeometryBatch, hash3 } from './map/geometry';
@@ -513,8 +514,8 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   for (const id of ['tower_a', 'tower_b', 'tower_c'] as const) towers.set(id, makeTowerVisual(scene, id));
 
   for (const prop of FJORD_MAP.props) {
-    // Painted billboards replace these visuals; their colliders stay in the blueprint.
-    if (atlas && SPRITE_PROP_KINDS.has(prop.kind)) continue;
+    // Blueprint trees and rocks always have solid 3D silhouettes, including at range.
+    if (SOLID_NATURE_KINDS.has(prop.kind)) continue;
     const tower = TOWER_PROP[prop.id];
     const dressing = towerDressingOf(prop);
     let batch: GeometryBatch;
@@ -638,6 +639,9 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
     const mesh = register(batch.toMesh(scene, `destructible-${id}`, material), destructibleList);
     if (mesh) destructibleMeshes.set(id, mesh);
   }
+  const nature = buildSolidNature(scene, material, FJORD_MAP.props);
+  for (const mesh of nature.meshes) { vertexCount += mesh.getTotalVertices(); staticMeshes.push(mesh); }
+  for (const [id, mesh] of nature.destructible) destructibleMeshes.set(id, mesh);
   // Near/far LOD pairs of thin detail; a destructible's pair hangs under its mesh
   // (identity world matrix) so hiding or disposing the building takes it along.
   for (const detail of fineDetails) {

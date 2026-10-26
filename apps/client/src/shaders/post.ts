@@ -302,17 +302,13 @@ float ffNoise(vec2 p) {
   return mix(mix(ffHash(i), ffHash(i + vec2(1.0, 0.0)), u.x), mix(ffHash(i + vec2(0.0, 1.0)), ffHash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 
-vec2 ffSnap(vec2 uv) {
-  return (floor(uv / uTexel) + 0.5) * uTexel;
-}
-
 float ffDepth(vec2 uv) {
-  float d = texture2D(depthSampler, ffSnap(uv)).r;
+  float d = texture2D(depthSampler, uv).r;
   return d <= 0.0 ? 100000.0 : d;
 }
 
 vec3 ffNormal(vec2 uv) {
-  return texture2D(normalSampler, ffSnap(uv)).xyz;
+  return texture2D(normalSampler, uv).xyz;
 }
 
 float ffNormalEdge(vec3 n0, vec3 n1) {
@@ -502,18 +498,14 @@ fn ffNoise(p : vec2f) -> f32 {
   return mix(mix(ffHash(i), ffHash(i + vec2f(1.0, 0.0)), u.x), mix(ffHash(i + vec2f(0.0, 1.0)), ffHash(i + vec2f(1.0, 1.0)), u.x), u.y);
 }
 
-fn ffSnap(uv : vec2f) -> vec2f {
-  return (floor(uv / uniforms.uTexel) + 0.5) * uniforms.uTexel;
-}
-
 fn ffDepth(uv : vec2f) -> f32 {
-  let d = textureSampleLevel(depthSampler, depthSamplerSampler, ffSnap(uv), 0.0).r;
+  let d = textureSampleLevel(depthSampler, depthSamplerSampler, uv, 0.0).r;
   if (d <= 0.0) { return 100000.0; }
   return d;
 }
 
 fn ffNormal(uv : vec2f) -> vec3f {
-  return textureSampleLevel(normalSampler, normalSamplerSampler, ffSnap(uv), 0.0).xyz;
+  return textureSampleLevel(normalSampler, normalSamplerSampler, uv, 0.0).xyz;
 }
 
 fn ffNormalEdge(n0 : vec3f, n1 : vec3f) -> f32 {

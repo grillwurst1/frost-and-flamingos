@@ -3,7 +3,7 @@
  * lanterns, signposts, leaning fences, bunting, stone walls, silos, cheese
  * wheels, flamingo statues, tents, flags, torches and runway markers.
  */
-import { sampleMapHeight, type MapProp } from '@frost-and-flamingos/shared';
+import { crateStackParts, sampleMapHeight, type MapProp } from '@frost-and-flamingos/shared';
 import { drawCheeseWheel } from './buildings';
 import { Affine, GeometryBatch, hash3, mix, shade, type RGB, type V3 } from './geometry';
 import { drawBush, drawFlowers } from './nature';
@@ -31,19 +31,14 @@ export function drawCrate(batch: GeometryBatch, size: number, seed: number, colo
 }
 
 function drawCrateStack(batch: GeometryBatch, prop: MapProp): void {
-  const v = prop.variant % 3;
   const seed = prop.position.x * 3.1 + prop.position.z;
-  if (v === 0) {
-    batch.at(-0.62, 0, 0, 0.1, () => drawCrate(batch, 1.2, seed));
-    batch.at(0.64, 0, 0.05, -0.12, () => drawCrate(batch, 1.2, seed + 1));
-    batch.at(0, 1.2, 0, 0.3, () => drawCrate(batch, 1.15, seed + 2));
-  } else if (v === 1) {
-    batch.at(-0.6, 0, 0, 0.2, () => drawCrate(batch, 1.15, seed));
-    batch.at(0.7, 0, 0.1, -0.2, () => drawBarrel(batch, seed + 3, P.alpineRed));
-  } else {
-    batch.at(0, 0, 0, 0.15, () => drawCrate(batch, 1.4, seed));
-    batch.at(0.2, 1.4, 0.1, -0.4, () => drawCrate(batch, 0.8, seed + 5));
-    batch.at(-1.2, 0, 0.4, 0, () => drawCheeseWheel(batch, 0.45, seed));
+  for (const [index, part] of crateStackParts(prop.variant).entries()) {
+    const p = part.position;
+    batch.at(p.x, p.y, p.z, part.yaw, () => {
+      if (part.kind === 'crate') drawCrate(batch, part.size, seed + index);
+      else if (part.kind === 'barrel') drawBarrel(batch, seed + index, P.alpineRed);
+      else drawCheeseWheel(batch, part.size, seed + index);
+    });
   }
 }
 

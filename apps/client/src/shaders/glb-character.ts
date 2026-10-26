@@ -179,7 +179,7 @@ void main(void) {
   float normalShift = log2(max(texSize.x / max(float(textureSize(normalSampler, 0).x), 1.0), 1.0));
   float lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 0.25)), 0.0, 12.0);
   vec3 mapNormal = texture2DLodEXT(normalSampler, vUV, lodNormal).xyz * 2.0 - 1.0;
-  mapNormal.xy *= uPaintParams.x;
+  mapNormal.xy *= uPaintParams.x * (1.0 - smoothstep(8.0, 30.0, length(cameraPosition - vWorldPosition)));
   normal = ffPerturbNormal(normal, vWorldPosition, vUV, normalize(mapNormal));
   float gloss = 0.0;
   float grain = 0.0;
@@ -355,7 +355,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let normalShift = log2(max(texSize.x / max(normalSize.x, 1.0), 1.0));
   let lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 0.25)), 0.0, 12.0);
   var mapNormal = textureSampleLevel(normalSampler, normalSamplerSampler, input.vUV, lodNormal).xyz * 2.0 - 1.0;
-  mapNormal = vec3f(mapNormal.xy * uniforms.uPaintParams.x, mapNormal.z);
+  mapNormal = vec3f(mapNormal.xy * uniforms.uPaintParams.x * (1.0 - smoothstep(8.0, 30.0, length(uniforms.cameraPosition - input.vWorldPosition))), mapNormal.z);
   normal = ffPerturbNormal(normal, input.vWorldPosition, input.vUV, normalize(mapNormal));
   let gloss = 0.0;
   var grain = 0.0;

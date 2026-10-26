@@ -1,8 +1,8 @@
 /**
  * Painted billboard vegetation, clutter and ground dressing.
  *
- * Every tree, palm and rock of the blueprint keeps its collider; only its
- * visual becomes a painted sprite from the atlas (rendering/sprite-atlas.ts).
+ * Blueprint trees, palms and rocks are solid 3D meshes (solid-nature.ts).
+ * Painted sprites from the atlas dress the ground and distant outer scenery.
  * On top of that a purely visual layer dresses the ground the way the
  * paintings do: grass tufts, flowers, bushes, snow drifts, dune grass,
  * saplings and logs around forests, painted decals (snow and mud patches,
@@ -40,9 +40,6 @@ import type { SpriteAtlas, SpriteEntry } from '../sprite-atlas';
 import { excludeFromInk, excludeFromShadows } from '../materials';
 import { hash3 } from './geometry';
 import { outerHeight, outerIsSea, outerSnowLine } from './terrain-mesh';
-
-/** Kinds whose visuals the sprite layer replaces (colliders unchanged). */
-export const SPRITE_PROP_KINDS: ReadonlySet<string> = new Set(['fir', 'palm', 'rock']);
 
 const CLUTTER_CHUNK = 200;
 const CLUTTER_LOD_DISTANCE = 270;
@@ -351,53 +348,13 @@ export function buildVegetation(
     addBlob(x, z, height * entry.aspect * entry.shadow * 2, height, strength);
   };
 
-  // --- Blueprint trees, palms and rocks (colliders stay in the blueprint) ---
+  // Soft contact shadows supplement the real 3D nature meshes. The playable
+  // trees and rocks are never replaced by rotating image planes.
   for (const prop of props) {
-    if (!SPRITE_PROP_KINDS.has(prop.kind)) continue;
-    const { x, z } = prop.position;
-    const seed = hash3(x * 0.37, z * 0.29, 11);
-    const flip = hash3(z, x, 12) > 0.5;
-    const target = trees;
-    if (prop.destructibleId) destructible.set(prop.destructibleId, trees.count);
-    const y = sampleMapHeight(x, z);
-    if (prop.kind === 'fir') {
-      const snow = snowAt(x, z);
-      const young = prop.variant === 3 && prop.scale < 1.05;
-      let pool: SpriteEntry[];
-      if (snow > 0.3) {
-        if (young) pool = pools.firSnow.small;
-        else if (prop.variant === 2) pool = seed < 0.1 && pools.firSnow.bare.length > 0 ? pools.firSnow.bare : pools.firSnow.medium;
-        else pool = pools.firSnow.tall;
-      } else {
-        pool = pools.firGreen;
-      }
-      if (pool.length === 0) pool = pools.firSnow.tall.length > 0 ? pools.firSnow.tall : pools.firGreen;
-      const entry = choose(pool, seed);
-      if (!entry) continue;
-      const height = entry.height * prop.scale * (young ? 0.85 : 0.9 + hash3(x, 3, z) * 0.18);
-      target.billboard(entry, x, y, z, height, flip, CULL.tree);
-      shadowFor(entry, x, z, height, 0.5);
-    } else if (prop.kind === 'palm') {
-      const pool = prop.variant === 3 && pools.palmShort.length > 0 ? pools.palmShort : pools.palmTall;
-      const entry = choose(pool, seed);
-      if (!entry) continue;
-      const height = entry.height * prop.scale * (0.92 + hash3(x, 5, z) * 0.16);
-      target.billboard(entry, x, y, z, height, flip, CULL.tree);
-      shadowFor(entry, x, z, height, 0.46);
-    } else {
-      const snowy = snowAt(x, z) > 0.4;
-      const big = prop.scale > 1.45;
-      const pool = snowy
-        ? big ? pools.rockSnowBig : pools.rockSnowSmall
-        : big ? pools.rockBeachBig : pools.rockBeachSmall;
-      const entry = choose(pool.length > 0 ? pool : pools.rockSnowBig, seed);
-      if (!entry) continue;
-      // Match the collider footprint (box half-width 1.05 x scale).
-      const width = 2.35 * prop.scale;
-      const height = width / entry.aspect;
-      target.billboard(entry, x, y - 0.12 * prop.scale, z, height, flip, CULL.rock);
-      shadowFor(entry, x, z, height, 0.42);
-    }
+    const p = prop.position;
+    if (prop.kind === 'rock') addBlob(p.x, p.z, prop.scale * 2.1, prop.scale * 1.5, 0.32);
+    else if (prop.kind === 'fir' || prop.kind === 'palm')
+      addBlob(p.x, p.z, prop.scale * (prop.kind === 'fir' ? 4 : 3), prop.scale * 8, 0.3);
   }
 
   // --- Forest floor and palm-grove dressing around the blueprint trees ---

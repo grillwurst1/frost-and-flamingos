@@ -365,6 +365,9 @@ export class GeometryBatch {
     surface: SurfaceKind,
     options: { capBottom?: boolean; capTop?: boolean; phase?: number; wobble?: number; seed?: number } = {},
   ): void {
+    // Round metal shafts must not become visibly square at close range.
+    // Smooth vertex normals alone cannot round a four/six-sided silhouette.
+    if (surface === 'metal') segments = Math.max(12, segments);
     const phase = options.phase ?? 0;
     const wobble = options.wobble ?? 0;
     const seed = options.seed ?? 0;
