@@ -55,6 +55,18 @@ uniform vec4 uFFInkColor;
 uniform sampler2D detailColor;
 uniform vec4 uFFColorParams;
 
+// Surface-gradient bump: reuse the already filtered albedo as a shallow
+// height signal. Derivatives run unconditionally in main (WGSL parity).
+vec3 ffGroundRelief(vec3 normal, vec3 position, float height) {
+  vec3 dx = dFdx(position);
+  vec3 dy = dFdy(position);
+  vec3 r1 = cross(dy, normal);
+  vec3 r2 = cross(normal, dx);
+  float determinant = dot(dx, r1);
+  vec3 gradient = (dFdx(height) * r1 + dFdy(height) * r2) * sign(determinant) / max(abs(determinant), 0.000001);
+  return normalize(normal - clamp(gradient, vec3(-0.55), vec3(0.55)));
+}
+
 float ffIsId(float id, float k) {
   return 1.0 - step(0.5, abs(id - k));
 }
@@ -397,6 +409,16 @@ struct FFSurface {
   gloss : f32,
   hatch : f32,
 };
+
+fn ffGroundRelief(normal : vec3f, position : vec3f, height : f32) -> vec3f {
+  let dx = dpdx(position);
+  let dy = dpdy(position);
+  let r1 = cross(dy, normal);
+  let r2 = cross(normal, dx);
+  let determinant = dot(dx, r1);
+  let gradient = (dpdx(height) * r1 + dpdy(height) * r2) * sign(determinant) / max(abs(determinant), 0.000001);
+  return normalize(normal - clamp(gradient, vec3f(-0.55), vec3f(0.55)));
+}
 
 fn ffIsId(id : f32, k : f32) -> f32 {
   return 1.0 - step(0.5, abs(id - k));

@@ -383,7 +383,7 @@ export function drawPlazaPaving(batch: GeometryBatch): void {
       color = mix(color, mix(P.mud, P.dirt, 0.5), Math.min(0.55, mud));
       color = mix(color, P.grassShade, Math.min(0.45, moss));
       color = mix(color, P.snowMid, Math.min(0.6, melt));
-      stone(r0, r1, a0, a1, shade(color, 0.97 + hash3(index, ring, 2) * 0.06), 0.06);
+      stone(r0, r1, a0, a1, shade(color, 0.97 + hash3(index, ring, 2) * 0.06), 0.004);
     }
   }
   // Kerb ring of long dark stones.

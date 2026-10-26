@@ -81,12 +81,16 @@ void main(void) {
   float hatch;
   vec3 normal = normalize(vWorldNormal);
 #ifdef FF_TERRAIN
+  float reliefWeight = dot(vTerrainMixA, vec4(0.05, 0.035, 0.02, 0.07)) + dot(vTerrainMixB, vec4(0.12, 0.025, 0.01, 0.02));
   vec3 albedo = ffTerrainSurface(vColor, vTerrainMixA, vTerrainMixB, vWorldPosition, normal, gloss, hatch);
 #else
+  float reliefWeight = ffIsId(floor(vColor.a * 32.0), 4.0) * 0.12;
   vec3 dpx = dFdx(vLocalPosition);
   vec3 dpy = dFdy(vLocalPosition);
   vec3 albedo = ffSurface(vColor, vLocalPosition, vLocalNormal, vWorldPosition, dpx, dpy, gloss, hatch);
 #endif
+  float reliefFade = (1.0 - smoothstep(8.0, 38.0, length(cameraPosition - vWorldPosition))) * smoothstep(0.45, 0.85, normal.y);
+  normal = ffGroundRelief(normal, vWorldPosition, dot(albedo, vec3(0.333333)) * reliefWeight * reliefFade);
   vec3 lit = ffToon(albedo, normal, vWorldPosition, gloss, rimStrength, hatch);
   gl_FragColor = vec4(ffHaze(lit, vWorldPosition), 1.0);
 }
@@ -155,17 +159,21 @@ varying vTerrainMixB : vec4f;
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
 #ifdef FF_TERRAIN
+  let reliefWeight = dot(input.vTerrainMixA, vec4f(0.05, 0.035, 0.02, 0.07)) + dot(input.vTerrainMixB, vec4f(0.12, 0.025, 0.01, 0.02));
   let dpx = dpdx(input.vWorldPosition);
   let dpy = dpdy(input.vWorldPosition);
   let surface = ffTerrainSurface(input.vColor, input.vTerrainMixA, input.vTerrainMixB, input.vWorldPosition, normalize(input.vWorldNormal), dpx, dpy);
   let normal = surface.normal;
 #else
+  let reliefWeight = ffIsId(floor(input.vColor.a * 32.0), 4.0) * 0.12;
   let dpx = dpdx(input.vLocalPosition);
   let dpy = dpdy(input.vLocalPosition);
   let surface = ffSurface(input.vColor, input.vLocalPosition, input.vLocalNormal, input.vWorldPosition, dpx, dpy);
   let normal = normalize(input.vWorldNormal);
 #endif
-  let lit = ffToon(surface.albedo, normal, input.vWorldPosition, surface.gloss, uniforms.rimStrength, surface.hatch);
+  let reliefFade = (1.0 - smoothstep(8.0, 38.0, length(uniforms.cameraPosition - input.vWorldPosition))) * smoothstep(0.45, 0.85, normal.y);
+  let reliefNormal = ffGroundRelief(normal, input.vWorldPosition, dot(surface.albedo, vec3f(0.333333)) * reliefWeight * reliefFade);
+  let lit = ffToon(surface.albedo, reliefNormal, input.vWorldPosition, surface.gloss, uniforms.rimStrength, surface.hatch);
   fragmentOutputs.color = vec4f(ffHaze(lit, input.vWorldPosition), 1.0);
 }
 `;
