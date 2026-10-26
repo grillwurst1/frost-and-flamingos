@@ -73,6 +73,11 @@ export interface VehicleRoomHooks<P extends VehicleOccupant> {
   critterRaycast?(origin: Vec3, direction: Vec3, maxDistance: number): { critterId: number; distance: number } | null;
   killCritter?(critterId: number, killerId: number, weaponId: WeaponId | null): void;
   killCrittersInSphere?(center: Vec3, radius: number, killerId: number, weaponId: WeaponId | null): void;
+  /**
+   * True during a ceasefire (the conquest results intermission, package 4T):
+   * hulls take no damage and ram nobody, run-overs spare the hens.
+   */
+  ceasefire?(): boolean;
 }
 
 export type SeatResult = 'none' | 'seated' | 'hands';
@@ -1065,6 +1070,8 @@ export class VehicleManager<P extends VehicleOccupant> {
 
   private damage(record: VehicleRecord, attacker: P | null, amount: number, weaponId: WeaponId | null, kind: 'bullet' | 'explosive'): void {
     if (record.lifecycle !== 'active' || amount <= 0) return;
+    // Ceasefire: shells, splash, bullets and wreck blasts leave every hull as it is.
+    if (this.hooks.ceasefire?.()) return;
     const team = this.vehicleTeam(record);
     if (attacker && team && attacker.profile.faction === team) return;
     const factor = kind === 'bullet' ? record.definition.armor.bullet : record.definition.armor.explosive;
@@ -1203,8 +1210,10 @@ export class VehicleManager<P extends VehicleOccupant> {
     // A grace credit rams for the bailed driver's side, whoever boarded since.
     const team = !seatedDriver && driver ? driver.profile.faction : this.vehicleTeam(record);
     const half = definition.halfExtents;
+    // Ceasefire: contacts only shove (no ram damage, no run-overs).
+    const truce = this.hooks.ceasefire?.() ?? false;
     // A driven hull runs over the hens in its path (credited like a ram).
-    if (driver && moved > 1 && this.hooks.killCrittersInSphere) {
+    if (driver && moved > 1 && !truce && this.hooks.killCrittersInSphere) {
       const radius = half.x + 0.2;
       const steps = Math.max(1, Math.ceil((half.z * 2) / (radius * 1.5)));
       for (let step = 0; step <= steps; step += 1) {
@@ -1240,7 +1249,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       const impact = Math.min(moved, Math.max(0, closing));
       const enemy = !!team && player.profile.faction !== team;
       record.ramCooldowns.set(player.id, tick + RAM_VICTIM_COOLDOWN_TICKS);
-      const rams = tick >= cooldown && enemy && !!driver && impact >= ram.minSpeed && tick >= player.spawnProtectionUntil;
+      const rams = !truce && tick >= cooldown && enemy && !!driver && impact >= ram.minSpeed && tick >= player.spawnProtectionUntil;
       // Only a capsule caught inside the hull box is moved out (to a free
       // spot, at once); anyone merely touching it gets the plain shove below.
       if (!rams && insideBox) {

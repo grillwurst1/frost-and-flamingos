@@ -495,6 +495,8 @@ export class MatchRoom {
         this.critters.kill(critterId, killerId, weaponId);
       },
       killCrittersInSphere: (center, radius, killerId, weaponId) => this.critters.killInSphere(center, radius, killerId, weaponId, null),
+      // The results intermission (package 4T) is a ceasefire for hulls too.
+      ceasefire: () => this.isCeasefire(),
     });
     // Capture-gated slots (`{ capture: TowerId }`) follow the Climate Conquest towers.
     this.vehicles.setTowerQuery((tower, faction) => this.isTowerHeldBy(tower, faction));
@@ -502,6 +504,8 @@ export class MatchRoom {
       seed: critterSeed,
       enabled: critters,
       onKill: (kill) => this.broadcastCritterKill(kill),
+      // Hens are spared during the results intermission like everyone else.
+      ceasefire: () => this.isCeasefire(),
     });
   }
 

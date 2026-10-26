@@ -53,6 +53,8 @@ export interface CritterSystemOptions {
   onKill?: (kill: CritterKill) => void;
   /** False builds an empty system (rooms without critters). Default true. */
   enabled?: boolean;
+  /** True during a ceasefire (the conquest results intermission): no critter can be killed. */
+  ceasefire?: () => boolean;
 }
 
 interface Critter {
@@ -162,6 +164,7 @@ export class CritterSystem {
   private readonly physics: PhysicsWorld;
   private readonly random: () => number;
   private readonly onKill: (kill: CritterKill) => void;
+  private readonly ceasefire: () => boolean;
   private readonly critters: Critter[] = [];
   private readonly history: HistorySample[] = [];
   /** Land nav nodes per half that are clear of the spawn pads, with spawn weights. */
@@ -175,6 +178,7 @@ export class CritterSystem {
     this.physics = physics;
     this.random = mulberry32(options.seed);
     this.onKill = options.onKill ?? (() => {});
+    this.ceasefire = options.ceasefire ?? (() => false);
     this.collectSpawnNodes();
     let id = 1;
     for (const species of options.enabled === false ? [] : CRITTER_ROSTER) {
@@ -845,8 +849,7 @@ export class CritterSystem {
             : Math.hypot(body.x - center.x, body.z - center.z) <= radius + critter.stats.body.radius &&
               Math.abs(pose.position.y - center.y) <= verticalReach;
         if (inside) {
-          this.kill(critter.id, killerId, weaponId);
-          kills += 1;
+          if (this.kill(critter.id, killerId, weaponId)) kills += 1;
           return;
         }
       }
@@ -856,7 +859,7 @@ export class CritterSystem {
 
   kill(critterId: number, killerId: number, weaponId: WeaponId | null): boolean {
     const critter = this.critters.find((entry) => entry.id === critterId);
-    if (!critter || !critter.alive) return false;
+    if (!critter || !critter.alive || this.ceasefire()) return false;
     critter.alive = false;
     critter.speed = 0;
     critter.airborne = false;
