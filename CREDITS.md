@@ -102,6 +102,22 @@ other soldiers. The two drifter characters keep only their own clips.
 | `apps/client/public/models/alpine-ghostgirl.glb` | Creepy Mountain Girl (drifter) | `art-src/meshy/meshy-alpine-ghostgirl.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/lagoon-beachgirl.glb` | Hot Beach Girl (drifter; Meshy's static export, rigged in the project) | `art-src/meshy/meshy-lagoon-beachgirl.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
 | `apps/client/public/models/hen.glb` (+ `hen-basecolor.webp`, 1024²; simplified to 7.8k triangles) | Wandering hen (ambient critter) | `art-src/meshy/meshy-hen.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/vehicle-fondue-crawler.glb` (+ `-basecolor.webp`; simplified to about 8k triangles) | Armored Fondue Crawler | `art-src/meshy/meshy-vehicle-fondue-crawler.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/vehicle-coconut-tank.glb` (+ `-basecolor.webp`; simplified to about 8k triangles) | Coconut Beach Tank | `art-src/meshy/meshy-vehicle-coconut-tank.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/vehicle-flamingo-boat.glb` (+ `-basecolor.webp`; simplified to about 8k triangles) | Tactical Badi-Flamingo | `art-src/meshy/meshy-vehicle-flamingo-boat.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/vehicle-sidecar.glb` (+ `-basecolor.webp`; simplified to about 8k triangles) | Sidecar Motorcycle | `art-src/meshy/meshy-vehicle-sidecar.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/mascots/cow.glb` | Alpine Cow mascot (bell and ear bones added by `scripts/optimize-mascots.ts`) | `art-src/meshy/meshy-cow.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+| `apps/client/public/models/mascots/coconut.glb` | Battle Coconut mascot (optional shell, `?coconutShell=meshy`) | `art-src/meshy/meshy-coconut.glb` | CC BY 4.0, 3D model generated with Meshy (meshy.ai) |
+
+The other Meshy downloads in `art-src/meshy/` (biplane, rowboat, gondola, NPC cow) are not shipped yet.
+
+### Mascot art
+
+| File | Use | Source |
+| --- | --- | --- |
+| `apps/client/public/art/mascot/coconut-faces.png` | The coconut's 12 painted expressions | owner-generated (Google Gemini) sheet `art-src/gemini/gemini-coconut-faces.webp` |
+| `apps/client/public/art/mascot/lei-flowers.png` | The coconut's flower garland | owner-generated (Google Gemini) sheet `art-src/gemini/gemini-lei-flowers.webp` |
+| `apps/client/public/art/mascot/coconut-husk.jpg` | Painted husk of the default coconut shell | painted from the owner's coconut design sheet `art-src/gemini/gemini-sheet-coconut.webp` |
 
 ## Music
 
