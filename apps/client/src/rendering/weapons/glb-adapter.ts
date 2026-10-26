@@ -46,6 +46,12 @@ function heroWeaponProp(scene: Scene, id: WeaponId, material: ShaderMaterial): W
       hold.offset = pose.shoulder;
       hold.yaw = pose.yaw;
     },
+    reset: () => {
+      weapon.reset();
+      hold.tilt = pose.tilt;
+      hold.offset = pose.shoulder;
+      hold.yaw = pose.yaw;
+    },
   };
 }
 

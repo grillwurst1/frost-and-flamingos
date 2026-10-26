@@ -101,7 +101,8 @@ export interface HoldSpec {
 
 /** Per-frame state a weapon prop animates from (umbrella canopy, flashes). */
 export interface WeaponPropState {
-  airborne: boolean;
+  /** A long fall (far past a jump's air time, dropping fast); never an ordinary hop. */
+  falling: boolean;
   preview: boolean;
 }
 
@@ -262,6 +263,8 @@ export interface WeaponProp {
   fire?(): void;
   /** Per-frame prop animation; may update `hold` (umbrella overhead). */
   animate?(deltaSeconds: number, state: WeaponPropState): void;
+  /** Back to the resting state (furled, no flash); called when the prop is equipped again. */
+  reset?(): void;
 }
 
 export type WeaponPropFactory = (scene: Scene, id: WeaponId, material: ShaderMaterial) => WeaponProp | null;

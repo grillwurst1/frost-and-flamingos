@@ -128,6 +128,9 @@ const HOLD_OFFSETS: Readonly<Record<HoldStyle, readonly [number, number, number]
 
 /** Shoulder-anchored holds: the most the weapon moves for the support hand. */
 const MAX_SUPPORT_PULL = 0.08;
+/** A long fall, not a jump (hops last ~0.66 s): the umbrella may open overhead. */
+const FALL_AIR_TIME = 0.9;
+const FALL_SPEED = 4;
 
 const AXIS_X = new Vector3(1, 0, 0);
 const AXIS_Y = new Vector3(0, 1, 0);
@@ -772,7 +775,8 @@ export class GlbCharacterView implements AvatarView {
     this.armed = approach(this.armed, weaponVisible ? 1 : 0, dt * 6);
     this.setWeapon(this.armedModel ? pose.weaponId ?? null : null);
     if (this.weapon) this.weapon.mesh.setEnabled(this.armed > 0.3);
-    this.weapon?.animate?.(dt, { airborne: airborne && this.airTime > 0.35, preview: this.previewing });
+    const falling = airborne && this.airTime > FALL_AIR_TIME && pose.velocity.y < -FALL_SPEED;
+    this.weapon?.animate?.(dt, { falling, preview: this.previewing });
 
     if (this.remotePitchTimer > 0) this.remotePitchTimer -= dt;
     const pitchInput = pose.pitch ?? (this.remotePitchTimer > 0 ? this.remotePitch : 0);
@@ -1198,6 +1202,8 @@ export class GlbCharacterView implements AvatarView {
       this.weapons.set(id, prop);
     }
     this.weapon = prop ?? null;
+    // A prop equipped again starts furled and flash-free.
+    prop?.reset?.();
     const rear = prop?.hold.rear;
     this.weaponRear = !prop ? 0 : rear !== undefined ? Math.min(0, rear ?? 0) : Math.min(0, prop.mesh.getBoundingInfo().boundingBox.minimum.z);
   }

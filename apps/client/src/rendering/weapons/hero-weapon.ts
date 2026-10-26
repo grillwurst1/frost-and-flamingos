@@ -27,8 +27,8 @@ export interface HeroWeaponOptions {
 }
 
 export interface HeroWeaponState {
-  /** Falling / gliding: the umbrella opens overhead. */
-  airborne: boolean;
+  /** A long fall (never an ordinary jump): the umbrella opens overhead. */
+  falling: boolean;
   /** Wardrobe / menu turntable: show the weapon at its best. */
   preview: boolean;
 }
@@ -56,6 +56,8 @@ export interface HeroWeapon {
   /** Shot feedback on the prop: muzzle flash / plume / sound rings, umbrella pop. */
   fire(): void;
   animate(deltaSeconds: number, state: HeroWeaponState): void;
+  /** Resting state again (furled, no flash, base hold); the next animate snaps the pose. */
+  reset(): void;
   dispose(): void;
 }
 
@@ -68,9 +70,16 @@ const GRIP_FROM_WRIST: V3 = [0.045, -0.05, 0.072];
 /** Same for the support hand: its wrist sits up-left-behind the grip point. */
 const SUPPORT_WRIST_FROM_GRIP: V3 = [0.045, 0.04, -0.07];
 
-/** Umbrella overhead while gliding, and held out front as a shield after a pop. */
+/**
+ * Umbrella overhead in a long fall. There is no shield pose: the umbrella has
+ * no glide or shield mechanic yet (zero-damage melee), so a click only pops
+ * the canopy open on the shoulder for a moment.
+ */
 const UMBRELLA_GLIDE = { shoulder: [0.1, 0.38, 0.06] as V3, tilt: 0.05, yaw: 0 };
-const UMBRELLA_SHIELD = { shoulder: [0.14, -0.02, 0.3] as V3, tilt: -1.05, yaw: 0.15 };
+/** How long a click keeps the canopy popped open (seconds). */
+const UMBRELLA_POP = 0.9;
+/** Hold pose easing rate (1/s): about a quarter second from carry to overhead. */
+const POSE_EASE = 9;
 
 const flashMaterials = new WeakMap<Scene, StandardMaterial>();
 
@@ -242,6 +251,10 @@ class HeroWeaponProp implements HeroWeapon {
   private openness = 0;
   private openVelocity = 0;
   private popTimer = 0;
+  /** Blend weight of the overhead (falling) umbrella pose. */
+  private glide = 0;
+  /** False until the first animate after (re-)equipping: that frame snaps the pose. */
+  private settled = false;
   private disposed = false;
 
   constructor(
@@ -326,7 +339,20 @@ class HeroWeaponProp implements HeroWeapon {
       this.flashFresh = true;
       this.flashSpin = Math.random() * Math.PI * 2;
     }
-    if (this.open) this.popTimer = 1.6;
+    if (this.open) this.popTimer = UMBRELLA_POP;
+  }
+
+  reset(): void {
+    this.flashAge = Infinity;
+    this.flashFresh = false;
+    this.flash?.setEnabled(false);
+    this.popTimer = 0;
+    this.openness = 0;
+    this.openVelocity = 0;
+    this.open?.setEnabled(false);
+    this.closed?.setEnabled(true);
+    this.glide = 0;
+    this.settled = false;
   }
 
   animate(deltaSeconds: number, state: HeroWeaponState): void {
@@ -355,21 +381,30 @@ class HeroWeaponProp implements HeroWeapon {
       }
     }
     if (this.open && this.closed) this.animateUmbrella(dt, state);
-    this.updatePose(state);
+    this.updatePose(dt, state);
   }
 
-  /** Hold for this frame: base, turntable preview, or the umbrella's states. */
-  private updatePose(state: HeroWeaponState): void {
+  /**
+   * Hold for this frame: base or turntable preview, eased towards the
+   * umbrella's overhead pose while falling (never switched in one frame;
+   * only the first frame after equipping snaps).
+   */
+  private updatePose(dt: number, state: HeroWeaponState): void {
     const pose = this.pose;
-    const base = this.design.hold;
-    let target: { shoulder: V3; tilt: number; yaw: number } = state.preview && this.design.preview ? this.design.preview : base;
-    if (this.open) {
-      if (state.airborne && this.openness > 0.3) target = UMBRELLA_GLIDE;
-      else if (!state.preview && this.popTimer > 0) target = UMBRELLA_SHIELD;
-    }
-    pose.shoulder = [target.shoulder[0], target.shoulder[1], target.shoulder[2]];
-    pose.tilt = target.tilt;
-    pose.yaw = target.yaw;
+    const base: { shoulder: V3; tilt: number; yaw: number } = state.preview && this.design.preview ? this.design.preview : this.design.hold;
+    const glideTarget = this.open && state.falling && !state.preview ? 1 : 0;
+    const ease = this.settled ? 1 - Math.exp(-POSE_EASE * dt) : 1;
+    this.settled = true;
+    this.glide += (glideTarget - this.glide) * ease;
+    const w = this.glide * this.glide * (3 - 2 * this.glide);
+    const glide = UMBRELLA_GLIDE;
+    pose.shoulder = [
+      base.shoulder[0] + (glide.shoulder[0] - base.shoulder[0]) * w,
+      base.shoulder[1] + (glide.shoulder[1] - base.shoulder[1]) * w,
+      base.shoulder[2] + (glide.shoulder[2] - base.shoulder[2]) * w,
+    ];
+    pose.tilt = base.tilt + (glide.tilt - base.tilt) * w;
+    pose.yaw = base.yaw + (glide.yaw - base.yaw) * w;
   }
 
   /** Spring the canopy open (preview, gliding, after a pop) or furled. */
@@ -378,7 +413,7 @@ class HeroWeaponProp implements HeroWeapon {
     const closed = this.closed;
     if (!open || !closed) return;
     this.popTimer = Math.max(0, this.popTimer - dt);
-    const target = state.preview || state.airborne || this.popTimer > 0 ? 1 : 0;
+    const target = state.preview || state.falling || this.popTimer > 0 ? 1 : 0;
     // Under-damped spring: a cartoon "pop" with overshoot when opening.
     const stiffness = target > this.openness ? 260 : 120;
     const damping = target > this.openness ? 14 : 18;
@@ -388,11 +423,14 @@ class HeroWeaponProp implements HeroWeapon {
     open.setEnabled(shown);
     closed.setEnabled(!shown);
     if (shown) {
-      // Radial spread from a furled bundle, canopy hinging on the tip.
+      // Radial spread from a furled bundle about the shaft, hinging on the tip.
       const spread = Math.min(1.12, this.openness);
-      const tipY = 0.96 + (this.options.origin === 'wrist' ? GRIP_FROM_WRIST[1] : 0);
+      const wrist = this.options.origin === 'wrist';
+      const shaftX = (wrist ? GRIP_FROM_WRIST[0] : 0) * (this.options.mirrorX ? -1 : 1);
+      const shaftZ = wrist ? GRIP_FROM_WRIST[2] : 0;
+      const tipY = 0.96 + (wrist ? GRIP_FROM_WRIST[1] : 0);
       open.scaling.set(spread, 0.7 + 0.3 * spread, spread);
-      open.position.y = tipY * (1 - open.scaling.y);
+      open.position.set(shaftX * (1 - open.scaling.x), tipY * (1 - open.scaling.y), shaftZ * (1 - open.scaling.z));
     }
   }
 
