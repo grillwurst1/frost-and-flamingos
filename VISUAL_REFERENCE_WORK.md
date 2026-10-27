@@ -43,7 +43,7 @@ The full game was tested with software WebGL2; no native Mac heat/FPS claim is m
 ## Remaining visual work
 
 The exact visual target is **not complete**. Continue comparing the running game: broader
-hero proportions/stance, foreground framing, strong angular gorge silhouette, chalet/bridge/
+hero proportions/stance, strong angular gorge silhouette, chalet/bridge/
 coast composition, vehicle detail and comic effects still differ. Camera changes must keep
 aiming/occlusion functional. Burning/collapsing buildings belong to M6 after M5, not static
 fake fire. Use real players/vehicles rather than inventing screenshot names or a decorative cow.
@@ -51,3 +51,17 @@ Do not start new M5 toys until the active visual request is handled; M6/M7 are n
 
 Cable car itself is verified and replaces interim spawn plates. Bots do not yet ride it;
 team balance remains an open M8 check. Other M5 items remain in `MILESTONE_WORK.md`.
+
+## Foreground/aim follow-up
+
+Closer left-foreground human camera, lateral collision and clean snap momentum are
+implemented. Centre-ray targeting converges on the real eye and local muzzle. The server
+uses the existing finite aim vector while keeping authoritative origins and all hit rules.
+Personal projectiles start at the eye to preserve thin near cover. Four client/three
+server regression cases cover framing, parallax, fast-turn aiming, malformed input and
+real hits behind cover. Release passes: 262 tests (10 scripts, 192 server, 60 client), clean typecheck and build.
+WebGL2 medium confirms an actual centre-reticle hit on a binary-connected opponent
+(150 to 122 HP) and captures the new framing without console errors. The camera
+framing is closer, but the hero silhouette and world layout still differ.
+The backpack clock face currently points inward and the ski boots need taller shafts;
+these are the next visible model corrections.

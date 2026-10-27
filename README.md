@@ -431,3 +431,19 @@ nameplates and cable-car motion, seat changes, crouch, exit and station brake ev
 console errors. Five material variants compile under WebGPU without errors. Moving cabin
 and fallback boat meshes now follow their parents; regression checks cover hull translation
 and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeasured.
+
+### Reference foreground camera and reticle (27 October 2026)
+
+The human shoulder camera puts the full hero further left and closer to the reference.
+A sideways world ray retracts the shoulder beside walls; snaps clear spring momentum.
+Personal shots converge on the centre-ray target from the server eye instead of running
+parallel past the reticle. Only a finite normalized aim is accepted; origin, cover,
+range, ammo, cadence and damage remain authoritative. Aim stays independent of movement
+yaw while the spring camera catches a fast turn. Muzzle tracers converge on the same point.
+Personal projectiles begin at the eye so they cannot skip a thin wall within 70 cm.
+No packet-layout change, texture, post-processing pass or per-frame target ray is added.
+
+Validation of the framing/aim follow-up: 262 tests pass (10 script, 192 server,
+60 client), strict typecheck is clean and production builds succeed. WebGL2 medium
+confirms an actual reticle hit through the binary client/server path (150 → 122 HP),
+with no browser errors. The exact screenshot match remains open.

@@ -499,7 +499,8 @@ describe('vehicle edge cases', () => {
     expect(towedAfter).toBeGreaterThan(VEHICLE_ABANDON_SECONDS);
     expect(towedAfter).toBeLessThan(VEHICLE_ABANDON_SECONDS + 1);
     room.stop();
-  });
+  // Simulates both handover and the full 75-second tow timeout; allow slower CI CPUs.
+  }, 15000);
 
   test('a flamingo turbo-slid onto the beach is stranded; shoved back into the water it floats and drives again', async () => {
     const room = await createRoom();

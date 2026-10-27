@@ -95,3 +95,9 @@ C crouch, F exit and station brake binary events without console errors. The ren
 cabin and fallback rowboats now unfreeze their map-batch world matrices; regression checks
 verify hull translation and actual oar rotation. Five material variants compile under
 WebGPU without device/shader errors. Native Mac performance remains unmeasured.
+
+Visual follow-up: reference foreground framing, lateral camera collision, clean snaps,
+real reticle convergence and thin-cover projectile fixes pass 262 tests, strict
+typecheck/build and a WebGL2 medium real-opponent hit check. New milestone toys remain
+deferred for current graphics. Next visible corrections: backpack clock orientation,
+tall detailed ski boots and stronger soldier silhouette.

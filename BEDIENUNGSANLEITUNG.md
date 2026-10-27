@@ -910,3 +910,18 @@ Hocken, Ausstieg und Notbremsereignisse ohne Konsolenfehler. Fünf Materialvaria
 kompilieren unter WebGPU fehlerfrei. Die bewegten Gondel-/Ersatzboot-Meshes folgen
 ihren Halterungen; Regressionstests prüfen Rumpfbewegung und Ruderdrehung.
 Cloud-Rendering verwendet Software; native Mac-FPS und Temperatur sind nicht gemessen.
+
+### Schulterperspektive und Zielen (27. Oktober 2026)
+
+Die Figur steht größer und weiter links im Vordergrund wie im Zielbild. An einer Wand
+zieht die Kamera seitlich ein; nach einem Positionssprung bleibt kein alter Kameraschwung
+übrig. Der Schuss läuft jetzt zum Punkt unter dem Fadenkreuz statt parallel daneben.
+Der Server berechnet den Treffer weiterhin vom echten Auge aus: Hinter einer Deckung
+kannst du deshalb nicht durch die Wand schießen. Auch die sichtbare Spur vom Waffenlauf
+zeigt zum Zielpunkt. Projektile überspringen keine unmittelbar davor liegende dünne Wand
+mehr. Tasten, Bildwinkel, Bildratenlimit und Bildqualität bleiben gleich.
+
+Geprüft: 262 Tests bestanden (10 Skript-, 192 Server-, 60 Client-Tests), saubere
+Typprüfung und erfolgreicher Build. Im WebGL2-Browser auf „Mittel“ trifft die neue
+Zielberechnung einen echten Mitspieler (150 → 122 HP), ohne Konsolenfehler. Ein
+exakter grafischer Treffer zur Vorlage ist weiterhin nicht erreicht.

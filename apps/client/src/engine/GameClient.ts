@@ -23,6 +23,7 @@ import {
   WEAPON_STATS,
   WEAPON_TABLE,
   classStatsFor,
+  convergedShotDirection,
   wireToSpawnYaw,
   createDefaultProfile,
   mascotFormOf,
@@ -654,7 +655,8 @@ export class GameClient {
         for (const { id, root } of candidates) {
           if (!root.isEnabled()) continue;
           if (shooterFaction && this.vehicles?.factionOf?.(id) === shooterFaction) continue;
-          if (players.find((player) => player.id === id)?.alive === false) continue;
+          const state = players.find((player) => player.id === id);
+          if (state?.alive === false || state?.classId === 'drifter') continue;
           const feet = root.getAbsolutePosition();
           const centre = { x: feet.x, y: feet.y + 0.9, z: feet.z };
           const along = (centre.x - origin.x) * direction.x + (centre.y - origin.y) * direction.y + (centre.z - origin.z) * direction.z;
@@ -1736,12 +1738,19 @@ export class GameClient {
     if (now - this.lastFireSentAt < interval) return;
     this.lastFireSentAt = now;
 
-    const direction = directionFromAngles(camera.lookYaw, camera.lookPitch);
-    const origin = {
-      x: character.position.x + direction.x * 0.25,
-      y: character.position.y + character.eyeHeight - (this.vehicles?.eyeDrop(character.stats.height) ?? 0) + direction.y * 0.25,
-      z: character.position.z + direction.z * 0.25,
+    const forward = camera.camera.getDirection(Vector3.Forward()).normalize();
+    const eyes = {
+      x: character.position.x,
+      y: character.position.y + character.eyeHeight - (this.vehicles?.eyeDrop(character.stats.height) ?? 0),
+      z: character.position.z,
     };
+    const cameraOrigin = camera.camera.position;
+    const worldHit = this.physics?.raycast(cameraOrigin, forward, stats.range, this.vehicles?.localHullCollider() ?? undefined);
+    let aimDistance = worldHit?.distance ?? stats.range;
+    const avatarHit = this.vehicles?.avatarHit?.(cameraOrigin, forward, aimDistance, this.localFaction);
+    if (avatarHit) aimDistance = Math.min(aimDistance, Math.hypot(avatarHit.x-cameraOrigin.x, avatarHit.y-cameraOrigin.y, avatarHit.z-cameraOrigin.z));
+    const direction = convergedShotDirection(eyes, cameraOrigin, forward, aimDistance);
+    const origin = eyes;
     this.network.sendFire({
       clientTick: this.lastSnapshotTick,
       origin,
@@ -1749,16 +1758,9 @@ export class GameClient {
       weaponId: WEAPON_TABLE.code[weaponId],
     });
     audio.playWeaponFire(weaponId, undefined, true);
-    this.tracers?.shot(
-      weaponId,
-      this.vehicles?.passengerMuzzle() ?? this.localView?.muzzlePosition?.() ?? {
-        x: character.position.x,
-        y: character.position.y + character.eyeHeight,
-        z: character.position.z,
-      },
-      camera.lookYaw,
-      camera.lookPitch,
-    );
+    const muzzle = this.vehicles?.passengerMuzzle() ?? this.localView?.muzzlePosition?.() ?? eyes;
+    const tracerDirection = convergedShotDirection(muzzle, cameraOrigin, forward, aimDistance);
+    this.tracers?.shot(weaponId, muzzle, Math.atan2(tracerDirection.x, tracerDirection.z), Math.asin(tracerDirection.y));
     this.localView?.kick?.();
     this.vehicles?.kickPassengerWeapon();
     if (stats.magazine > 0 && state && state.ammo <= 0) audio.playDryFire();

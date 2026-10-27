@@ -442,3 +442,22 @@ nameplates and cable-car motion, seat changes, crouch, exit and station brake ev
 console errors. Five material variants compile under WebGPU without errors. Moving cabin
 and fallback boat meshes now follow their parents; regression checks cover hull translation
 and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeasured.
+
+### Reference framing and actual reticle aim (27 October 2026)
+
+Human camera defaults: 1.9 m shoulder, 1.64 m pivot, 3.25 m distance, same 62-degree FOV.
+Lateral collision retracts the shoulder near walls; snaps clear both spring velocities.
+`shared/aim.ts` validates finite unit-direction input and converges a camera centre ray
+on a target from the actual eye. Do not validate against movement yaw: the camera spring
+may still face elsewhere after a fast turn. The server keeps authoritative eye origin,
+world obstruction, range, rewind, ammo and cadence. Existing FireRequest direction now
+drives personal shots/remote tracers; the wire layout and protocol 11 stay unchanged.
+Projectile origins no longer advance 70 cm through near cover. Four client and three
+server regression tests cover framing, wall retraction, aim, malformed vectors and cover.
+The 75-second tow/handover integration case has a 15-second CI wall-clock allowance;
+its simulated duration and assertions are unchanged. No additional render pass.
+
+Validation of the framing/aim follow-up: 262 tests pass (10 script, 192 server,
+60 client), strict typecheck is clean and production builds succeed. WebGL2 medium
+confirms an actual reticle hit through the binary client/server path (150 → 122 HP),
+with no browser errors. The exact screenshot match remains open.

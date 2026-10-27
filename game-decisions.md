@@ -1832,3 +1832,20 @@ nameplates and cable-car motion, seat changes, crouch, exit and station brake ev
 console errors. Five material variants compile under WebGPU without errors. Moving cabin
 and fallback boat meshes now follow their parents; regression checks cover hull translation
 and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeasured.
+
+### Reticle convergence for the reference camera
+
+Use a closer left-foreground shoulder framing with lateral camera collision. The visual
+centre ray chooses the nearest world/avatar point; the player's firing direction points
+from the authoritative eye toward it. The client submits that finite normalized input
+through the existing FireRequest direction. Movement yaw can differ during spring-camera
+turns. The server never advances the shot origin to a client-requested point and retains
+cover/range/ammo/cadence/rewind/damage checks. Shots from personal projectile weapons start
+at the eye, preventing the previous 70 cm spawn offset from bypassing a thin wall.
+Local muzzle tracers converge to the same target. Camera snaps clear spring momentum.
+All work is within the active graphics/functional correction, not a new milestone.
+
+Validation of the framing/aim follow-up: 262 tests pass (10 script, 192 server,
+60 client), strict typecheck is clean and production builds succeed. WebGL2 medium
+confirms an actual reticle hit through the binary client/server path (150 → 122 HP),
+with no browser errors. The exact screenshot match remains open.

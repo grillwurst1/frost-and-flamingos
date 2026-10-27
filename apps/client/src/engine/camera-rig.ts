@@ -10,13 +10,13 @@ const MIN_DISTANCE = 2.7;
 const MAX_DISTANCE = 8.2;
 /**
  * Painting-style framing (owner reference art): close, low and wide. The
- * pivot sits just above the shoulders and ~1 m to the side, so the hero
+ * pivot sits near eye height and to the side, so the hero
  * stands in the lower-left like the painted foreground figures and the scene
  * (busy foreground, horizon) keeps the centre of the frame.
  */
-const SHOULDER_OFFSET = 1.32;
-const PLAYER_PIVOT_HEIGHT = 1.36;
-const PLAYER_DISTANCE = 3.6;
+const SHOULDER_OFFSET = 1.9;
+const PLAYER_PIVOT_HEIGHT = 1.64;
+const PLAYER_DISTANCE = 3.25;
 /** Vertical FOV while playing (62 deg); menu, wardrobe and killer cam keep the tele framing. */
 const PLAYER_FOV = 1.0821;
 const SHOWCASE_FOV = 0.88;
@@ -201,7 +201,16 @@ export class CameraRig {
       Math.cos(this.yaw) * cosPitch,
     );
     const right = new Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    const shoulder = this.profile.shoulder * this.shoulderSide;
+    let shoulder = this.profile.shoulder * this.shoulderSide;
+    if (shoulder !== 0) {
+      const side = Math.sign(shoulder);
+      const hit = physics.raycast(
+        { x: feet.x, y: feet.y + this.profile.pivotHeight, z: feet.z },
+        { x: right.x * side, y: 0, z: right.z * side },
+        Math.abs(shoulder) + 0.25, this.ignoredCollider,
+      );
+      if (hit) shoulder = side * Math.min(Math.abs(shoulder), Math.max(0, hit.distance - 0.25));
+    }
     const pivot = new Vector3(
       feet.x + right.x * shoulder,
       feet.y + this.profile.pivotHeight,
@@ -212,6 +221,8 @@ export class CameraRig {
     if (!this.initialized) {
       this.pivotSpring.value.copyFrom(pivot);
       this.positionSpring.value.copyFrom(desiredCamera);
+      this.pivotSpring.velocity.setAll(0);
+      this.positionSpring.velocity.setAll(0);
       this.initialized = true;
     }
 
@@ -360,7 +371,11 @@ export class CameraRig {
   snapToPlayer(feet: Vector3): void {
     this.initialized = false;
     this.camera.fov = PLAYER_FOV;
-    this.pivotSpring.value.set(feet.x, feet.y + this.profile.pivotHeight, feet.z);
+    const shoulder = this.profile.shoulder * this.shoulderSide;
+    this.pivotSpring.value.set(feet.x + Math.cos(this.yaw) * shoulder,
+      feet.y + this.profile.pivotHeight, feet.z - Math.sin(this.yaw) * shoulder);
+    this.pivotSpring.velocity.setAll(0);
+    this.positionSpring.velocity.setAll(0);
     const cosPitch = Math.cos(this.pitch);
     const forward = new Vector3(
       Math.sin(this.yaw) * cosPitch,

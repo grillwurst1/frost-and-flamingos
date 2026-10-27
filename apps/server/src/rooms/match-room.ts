@@ -1,3 +1,4 @@
+import { validatedShotDirection } from '@frost-and-flamingos/shared';
 import {
   CLASS_DEFAULT_LOADOUTS,
   DRIFTER_AURA,
@@ -589,7 +590,7 @@ export class MatchRoom {
 
       if (!player.isBot && player.fireQueue.length > 0) {
         const fire = player.fireQueue.shift();
-        if (fire) this.tryFire(player, fire.clientTick);
+        if (fire) this.tryFire(player, fire.clientTick, fire.direction);
       }
     }
 
@@ -959,7 +960,7 @@ export class MatchRoom {
     ammo.reserve -= Math.max(0, loaded);
   }
 
-  private tryFire(player: PlayerConnection, clientTick: number): void {
+  private tryFire(player: PlayerConnection, clientTick: number, requestedDirection?: Vec3): void {
     if (!player.alive) return;
     // Mascots and drifters carry no firearms.
     if (player.character.form || !capabilitiesOf(player).armed) return;
@@ -969,6 +970,11 @@ export class MatchRoom {
     const stats = WEAPON_STATS[weaponId];
     if (stats.fireMode === 'melee' && stats.damage <= 0) return;
     if (player.reloadEndsTick > this.physicsTick) return;
+
+    const aim = requestedDirection
+      ? validatedShotDirection(requestedDirection)
+      : directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
+    if (!aim) return;
 
     const minimumTicks = Math.max(1, Math.round((PHYSICS_TICK_RATE * 60) / Math.max(1, stats.rpm)));
     if (this.physicsTick - player.lastFireTick < minimumTicks) return;
@@ -990,9 +996,9 @@ export class MatchRoom {
       eventType: 'WEAPON_FIRED',
       actorId: player.id,
       targetId: 0,
-      // The camera yaw is unbounded: wrapped first, or the int16 clamps it.
-      paramX: Math.round(wrapAngle(player.lastInput.yaw) * 100),
-      paramZ: Math.round(player.lastInput.pitch * 100),
+      // Replicate the validated barrel direction so remote tracers match the hit ray.
+      paramX: Math.round(Math.atan2(aim.x, aim.z) * 100),
+      paramZ: Math.round(Math.asin(Math.max(-1, Math.min(1, aim.y))) * 100),
       paramValue: WEAPON_TABLE.code[weaponId],
     });
     // Gunfire scatters the critters near the shooter and along the shot up to
@@ -1000,22 +1006,21 @@ export class MatchRoom {
     // surroundings scatter now, the impact blast does the rest.
     {
       const eye = this.eyePosition(player);
-      const aim = directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
       const lane =
         stats.fireMode === 'projectile' ? 0 : Math.min(stats.range, this.physics.raycast(eye, aim, stats.range, this.vehicles.hullColliderOf(player.id))?.distance ?? stats.range);
       this.critters.alertShot(eye, aim, lane);
     }
 
     if (stats.fireMode === 'projectile') {
-      const direction = directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
+      const direction = aim;
       const origin = this.eyePosition(player);
       const forward = normalizeDirection(direction);
       this.projectiles.push({
         ownerId: player.id,
         position: {
-          x: origin.x + forward.x * 0.7,
-          y: origin.y + forward.y * 0.7,
-          z: origin.z + forward.z * 0.7,
+          x: origin.x,
+          y: origin.y,
+          z: origin.z,
         },
         velocity: {
           x: forward.x * Math.max(30, stats.projectileSpeed),
@@ -1033,7 +1038,7 @@ export class MatchRoom {
     const pellets = Math.max(1, stats.pellets);
     for (let pellet = 0; pellet < pellets; pellet += 1) {
       const direction = spreadDirection(
-        directionFromAngles(player.lastInput.yaw, player.lastInput.pitch),
+        aim,
         stats.spread,
       );
       this.resolveShot(player, stats.range, stats.damage, weaponId, direction, clientTick);
@@ -2547,7 +2552,8 @@ export class MatchRoom {
     if (!weaponId) return;
     if (weaponId !== weaponForSlot(player.profile.loadout, player.activeSlot)) return;
     const serverEye = this.eyePosition(player);
-    if (distance3(serverEye, fire.origin) > 6) return;
+    const originDistance = distance3(serverEye, fire.origin);
+    if (!Number.isFinite(originDistance) || originDistance > 6) return;
     if (player.fireQueue.length >= 8) player.fireQueue.shift();
     player.fireQueue.push(fire);
   }
