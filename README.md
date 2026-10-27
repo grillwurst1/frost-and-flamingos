@@ -1,8 +1,9 @@
 # Frost & Flamingos — Bullets, Fondue & Coconuts
 
-**Current build:** M5 in progress — Climate Conquest, six drivable vehicle types,
+**Current build:** M5 in progress — Climate Conquest, six drivable vehicle types plus cable cars,
 painted world, configurable soldiers, drifters, mascots and hens.
-**Active work:** completing M5, then M6–M8 in order, authorized by the owner on 26 October.
+**Active work:** matching the owner’s latest visual reference; further M5 features follow
+after this graphics pass, then M6–M8 in order.
 Development proceeds serially; see [MILESTONE_WORK.md](MILESTONE_WORK.md).
 
 A clean-room, browser-based third-person multiplayer action-cartoon shooter built with
@@ -28,7 +29,7 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
 >   towers, global weather shader, 50-ticket conquest loop and ten networked vehicles.
 >   *In the M5-Kern test build:* rebuilt 257 × 257 Fjord Fiesta, Climate Conquest (towers,
 >   tickets, weather balance, rounds), six drivable vehicle types and repairs. *Still open:*
->   cable car, T-bar, coaster, hammock, NPC cow and full tower weather transformations.
+>   T-bar, coaster, hammock, NPC cow and full tower weather transformations.
 > - [ ] **M6 — Destruction, Craters, Decal Ring Buffer & Match Sync:** three-stage buildings,
 >   real terrain craters, repairable bridges, felled trees, billboards, 4,096-decal ring
 >   buffer, deterministic round reset and late-join map sync.
@@ -47,17 +48,14 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
   Dairy) with 16 m capture zones, 50 vacation tickets per team, a ticket drain for the side
   holding fewer towers, a weather balance that tints sky, light and water, 20-minute rounds,
   a 15 s results ceasefire and an automatic round reset. Hold `Tab` for the scoreboard.
-- **Fjord Fiesta, rebuilt and painted.** 800 m × 800 m on a 257 × 257 heightfield: lagoon and
-  beach in the south-west, village and waterfall gorge in the middle, snowy summit in the
-  north-east, both faction bases. Painted billboard trees, bushes and clutter, painted
-  facades, painted terrain layers and ground decals, a foothill ring beyond the map edge and a
-  painterly comic post pass with ink outlines.
-- **Five classes.** Allrounder, Heavy and Infiltrator as painted, rigged soldiers (six Meshy
-  models, one per class and faction); the **Mascot** — Alpine Cow (Peak Guard) or Battle
-  Coconut (Lagoon League) — that rams instead of shooting; and the untouchable **Drifter** —
-  Creepy Mountain Girl or Hot Beach Girl — who only walks and supplies her team with an aura.
-- **Four vehicles.** Fondue Crawler, Coconut Beach Tank, Tactical Badi-Flamingo boat and
-  Sidecar Motorcycle, two seats each, server-authoritative and predicted for the driver.
+- **Fjord Fiesta in 3D.** 800 m × 800 m on a shared 257 × 257 heightfield: lagoon,
+  village, snowy gorge, summit and both faction bases. Solid 3D vegetation/rocks, painted
+  terrain and actual paving relief, clean cel shading, contours and FXAA.
+- **Five classes.** Configurable skinned Allrounder, Heavy and Infiltrator, the ramming
+  Alpine Cow/Battle Coconut mascots and the untouchable supply-aura Drifter.
+- **Vehicles and cable cars.** Fondue Crawler, Coconut Beach Tank, Badi-Flamingo, sidecar,
+  rowboats and biplanes, plus two counter-running cable cars with interior/roof seats and
+  working emergency brakes. Authority and prediction share the same vehicle motor.
 - **Wandering hens** on both halves of the map: they scatter from people and gunfire and can
   be shot (feather burst and a kill-feed line, no score).
 - **Live wardrobe:** body type, 12 skin tones, 8 hair colours, 7 hairstyles, 7 cosmetic slots,
@@ -202,7 +200,7 @@ art-src/      untouched owner sources (Meshy downloads, Gemini sheets, painted-w
   with it and the server simulates it at 60 Hz. Vehicles share one motor in
   `packages/shared/src/physics/vehicle.ts`.
 - **Climate Conquest rules** in `packages/shared/src/config/conquest.ts` (numbers) and
-  `apps/server/src/rooms/conquest.ts` (fixed-step simulation); protocol version **9**.
+  `apps/server/src/rooms/conquest.ts` (fixed-step simulation); protocol version **11**.
 - **One map blueprint** in `packages/shared/src/config/map-fjord.ts`; client visuals and
   server colliders derive from it.
 - **Binary protocol only.** Changing packet layout requires a `PROTOCOL_VERSION` bump.
@@ -232,21 +230,15 @@ See [`game-decisions.md`](game-decisions.md) for the full design and decision re
 
 This is a test build. Deliberately **not** in it:
 
-- **Rest of M5:** no cable car or T-bar ride, alpine coaster, hammock catapult or NPC cow
-  behaviour, and no cable-car gondola. Until the cable car exists, Peak Guard gets
-  interim spawn plates on the gorge floor below the cable-car mid station while it holds
-  Tower C. Weather towers change hands and the weather balance tints sky, light and water,
-  but the big tower transformations (unfolding snow cannon, spraying flamingos) come later.
-- **Procedural fallback characters (1E)** — the planned rewrite is deferred; every class
-  already shows its painted model, and the procedural rig only appears as a fallback.
+- **Rest of M5:** T-bar ride, alpine coaster, hammock catapult, NPC cow behaviour
+  and full tower transformations. The cable car is operational; interim gorge spawn plates
+  are removed. Bots do not yet use the cabins, so team balance remains open.
 - **Hot Beach Girl:** her full exemption from the painterly post pass is open; she still gets
   the silhouette ink and the colour grading.
 - **M6 destruction and M7 meta** are not started.
 
 Known issues:
 
-- The terrain collider and the rendered terrain split steep cells along opposite diagonals
-  (up to ~3.7 m), so feet can float above or sink into steep slopes.
 - The alpine coaster's start deck intrudes ~2.5 m into the tank road.
 - A boat driven fully onto dry sand stays stuck; get out and it deflates after 10 s and
   respawns.
@@ -409,3 +401,33 @@ WebGL2 checks V, painted motorcycle interior, hands/weapon and held wrench,
 actual repair, return to third person and hiding hands in the wardrobe, with no
 console errors. A focused viewmodel lifecycle check also passes after the final
 framing adjustment. Native Mac temperature/FPS remain unmeasured.
+
+### Latest visual reference and cable car (27 October 2026)
+
+The field HUD now follows the latest reference: tickets/objectives/compass at the top,
+map at top right, profile health at bottom left, skills/tools in the centre and weapon
+cards at bottom right. Blue allied/red enemy names and triangles follow actual players,
+respect world occlusion and hide cloaked opponents. The cached map uses real shared map
+data and live allied positions, with no second 3D camera. Key labels reflect the actual
+Q/E/T skills, slot 3 and X repair; weapon slots remain 1/2/3.
+
+New/reset allrounders wear a green waistcoat over white sleeves, brown beard, cuckoo clock
+and red ski boots. Wardrobe settings remain editable and saved profiles are preserved.
+Snowy gorge rims, blue-grey faceted cliffs, lower solid bridge posts and cleaner cel
+lighting bring the environment closer to the reference. Painted skies/facades are optional
+via `?paintedSky=1&paintedFacades=1`; the default uses the actual 3D surfaces. The existing
+frame cap, quality governor and two post passes remain. An exact visual match is still
+unfinished; see `VISUAL_REFERENCE_WORK.md`.
+
+Cable car: F boards/exits, H cycles interior/roof seats, C/Ctrl crouches on the roof.
+F at a station lever or a hitscan shot brakes both cabins for two seconds. Crouched roof
+riders hold on; standing roof riders fall. Cabins wait three seconds at each station.
+Protocol 11 adds the append-only cabin vehicle kind and reuses the existing full-pose
+and crouch fields. A cabin is one merged mesh under 6,000 triangles.
+
+Verified 27 October: 255 automated tests (10 script, 189 server, 56 client), clean strict
+TypeScript/Svelte diagnostics and successful production bundles. WebGL2 checks real HUD/
+nameplates and cable-car motion, seat changes, crouch, exit and station brake events without
+console errors. Five material variants compile under WebGPU without errors. Moving cabin
+and fallback boat meshes now follow their parents; regression checks cover hull translation
+and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeasured.

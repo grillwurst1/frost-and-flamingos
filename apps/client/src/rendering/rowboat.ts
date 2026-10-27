@@ -38,6 +38,7 @@ export function buildRowboat(scene: Scene, material: Material, parent: Transform
   batch.log([-0.2,0.6,1.69],[0.2,0.6,1.69],0.025,[0.72,0.69,0.55],'plain');
   const hull = batch.toMesh(scene,'rowboat-clinker-hull',material);
   if (!hull) throw new Error('Rowboat hull geometry is empty.');
+  hull.unfreezeWorldMatrix(); hull.doNotSyncBoundingInfo=false;
   hull.parent=parent; hull.isPickable=false;
   const oars: RowboatModel['oars'] = [];
   for (const [row,z] of [-0.6,0.55].entries()) for (const side of [-1,1]) {
@@ -48,6 +49,7 @@ export function buildRowboat(scene: Scene, material: Material, parent: Transform
     oar.box(side*-0.27,0,0,0.36,0.045,0.055,light,'wood',0.018);
     const blade = oar.toMesh(scene,'rowboat-oar',material);
     if (!blade) throw new Error('Rowboat oar geometry is empty.');
+    blade.unfreezeWorldMatrix(); blade.doNotSyncBoundingInfo=false;
     blade.parent=pivot;
     oars.push({pivot,side,row});
   }

@@ -308,7 +308,8 @@ export type VehicleKind =
   | 'coconut_tank'
   | 'rowboat'
   | 'sidecar'
-  | 'biplane';
+  | 'biplane'
+  | 'cable_car';
 
 export interface VehicleSpawnPoint {
   readonly id: string;

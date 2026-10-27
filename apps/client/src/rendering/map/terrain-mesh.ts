@@ -26,6 +26,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import { GeometryBatch, hash3, mix, shade, type RGB } from './geometry';
 import { P } from './palette';
+import { referenceFrost } from './reference-frost';
 import { SURFACE_ATTRIBUTE, surfaceId, type SurfaceKind } from './surfaces';
 import { TERRAIN_MIX_A_ATTRIBUTE, TERRAIN_MIX_B_ATTRIBUTE } from '../materials';
 
@@ -174,7 +175,7 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
   const alpine = smooth((height - (SNOWLINE_Y + 10)) / 16);
   const streak = fine > 0.62 || patch > 0.8 ? 1 : 0;
   const rockForSnow = rockWeight * (1 - alpine * (streak ? 0.25 : 0.75));
-  const snow = height >= WATER_LEVEL ? terrainSnowWeight(height, biome.snowBias, rockForSnow, SNOWLINE_Y) : 0;
+  const snow = height >= WATER_LEVEL ? Math.max(terrainSnowWeight(height, biome.snowBias, rockForSnow, SNOWLINE_Y), referenceFrost(x,z,height)*(1-rockWeight*.8)) : 0;
   if (snow > 0) {
     // Steeper, wind-blown slopes read cooler and bluer than the sheltered flats.
     const windBlown = smooth((slope - 0.16) / 0.34) * 0.6;

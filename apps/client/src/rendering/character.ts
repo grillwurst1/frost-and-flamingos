@@ -521,6 +521,12 @@ export class CharacterView {
     const front = chestDepth / 2 + 0.012;
 
     if (torso === 'torso_tracht_shirt') {
+      const vest = hexToColor4('#465d32');
+      box(scene, body, 'ranger-vest-back', shoulderWidth * 0.87, 0.47, 0.025, 0, 0.27, -chestDepth / 2 - 0.014, vest);
+      for (const side of [-1, 1]) {
+        box(scene, body, 'ranger-vest-panel', shoulderWidth * 0.37, 0.45, 0.035, side * shoulderWidth * 0.24, 0.28, front + 0.01, vest);
+        box(scene, body, 'ranger-vest-pocket', 0.12, 0.07, 0.018, side * 0.14, 0.13, front + 0.035, vest);
+      }
       box(scene, body, 'tracht-placket', 0.07, 0.33, 0.02, 0, 0.36, front, torsoSecondary);
       for (let button = 0; button < 3; button += 1) {
         sphere(scene, body, 'tracht-button', 0.035, 0, 0.25 + button * 0.1, front + 0.012, torsoAccent, {

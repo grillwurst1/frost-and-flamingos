@@ -187,7 +187,7 @@ export const de: TranslationDictionary = {
       face_sunscreen: 'Sonnencreme-Streifen',
     },
     torso: {
-      torso_tracht_shirt: 'Trachtenhemd',
+      torso_tracht_shirt: 'Trachtenhemd mit Weste',
       torso_dirndl_vest: 'Dirndl-Weste',
       torso_loden_coat: 'Lodenmantel',
       torso_hawaii_shirt: 'Hawaiihemd',
@@ -444,6 +444,24 @@ export const de: TranslationDictionary = {
     vehicleRepairKey: 'X halten',
   },
   hud: {
+    minimap: 'Übersichtskarte',
+    compass: 'Kompass',
+    healthValue: '{current}/{max} HP',
+    weaponShort: {
+      smg: 'MP',
+      lmg: 'LMG',
+      sniper: 'Scharfschütze',
+      shotgun: 'Schrotflinte',
+      bazooka: 'Bazooka',
+      silenced_pistol: 'Leise Pistole',
+      knife: 'Messer',
+      snow_cannon: 'Mobile Schneekanone',
+      sand_flamer: 'Sandwerfer',
+      crossbow: 'Armbrust',
+      halberd: 'Hellebarde',
+      umbrella: 'Regenschirm',
+      horn: 'Alphorn',
+    },
     health: 'Vitalität',
     classLabel: 'Klasse',
     factionLabel: 'Fraktion',
@@ -605,6 +623,7 @@ export const de: TranslationDictionary = {
     teamBalanced: 'Du spielst jetzt für die {faction}, damit die Teams ausgeglichen bleiben.',
   },
   world: {
+    cableCar: { brake: 'Notbremshebel ziehen', screech: 'QUIIIETSCH!' },
     mapName: 'Fjord-Fiesta',
     mapSubtitle: 'Alpengipfel trifft türkise Lagune',
     zones: {
@@ -823,6 +842,7 @@ export const de: TranslationDictionary = {
   },
   vehicles: {
     names: {
+      cable_car: 'Roter Fjord-Express',
       biplane: 'Himmelsflitzer-Doppeldecker',
       rowboat: 'Holz-Ruderboot',
       fondue_crawler: 'Fondue-Raupe',
@@ -831,6 +851,7 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen-Motorrad',
     },
     enter: {
+      cable_car: 'In die Seilbahn einsteigen',
       biplane: 'In den Doppeldecker oder auf einen Flügel steigen',
       rowboat: 'Ins Ruderboot steigen',
       fondue_crawler: 'In die Fondue-Raupe klettern',
@@ -839,6 +860,8 @@ export const de: TranslationDictionary = {
       sidecar: 'Aufs Seitenwagen-Motorrad steigen',
     },
     seats: {
+      cabin: 'Geschützte Kabine',
+      roof: 'Kabinendach',
       wing: 'Flügelplatz',
       rower: 'Ruderer',
       driverGunner: 'Fahrer & Kanone',
@@ -850,6 +873,7 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen',
     },
     hud: {
+      cableCar: 'H wechselt den Platz · C/Strg hält dich bei einer Notbremsung fest',
       passengerView: 'Beifahreransicht',
       flight: 'W/S Schub · Maus steuert · A/D Seitenruder',
       bail: 'Abspringen',
@@ -879,6 +903,7 @@ export const de: TranslationDictionary = {
       crew: 'Besatzung',
     },
     keys: {
+      rideSeat: 'H',
       view: 'V',
       bail: 'Leertaste',
       repair: 'X',

@@ -96,8 +96,8 @@ interface WeatherPreset {
 const hex = hexToColor3;
 
 const WEATHER_NEUTRAL: WeatherPreset = {
-  zenith: hex('#3E8FE0'),
-  horizon: hex('#9FD3F5'),
+  zenith: hex('#81CDEA'),
+  horizon: hex('#8DD0E6'),
   sunDisc: new Color3(1, 0.99, 0.9),
   glow: new Color3(1, 0.93, 0.7),
   // Warm key light against cool blue-violet shade (paintings).
@@ -110,11 +110,11 @@ const WEATHER_NEUTRAL: WeatherPreset = {
   hazeStart: 200,
   groundHaze: new Color3(0.72, 0.86, 0.95),
   cloudShade: hex('#C9DDF0'),
-  cloudScale: 1,
-  waterShallow: hex('#3FE0D0'),
-  waterMid: hex('#1FB5C9'),
-  waterDeep: hex('#0E6FA8'),
-  grade: new Vector4(1.0, 1.06, 1.02, 0.12),
+  cloudScale: 0.32,
+  waterShallow: hex('#8DC9D4'),
+  waterMid: hex('#68AFCB'),
+  waterDeep: hex('#4B91B1'),
+  grade: new Vector4(1.0, 1.03, 0.97, 0.03),
   shadowTone: new Color3(-0.015, 0.0, 0.04),
   highlightTone: new Color3(0.012, 0.004, -0.006),
   tint: new Color3(1, 1, 1),
@@ -220,11 +220,11 @@ export class SceneLook {
   private quality: VisualQuality = 'high';
   private weather = 0;
   private readonly grade = new Vector4(1, 1, 1, 0);
-  private readonly gradeExtra = new Vector4(0.2, 0.05, 1, 1);
+  private readonly gradeExtra = new Vector4(0.04, 0, 1, 1);
   private readonly shadowTone = new Color3(0, 0, 0);
   private readonly highlightTone = new Color3(0, 0, 0);
-  private readonly inkParams = new Vector4(0.5, 0.08, 0.65, 0);
-  private readonly inkFade = new Vector4(18, 110, 0.4, 0.18);
+  private readonly inkParams = new Vector4(0.85, 0.075, 0.72, 0);
+  private readonly inkFade = new Vector4(28, 145, 0.6, 0.3);
   private readonly gbufferList: AbstractMesh[] = [];
   private cloudRoot: TransformNode | null = null;
   private hasPainterlyClouds = false;
@@ -302,7 +302,7 @@ export class SceneLook {
     this.setVisualQuality(initialQuality);
     this.setWeatherLook(0);
     this.setBooting(true);
-    void this.loadPaintedSky();
+    if (new URLSearchParams(window.location.search).get('paintedSky') === '1') void this.loadPaintedSky();
     this.installDevHandle();
   }
 
@@ -330,9 +330,9 @@ export class SceneLook {
     this.quality = tier;
     const profile = QUALITY[tier];
     const values = this.context.values;
-    values.detailParams.set(0.28, 35, 120, profile.detailMode);
+    values.detailParams.set(0.09, 35, 120, profile.detailMode);
     // Painted colour tiles on wood, logs, shingles and cobbles (~1 repeat per 2 m).
-    values.colorParams.set(0.55, 0.5, 0, 0);
+    values.colorParams.set(0.2, 0.5, 0, 0);
     values.toonParams.w = 0;
     this.gradeExtra.y = 0;
     this.inkParams.w = 0;
@@ -623,7 +623,7 @@ export class SceneLook {
     const ink = this.context.values.inkColor;
     const scale = height / 1080;
     effect.setFloat2('uTexel', 1 / width, 1 / height);
-    effect.setFloat4('uInkColor', ink.r, ink.g, ink.b, this.geometryBuffer ? 0.45 : 0);
+    effect.setFloat4('uInkColor', ink.r, ink.g, ink.b, this.geometryBuffer ? 0.85 : 0);
     effect.setFloat4(
       'uInkParams',
       Math.max(0.65, this.inkParams.x * Math.max(0.8, scale)),

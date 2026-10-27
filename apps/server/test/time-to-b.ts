@@ -7,26 +7,21 @@
  *
  *   bun test/time-to-b.ts [minutes]
  */
-import { FJORD_MAP, INTERIM_CABLE_CAR_SPAWNS, PHYSICS_TICK_RATE, captureZoneIndexAt, type Faction, type Vec3 } from '@frost-and-flamingos/shared';
+import { FJORD_MAP, PHYSICS_TICK_RATE, captureZoneIndexAt, type Faction, type Vec3 } from '@frost-and-flamingos/shared';
 import { createConquestRoom } from './conquest-harness';
 
 const minutes = Number(process.argv[2] ?? 30);
-// Tuning aid: FF_INTERIM_SHARE overrides the interim cable-car share for this run only.
-if (process.env.FF_INTERIM_SHARE) {
-  (INTERIM_CABLE_CAR_SPAWNS as { share: number }).share = Number(process.env.FF_INTERIM_SHARE);
-}
-console.log(`[time-to-B] interim share ${INTERIM_CABLE_CAR_SPAWNS.share}`);
 const harness = await createConquestRoom(true);
 const { internal } = harness;
 
 function sourceOf(position: Vec3): string {
   let best = 'unknown';
   let bestDistance = 1.5;
-  for (const spawn of [...FJORD_MAP.spawns, ...INTERIM_CABLE_CAR_SPAWNS.pads]) {
+  for (const spawn of FJORD_MAP.spawns) {
     const distance = Math.hypot(spawn.position.x - position.x, spawn.position.z - position.z);
     if (distance < bestDistance) {
       bestDistance = distance;
-      best = spawn.id.includes('cablecar') ? 'cablecar' : spawn.source;
+      best = spawn.source;
     }
   }
   return best;

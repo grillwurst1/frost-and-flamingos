@@ -132,15 +132,15 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   // Painted skinned characters: widen the hard bands by the screen-space
   // derivative so dense meshes and normal maps do not alias into speckles.
-  float bandAA = max(0.16, fwidth(ndl) * 1.5);
+  float bandAA = max(0.055, fwidth(ndl) * 1.5);
 #else
   float bandAA = 0.12;
 #endif
   float terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uFFToonParams.z);
   float full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uFFToonParams.z);
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
-  // Sculpted forms need a continuous light gradient, rather than flat cel islands.
-  float lightLevel = smoothstep(-0.35, 1.0, ndl + uFFToonParams.z) * shadow;
+  // Two broad light bands keep the sculpted forms readable in the new cel reference.
+  float lightLevel = (terminator * 0.7 + full * 0.3) * shadow;
 #else
   float lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
 #endif
@@ -278,12 +278,12 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
 
   var bandAA = 0.12;
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
-  bandAA = max(0.16, fwidth(ndl) * 1.5);
+  bandAA = max(0.055, fwidth(ndl) * 1.5);
 #endif
   let terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uniforms.uFFToonParams.z);
   let full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uniforms.uFFToonParams.z);
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
-  let lightLevel = smoothstep(-0.35, 1.0, ndl + uniforms.uFFToonParams.z) * shadow;
+  let lightLevel = (terminator * 0.7 + full * 0.3) * shadow;
 #else
   let lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
 #endif

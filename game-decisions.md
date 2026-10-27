@@ -1799,3 +1799,36 @@ WebGL2 checks V, painted motorcycle interior, hands/weapon and held wrench,
 actual repair, return to third person and hiding hands in the wardrobe, with no
 console errors. A focused viewmodel lifecycle check also passes after the final
 framing adjustment. Native Mac temperature/FPS remain unmeasured.
+
+## Owner visual revision and operational cable car — 27 October 2026
+
+The latest owner screenshot with live blue/red names supersedes the older painterly
+reference for the current graphics work. Use real 3D geometry, actual players/profile
+choices and functional HUD readouts; no screenshot background or fabricated combat state.
+Compact field HUD, cached shared-map SVG, occlusion-aware name tags (20 Hz), waistcoat,
+reference-style new/reset allrounder outfit, gorge frost, faceted blue-grey cliffs and
+lower bridge/collision posts are implemented. Preserve the painted paving relief,
+45 FPS default, persistent quality governor, bounded caches and two post passes.
+The current build is not an exact match in composition, proportions or effects.
+
+Two cable cars use a shared fixed-tick route clock, opposite lanes, smooth acceleration
+and three-second station stops. Each has two protected cabin seats and two exposed
+roof seats. F boards/exits; H changes seats; C/Ctrl holds on in a crouch. Station levers
+(F or unobstructed hitscan) stop/rock both cabins for two seconds, with a 2.5-second
+trigger cooldown. Queue braking until all player inputs for the tick are applied, so
+roof survival never depends on player iteration order. Standing roof crew inherit
+momentum and are thrown off; crouched/interior crew remain.
+
+Protocol 11 appends the cable-car kind without renumbering previous kinds; existing
+extended pitch/roll and player crouch fields carry the motion. Cabins are invulnerable
+fixed-route transports, never empty-towed. Remove interim cable-car spawn plates and
+use normal tower/base spawns. Bot cabin navigation and team balance remain open.
+Merged rounded cabin geometry is under 6,000 triangles and uses opaque painted glazing
+without additional textures or transparent passes. All remaining M5 toys precede M6.
+
+Verified 27 October: 255 automated tests (10 script, 189 server, 56 client), clean strict
+TypeScript/Svelte diagnostics and successful production bundles. WebGL2 checks real HUD/
+nameplates and cable-car motion, seat changes, crouch, exit and station brake events without
+console errors. Five material variants compile under WebGPU without errors. Moving cabin
+and fallback boat meshes now follow their parents; regression checks cover hull translation
+and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeasured.

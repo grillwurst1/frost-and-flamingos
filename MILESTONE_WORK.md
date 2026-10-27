@@ -12,7 +12,7 @@ This file records actual completion, not aspirational checkmarks.
 - [x] Vehicle repair, on foot and from exposed passenger seats; preserve class skills elsewhere.
 - [x] Sidecar passenger first-person V camera and riding/repair visual poses.
 - [x] Biplane: shared flight motor, water/glacier takeoff and landing, pilot gun, two wing mounts, jump exits, propeller hazard.
-- [ ] Cable car: two counter-running cabins, station boarding/interior/roof, brake levers including hitscan, roof crouch protection, remove interim spawn plates.
+- [x] Cable car: two counter-running cabins, station boarding/interior/roof, brake levers including hitscan, roof crouch protection, remove interim spawn plates.
 - [ ] Eight T-bars, boarding/exit, free shooting, dead-rider release.
 - [ ] Coaster bobs: banked path, free shooting, 45-degree launch, clear the tank-road conflict.
 - [ ] Hammock: 1.5-second tension, real ballistic launch to Tower B.
@@ -81,3 +81,17 @@ No new shaders or wire-layout changes in this increment. Next: cable car, then
 other map toys. Both shared firing height and own-hull exclusions now match
 the seated camera; do not regress personal weapon fire from the tub.
 Keep all remaining M5 items gated ahead of M6.
+
+## Current owner priority: latest screenshot
+
+New milestone features pause for the visual reference pass; see `VISUAL_REFERENCE_WORK.md`.
+Field HUD, real nameplates/minimap, reference waistcoat/default outfit, gorge frost and
+bridge silhouette are implemented. Exact composition, proportions and destruction effects
+remain open; do not mark the visual target complete.
+
+Cable car release checks: 255 tests (10 scripts, 189 server, 56 client), clean strict
+typecheck and production builds. WebGL2 checks real cabin motion, H interior/roof switching,
+C crouch, F exit and station brake binary events without console errors. The rendered
+cabin and fallback rowboats now unfreeze their map-batch world matrices; regression checks
+verify hull translation and actual oar rotation. Five material variants compile under
+WebGPU without device/shader errors. Native Mac performance remains unmeasured.

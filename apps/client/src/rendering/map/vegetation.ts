@@ -39,6 +39,7 @@ import {
 import type { SpriteAtlas, SpriteEntry } from '../sprite-atlas';
 import { excludeFromInk, excludeFromShadows } from '../materials';
 import { hash3 } from './geometry';
+import { referenceFrost } from './reference-frost';
 import { outerHeight, outerIsSea, outerSnowLine } from './terrain-mesh';
 
 const CLUTTER_CHUNK = 200;
@@ -435,7 +436,11 @@ export function buildVegetation(
       if (!isClutterFree(x, z)) continue;
       const y = sampleMapHeight(x, z);
       if (y < 0.18) continue;
-      const tag = terrainSurfaceTagAt(x, z);
+      const frost = referenceFrost(x, z, y);
+      // Keep snowy combat lanes clear and avoid dense transparent meadow sprites.
+      if (frost > 0.5 && roll > keep * 0.18) continue;
+      const surface = terrainSurfaceTagAt(x, z);
+      const tag = surface === 'grass_mud' && frost > 0.5 ? 'snow' : surface;
       const pick = hash3(x, z, 4);
       const flip = hash3(z, x, 5) > 0.5;
       const scale = 0.78 + hash3(x, 1, z) * 0.5;

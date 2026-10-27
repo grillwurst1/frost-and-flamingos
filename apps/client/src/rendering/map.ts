@@ -17,7 +17,6 @@ import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   FJORD_MAP,
-  INTERIM_CABLE_CAR_SPAWNS,
   MAP_HALF_SIZE,
   SNOWLINE_Y,
   isClutterFree,
@@ -37,6 +36,7 @@ import { buildFacadeMesh, supportsFacade } from './map/facades';
 import { buildVegetation, type SpriteInstanceHandle } from './map/vegetation';
 import { SOLID_NATURE_KINDS, buildSolidNature } from './map/solid-nature';
 import { drawBuilding } from './map/buildings';
+import { referenceFrost } from './map/reference-frost';
 import { BRAKE_LEVER_HINGE, drawBrakeLeverBase, drawBrakeLeverHandle, drawBuildingExtras } from './map/extras';
 import { Affine, GeometryBatch, hash3 } from './map/geometry';
 import {
@@ -176,7 +176,7 @@ function snowAmount(x: number, z: number): number {
   const height = sampleMapHeight(x, z);
   const slope = terrainSlopeAt(x, z);
   const biome = terrainBiomeAt(x, z, height, slope);
-  return terrainSnowWeight(height + 1.5, biome.snowBias, 0, SNOWLINE_Y);
+  return Math.max(terrainSnowWeight(height + 1.5, biome.snowBias, 0, SNOWLINE_Y), referenceFrost(x,z,height));
 }
 
 const TOWER_PROP: Record<string, TowerId> = {
@@ -322,8 +322,11 @@ function scatterClutter(chunks: ChunkSet): void {
       const density = busy ? 0.42 : 0.07;
       if (roll > density) continue;
       if (!isClutterFree(x, z)) continue;
-      const tag = terrainSurfaceTagAt(x, z);
       const y = sampleMapHeight(x, z);
+      const frost = referenceFrost(x, z, y);
+      if (frost > 0.5 && roll > density * 0.18) continue;
+      const surface = terrainSurfaceTagAt(x, z);
+      const tag = surface === 'grass_mud' && frost > 0.5 ? 'snow' : surface;
       if (y < 0.15) continue;
       const pick = hash3(x, z, 4);
       const batch = chunks.clutterAt(x, z);
@@ -586,23 +589,11 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
       batch.at(spawn.position.x, spawn.position.y - 0.05, spawn.position.z, facing, () => drawSpawnPad(batch, style));
     }
   }
-  // INTERIM (until the cable car lands): Peak Guard plates by the cable-car mid
-  // station, shown with the holder's look of their tower only.
-  if (INTERIM_CABLE_CAR_SPAWNS.enabled) {
-    const rule = INTERIM_CABLE_CAR_SPAWNS;
-    const padKey = `${rule.heldTower}:${rule.faction}`;
-    const batch = padBatches.get(padKey) ?? new GeometryBatch();
-    padBatches.set(padKey, batch);
-    for (const pad of rule.pads) {
-      batch.at(pad.position.x, pad.position.y - 0.05, pad.position.z, pad.rotationY, () => drawSpawnPad(batch, rule.faction));
-    }
-  }
-
   // Long route geometry: bridge cables, cable-car rope, T-bar rope, coaster trough.
   const routes = new GeometryBatch();
   drawBridgeCables(routes);
-  drawRouteCable(routes, FJORD_MAP.routes.cableCar.cable, 0.09, P.ink);
-  drawRouteCable(routes, FJORD_MAP.routes.cableCar.cable, 0.06, P.metalDark, -0.45);
+  drawRouteCable(routes, FJORD_MAP.routes.cableCar.cable, 0.09, P.ink, 0, 2.2);
+  drawRouteCable(routes, FJORD_MAP.routes.cableCar.cable, 0.09, P.ink, 0, -2.2);
   drawRouteCable(routes, FJORD_MAP.routes.tBar.cable, 0.05, P.metalDark);
   const coaster = new GeometryBatch();
   coaster.jitter = 0;

@@ -241,17 +241,17 @@ export function createDefaultCosmetics(classId: ClassId): Cosmetics {
 
   return {
     classId,
-    bodyType: 0.45,
+    bodyType: 0.15,
     skinToneIndex: 1,
-    hairColorIndex: 0,
-    hairStyleIndex: 5,
+    hairColorIndex: 4,
+    hairStyleIndex: 0,
     headgear: 'head_tirol',
-    face: 'face_none',
+    face: 'face_full_beard',
     torso: 'torso_tracht_shirt',
-    back: 'back_leather_pack',
+    back: 'back_cuckoo_clock',
     hands: 'hands_bare',
     legs: 'legs_lederhosen',
-    feet: 'feet_mountain_boots',
+    feet: 'feet_ski_boots',
     voicePitch: 1,
   };
 }

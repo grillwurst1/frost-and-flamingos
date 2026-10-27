@@ -2,6 +2,8 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import {
   FIXED_DT,
   AIRCRAFT_RULES,
+  CABLE_CAR_RULES,
+  FJORD_MAP,
   GRAVITY,
   InputButton,
   NO_TOWERS_HELD,
@@ -195,6 +197,9 @@ function pressed(buttons: number, previous: number, mask: number): boolean {
  * a handful of hooks; everything else lives here.
  */
 export class VehicleManager<P extends VehicleOccupant> {
+  private readonly crouchedCrew = new Set<number>();
+  private pendingCableBrake: number | null = null;
+  private cableBrakeReadyTick = 0;
   private readonly physics: PhysicsWorld;
   private readonly hooks: VehicleRoomHooks<P>;
   private readonly records: VehicleRecord[];
@@ -257,6 +262,9 @@ export class VehicleManager<P extends VehicleOccupant> {
 
   /** Round reset: every vehicle respawns polished at its start position. */
   resetAll(): void {
+    this.pendingCableBrake = null;
+    this.cableBrakeReadyTick = 0;
+    this.crouchedCrew.clear();
     for (const record of this.records) {
       this.ejectAll(record, false);
       this.removeBody(record);
@@ -298,8 +306,10 @@ export class VehicleManager<P extends VehicleOccupant> {
   eyeDrop(playerId: number, height: number): number {
     const seat = this.seatOf.get(playerId);
     const record = seat ? this.byId.get(seat.vehicleId) : undefined;
-    return record && seat ? vehicleEyeDrop(record.slot.kind, seat.seat, height) : 0;
+    return record && seat ? vehicleEyeDrop(record.slot.kind, seat.seat, height) + (this.crouchedCrew.has(playerId) ? height * 0.35 : 0) : 0;
   }
+
+  isCrouched(playerId: number): boolean { return this.crouchedCrew.has(playerId); }
 
   hullColliderOf(playerId: number): number | undefined {
     const seat = this.seatOf.get(playerId);
@@ -320,6 +330,10 @@ export class VehicleManager<P extends VehicleOccupant> {
       const wantsIn = pressed(input.buttons, previousButtons, ENTER_BUTTONS);
       // Mascots and drifters never board (same predicate as the client's enter prompt).
       if (!wantsIn || !classMayUseVehicles(player.profile.cosmetics.classId)) return 'none';
+      if (this.nearCableLever(player)) {
+        this.requestCableBrake(player.id);
+        return 'seated';
+      }
       const target = this.enterableNear(player);
       if (!target) return 'none';
       this.enter(player, target.record, target.seat);
@@ -327,6 +341,10 @@ export class VehicleManager<P extends VehicleOccupant> {
     }
     const record = this.byId.get(seat.vehicleId);
     if (!record) return 'none';
+    if (trackButtons && record.slot.kind === 'cable_car') {
+      if (input.buttons & InputButton.Crouch) this.crouchedCrew.add(player.id);
+      else this.crouchedCrew.delete(player.id);
+    }
     this.inputs.set(player.id, { input, trackButtons });
     if (record.slot.kind === 'rowboat' && trackButtons && pressed(input.buttons, previousButtons, InputButton.Forward)) {
       const beat = rowingBeat(this.hooks.physicsTick());
@@ -350,8 +368,8 @@ export class VehicleManager<P extends VehicleOccupant> {
         this.exit(player, record, seat.seat);
         return 'seated';
       }
-      if (pressed(input.buttons, previousButtons, SWITCH_BUTTON)) this.switchSeat(player, record, seat.seat);
-      if (pressed(input.buttons, previousButtons, HORN_BUTTON) && record.definition.seats[seat.seat]?.driver) {
+      if (pressed(input.buttons, previousButtons, record.slot.kind === 'cable_car' ? HORN_BUTTON : SWITCH_BUTTON)) this.switchSeat(player, record, seat.seat);
+      if (record.slot.kind !== 'cable_car' && pressed(input.buttons, previousButtons, HORN_BUTTON) && record.definition.seats[seat.seat]?.driver) {
         this.honk(player, record);
       }
     }
@@ -491,6 +509,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   /** Runs after the player loop and before the physics step. */
   step(): void {
     const tick = this.hooks.physicsTick();
+    if (this.pendingCableBrake !== null) this.applyCableBrake(tick);
     if (tick % 30 === 0) this.updateTriggers(tick);
     for (const record of this.records) {
       this.validateSeats(record);
@@ -610,9 +629,10 @@ export class VehicleManager<P extends VehicleOccupant> {
       if (state.afloat) flags |= VEHICLE_FLAG.Afloat;
       if (state.handbrake) flags |= VEHICLE_FLAG.Handbrake;
       if (record.drowned) flags |= VEHICLE_FLAG.Drowned;
-      if (record.definition.chassis === 'aircraft') flags |= VEHICLE_FLAG.ExtendedPose;
+      const fullPose = record.definition.chassis === 'aircraft' || record.definition.chassis === 'ride';
+      if (fullPose) flags |= VEHICLE_FLAG.ExtendedPose;
       list.push({
-        ...(record.definition.chassis === 'aircraft' ? { pitch: body.pitch, roll: body.roll } : {}),
+        ...(fullPose ? { pitch: body.pitch, roll: body.roll } : {}),
         id: record.slot.id,
         type: VEHICLE_KIND_TABLE.code[record.slot.kind],
         position: state.position,
@@ -733,6 +753,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   /** Spawn base: boats on the waterline, land vehicles on the floor under the spawn. */
   private spawnPosition(record: VehicleRecord): Vec3 {
     const spawn = record.slot.spawn.position;
+    if (record.definition.chassis === 'ride') return { ...spawn };
     if (record.definition.chassis === 'boat') return { x: spawn.x, y: 0, z: spawn.z };
     if (record.definition.chassis === 'aircraft' && sampleMapHeight(spawn.x,spawn.z)<WATER_LEVEL-0.4) return { ...spawn, y: WATER_LEVEL-0.25 };
     const hit = this.physics.raycast({ x: spawn.x, y: spawn.y + 3, z: spawn.z }, { x: 0, y: -1, z: 0 }, 8);
@@ -786,6 +807,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   private updateEmptyTimers(record: VehicleRecord, tick: number): void {
     const body = record.body;
     if (!body || record.lifecycle !== 'active') return;
+    if (record.definition.chassis === 'ride') return;
     const occupied = record.seats.some((id) => id !== 0);
     if (occupied) record.emptySinceTick = tick;
     // Land vehicles that fell into deep water drown.
@@ -848,6 +870,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   private freeSeat(record: VehicleRecord, index: number): void {
     const id = record.seats[index] ?? 0;
     if (id === 0) return;
+    this.crouchedCrew.delete(id);
     if (index === 0) {
       record.lastDriverId = id;
       record.driverLeftTick = this.hooks.physicsTick();
@@ -858,6 +881,65 @@ export class VehicleManager<P extends VehicleOccupant> {
     this.seatOf.delete(id);
     this.inputs.delete(id);
     if (record.seats.every((occupant) => occupant === 0)) record.emptySinceTick = this.hooks.physicsTick();
+  }
+
+  requestCableBrake(playerId: number): boolean {
+    if (this.hooks.ceasefire?.() || this.hooks.physicsTick() < this.cableBrakeReadyTick || this.pendingCableBrake !== null) return false;
+    this.pendingCableBrake = playerId;
+    return true;
+  }
+
+  private nearCableLever(player: P): boolean {
+    const feet = player.character.position;
+    const eyes = { x: feet.x, y: feet.y + player.character.eyeHeight, z: feet.z };
+    return FJORD_MAP.routes.cableCar.stations.some(({ brakeLever: lever }) => {
+      const length = Math.hypot(eyes.x - lever.x, eyes.y - lever.y, eyes.z - lever.z);
+      if (length > CABLE_CAR_RULES.leverRange) return false;
+      const direction = normalizeDirection({ x: lever.x - eyes.x, y: lever.y - eyes.y, z: lever.z - eyes.z });
+      const hit = this.physics.raycast(eyes, direction, length);
+      return !hit || hit.distance >= length - CABLE_CAR_RULES.leverRadius;
+    });
+  }
+
+  raycastBrakeLever(origin: Vec3, direction: Vec3, maxDistance: number): number | null {
+    let closest: number | null = null;
+    for (const { brakeLever: lever } of FJORD_MAP.routes.cableCar.stations) {
+      const x = origin.x - lever.x, y = origin.y - lever.y, z = origin.z - lever.z;
+      const b = x * direction.x + y * direction.y + z * direction.z;
+      const c = x*x + y*y + z*z - CABLE_CAR_RULES.leverRadius ** 2;
+      const discriminant = b*b - c;
+      if (discriminant < 0) continue;
+      const distance = Math.max(0, -b - Math.sqrt(discriminant));
+      if (-b + Math.sqrt(discriminant) < 0 || distance > maxDistance) continue;
+      if (closest === null || distance < closest) closest = distance;
+    }
+    return closest;
+  }
+
+  private applyCableBrake(tick: number): void {
+    const actorId = this.pendingCableBrake ?? 0;
+    this.pendingCableBrake = null;
+    this.cableBrakeReadyTick = tick + vehicleTicks(CABLE_CAR_RULES.brakeSeconds + 0.5);
+    for (const record of this.records) {
+      const body = record.body;
+      if (record.slot.kind !== 'cable_car' || !body) continue;
+      body.brakeCableCar();
+      this.hooks.broadcastEvent({ eventType: 'GONDOLA_BRAKE', actorId, targetId: record.slot.id,
+        paramX: toDecimetres(body.position.x), paramZ: toDecimetres(body.position.z), paramValue: 0 });
+      for (let seat = 2; seat < record.seats.length; seat++) {
+        const id = record.seats[seat] ?? 0, player = this.hooks.player(id);
+        if (!player || this.crouchedCrew.has(id)) continue;
+        const side = seat % 2 ? 1 : -1;
+        const at = vehicleLocalToWorld(body.position, body.yaw, { x: side * 2, y: 3.3, z: 0 }, body.pitch, body.roll);
+        const velocity = body.velocity;
+        this.freeSeat(record, seat);
+        player.character.teleport(at);
+        player.character.setColliderEnabled(true);
+        player.character.launch({ x: velocity.x + Math.cos(body.yaw) * side * 6, y: 2,
+          z: velocity.z - Math.sin(body.yaw) * side * 6 }, 1.5);
+        this.hooks.broadcastEvent({ eventType: 'VEHICLE_SEAT', actorId: id, targetId: record.slot.id, paramX: 0, paramZ: 0, paramValue: 0 });
+      }
+    }
   }
 
   /** The nearest enterable seat within reach of a player on foot. */
@@ -875,7 +957,7 @@ export class VehicleManager<P extends VehicleOccupant> {
         if ((record.seats[index] ?? 1) !== 0) return;
         const anchor = vehicleLocalToWorld(body.position, body.yaw, seat.anchor, body.pitch, body.roll);
         // Prefer the wheel a little: a tie goes to the driver seat.
-        const distance = horizontalLength(anchor.x - feet.x, anchor.z - feet.z) + (seat.driver ? -0.4 : 0);
+        const distance = Math.hypot(anchor.x - feet.x, anchor.y - feet.y, anchor.z - feet.z) + (seat.driver ? -0.4 : 0);
         if (!best || distance < best.distance) best = { record, seat: index, distance };
       });
     }
@@ -942,7 +1024,15 @@ export class VehicleManager<P extends VehicleOccupant> {
   }
 
   private exit(player: P, record: VehicleRecord, seat: number): void {
+    if (record.slot.kind === 'cable_car' && record.body) {
+      const body = record.body, anchor = record.definition.seats[seat]?.anchor;
+      if (!anchor) return;
+      const at = vehicleLocalToWorld(body.position, body.yaw,
+        { x: (anchor.x < 0 ? -1 : 1) * (record.definition.halfExtents.x + player.character.stats.radius + 0.4), y: anchor.y + 0.12, z: anchor.z }, body.pitch, body.roll);
+      this.releaseCharacter(player, at, body.velocity);
+    } else {
     if (!this.placeAtExit(player, record, seat, false)) return;
+    }
     this.freeSeat(record, seat);
     this.hooks.broadcastEvent({
       eventType: 'VEHICLE_SEAT',
@@ -1183,6 +1273,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     if (attacker && team && attacker.profile.faction === team) return;
     const factor = kind === 'bullet' ? record.definition.armor.bullet : record.definition.armor.explosive;
     const damage = amount * factor;
+    if (damage <= 0) return;
     record.hp = Math.max(0, record.hp - damage);
     if (attacker) record.lastAttackerId = attacker.id;
     record.lastWeaponId = weaponId;

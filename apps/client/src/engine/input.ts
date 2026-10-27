@@ -34,6 +34,7 @@ export class InputController {
   private scoreboardHeld = false;
   private weaponSlot: WeaponSlot = 1;
   private vehicleMode = false;
+  private vehicleCrouch = false;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement, handlers: InputHandlers) {
@@ -85,9 +86,10 @@ export class InputController {
    * In a vehicle C is the seat switch: a tap sends a short Crouch pulse
    * instead of toggling crouch (which is cleared on the way in and out).
    */
-  setVehicleMode(on: boolean): void {
-    if (this.vehicleMode === on) return;
+  setVehicleMode(on: boolean, crouch = false): void {
+    if (this.vehicleMode === on && this.vehicleCrouch === crouch) return;
     this.vehicleMode = on;
+    this.vehicleCrouch = crouch;
     this.crouchToggle = false;
     this.crouchPulseUntil = 0;
   }
@@ -174,7 +176,7 @@ export class InputController {
       if (this.scoreboardHeld) event.preventDefault();
       return;
     }
-    if (event.code === 'KeyC' && !event.repeat && this.vehicleMode) {
+    if (event.code === 'KeyC' && !event.repeat && this.vehicleMode && !this.vehicleCrouch) {
       this.crouchPulseUntil = performance.now() + 130;
       this.queuedButtons |= InputButton.Crouch;
       return;

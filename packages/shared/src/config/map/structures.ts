@@ -29,6 +29,8 @@ import {
   BRIDGE_NORTH,
   BRIDGE_SOUTH,
   BRIDGE_WIDTH,
+  BRIDGE_PYLON_TOP,
+  BRIDGE_ANCHOR_HEIGHT,
   CABLE_CAR_STATIONS,
   CABLE_STATION_YAWS,
   GLACIER_RUNWAY,
@@ -775,7 +777,7 @@ function bridgeSeeds(): PropSeed[] {
   // Massive log pylons standing on the gorge floor, and anchor frames on both rims.
   for (const [index, z] of BRIDGE_PYLON_Z.entries()) {
     const footY = ground(0, z) - 0.2;
-    const height = 31 - footY;
+    const height = BRIDGE_PYLON_TOP - footY;
     seeds.push({
       id: `bridge_pylon_${index}`,
       kind: 'bridge_pylon',
@@ -786,8 +788,8 @@ function bridgeSeeds(): PropSeed[] {
       variant: 0,
       dimensions: { x: 7.8, y: height, z: 1.2 },
       colliders: [
-        cylinderCollider(0.62, height / 2, -3.9, height / 2, 0),
-        cylinderCollider(0.62, height / 2, 3.9, height / 2, 0),
+        cylinderCollider(0.36, height / 2, -3.9, height / 2, 0),
+        cylinderCollider(0.36, height / 2, 3.9, height / 2, 0),
         boxCollider(4.4, 0.35, 0.5, 0, bridgeDeckHeightAt(z) - footY - 0.75, 0),
       ],
     });
@@ -802,8 +804,8 @@ function bridgeSeeds(): PropSeed[] {
       y: footY,
       rotationY: 0,
       variant: 1,
-      dimensions: { x: 7.6, y: 7.5, z: 1 },
-      colliders: [cylinderCollider(0.5, 3.75, -3.8, 3.75, 0), cylinderCollider(0.5, 3.75, 3.8, 3.75, 0)],
+      dimensions: { x: 7.6, y: BRIDGE_ANCHOR_HEIGHT, z: 1 },
+      colliders: [cylinderCollider(0.28, BRIDGE_ANCHOR_HEIGHT/2, -3.8, BRIDGE_ANCHOR_HEIGHT/2, 0), cylinderCollider(0.28, BRIDGE_ANCHOR_HEIGHT/2, 3.8, BRIDGE_ANCHOR_HEIGHT/2, 0)],
     });
   }
 

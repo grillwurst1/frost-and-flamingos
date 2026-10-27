@@ -25,6 +25,7 @@ export interface LoadingState {
 }
 
 export interface LocalPlayerView {
+  yaw: number;
   id: number;
   faction: Faction;
   classId: ClassId;

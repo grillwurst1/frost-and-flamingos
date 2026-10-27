@@ -6,6 +6,7 @@ import { excludeFromInk, excludeFromShadows } from '../materials';
 import { GeometryBatch, mix } from './geometry';
 import { drawFir, drawPalm, drawRock } from './nature';
 import { P } from './palette';
+import { referenceFrost } from './reference-frost';
 
 export const SOLID_NATURE_KINDS: ReadonlySet<string> = new Set(['fir', 'palm', 'rock']);
 export const NATURE_LOD_DISTANCE = 145;
@@ -14,7 +15,7 @@ const CHUNK = 120;
 function snowAt(prop: MapProp): number {
   const p = prop.position;
   const biome = terrainBiomeAt(p.x, p.z, p.y, terrainSlopeAt(p.x, p.z));
-  return terrainSnowWeight(p.y, biome.snowBias, biome.rock, SNOWLINE_Y);
+  return Math.max(terrainSnowWeight(p.y, biome.snowBias, biome.rock, SNOWLINE_Y), referenceFrost(p.x, p.z, p.y));
 }
 
 /** A solid silhouette at range, with no billboard rotation or tiny branch combs. */

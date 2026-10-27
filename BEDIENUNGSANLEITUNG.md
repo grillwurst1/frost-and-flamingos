@@ -38,7 +38,7 @@ Neu sind:
 - Comic-HUD und Comic-Menüs, Punktetafel (`Tab`) und eine Einstellung für die Bildqualität,
 - vollständige deutsche und englische Texte für alle neuen Oberflächen.
 
-**Noch nicht enthalten:** Seilbahn, Schlepplift, Alpine Coaster, Hängematten-Katapult und die
+**Noch nicht enthalten:** Schlepplift, Alpine Coaster, Hängematten-Katapult und die
 NPC-Kuh, Doppeldecker, Ruderboot und Gondel, das Reparieren von Fahrzeugen, Zerstörung,
 Krater, Decal-Ringpuffer, Meta-Ökonomie und Kur-Pass. Diese Systeme folgen im Rest von M5 und
 in M6 bis M7. Details in Abschnitt 16.
@@ -242,7 +242,7 @@ Optionaler Server-Test im Browser:
 **<http://127.0.0.1:3000/api/health>**
 
 Dort müssen `status: "ok"`, `online: true`, `mapId: "fjord_fiesta"` und
-`protocolVersion: 9` erscheinen; der Block `conquest` zeigt Runde, Tickets und Türme.
+`protocolVersion: 11` erscheinen; der Block `conquest` zeigt Runde, Tickets und Türme.
 
 Auf dem Server spielen automatisch vier KI-Bots mit. Wer in Ruhe ohne Bots testen will,
 startet den Stack so:
@@ -439,9 +439,8 @@ und **C Gipfel-Käserei**. Die Regeln in Kürze:
   dem Pad und als Hinweis „Geschützt“.
 - Du schaust zum nächsten Turm, den dein Team nicht sicher hält (sonst zur Kartenmitte),
   entlang der freiesten Linie.
-- **Übergangsweise, bis die Seilbahn kommt:** Solange die Gipfel-Garde Turm C hält, starten
-  85 % ihrer Turm-C-Spawns auf drei Platten auf dem Schluchtboden direkt unter der
-  Seilbahn-Mittelstation. Von dort führt der südliche Schluchtpfad hinauf zum Dorfplatz.
+- Die Seilbahn verbindet Talstation, Dorf-Mittelstation und Gipfel. Die bisherigen
+  Übergangs-Spawnplatten im Schluchtboden entfallen; die normalen Turm-/Basispads bleiben.
 
 ### Klasse wechseln
 
@@ -550,18 +549,18 @@ wartet bei Bedarf kurz, bis der Runden-Track dekodiert ist.
 
 Das HUD ist im Comic-Stil der Referenzbilder gestaltet:
 
-- **Statusleiste unten in der Mitte:** Herz und grüne Vitalitätsleiste (sie leert sich vom
-  Herz zur Mitte hin, ein gelber Streifen zeigt den Schild), die Urlaubstickets beider Seiten
-  in einem blauen (Alpen) und einem roten (Strand) Kästchen mit „VS“ dazwischen – ein kleiner
-  Pfeil markiert die eigene Seite – und rechts die rote Klimaleiste mit Schneeflocke bzw.
-  Sonne am Ende (je voller, desto sonniger).
-- **Uhr oben in der Mitte:** Messinguhr mit Klimazeiger, den Turm-Abzeichen A, B und C in der
-  Farbe ihres Besitzers und der verbleibenden Rundenzeit.
+- **Unten links:** rundes Profilporträt, tatsächliche/maximale Vitalität und grüne
+  Gesundheitsleiste; darunter die blaue Schildanzeige.
+- **Oben in der Mitte:** blaue/rote Urlaubstickets, Turmkreise A/B/C und Kompass.
+- **Oben rechts:** Minimap mit begehbaren Flächen, Gebäuden, Wegen, Türmen und
+  lebenden Teamkameraden. Sie folgt der eigenen Position; der Pfeil zeigt die Blickrichtung.
+- **Über Figuren:** echte Spielernamen, blau für Verbündete und rot für Gegner, mit
+  Dreieck. Hinter festen Hindernissen und bei getarnten Gegnern werden sie ausgeblendet.
+- **Unten in der Mitte:** Klassenfähigkeiten Q/E/T, Gimmick auf 3 und Reparaturwerkzeug X.
+- **Unten rechts:** drei farbige Waffenkarten für 1/2/3, ausgewählte Munition und Nachladen.
 - **Eroberungsbalken:** In einer Turmzone zeigt ein Balken den Fortschritt und die Kopfzahl
   beider Seiten („… wird erobert“, „Umkämpft!“, „… gesichert“). Kann deine Klasse nicht
   erobern, steht dort „Deine Klasse kann keine Türme erobern“.
-- **Oben links:** Wappen, Klasse, aktueller Kartenbereich (z. B. „Lagunen-Hafen“) sowie
-  Abschüsse und Tode.
 - **Oben rechts:** Kill-Feed als Comic-Bänder mit Wappen und Waffe, dazu Turm-Meldungen
   („… erobert …“) und erlegte Hühner.
 - **Fahrzeug-Karte:** im Fahrzeug Rumpf, Platz, Tempo, Waffe bzw. Turbo und die Tasten.
@@ -618,7 +617,7 @@ Telemetrie. Die Auswahl wird im Browser gespeichert und beim nächsten Öffnen w
 
 Dieser Build ist ein Test-Build. Bewusst **noch nicht** enthalten:
 
-- **Rest von M5:** Seilbahn- und Schleppliftfahrt, Alpine Coaster, Hängematten-Katapult, das
+- **Rest von M5:** Schleppliftfahrt, Alpine Coaster, Hängematten-Katapult, das
   Verhalten der NPC-Kuh sowie Doppeldecker, Ruderboot und Gondel. Stationen, Masten und Bahn
   stehen schon als Kulisse in der Karte. Die großen Verwandlungen der Wettertürme und
   Wettereffekte wie Schneegrenze und Schneesturm folgen später.
@@ -879,3 +878,35 @@ TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreicher Produktionsbuild.
 Der WebGL2-Spieltest prüft V, die bemalte Beiwagen-Innenseite, Hände und Waffe,
 Schraubenschlüssel und tatsächliche Reparatur sowie Rückkehr zur Außenansicht
 und Garderobe ohne Konsolenfehler.
+
+### Neues Zielbild und Seilbahn (27. Oktober 2026)
+
+Das aktuelle Ziel ist der zuletzt gesendete Screenshot mit Spielernamen. HUD, klareres
+Cel-Shading, verschneite Schluchtufer, blaugraue Felsflächen und die niedrigere Seilbrücke
+sind daran angepasst. Die Trachtenweste ist grün mit weißen Ärmeln; neue beziehungsweise
+zurückgesetzte Allrounder tragen braunen Bart, Kuckucksuhr und rote Skistiefel. Gespeicherte
+Kleidung, Haut- und Haarwahl bleiben erhalten. Figurenproportionen und Kartenbild sind noch
+kein exakter Treffer. Die gemalte Pflastertextur bleibt als echtes niedriges 3D-Relief erhalten.
+
+Zwei rote Gondeln fahren gegeneinander über Tal-, Mittel- und Bergstation. Sie halten
+dort jeweils drei Sekunden. Mit **F** ein-/aussteigen, mit **H** zwischen Innenraum und
+Dachplätzen wechseln. Innen bist du geschützt; auf dem Dach kannst du mit deiner Waffe
+schießen. **C/Strg** lässt dich dort hocken und festhalten. Ein Ausstieg in der Luft ist
+ein echter Fall; der normale Notschirm bleibt verfügbar.
+
+Mit **F am Stationshebel** oder einem Treffer mit einer direkt treffenden Schusswaffe
+löst du die Notbremse aus. Beide Kabinen halten zwei Sekunden an und schaukeln. Wer auf
+dem Dach steht, wird abgeworfen; wer hockt oder innen sitzt, bleibt dabei. Die Gondeln
+sind unzerstörbar und werden leer nicht abgeschleppt. Bots benutzen sie noch nicht.
+
+Die Minimap zeichnet keine zweite 3D-Szene. FPS-Limit (standardmäßig 45), automatische
+Lastregelung und zwei Nachbearbeitungsschritte bleiben erhalten. Native Mac-FPS und
+Temperatur wurden in der Cloud nicht gemessen.
+
+Geprüft am 27. Oktober: 255 automatisierte Tests (10 Skript-, 189 Server- und
+56 Client-Tests), TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreiche
+Produktionsbuilds. WebGL2 prüft das echte HUD, Spielernamen, Gondelfahrt, Sitzwechsel,
+Hocken, Ausstieg und Notbremsereignisse ohne Konsolenfehler. Fünf Materialvarianten
+kompilieren unter WebGPU fehlerfrei. Die bewegten Gondel-/Ersatzboot-Meshes folgen
+ihren Halterungen; Regressionstests prüfen Rumpfbewegung und Ruderdrehung.
+Cloud-Rendering verwendet Software; native Mac-FPS und Temperatur sind nicht gemessen.

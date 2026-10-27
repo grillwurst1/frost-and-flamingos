@@ -123,6 +123,8 @@ export const GORGE = {
 } as const;
 
 export const BRIDGE_DECK_HEIGHT = 18.3;
+export const BRIDGE_PYLON_TOP = BRIDGE_DECK_HEIGHT + 2.6;
+export const BRIDGE_ANCHOR_HEIGHT = 2.1;
 export const BRIDGE_SOUTH: Vec3 = vec3(0, BRIDGE_DECK_HEIGHT, 46.5);
 export const BRIDGE_NORTH: Vec3 = vec3(0, BRIDGE_DECK_HEIGHT, 96.5);
 export const BRIDGE_WIDTH = 6;

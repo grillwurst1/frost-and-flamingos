@@ -17,6 +17,7 @@ import type { SurfaceTag } from '../types/map.js';
 import { InputButton, type InputButtonMask, type Vec3 } from '../types/index.js';
 import type { PhysicsWorld } from './world.js';
 import { advanceAircraft, AIRCRAFT_RULES } from './aircraft.js';
+import { cableCabinAt, CABLE_CAR_RULES, sampleCableCar } from './cable-car.js';
 
 /**
  * Membership bit 4 (0x0008) = vehicle hulls; filter = world (0x1), players
@@ -192,6 +193,9 @@ export class VehicleBody {
   private heading: number;
   private flightPitch = 0;
   private flightRoll = 0;
+  private cableCabin: 0 | 1 = 0;
+  private cableTick = 0;
+  private cableBrakeTicks = 0;
   private linear: Vec3 = { x: 0, y: 0, z: 0 };
   private turnRate = 0;
   private steerAngle = 0;
@@ -220,6 +224,7 @@ export class VehicleBody {
     const half = this.definition.halfExtents;
     this.base = { ...position };
     this.heading = wrapAngle(yaw);
+    if (kind === 'cable_car') this.cableCabin = cableCabinAt(position);
 
     const boat = this.definition.chassis === 'boat';
     // The boat hull floats: its collider starts above the keel so sand under
@@ -256,7 +261,7 @@ export class VehicleBody {
     this.controller.setSlideEnabled(true);
     this.controller.setMaxSlopeClimbAngle(this.definition.maxSlope);
     this.controller.setMinSlopeSlideAngle(this.definition.maxSlope + (6 * Math.PI) / 180);
-    if (boat || this.definition.chassis === 'aircraft') {
+    if (boat || this.definition.chassis === 'aircraft' || this.definition.chassis === 'ride') {
       this.controller.disableAutostep();
       this.controller.disableSnapToGround();
     } else {
@@ -341,7 +346,7 @@ export class VehicleBody {
 
   get state(): VehicleMotorState {
     return {
-      ...(this.definition.chassis === 'aircraft' ? { pitch: this.flightPitch, roll: this.flightRoll } : {}),
+      ...(this.definition.chassis === 'aircraft' || this.definition.chassis === 'ride' ? { pitch: this.flightPitch, roll: this.flightRoll } : {}),
       position: { ...this.base },
       yaw: this.heading,
       velocity: { ...this.linear },
@@ -393,6 +398,7 @@ export class VehicleBody {
     this.base = { ...position };
     this.heading = wrapAngle(yaw);
     this.flightPitch = 0; this.flightRoll = 0;
+    if (this.kind === 'cable_car') { this.cableTick = 0; this.cableCabin = cableCabinAt(position); this.cableBrakeTicks = 0; }
     this.linear = { x: 0, y: 0, z: 0 };
     this.turnRate = 0;
     this.steerAngle = 0;
@@ -452,6 +458,7 @@ export class VehicleBody {
    */
   simulate(driver: VehicleControlInput | null, gunner: VehicleControlInput | null, trackButtons = true): void {
     if (this.disposed) return;
+    if (this.kind === 'cable_car') { this.simulateCableCar(); return; }
     if (this.definition.chassis === 'aircraft') { this.simulateAircraft(driver,gunner,trackButtons); return; }
     const definition = this.definition;
     const dt = FIXED_DT;
@@ -733,6 +740,29 @@ export class VehicleBody {
     this.commitPose();
   }
 
+  brakeCableCar(): void {
+    if (this.kind === 'cable_car') this.cableBrakeTicks = vehicleTicks(CABLE_CAR_RULES.brakeSeconds);
+  }
+
+  private simulateCableCar(): void {
+    const previous = this.base;
+    const brakeTicks = vehicleTicks(CABLE_CAR_RULES.brakeSeconds);
+    this.braking = this.cableBrakeTicks > 0;
+    if (this.braking) this.cableBrakeTicks--;
+    else this.cableTick++;
+    const pose = sampleCableCar(this.cableTick, this.cableCabin);
+    this.base = pose.position;
+    this.heading = pose.yaw;
+    const decay = this.cableBrakeTicks / brakeTicks;
+    this.flightPitch = this.braking ? Math.sin((1 - decay) * Math.PI * 6) * 0.32 * decay : 0;
+    this.flightRoll = 0;
+    this.linear = { x: (this.base.x - previous.x) / FIXED_DT, y: (this.base.y - previous.y) / FIXED_DT, z: (this.base.z - previous.z) / FIXED_DT };
+    this.measuredSpeed = Math.hypot(this.linear.x, this.linear.z);
+    this.isGrounded = true;
+    this.restingTicks = 0;
+    this.commitPose();
+  }
+
   /** Colliders the hull moves against: never players; boats follow the terrain analytically. */
   private solid(handle: number): boolean {
     if (this.physics.isPlayerCollider(handle)) return false;
@@ -805,7 +835,7 @@ export class VehicleBody {
   /** Puts the collider at the current pose now (queries this tick) and queues the body pose. */
   private syncCollider(): void {
     const rotation = vehicleRotation(this.heading,this.flightPitch,this.flightRoll);
-    if (this.definition.chassis === 'aircraft') {
+    if (this.definition.chassis === 'aircraft' || this.definition.chassis === 'ride') {
       this.body.setTranslation(this.base,true); this.body.setRotation(rotation,true);
       this.collider.setTranslation(vehicleLocalToWorld(this.base,this.heading,{x:0,y:this.colliderOffsetY,z:0},this.flightPitch,this.flightRoll));
       this.collider.setRotation(rotation);

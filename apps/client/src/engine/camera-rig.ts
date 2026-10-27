@@ -14,9 +14,9 @@ const MAX_DISTANCE = 8.2;
  * stands in the lower-left like the painted foreground figures and the scene
  * (busy foreground, horizon) keeps the centre of the frame.
  */
-const SHOULDER_OFFSET = 1.02;
-const PLAYER_PIVOT_HEIGHT = 1.46;
-const PLAYER_DISTANCE = 3.9;
+const SHOULDER_OFFSET = 1.32;
+const PLAYER_PIVOT_HEIGHT = 1.36;
+const PLAYER_DISTANCE = 3.6;
 /** Vertical FOV while playing (62 deg); menu, wardrobe and killer cam keep the tele framing. */
 const PLAYER_FOV = 1.0821;
 const SHOWCASE_FOV = 0.88;
@@ -41,6 +41,7 @@ export const TANK_CAMERA: CameraProfile = { pivotHeight: 3.7, distance: 10.5, sh
 export const BOAT_CAMERA: CameraProfile = { pivotHeight: 2.7, distance: 8.4, shoulder: 0 };
 export const SIDECAR_CAMERA: CameraProfile = { pivotHeight: 2.3, distance: 6.8, shoulder: 0 };
 export const AIRCRAFT_CAMERA: CameraProfile = { pivotHeight: 2.8, distance: 11.5, shoulder: 0 };
+export const CABLE_CAR_CAMERA: CameraProfile = { pivotHeight: 3.1, distance: 8.5, shoulder: 0 };
 
 /** Mouse idle time before the camera starts easing behind a steered body. */
 const FOLLOW_IDLE_SECONDS = 1.1;

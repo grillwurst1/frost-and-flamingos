@@ -4,6 +4,8 @@ import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   GRAVITY,
+  CABLE_CAR_RULES,
+  FJORD_MAP,
   CLASS_STATS,
   InputButton,
   VEHICLE_ENTER_HEIGHT,
@@ -53,7 +55,7 @@ import type { AvatarPose } from '../rendering/avatar';
 import { notify, setInteractionPrompt, showHitMarker } from '../state/game';
 import { translateNow } from '../state/locale';
 import { vehicleHud } from '../state/vehicle';
-import { AIRCRAFT_CAMERA, BOAT_CAMERA, SIDECAR_CAMERA, TANK_CAMERA, type CameraProfile, type CameraRig } from './camera-rig';
+import { AIRCRAFT_CAMERA, BOAT_CAMERA, CABLE_CAR_CAMERA, SIDECAR_CAMERA, TANK_CAMERA, type CameraProfile, type CameraRig } from './camera-rig';
 import type { InputController } from './input';
 
 /**
@@ -168,6 +170,7 @@ export interface OnFootState {
 }
 
 export function cameraProfileForVehicle(kind: DrivableVehicleKind): CameraProfile {
+  if (kind === 'cable_car') return CABLE_CAR_CAMERA;
   if (kind === 'biplane') return AIRCRAFT_CAMERA;
   if (kind === 'badi_flamingo' || kind === 'rowboat') return BOAT_CAMERA;
   if (kind === 'sidecar') return SIDECAR_CAMERA;
@@ -197,6 +200,7 @@ export function vehicleStateFromSnapshot(vehicle: VehicleSnapshot): VehicleMotor
 
 function seatKey(definition: VehicleDefinition, index: number): TranslationKey {
   const seat = definition.seats[index];
+  if (definition.kind === 'cable_car') return index < 2 ? 'vehicles.seats.cabin' : 'vehicles.seats.roof';
   if (definition.kind === 'biplane') return index === 0 ? 'vehicles.seats.pilot' : 'vehicles.seats.wing';
   if (definition.kind === 'rowboat') return 'vehicles.seats.rower';
   if (!seat) return 'vehicles.seats.driver';
@@ -272,7 +276,8 @@ export class VehicleClient {
   passengerMuzzle(): Vector3 | null { return this.passengerView ? this.passengerHands?.muzzlePosition() ?? null : null; }
 
   eyeDrop(height: number): number {
-    return this.seat ? vehicleEyeDrop(this.seat.kind, this.seat.seat, height) : 0;
+    const crouched = this.seat?.kind === 'cable_car' && Boolean((this.input?.buttons() ?? 0) & InputButton.Crouch);
+    return this.seat ? vehicleEyeDrop(this.seat.kind, this.seat.seat, height) + (crouched ? height * 0.35 : 0) : 0;
   }
 
   /** Hull collider of the local player's vehicle (camera occlusion ignores it). */
@@ -351,7 +356,7 @@ export class VehicleClient {
       this.passengerView = false;
       this.passengerHands?.hide();
     }
-    this.input?.setVehicleMode(seat !== null);
+    this.input?.setVehicleMode(seat !== null, seat?.kind === 'cable_car');
     const predicted = seat && seat.driver ? seat.vehicleId : 0;
     if (predicted !== this.predictedId) {
       this.predictedId = predicted;
@@ -577,6 +582,7 @@ export class VehicleClient {
 
   /** Dust/snow/sand behind tracks and wheels, spray and wake for the boat, wreck smoke. */
   private motionFx(entry: VehicleEntry, delta: number): void {
+    if (entry.definition.chassis === 'ride') return;
     const fx = this.fx;
     if (!fx) return;
     const render = entry.render;
@@ -616,7 +622,7 @@ export class VehicleClient {
   private updateEngines(cameraPosition: Vector3): void {
     const candidates: Array<{ entry: VehicleEntry; distance: number }> = [];
     for (const entry of this.entries.values()) {
-      if (entry.wreck || entry.kind === 'rowboat') continue;
+      if (entry.wreck || entry.kind === 'rowboat' || entry.definition.chassis === 'ride') continue;
       const crewed = entry.latest.seats[0] !== 0 || entry.id === this.predictedId;
       if (!crewed) continue;
       const position = entry.render.position;
@@ -643,6 +649,13 @@ export class VehicleClient {
     let repair = false;
     // Same rule as the server seat gate: alive, on foot, a class that may ride (classMayUseVehicles).
     if (onFoot && onFoot.alive && classMayUseVehicles(onFoot.classId) && !this.seat) {
+      const lever = FJORD_MAP.routes.cableCar.stations.find(station => Math.hypot(onFoot.position.x - station.brakeLever.x,
+        onFoot.position.y + 1.3 - station.brakeLever.y, onFoot.position.z - station.brakeLever.z) <= CABLE_CAR_RULES.leverRange);
+      if (lever) {
+        setInteractionPrompt({ key: 'world.cableCar.brake', keyLabel: 'vehicles.keys.enter' });
+        this.promptShown = true;
+        return;
+      }
       let best = Number.POSITIVE_INFINITY;
       for (const entry of this.entries.values()) {
         if (entry.wreck) continue;
@@ -787,6 +800,15 @@ export class VehicleClient {
   /** Hook: vehicle game events. Returns true when consumed. */
   handleEvent(event: GameEvent, profiles: ReadonlyMap<number, PlayerProfile>): boolean {
     switch (event.eventType) {
+      case 'GONDOLA_BRAKE': {
+        const entry = this.entries.get(event.targetId);
+        if (entry) {
+          audio.playIceSlide(entry.render.position);
+          audio.playWrench(entry.render.position);
+          this.fx?.popup('world.cableCar.screech', { ...entry.render.position, y: entry.render.position.y + 3.7 }, 'gold', 1.6);
+        }
+        return true;
+      }
       case 'TANK_CANNON_FIRE': {
         const entry = this.entries.get(event.targetId);
         // The local driver-gunner already showed its predicted shot.

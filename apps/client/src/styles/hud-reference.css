@@ -1,0 +1,80 @@
+/* Owner reference: clean field HUD. All live figures come from authoritative game stores. */
+.hud-root { font-family: 'Arial Narrow', 'Trebuchet MS', Arial, sans-serif; }
+.match-hud { position:absolute; top:1.8rem; left:50%; transform:translateX(-50%); width:28rem; color:#f4f8f6; }
+.ticket-display { display:grid; grid-template-columns:10.9rem 5.2rem 10.9rem; align-items:center; gap:.5rem; }
+.ticket-display>strong { font-family:inherit; font-stretch:condensed; font-weight:900; font-size:1.25rem; text-align:center; white-space:nowrap; -webkit-text-stroke:.18rem #1d2a30; paint-order:stroke fill; }
+.ticket-red { color:#dc8075; }
+.ticket-wing { position:relative; height:1.5rem; display:flex; justify-content:center; align-items:center; gap:.39rem; background:#1e2c34; }
+.ticket-wing::before { content:''; position:absolute; inset:.12rem; background:#476e82; }
+.ticket-wing.is-blue,.ticket-wing.is-blue::before { clip-path:polygon(0 0,100% 0,100% 100%,7% 100%); }
+.ticket-wing.is-red,.ticket-wing.is-red::before { clip-path:polygon(0 0,100% 0,93% 100%,0 100%); }
+.ticket-wing.is-red::before { background:#a75750; }
+.ticket-wing i { z-index:1; width:.5rem; height:.5rem; background:#73afca; opacity:.23; border-radius:50%; }
+.ticket-wing.is-red i { background:#ed9384; }
+.ticket-wing i.is-lit { opacity:.9; }
+.objective-discs { display:flex; justify-content:center; gap:1rem; margin-top:.7rem; }
+.objective-disc { position:relative; display:grid; place-items:center; width:2.3rem; height:2.45rem; border:.15rem solid #172a33; border-radius:50%; background:#687c7e; box-shadow:inset 0 0 0 .15rem #a2adb0; font-weight:900; font-size:1.5rem; -webkit-text-stroke:.16rem #1c2930; paint-order:stroke fill; }
+.objective-disc.is-blue { background:#557f92; box-shadow:inset 0 0 0 .15rem #9dc9d7; }
+.objective-disc.is-red { background:#8b5b56; box-shadow:inset 0 0 0 .15rem #bd857a; }
+.objective-disc.is-contested { animation:field-contested 800ms alternate infinite; }
+.objective-disc svg { position:absolute; inset:-.18rem; width:calc(100% + .36rem); height:calc(100% + .36rem); }
+.field-compass { display:block; width:3.7rem; height:3.7rem; margin:.55rem auto 0; }
+.field-compass text { fill:#eff1ec; font-family:inherit; font-size:9px; font-weight:800; }
+.tactical-map { position:absolute; top:.5rem; right:.8rem; width:10.3rem; height:10.3rem; border:.18rem solid #26343d; border-radius:.15rem; background:#729bb3; box-shadow:0 0 0 .1rem #b2b4aa; overflow:hidden; }
+.tactical-map>svg { display:block; width:100%; height:100%; }
+.player-status { position:absolute; left:.85rem; bottom:.75rem; display:flex; align-items:center; color:#f3f6f2; }
+.player-portrait { width:6.6rem; height:6.6rem; z-index:1; flex:none; }
+.player-vitals { width:8.6rem; margin-left:-.1rem; padding-top:.2rem; position:relative; }
+.health-value { display:block; font-size:1.22rem; line-height:1.3; font-weight:900; -webkit-text-stroke:.17rem #1b2930; paint-order:stroke fill; white-space:nowrap; margin-left:.15rem; }
+.health-track { height:1.15rem; border:.12rem solid #24342d; border-radius:.14rem; background:#35453e; overflow:hidden; position:relative; }
+.health-track i { display:block; height:100%; background:#4ac34c; border-top:.08rem solid #9fdb77; transition:width 150ms linear; }
+.health-track b { position:absolute; inset:0 auto 0 0; background:#89d8f0aa; border-right:.12rem solid #d6f7ff; }
+.player-status.is-low .health-track i { background:#d5644c; }
+.reserve-line { display:flex; align-items:center; gap:.3rem; margin-top:.3rem; }
+.reserve-line>svg { width:1.45rem; height:1.6rem; flex:none; }
+.reserve-track { width:6.5rem; height:.85rem; border:.12rem solid #24343d; border-radius:.17rem; background:#3b4b57; padding:.08rem; }
+.reserve-track i { display:block; height:100%; background:#7dbbd3; border-radius:.05rem; transition:width 150ms linear; }
+.reference-status-tag { position:absolute; bottom:calc(100% + .4rem); left:0; padding:.15rem .4rem; background:#3e5869dd; border:1px solid #21343f; border-radius:.15rem; color:#fff; font-size:.72rem; white-space:nowrap; }
+.field-loadout { position:absolute; right:1rem; bottom:1rem; display:flex; align-items:flex-end; gap:.55rem; }
+.field-weapon { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; width:4.75rem; height:6.3rem; padding:.35rem .25rem; border:.16rem solid #2c3536; border-radius:.25rem; background:#debc71; box-shadow:inset 0 0 0 .13rem #a49776,0 .12rem .12rem #172b3555; color:#17272e; transform:rotate(-4deg); }
+.field-weapon-2 { background:#cf8c83; transform:rotate(-1deg); }
+.field-weapon-3 { background:#97b1bf; transform:rotate(4deg); }
+.field-weapon.is-selected { background:#efd280; box-shadow:inset 0 0 0 .13rem #f9e59a,0 .12rem .12rem #172b3555; }
+.field-weapon>strong { display:block; font-family:inherit; font-size:.91rem; font-weight:900; line-height:.95; text-align:center; min-height:1.1rem; }
+.field-weapon>.pictogram { width:4rem; height:3.45rem; margin-top:.2rem; }
+.field-ammo { margin-top:auto; font-size:1.05rem; font-weight:900; line-height:1.05; white-space:nowrap; }
+.field-weapon.is-reloading .pictogram { opacity:.4; }
+.equipment-actions { position:absolute; left:50%; bottom:2rem; transform:translateX(-50%); display:flex; gap:.55rem; }
+.field-action { width:3.35rem; height:3.35rem; padding:.25rem; position:relative; border:.16rem solid #26333c; border-radius:.25rem; background:#a2b6c1; box-shadow:inset 0 0 0 .13rem #d1d9d7,0 0 0 .1rem #7b898f; }
+.field-action:first-child { background:#78634b; box-shadow:inset 0 0 0 .14rem #e8cc70,0 0 0 .1rem #29383c; }
+.field-action:nth-child(3) { background:#b36f66; }
+.field-action.is-gimmick { background:#817060; }
+.field-action.is-tool { background:#788991; }
+.field-action>.pictogram { width:100%; height:100%; }
+.field-action kbd { display:grid; place-items:center; position:absolute; top:calc(100% + .35rem); left:50%; transform:translateX(-50%); min-width:1.2rem; height:1.25rem; background:#374851; border-radius:.12rem; border:0; font-family:inherit; font-size:1rem; font-weight:900; color:#f6f6ed; padding:0 .15rem; }
+.action-cooldown { position:absolute; inset:0; display:grid; place-items:center; background:#1c303d99; font-size:1.4rem; color:#fff; font-weight:900; }
+.player-tags { position:absolute; inset:0; overflow:hidden; }
+.player-tag { position:absolute; display:flex; flex-direction:column; align-items:center; gap:.18rem; transform:translate(-50%,-100%); color:#db716a; font-family:'Arial Narrow','Trebuchet MS',Arial,sans-serif; font-size:1.25rem; line-height:1.1; font-weight:900; -webkit-text-stroke:.16rem #26323c; paint-order:stroke fill; white-space:nowrap; }
+.player-tag.is-friendly { color:#69a8cf; }
+.player-tag>span { max-width:15rem; overflow:hidden; text-overflow:ellipsis; }
+.player-tag i { display:block; position:relative; width:1.3rem; height:.7rem; background:#26323c; clip-path:polygon(0 0,100% 0,50% 100%); }
+.player-tag i::after { content:''; position:absolute; inset:.1rem .16rem .15rem; background:currentColor; clip-path:polygon(0 0,100% 0,50% 100%); }
+.hud-root .identity-chip,.hud-root .hud-controls-hint { display:none; }
+.hud-root .kill-feed { top:11.4rem; right:.8rem; max-width:27rem; gap:.22rem; }
+.hud-root .kill-ribbon { padding:.14rem .35rem; border:1px solid #274652; border-radius:.15rem; background:#355c6dcc; box-shadow:none; transform:none; color:#f0f1e9; font-family:inherit; font-size:.85rem; }
+.hud-root .kill-name { font-family:inherit; font-size:.88rem; font-weight:800; text-transform:none; -webkit-text-stroke:.1rem #172c38; paint-order:stroke fill; }
+.hud-root .kill-name.is-victim { color:#e78b81; }
+.hud-root .kill-crest { display:none; }
+.hud-root .kill-weapon { width:1.5rem; height:1.2rem; background:none; border:0; }
+.hud-root .capture-plate { top:12rem; }
+@keyframes field-contested { to { border-color:#e8c56f; } }
+@media(max-width:760px) {
+  .match-hud { top:.7rem; transform:translateX(-50%) scale(.85); transform-origin:top center; }
+  .tactical-map { width:8rem; height:8rem; }
+  .hud-root .kill-feed { top:9rem; max-width:20rem; }
+  .player-status { transform:scale(.84); transform-origin:left bottom; }
+  .field-loadout { transform:scale(.84); transform-origin:right bottom; }
+  .equipment-actions { transform:translateX(-50%) scale(.84); transform-origin:center bottom; }
+}
+
+.player-portrait>svg { display:block; width:100%; height:100%; }

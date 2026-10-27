@@ -8,7 +8,8 @@
   import ComicPops from './hud/ComicPops.svelte';
   import Crosshair from './hud/Crosshair.svelte';
   import DeathScreen from './hud/DeathScreen.svelte';
-  import IdentityChip from './hud/IdentityChip.svelte';
+  import Minimap from './hud/Minimap.svelte';
+  import PlayerTags from './hud/PlayerTags.svelte';
   import Pictogram from './icons/Pictogram.svelte';
   import KillFeed from './hud/KillFeed.svelte';
   import Scoreboard from './hud/Scoreboard.svelte';
@@ -52,7 +53,8 @@
 
   <ClockMedallion />
   <CaptureBar />
-  <IdentityChip />
+  <Minimap />
+  <PlayerTags />
   <KillFeed />
 
   {#if offline}

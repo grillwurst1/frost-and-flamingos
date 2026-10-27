@@ -17,6 +17,7 @@ import { paintedModelLibrary } from './glb/library';
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { PartList } from './glb/props';
 import { buildRowboat, type RowboatModel } from './rowboat';
+import { buildCableCar } from './cable-car';
 
 /**
  * Renders one drivable vehicle with the owner's painted Meshy model through
@@ -32,6 +33,7 @@ import { buildRowboat, type RowboatModel } from './rowboat';
 
 /** Register the vehicle models with the painted-model catalogue (static GLBs). */
 for (const definition of Object.values(VEHICLES)) {
+  if (definition.chassis === 'ride') continue;
   registerPaintedModel({
     key: definition.modelKey,
     file: `${definition.modelKey}.glb`,
@@ -112,7 +114,7 @@ export class VehicleView {
     this.tilt = new TransformNode(`vehicle-${kind}-tilt`, scene);
     this.tilt.parent = this.root;
     this.material = createGlbMaterial(scene, `vehicle-${kind}-paint`, null);
-    this.fallbackMaterial = createGlbMaterial(scene, `vehicle-${kind}-standin`, null, { soft: kind === 'rowboat' });
+    this.fallbackMaterial = createGlbMaterial(scene, `vehicle-${kind}-standin`, null, { soft: kind === 'rowboat' || kind === 'cable_car' });
     this.lastPose = {
       position: { x: 0, y: 0, z: 0 },
       yaw: 0,
@@ -131,6 +133,7 @@ export class VehicleView {
 
   /** Loads the painted model once the vehicle is near or on screen. */
   private requestModel(position: Vec3, cameraPosition: Vector3): void {
+    if (this.definition.chassis === 'ride') return;
     if (this.loadRequested) return;
     const distance = Math.hypot(position.x - cameraPosition.x, position.y - cameraPosition.y, position.z - cameraPosition.z);
     const camera = this.scene.activeCamera;
@@ -198,6 +201,11 @@ export class VehicleView {
 
   /** Box hull + turret stand-in in the vehicle's palette (loading / missing model). */
   private buildFallback(): void {
+    if (this.kind === 'cable_car') {
+      this.fallback = buildCableCar(this.scene, this.fallbackMaterial);
+      this.fallback.parent = this.tilt;
+      return;
+    }
     if (this.kind === 'rowboat') {
       this.rowboat = buildRowboat(this.scene, this.fallbackMaterial, this.tilt);
       this.fallback = this.rowboat.hull;
@@ -228,6 +236,7 @@ export class VehicleView {
       sidecar: ['#c8702a', '#b9c2c8'],
       rowboat: ['#885b32', '#c79255'],
       biplane: ['#72b7d6', '#f3edce'],
+      cable_car: ['#c32c39', '#f3edce'],
     };
     const [main, accent] = palette[this.kind];
     if (this.definition.chassis === 'boat') {
@@ -248,7 +257,7 @@ export class VehicleView {
   }
 
   get loaded(): boolean {
-    return this.kind === 'rowboat' || this.entries !== null;
+    return this.kind === 'rowboat' || this.definition.chassis === 'ride' || this.entries !== null;
   }
 
   /**
@@ -269,7 +278,7 @@ export class VehicleView {
     let targetRoll = 0;
     let lift = 0;
     const half = this.definition.halfExtents;
-    if (this.definition.chassis === 'aircraft') {
+    if (this.definition.chassis === 'aircraft' || this.definition.chassis === 'ride') {
       targetPitch = -(pose.pitch ?? 0); targetRoll = pose.roll ?? 0;
     } else if (this.definition.chassis === 'boat') {
       const speed = Math.abs(pose.forwardSpeed);

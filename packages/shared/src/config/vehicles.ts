@@ -19,6 +19,7 @@ import { classCapabilities } from './classes.js';
 import { createIdTable } from './ids.js';
 import { FJORD_VEHICLE_SPAWNS } from './map/gameplay.js';
 import { rotateY } from './map/math.js';
+import { sampleCableCar } from '../physics/cable-car.js';
 
 /** Wire order of every vehicle kind (append only). */
 export const VEHICLE_KINDS = [
@@ -28,11 +29,12 @@ export const VEHICLE_KINDS = [
   'rowboat',
   'sidecar',
   'biplane',
+  'cable_car',
 ] as const satisfies readonly VehicleKind[];
 
 export const VEHICLE_KIND_TABLE = createIdTable<VehicleKind>(VEHICLE_KINDS);
 
-export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar' | 'rowboat' | 'biplane';
+export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar' | 'rowboat' | 'biplane' | 'cable_car';
 
 /** Active vehicle kinds. The separate wire table retains its original ordering. */
 export const DRIVABLE_VEHICLE_KINDS: readonly DrivableVehicleKind[] = [
@@ -42,6 +44,7 @@ export const DRIVABLE_VEHICLE_KINDS: readonly DrivableVehicleKind[] = [
   'sidecar',
   'rowboat',
   'biplane',
+  'cable_car',
 ];
 
 export function isDrivableKind(kind: VehicleKind): kind is DrivableVehicleKind {
@@ -50,6 +53,7 @@ export function isDrivableKind(kind: VehicleKind): kind is DrivableVehicleKind {
 
 /** Body pose and firing eye use the same hip drop for the existing standing-foot anchors. */
 export function vehicleRidingPose(kind: DrivableVehicleKind, seat: number): 'seat' | 'steer' | 'wing' | 'row' | undefined {
+  if (kind === 'cable_car') return seat < 2 ? 'seat' : 'wing';
   if (kind === 'biplane' && seat > 0) return 'wing';
   if (kind === 'rowboat') return 'row';
   if (kind === 'sidecar') return seat === 0 ? 'steer' : 'seat';
@@ -62,7 +66,7 @@ export function vehicleEyeDrop(kind: DrivableVehicleKind, seat: number, height: 
   return height * (pose === 'wing' ? 0.07 : pose ? 0.18 : 0);
 }
 
-export type VehicleChassis = 'tracked' | 'wheeled' | 'boat' | 'aircraft';
+export type VehicleChassis = 'tracked' | 'wheeled' | 'boat' | 'aircraft' | 'ride';
 
 /**
  * driver: steers (and fires the vehicle weapon when `gunner` is also set);
@@ -191,6 +195,22 @@ const TANK_DRIVE = {
 const TANK_HALF_EXTENTS: Vec3 = { x: 1.4, y: 0.85, z: 2.3 };
 
 export const VEHICLES: Readonly<Record<DrivableVehicleKind, VehicleDefinition>> = {
+  cable_car: {
+    kind: 'cable_car', chassis: 'ride', modelKey: 'ride-cable-car',
+    maxHp: 1000, respawnSeconds: 1, wreckSeconds: 1,
+    halfExtents: { x: 1.5, y: 1.45, z: 1.2 }, hitSphere: null,
+    maxForwardSpeed: 32, maxReverseSpeed: 32, acceleration: 0, braking: 0,
+    coastDrag: 0, turnRate: 0, turnResponse: 0, lateralGrip: 1,
+    maxSlope: 0, stepHeight: 0, fordDepth: 1000,
+    ram: { weaponId: 'vehicle_blast', minSpeed: 100, fullSpeed: 100, minDamage: 0, maxDamage: 0, launchHorizontal: 0, launchVertical: 0 },
+    seats: [
+      { driver: false, gunner: false, handWeapons: false, exposed: false, anchor: { x: -0.5, y: 0.05, z: 0 } },
+      { driver: false, gunner: false, handWeapons: false, exposed: false, anchor: { x: 0.5, y: 0.05, z: 0 } },
+      { driver: false, gunner: false, handWeapons: true, exposed: true, anchor: { x: -0.55, y: 3.02, z: 0 } },
+      { driver: false, gunner: false, handWeapons: true, exposed: true, anchor: { x: 0.55, y: 3.02, z: 0 } },
+    ],
+    weapon: null, armor: { bullet: 0, explosive: 0 }, boost: null,
+  },
   biplane: {
     kind: 'biplane', chassis: 'aircraft', modelKey: 'vehicle-biplane',
     maxHp: 320, respawnSeconds: 25, wreckSeconds: 5,
@@ -509,9 +529,15 @@ export interface VehicleSlot {
 }
 
 /** Every drivable vehicle slot of Fjord Fiesta in blueprint order. */
-export const VEHICLE_SLOTS: readonly VehicleSlot[] = FJORD_VEHICLE_SPAWNS.flatMap((spawn, index) =>
-  isDrivableKind(spawn.vehicle) ? [{ id: index + 1, spawn, kind: spawn.vehicle }] : [],
-);
+export const VEHICLE_SLOTS: readonly VehicleSlot[] = [
+  ...FJORD_VEHICLE_SPAWNS.flatMap((spawn, index) =>
+    isDrivableKind(spawn.vehicle) ? [{ id: index + 1, spawn, kind: spawn.vehicle }] : []),
+  ...([0, 1] as const).map(cabin => {
+    const pose = sampleCableCar(0, cabin);
+    return { id: 100 + cabin, kind: 'cable_car' as const,
+      spawn: { id: `cable_car_${cabin}`, vehicle: 'cable_car' as const, position: pose.position, rotationY: pose.yaw, faction: null, trigger: 'map' as const } };
+  }),
+];
 
 /**
  * Tower ownership as the conquest code (package 4T) sees it. Until that

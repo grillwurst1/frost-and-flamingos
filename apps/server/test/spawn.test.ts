@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import {
   CONQUEST_TOWERS,
   FJORD_MAP,
-  INTERIM_CABLE_CAR_SPAWNS,
   INTERMISSION_TICKS,
   PhysicsWorld,
   captureZoneIndexAt,
@@ -21,12 +20,11 @@ import {
 import { MAP_CENTRE, scoreSpawnFacings, spawnFacingYaw } from '../src/rooms/spawn-facing';
 import { addDummy, createConquestRoom, place, ticks, type ConquestHarness } from './conquest-harness';
 
-/** Every pad a player can spawn on: the blueprint's plus the interim cable-car plates. */
-const ALL_PADS = [...FJORD_MAP.spawns, ...INTERIM_CABLE_CAR_SPAWNS.pads];
+/** Every currently usable pad comes from the shared blueprint. */
+const ALL_PADS = FJORD_MAP.spawns;
 
-function sourceOf(position: Vec3): TowerId | 'base' | 'cablecar' | null {
+function sourceOf(position: Vec3): TowerId | 'base' | null {
   const pad = ALL_PADS.find((spawn) => Math.hypot(spawn.position.x - position.x, spawn.position.z - position.z) < 0.01);
-  if (pad?.id.startsWith('cablecar_')) return 'cablecar';
   return pad?.source ?? null;
 }
 
@@ -98,8 +96,8 @@ describe('pad audit (static blueprint)', () => {
     expect(close).toEqual([]);
   });
 
-  test('rival tower pads and interim plates that can be live together never see each other within 120 m', () => {
-    const groupOf = (pad: SpawnPoint): string => (pad.id.startsWith('cablecar_') ? 'interim' : pad.source);
+  test('rival tower pads that can be live together never see each other within 120 m', () => {
+    const groupOf = (pad: SpawnPoint): string => pad.source;
     // Main-base pads are only live while a team holds no tower; the summit overlooking the
     // Peak Guard base is a base-protection question for the map, reported separately.
     const pads = ALL_PADS.filter((pad) => pad.source !== 'base');
@@ -143,19 +141,13 @@ describe('spawn selection follows tower ownership', () => {
     harness = await createConquestRoom(false);
   });
 
-  test('round start: each side spawns at its home tower (Peak Guard also by the cable car, interim)', () => {
-    expect(spawnSources(harness, 'alpine', 80)).toEqual(new Set(['tower_c', 'cablecar']));
+  test('round start: each side spawns at its home tower', () => {
+    expect(spawnSources(harness, 'alpine', 80)).toEqual(new Set(['tower_c']));
     expect(spawnSources(harness, 'lagoon')).toEqual(new Set(['tower_a']));
   });
 
-  test('interim cable-car plates take their share of Tower C spawns and need Tower C', () => {
-    let cablecar = 0;
-    const rolls = 600;
-    for (let roll = 0; roll < rolls; roll += 1) {
-      if (sourceOf(harness.internal.spawnFor('alpine').position) === 'cablecar') cablecar += 1;
-    }
-    expect(cablecar / rolls).toBeGreaterThan(INTERIM_CABLE_CAR_SPAWNS.share - 0.08);
-    expect(cablecar / rolls).toBeLessThan(INTERIM_CABLE_CAR_SPAWNS.share + 0.08);
+  test('the summit requires Tower C and the retired gorge plates never spawn players', () => {
+    expect(ALL_PADS.some(pad => pad.id.startsWith('cablecar_'))).toBe(false);
     const conquest = harness.internal.conquest;
     conquest.devSetTower('tower_c', 'lagoon');
     expect(spawnSources(harness, 'alpine')).toEqual(new Set(['base']));
@@ -166,7 +158,7 @@ describe('spawn selection follows tower ownership', () => {
   test('a captured tower adds its pads; losing every tower falls back to the main base', () => {
     const conquest = harness.internal.conquest;
     conquest.devSetTower('tower_b', 'alpine');
-    expect(spawnSources(harness, 'alpine', 120)).toEqual(new Set(['tower_c', 'cablecar', 'tower_b']));
+    expect(spawnSources(harness, 'alpine', 120)).toEqual(new Set(['tower_c', 'tower_b']));
     conquest.devSetTower('tower_a', 'alpine');
     expect(spawnSources(harness, 'lagoon')).toEqual(new Set(['base']));
     conquest.devSetTower('tower_a', 'lagoon');

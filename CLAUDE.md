@@ -12,6 +12,17 @@ bars on the other. No Battlefield/EA assets, names, maps or audio may be used or
 The project is delivered in milestones. **Only the current milestone may be implemented.**
 Future-milestone code, placeholder gameplay loops and speculative systems are not allowed.
 
+## Active owner priority: latest visual reference (27 October 2026)
+
+The owner now requires the actual game, players and HUD to follow the latest
+supplied screenshot, including live blue allied/red enemy name labels and triangle
+markers. The tracked base reference is `Gemini_Generated_Image_qyqgueqyqgueqyqg.jpeg`;
+the latest chat revision adds player names. This visual work takes priority over
+new milestone features. Preserve all existing mechanics, wardrobe choices and
+laptop rendering budgets. Work serially and compare the running game visually.
+`VISUAL_REFERENCE_WORK.md` records this task. Finish validation of the already
+implemented cable car alongside the graphics; M6/M7 remain gated.
+
 ## Current state: M5 completion authorized (26 October 2026)
 
 M1–M4 and the M5 core are complete. On 26 October the owner explicitly authorized
@@ -62,7 +73,7 @@ In this build:
   during the results, otherwise at the next respawn (with a notice); leaving the drifter class
   may move you to the smaller team at respawn (toast). Rules in `packages/shared/src/config/conquest.ts`
   and `apps/server/src/rooms/conquest.ts`; full text in `game-decisions.md` §14.1 / §10.6.
-- Protocol version **10**; EN/DE keys for every new surface; `bun run test` runs the script,
+- Protocol version **11**; EN/DE keys for every new surface; `bun run test` runs the script,
   server and client suites.
 
 Deliberately **not** in this build:
@@ -70,18 +81,14 @@ Deliberately **not** in this build:
 - **1E:** the owner has now authorized the character/wardrobe fixes described below.
   These use the existing GLB animation rigs with a configurable skinned body; unrelated
   future-milestone features remain deferred.
-- **Rest of M5:** cable car ride, T-bar ride, alpine coaster, hammock catapult, NPC cow
-  behaviour, cable-car gondolas and the heavy tower weather
-  transformations. Weather currently grades sky, light and water and scales parachute wind.
-  `INTERIM_CABLE_CAR_SPAWNS` (Peak Guard plates on the gorge floor below the mid station)
-  stays until the cable car lands.
+- **Rest of M5:** T-bar ride, alpine coaster, hammock catapult, NPC cow behaviour
+  and the heavy tower weather transformations. Weather currently grades sky, light and
+  water and scales parachute wind. The operational cable car replaces the interim spawn plates.
 - Hot Beach Girl full post-process exemption (she gets PBR shading and the character mask but
   still the silhouette ink and grading).
 - M6 destruction and M7 meta are not started.
 
-Known issues for the owner's test: the terrain collider and the rendered terrain split steep
-cells along opposite diagonals (up to ~3.7 m, feet can float or sink on steep slopes); the
-coaster start deck intrudes ~2.5 m into the tank road; a boat fully beached on dry sand stays
+Known issues for the owner's test: the coaster start deck intrudes ~2.5 m into the tank road; a boat fully beached on dry sand stays
 stuck while crewed (empty, it deflates after 10 s and respawns); bot rounds lean Lagoon (about
 6:14 in soaks); while the Lagoon League holds Tower C its summit pads can see the Peak Guard
 base pads; the map is heavy (~1.3M+ triangles) and may run slowly on weak GPUs — use the
@@ -391,3 +398,47 @@ WebGL2 checks V, painted motorcycle interior, hands/weapon and held wrench,
 actual repair, return to third person and hiding hands in the wardrobe, with no
 console errors. A focused viewmodel lifecycle check also passes after the final
 framing adjustment. Native Mac temperature/FPS remain unmeasured.
+
+### Latest screenshot: field HUD, soldiers and gorge (27 October 2026)
+
+The new visual reference is the active priority, with the player-name revision in chat
+as the latest target. The HUD now has ticket wings, objective discs and compass, a square
+live minimap, wardrobe-aware portrait/health, five functional action tiles and three
+weapon cards. Nameplates use real profiles, team colours, triangle pointers, current
+rendered positions and static-world line of sight. They update at up to 20 Hz independently
+of inventory telemetry, use the current camera matrix, and hide cloaked enemies.
+Minimap terrain/roads/buildings are a cached SVG, not a second 3D render.
+
+Default allrounder/reset clothing now follows the green waistcoat, white sleeves, brown
+beard, cuckoo clock and red ski boots of the reference. Existing saved selections stay
+intact. Gorge rims/nearby roofs have authored visual frost, cliffs use blue-grey angular
+lighting, and bridge pylons/ropes are lower. Post collision sizes follow the same shared
+layout; terrain heights and the painted paving relief remain unchanged.
+
+The default sky and building surfaces use the existing 3D geometry, without painted
+panorama/cloud/facade overlays. `?paintedSky=1&paintedFacades=1` opts into the older art.
+Crisper cel shading and restrained material detail/colour grading use the existing
+GLSL/WGSL materials. The 45 FPS default, automatic load governor, resolution budgets,
+half-resolution contour buffer and two post-processing passes remain. The screenshot
+is not matched exactly: composition, soldier proportions and later destruction effects
+still need work. Do not claim a native Mac performance or temperature measurement.
+
+### Cable car (M5 continuation, protocol 11)
+
+Two rounded red cabins counter-run on the authored valley/mid/summit route, with three-second
+station stops, protected interior seats and two exposed roof seats. F boards/exits; H
+cycles seats; C/Ctrl crouches on the roof. F near a station lever or a real hitscan shot
+pulls the emergency brake: both cabins stop/rock for two seconds. Standing roof riders
+are thrown off; crouched and interior crew stay aboard. Cabins have no empty tow timeout.
+The old interim gorge spawn plates are removed; bots do not use the cable car yet and
+team balance still needs its M8 pass. The cabin is a single merged procedural mesh below
+6,000 triangles, without a texture download or transparent-glass pass.
+
+Release checks and browser evidence are recorded in `VISUAL_REFERENCE_WORK.md`.
+
+Verified 27 October: 255 automated tests (10 script, 189 server, 56 client), clean strict
+TypeScript/Svelte diagnostics and successful production bundles. WebGL2 checks real HUD/
+nameplates and cable-car motion, seat changes, crouch, exit and station brake events without
+console errors. Five material variants compile under WebGPU without errors. Moving cabin
+and fallback boat meshes now follow their parents; regression checks cover hull translation
+and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeasured.

@@ -625,45 +625,24 @@ export function drawBridgeDeck(batch: GeometryBatch, prop: MapProp): void {
 }
 
 export function drawBridgePylon(batch: GeometryBatch, prop: MapProp): void {
-  const height = prop.dimensions?.y ?? 28;
+  const height = prop.dimensions?.y ?? 2.6;
   const half = (prop.dimensions?.x ?? 7.8) / 2;
-  if (prop.variant === 1) {
-    // Rim anchor frame with rope coils
-    for (const side of [-1, 1]) {
-      batch.log([side * half, -0.5, 0], [side * half * 0.95, height, 0], 0.45, P.log, 'wood', { segments: 8 });
-      batch.log([side * half, height * 0.4, 0], [side * half * 0.5, -0.3, -2.4], 0.25, P.logDark, 'wood', { segments: 6 });
-      batch.with(Affine.translation(side * half, height * 0.55, 0.5), () => batch.lathe([[0.55, -0.25], [0.6, 0], [0.55, 0.25]], 10, P.rope, 'cloth'));
-    }
-    batch.log([-half, height - 0.6, 0], [half, height - 0.6, 0], 0.32, P.logDark, 'wood', { segments: 7 });
-    return;
-  }
+  const radius = prop.variant === 1 ? 0.25 : 0.34;
   for (const side of [-1, 1]) {
-    // Massive leg built from three lashed logs
-    for (let log = 0; log < 3; log += 1) {
-      const ox = side * half + (log - 1) * 0.42;
-      const lean = side * -0.35;
-      batch.log([ox, -0.6, (log - 1) * 0.2], [ox + lean, height, (log - 1) * 0.1], 0.32 - log * 0.03, shade(P.log, 0.9 + log * 0.08), 'wood', { segments: 7 });
-    }
-    for (let band = 1; band < 6; band += 1) {
-      const y = (band / 6) * height;
-      batch.with(Affine.translation(side * half - side * 0.35 * (y / height), y, 0), () => batch.lathe([[0.82, -0.12], [0.85, 0], [0.82, 0.12]], 10, P.rope, 'cloth'));
+    batch.log([side * half, -0.3, 0], [side * half, height, 0], radius, P.log, 'wood', { segments: 12 });
+    for (const y of [height - 0.75, height - 0.3]) {
+      batch.with(Affine.translation(side * half, y, 0), () =>
+        batch.lathe([[radius + 0.025, -0.07], [radius + 0.04, 0], [radius + 0.025, 0.07]], 12, P.ropeDark, 'cloth'));
     }
   }
-  // Cross braces and the top beam with cable saddles
-  for (const y of [height * 0.35, height * 0.75]) {
-    batch.log([-half, y - 2.2, 0], [half, y + 1.4, 0], 0.18, P.logDark, 'wood', { segments: 5 });
-    batch.log([half, y - 2.2, 0], [-half, y + 1.4, 0], 0.18, P.logDark, 'wood', { segments: 5 });
-  }
-  batch.log([-half - 1.2, height - 0.4, 0], [half + 1.2, height - 0.4, 0], 0.38, P.logDark, 'wood', { segments: 8 });
-  for (const side of [-1, 1]) batch.blob(side * (half - 0.35), height + 0.2, 0, 0.45, 0.35, 0.6, P.metalDark, 'metal', { segments: 6, rings: 4 });
 }
 
 /** Main suspension cables and hangers, drawn in world space. */
 export function drawBridgeCables(batch: GeometryBatch): void {
   const south = FjordLayout.BRIDGE_SOUTH;
   const north = FjordLayout.BRIDGE_NORTH;
-  const pylonTop = 31;
-  const anchorTop = { south: sampleMapHeight(0, south.z - 3) + 7, north: sampleMapHeight(0, north.z + 3) + 7 };
+  const pylonTop = FjordLayout.BRIDGE_PYLON_TOP;
+  const anchorTop = { south: sampleMapHeight(0, south.z - 3) + FjordLayout.BRIDGE_ANCHOR_HEIGHT, north: sampleMapHeight(0, north.z + 3) + FjordLayout.BRIDGE_ANCHOR_HEIGHT };
   for (const side of [-1, 1]) {
     const x = side * 3.6;
     const points: V3[] = [];
@@ -676,7 +655,7 @@ export function drawBridgeCables(batch: GeometryBatch): void {
     for (let span = 0; span + 1 < supports.length; span += 1) {
       const a = supports[span] as V3;
       const b = supports[span + 1] as V3;
-      const sag = span === 1 ? 7.5 : 1.5;
+      const sag = span === 1 ? 0.9 : 0.45;
       for (let index = span === 0 ? 0 : 1; index <= 12; index += 1) {
         const t = index / 12;
         points.push([x, a[1] + (b[1] - a[1]) * t - Math.sin(t * Math.PI) * sag, a[2] + (b[2] - a[2]) * t]);
@@ -1234,8 +1213,13 @@ export function drawCablePylon(batch: GeometryBatch, prop: MapProp): void {
   batch.box(0, 0.25, 0, base * 2 + 1.2, 0.5, base * 2 + 1.2, P.cobble, 'stone', 0.1);
 }
 
-export function drawRouteCable(batch: GeometryBatch, route: RoutePolyline, radius: number, color: RGB, offset = 0): void {
-  const points = route.points.map((point): V3 => [point.x, point.y + offset, point.z]);
+export function drawRouteCable(batch: GeometryBatch, route: RoutePolyline, radius: number, color: RGB, offset = 0, lateral = 0): void {
+  const points = route.points.map((point, index): V3 => {
+    const previous = route.points[Math.max(0, index - 1)] ?? point;
+    const next = route.points[Math.min(route.points.length - 1, index + 1)] ?? point;
+    const dx = next.x - previous.x, dz = next.z - previous.z, length = Math.hypot(dx, dz) || 1;
+    return [point.x + dz / length * lateral, point.y + offset, point.z - dx / length * lateral];
+  });
   batch.tube(points, radius, 5, color, 'metal');
 }
 

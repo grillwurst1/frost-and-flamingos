@@ -69,11 +69,12 @@
       </div>
     {/if}
     {#if hud.kind === 'biplane' && hud.driver}<div class="vehicle-warning">{$t('vehicles.hud.flight')}</div>{/if}
+    {#if hud.kind === 'cable_car'}<div class="vehicle-warning">{$t('vehicles.hud.cableCar')}</div>{/if}
 
     <div class="vehicle-keys">
       <span><kbd>{$t('vehicles.keys.exit')}</kbd> {$t('vehicles.hud.exit')}</span>
       {#if hud.seatCount > 1}
-        <span><kbd>{$t('vehicles.keys.seat')}</kbd> {$t('vehicles.hud.switchSeat')}</span>
+        <span><kbd>{$t(hud.kind === 'cable_car' ? 'vehicles.keys.rideSeat' : 'vehicles.keys.seat')}</kbd> {$t('vehicles.hud.switchSeat')}</span>
       {/if}
       {#if hud.driver}
         <span><kbd>{$t('vehicles.keys.horn')}</kbd> {$t('vehicles.hud.horn')}</span>

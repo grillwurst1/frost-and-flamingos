@@ -185,7 +185,7 @@ export const en = {
       face_sunscreen: 'Sunscreen stripes',
     },
     torso: {
-      torso_tracht_shirt: 'Tracht shirt',
+      torso_tracht_shirt: 'Alpine shirt & waistcoat',
       torso_dirndl_vest: 'Dirndl vest',
       torso_loden_coat: 'Loden coat',
       torso_hawaii_shirt: 'Hawaii shirt',
@@ -442,6 +442,24 @@ export const en = {
     vehicleRepairKey: 'Hold X',
   },
   hud: {
+    minimap: 'Field map',
+    compass: 'Compass',
+    healthValue: '{current}/{max} HP',
+    weaponShort: {
+      smg: 'SMG',
+      lmg: 'LMG',
+      sniper: 'Sniper',
+      shotgun: 'Shotgun',
+      bazooka: 'Bazooka',
+      silenced_pistol: 'Silenced Pistol',
+      knife: 'Knife',
+      snow_cannon: 'Portable Snow Cannon',
+      sand_flamer: 'Sand Flamer',
+      crossbow: 'Crossbow',
+      halberd: 'Halberd',
+      umbrella: 'Umbrella',
+      horn: 'Alphorn',
+    },
     health: 'Vitality',
     classLabel: 'Class',
     factionLabel: 'Faction',
@@ -603,6 +621,7 @@ export const en = {
     teamBalanced: 'You now play for {faction} to keep the teams even.',
   },
   world: {
+    cableCar: { brake: 'Pull the emergency brake', screech: 'SCREEECH!' },
     mapName: 'Fjord Fiesta',
     mapSubtitle: 'Alpine summit meets turquoise lagoon',
     zones: {
@@ -821,6 +840,7 @@ export const en = {
   },
   vehicles: {
     names: {
+      cable_car: 'Red Fjord Express',
       biplane: 'Sky Skipper biplane',
       rowboat: 'Wooden rowboat',
       fondue_crawler: 'Fondue Crawler',
@@ -829,6 +849,7 @@ export const en = {
       sidecar: 'Sidecar Motorcycle',
     },
     enter: {
+      cable_car: 'Board the cable car',
       biplane: 'Climb into the biplane or onto a wing',
       rowboat: 'Board the rowboat',
       fondue_crawler: 'Climb into the Fondue Crawler',
@@ -837,6 +858,8 @@ export const en = {
       sidecar: 'Hop on the sidecar motorcycle',
     },
     seats: {
+      cabin: 'Protected cabin',
+      roof: 'Cabin roof',
       wing: 'Wing rider',
       rower: 'Rower',
       driverGunner: 'Driver & cannon',
@@ -848,6 +871,7 @@ export const en = {
       sidecar: 'Sidecar seat',
     },
     hud: {
+      cableCar: 'H changes seats · C/Ctrl holds on during emergency braking',
       passengerView: 'Passenger view',
       flight: 'W/S throttle · mouse steers · A/D rudder',
       bail: 'Jump out',
@@ -877,6 +901,7 @@ export const en = {
       crew: 'Crew',
     },
     keys: {
+      rideSeat: 'H',
       view: 'V',
       bail: 'Space',
       repair: 'X',

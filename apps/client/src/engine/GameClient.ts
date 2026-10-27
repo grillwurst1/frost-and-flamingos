@@ -76,6 +76,8 @@ import { classifyGpu } from '../rendering/gpu-tier';
 import { createSceneLook, type SceneLook, type VisualQuality } from '../rendering/scene-look';
 import { loadSpriteAtlas } from '../rendering/sprite-atlas';
 import { loadFacadeAtlas } from '../rendering/facade-atlas';
+import { playerTags, tacticalPlayers } from '../state/tactical';
+import { projectPlayerTags, type TagCandidate } from '../rendering/player-tags';
 import {
   clearCombatUi,
   damageFlash,
@@ -135,6 +137,7 @@ const SNAPSHOT_HISTORY = 40;
 const RECONCILE_THRESHOLD = 0.12;
 const HARD_SNAP_THRESHOLD = 2.4;
 const HUD_INTERVAL_MS = 220;
+const PLAYER_TAG_INTERVAL_MS = 50;
 const REMOTE_TIMEOUT_MS = 1600;
 // DEV builds allow a much longer handshake: software-GL playtest browsers on a
 // loaded machine can stall the main thread past 20 s while compiling shaders.
@@ -409,6 +412,7 @@ export class GameClient {
   private frameDrawCalls = 0;
   private lastDrawCallsTotal = 0;
   private lastHudAt = 0;
+  private lastPlayerTagsAt = 0;
   private lastSnapshotTick = 0;
   private snapshotCount = 0;
   private booted = false;
@@ -605,7 +609,7 @@ export class GameClient {
         console.warn('[frost-and-flamingos] painted sprites unavailable, using procedural props', error);
         return null;
       });
-      const facadeAtlas = loadFacadeAtlas(scene).then((atlas) => {
+      const facadeAtlas = (new URLSearchParams(window.location.search).get('paintedFacades') === '1' ? loadFacadeAtlas(scene) : Promise.resolve(null)).then((atlas) => {
         this.bootTimings.facadeAtlas = Math.round(performance.now() - artStart);
         return atlas;
       }).catch((error: unknown) => {
@@ -1616,6 +1620,7 @@ export class GameClient {
     this.updateAudio(delta);
     this.updateMaterials(now);
     this.updateHud(now);
+    this.updatePlayerTags(now);
     this.scene.render();
     const drawTotal = this.engine?._drawCalls.current ?? 0;
     this.frameDrawCalls = Math.max(0, drawTotal - this.lastDrawCallsTotal);
@@ -1854,9 +1859,10 @@ export class GameClient {
       repairing: Boolean((this.input?.buttons() ?? 0) & InputButton.Wrench),
     };
     if (seated) {
+      const roofCrouch = this.vehicles?.localSeat?.kind === 'cable_car' && Boolean((this.input?.buttons() ?? 0) & InputButton.Crouch);
       Object.assign(pose, { position: seated.position, velocity: { x: 0, y: 0, z: 0 }, yaw: seated.unarmed ? seated.yaw : character.yaw, heading: seated.yaw,
         riding: seated.riding, vehiclePitch: seated.vehiclePitch, vehicleRoll: seated.vehicleRoll,
-        grounded: true, crouched: false, crouchBlend: 0, swimming: false, sprinting: false, rolling: false });
+        grounded: true, crouched: roofCrouch, crouchBlend: roofCrouch ? 1 : 0, swimming: false, sprinting: false, rolling: false });
       if (seated.unarmed) pose.weaponId = null;
     }
     // Where the body is drawn (the seat while riding): tracers and drifter FX start here.
@@ -2275,6 +2281,35 @@ export class GameClient {
     updateSkyMaterial(this.visuals.skyMaterial, time);
   }
 
+  /** Names track the rendered bodies independently of the slower inventory/status HUD. */
+  private updatePlayerTags(now: number): void {
+    if (now - this.lastPlayerTagsAt < PLAYER_TAG_INTERVAL_MS) return;
+    this.lastPlayerTagsAt = now;
+    if (!this.scene || !this.physics || this.wardrobeIsOpen ||
+        (this.currentPhase !== 'playing' && this.currentPhase !== 'paused')) {
+      playerTags.set([]);
+      return;
+    }
+    const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
+    const candidates: TagCandidate[] = [];
+    for (const player of latest?.players ?? []) {
+      if (!player.alive) continue;
+      const local = player.id === this.localId;
+      const view = local ? this.localView : this.remoteViews.get(player.id)?.view;
+      const profile = local ? this.localProfile : this.profiles.get(player.id);
+      const feet = this.renderedFeet.get(player.id);
+      if (!profile || !feet || !view?.root.isEnabled()) continue;
+      const height = classStatsFor(player.classId, player.faction).height * (player.crouched ? CROUCH_HEIGHT_SCALE : 1);
+      const riding = this.vehicles?.occupantPose(player.id)?.riding;
+      candidates.push({
+        id: player.id, name: profile.displayName, feet,
+        height: height * (riding === 'wing' ? .93 : riding ? .82 : 1),
+        friendly: player.faction === this.localFaction, local, cloaked: player.cloaked,
+      });
+    }
+    playerTags.set(projectPlayerTags(this.scene, this.physics, candidates, this.vehicles?.localHullCollider() ?? undefined));
+  }
+
   private updateHud(now: number): void {
     if (now - this.lastHudAt < HUD_INTERVAL_MS) return;
     this.lastHudAt = now;
@@ -2308,6 +2343,7 @@ export class GameClient {
     if (this.localId !== null) {
       localPlayer.set({
         id: this.localId,
+        yaw: this.cameraRig?.lookYaw ?? state?.yaw ?? 0,
         faction: this.localFaction,
         classId: this.localClass,
         hp: state?.hp ?? classStatsFor(this.localClass, this.localFaction).maxHp,
@@ -2346,6 +2382,9 @@ export class GameClient {
       this.mascots?.publishHud(character, state, this.localFaction, weaponSlot);
     }
     if (get(scoreboardOpen)) this.publishScoreboard();
+
+    const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
+    tacticalPlayers.set(latest?.players.map(p => ({ id:p.id, x:p.position.x, z:p.position.z, faction:p.faction, alive:p.alive })) ?? []);
 
     this.vehicles?.publishHud();
 

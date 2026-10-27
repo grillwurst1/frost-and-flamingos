@@ -1060,6 +1060,11 @@ export class MatchRoom {
     const critterHit = this.critters.raycast(origin, direction, maxDistance, rewindTick);
     const playerDistance = hit ? hit.distance : Number.POSITIVE_INFINITY;
     const critterDistance = critterHit ? critterHit.distance : Number.POSITIVE_INFINITY;
+    const leverDistance = this.vehicles.raycastBrakeLever(origin, direction, maxDistance);
+    if (leverDistance !== null && leverDistance < Math.min(playerDistance, critterDistance, vehicleHit?.distance ?? Infinity)) {
+      this.vehicles.requestCableBrake(player.id);
+      return;
+    }
     if (vehicleHit && vehicleHit.distance < playerDistance && vehicleHit.distance <= critterDistance) {
       this.vehicles.damageFromWeapon(vehicleHit.id, player, damage, weaponId);
       return;
@@ -1089,7 +1094,7 @@ export class MatchRoom {
       targets.push({
         id: other.id,
         position: state?.position ?? other.character.position,
-        crouched: state?.crouched ?? other.character.crouched,
+        crouched: state?.crouched ?? (other.character.crouched || this.vehicles.isCrouched(other.id)),
         radius: classStats.radius,
         height: classStats.height,
         alive: state?.alive ?? other.alive,
@@ -1121,7 +1126,7 @@ export class MatchRoom {
     for (const player of this.players.values()) {
       players.set(player.id, {
         position: { ...player.character.position },
-        crouched: player.character.crouched,
+        crouched: player.character.crouched || this.vehicles.isCrouched(player.id),
         alive: player.alive,
         heading: player.character.heading,
       });
@@ -2762,7 +2767,7 @@ export class MatchRoom {
         maxHp: classStatsFor(classId, player.profile.faction).maxHp,
         grounded: state.grounded,
         alive: player.alive,
-        crouched: state.crouched,
+        crouched: state.crouched || this.vehicles.isCrouched(player.id),
         swimming: state.swimming,
         sprinting: state.sprinting,
         rolling: state.rolling,
