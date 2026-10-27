@@ -138,3 +138,32 @@ all physical assertions and fixed simulation steps remain. The target is not acc
 Next: selectable sleeveless field vest and a reference Heavy default (bald head,
 bare arms, olive clothing), retaining saved outfits and all old choices. Broader
 world/vehicle art and consistent reference comparison remain open.
+
+
+### Field vest and connected figure forms
+
+Implemented selectable EN/DE sleeveless vest (append-only torso 8, protocol 13)
+and reference Heavy default; saved outfits and previous choices are preserved.
+Faces fuse nose/brow/cheeks into one smooth surface with inset eyes and lids.
+Arms are continuous lofts; head seam normals survive rig mapping. Closed vests
+replace inner torso surfaces, spine garments refine before binding, boot soles
+round and covered cuffs disappear. Skin gloss is reduced.
+
+Default Allrounder 50,214 triangles / Heavy 28,308, one animated body draw each,
+cache still 12, no new texture/target/post pass. Cliffs use broad vertex-colour
+strata, gentler facet lighting and lower steep-rock texture contrast; actual terrain
+and rock/paving relief remain. WebGL2 model and full field QA pass without errors.
+See `docs/qa/reference-heavy-vest.png` and `reference-field-vest-1280.png`; actors
+are real binary players, including cow, with staged test positions and loaded
+vehicle geometry. Native queue completion fails with the Cloud external-instance
+error despite modules reaching compilation; no full native or Mac sign-off.
+
+The target is still open: chalet/bridge/vehicle proportions, environment composition,
+vehicle sculpting and overall professional model quality need further work. Do not
+mark the owner's screenshot accepted or resume new milestone features yet.
+
+Field-vest release validation: **280 tests pass** (10 scripts, 198 server, 72 client),
+strict TypeScript/Svelte checks report zero errors/warnings, and production builds
+complete. WebGL2 model/field browser checks pass without console errors. Six native
+WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
+external-instance error. Visual-reference acceptance and native hardware QA remain open.

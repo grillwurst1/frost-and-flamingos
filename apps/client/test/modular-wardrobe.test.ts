@@ -178,3 +178,65 @@ test('tall boot surfaces have short bend spans instead of triangles stretching t
     expect(bootFaces).toBeGreaterThan(100);
   } finally { view.dispose(); }
 });
+
+test('the reference Heavy outfit uses a real configurable field vest on the Heavy skeleton', async () => {
+  const heavy = await paintedModelLibrary(scene).load('alpine-heavy');
+  if (!heavy) throw new Error('Missing committed Heavy rig');
+  const profile = createDefaultProfile('Senn_Koloss', 'heavy');
+  const view = new GlbCharacterView(scene, new StandardMaterial('heavy-shadow', scene), profile, heavy, null);
+  try {
+    expect(view.renderedCosmetics.torso).toBe('torso_field_vest');
+    expect(view.renderedCosmetics.hairStyleIndex).toBe(6);
+    expect(view.renderedCosmetics.headgear).toBe('head_none');
+    const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail')!;
+    expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
+    expect(mesh.subMeshes).toHaveLength(1);
+    const colors = mesh.getVerticesData('color')!;
+    let vest = 0, skin = 0;
+    for (let v = 0; v < colors.length; v += 4) {
+      if (colors[v + 3]! > .9) skin++;
+      if (Math.abs(colors[v]! - 0x58 / 255) < .001 && Math.abs(colors[v + 1]! - 0x6b / 255) < .001) vest++;
+    }
+    expect(vest).toBeGreaterThan(100);
+    expect(skin).toBeGreaterThan(1000);
+  } finally { view.dispose(); }
+});
+
+test('changing skin tone keeps field-vest cloth green and recolours exposed skin only', () => {
+  for (const [skinToneIndex, hex] of SKIN_TONES.entries()) {
+    const { view, mesh } = build({ torso: 'torso_field_vest', skinToneIndex });
+    try {
+      const c = mesh.getVerticesData('color')!;
+      const skin = [1, 3, 5].map(i => Number.parseInt(hex.slice(i, i + 2), 16) / 255);
+      let greenCloth = 0;
+      for (let v = 0; v < c.length; v += 4) {
+        if (c[v + 3]! > .9) for (let channel = 0; channel < 3; channel++) expect(c[v + channel]!).toBeCloseTo(skin[channel]!, 5);
+        else if (Math.abs(c[v]! - 0x58 / 255) < .001 && Math.abs(c[v + 1]! - 0x6b / 255) < .001) greenCloth++;
+      }
+      expect(greenCloth).toBeGreaterThan(100);
+    } finally { view.dispose(); }
+  }
+}, 30000);
+
+test('the fused face has continuous outward normals across its front wrap seam', () => {
+  const { view, mesh } = build({ headgear: 'head_none', face: 'face_none', hairStyleIndex: 6 });
+  try {
+    const p = mesh.getVerticesData('position')!, n = mesh.getVerticesData('normal')!, c = mesh.getVerticesData('color')!;
+    const headScale = asset.spec.head.radius / .21;
+    const groups = new Map<string, number[]>();
+    for (let v = 0; v < p.length / 3; v++) {
+      if (Math.abs(p[v * 3]!) > 1e-5 || Math.abs(p[v * 3 + 1]! - asset.spec.head.y) > .09 * headScale || p[v * 3 + 2]! < asset.spec.head.z + .18 * headScale || c[v * 4 + 3]! < .9) continue;
+      const key = `${Math.round(p[v * 3 + 1]! * 1e5)}:${Math.round(p[v * 3 + 2]! * 1e5)}`;
+      const group = groups.get(key) ?? []; group.push(v); groups.set(key, group);
+    }
+    let seams = 0;
+    for (const group of groups.values()) if (group.length > 1) {
+      const first = group[0]!;
+      for (const v of group.slice(1)) {
+        expect(n[first * 3]! * n[v * 3]! + n[first * 3 + 1]! * n[v * 3 + 1]! + n[first * 3 + 2]! * n[v * 3 + 2]!).toBeGreaterThan(.9999);
+        expect(n[v * 3 + 2]!).toBeGreaterThan(.5); seams++;
+      }
+    }
+    expect(seams).toBeGreaterThan(5);
+  } finally { view.dispose(); }
+});

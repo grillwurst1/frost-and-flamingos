@@ -228,9 +228,9 @@ function expectedBytes(value: WorldSnapshot): number {
   return HEADER_BYTES + value.players.length * PLAYER_BYTES + 1 + vehicleBlock + 1 + value.critters.length * 12 + CONQUEST_BYTES;
 }
 
-describe('merged protocol 11 snapshot codec', () => {
+describe('merged protocol 13 snapshot codec', () => {
   test('protocol 10 extends vehicle pose with signed aircraft pitch and bank', () => {
-    expect(PROTOCOL_VERSION).toBe(12);
+    expect(PROTOCOL_VERSION).toBe(13);
   });
 
   test('an aircraft with three crew and signed pitch/bank precedes ordinary hulls without shifting their fields', () => {
@@ -332,7 +332,7 @@ describe('merged protocol 11 snapshot codec', () => {
     const decoded = decodeWelcome(encodeWelcome(welcome));
     expect(decoded?.spawnYaw).toBe(welcome.spawnYaw);
     expect(decoded?.spawn).toEqual(welcome.spawn);
-    expect(decoded?.protocolVersion).toBe(12);
+    expect(decoded?.protocolVersion).toBe(13);
   });
 
   test('an empty vehicle list and an empty critter trailer (conquest block still present) round-trip', () => {

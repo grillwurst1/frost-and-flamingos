@@ -186,7 +186,11 @@ void main(void) {
   if (uBattleDamage > 0.001) grain = ffValueNoise(vUV * 96.0);
 #else
   vec3 base = vColor.rgb;
+#ifdef FF_SOFT_CHARACTER
+  float gloss = mix(0.18, 0.035, clamp(vColor.a, 0.0, 1.0));
+#else
   float gloss = 0.3;
+#endif
   float grain = hash13(floor(vWorldPosition * 24.0));
 #endif
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
@@ -362,7 +366,11 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   if (uniforms.uBattleDamage > 0.001) { grain = ffValueNoise(input.vUV * 96.0); }
 #else
   var base = input.vColor.rgb;
+#ifdef FF_SOFT_CHARACTER
+  let gloss = mix(0.18, 0.035, clamp(input.vColor.a, 0.0, 1.0));
+#else
   let gloss = 0.3;
+#endif
   let grain = hash13(floor(input.vWorldPosition * 24.0));
 #endif
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));

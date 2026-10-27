@@ -12,7 +12,11 @@ import {
   RESPAWN_DELAY_SECONDS,
   PHYSICS_TICK_RATE,
   createDefaultProfile,
+  decodeHello,
   decodeGameEvent,
+  encodeHello,
+  PROTOCOL_VERSION,
+  TORSO_TABLE,
   type ClassCapabilities,
   type ClassId,
   type Faction,
@@ -74,6 +78,26 @@ function internals(harness: ConquestHarness): {
 }
 
 describe('profile updates', () => {
+  test('the field vest round-trips while previous wardrobe codes and saved choices remain valid', () => {
+    expect(TORSO_TABLE.byCode[0]).toBe('torso_tracht_shirt');
+    expect(TORSO_TABLE.byCode[7]).toBe('torso_barrel_armor');
+    expect(TORSO_TABLE.byCode[8]).toBe('torso_field_vest');
+    const profile = createDefaultProfile('Reference Heavy', 'heavy');
+    const decoded = decodeHello(encodeHello({ profile, protocolVersion: PROTOCOL_VERSION }));
+    expect(decoded?.protocolVersion).toBe(13);
+    expect(decoded?.profile.cosmetics.torso).toBe('torso_field_vest');
+    expect(decoded?.profile.cosmetics.hairStyleIndex).toBe(6);
+    expect(decoded?.profile.cosmetics.bodyType).toBeCloseTo(.08, 2);
+    profile.cosmetics.torso = 'torso_barrel_armor';
+    profile.cosmetics.headgear = 'head_fondue_pot';
+    profile.cosmetics.skinToneIndex = 9;
+    profile.cosmetics.hairStyleIndex = 1;
+    const saved = decodeHello(encodeHello({ profile, protocolVersion: PROTOCOL_VERSION }));
+    expect(saved?.profile.cosmetics.torso).toBe('torso_barrel_armor');
+    expect(saved?.profile.cosmetics.headgear).toBe('head_fondue_pot');
+    expect(saved?.profile.cosmetics.skinToneIndex).toBe(9);
+    expect(saved?.profile.cosmetics.hairStyleIndex).toBe(1);
+  });
   test('a dead player is not revived: the change is stored for the respawn', async () => {
     const harness = await createConquestRoom(false);
     const alpine = addDummy(harness, 'alpine');

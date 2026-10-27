@@ -985,3 +985,32 @@ Spieltest scheitert weiterhin am bekannten Cloud-GPU-Fehler. WebGL2-Nahaufnahme 
 [Spielbild in Referenzauflösung](docs/qa/field-quality-1280.png) sind ohne Browserfehler.
 [Vorher](docs/qa/figure-quality-before.png) und [nachher](docs/qa/figure-quality-after.png)
 zeigen die Modelle in unterschiedlichen Ruheposen. Die Vorlage ist noch nicht erreicht.
+
+
+### Modellierte Figuren und neue Feldweste
+
+Gesichter haben jetzt eine zusammenhängende Form mit eingelassenen Augen und
+Lidern. Arme sind durchgehend modelliert; verdeckte Haut und Hosenabschlüsse
+werden unter geschlossenen Westen beziehungsweise Stiefeln ausgelassen. Haut
+glänzt weniger, Stiefelsohlen sind runder. Die gewählte Hautfarbe bleibt erhalten.
+Die Felswände zeigen ruhigere Flächen und Texturen bei unverändertem 3D-Relief.
+
+In der Garderobe ist die **„Ärmellose Feldweste“** mit Taschen und Schulterlaschen
+auswählbar. Neue beziehungsweise zurückgesetzte Heavy-Figuren tragen sie mit
+Glatze, freien Armen, olivgrüner Hose und Bergstiefeln. Bestehende Figuren bleiben
+erhalten. Für den neuen Heavy-Look dort **„Standardkleidung anziehen“** wählen;
+Fassrüstung, Topfhelm und alle bisherigen Kleidungsstücke bleiben auswählbar.
+
+Client und Server benötigen nun Protokoll **13**; ältere offene Spielseiten neu
+laden. Kein zusätzlicher Vollbildfilter, keine neue Textur und kein höheres
+Bildratenlimit wurden hinzugefügt. [Figurenansicht](docs/qa/reference-heavy-vest.png)
+und [Spielszene](docs/qa/reference-field-vest-1280.png) zeigen den aktuellen Stand.
+Die vollständige Grafikvorlage ist weiterhin nicht erreicht. Mac-Temperatur und
+Bildrate auf echter Hardware wurden hier nicht gemessen.
+
+Geprüft für diesen Stand: **280 Tests bestanden** (10 Skript-, 198 Server- und
+72 Clienttests), Typprüfung ohne Fehler oder Warnungen, Produktionsbuilds erfolgreich.
+WebGL2-Figurenansicht und Spielszene laufen ohne Browserfehler. Unter WebGPU
+kompilieren sechs isolierte Shader-Varianten; beim Abschluss der GPU-Aufträge
+scheitert die Cloud-Umgebung weiterhin am Treiberfehler „external Instance“.
+Ein vollständiger WebGPU-Spieltest und die Messung auf deinem Mac bleiben offen.

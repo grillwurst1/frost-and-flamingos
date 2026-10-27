@@ -360,7 +360,8 @@ vec3 ffTerrainSurface(vec4 vertexColor, vec4 mixA, vec4 mixB, vec3 worldPos, ino
     }
     vec3 tile = mix(first, second, blend);
     float coverage = clamp(top.x + top.z, 0.0, 1.0);
-    albedo *= mix(vec3(1.0), clamp(tile * 2.0, 0.0, 1.85), uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75));
+    float cliffTexture = mix(1.0, 0.35, mixA.w * (1.0 - smoothstep(0.45, 0.75, normal.y)));
+    albedo *= mix(vec3(1.0), clamp(tile * 2.0, 0.0, 1.85), uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75) * cliffTexture);
     // Painterly macroMix variation: broad warm/cool patches like brush washes.
     float wash = ffDetailNoise(worldPos.xz * 0.013 + 11.0) - 0.5;
     albedo *= 1.0 + wash * 0.16 * (1.0 - mixA.x * 0.6);
@@ -718,7 +719,8 @@ fn ffTerrainSurface(vertexColor : vec4f, mixA : vec4f, mixB : vec4f, worldPos : 
     }
     let tile = mix(first, second, blend);
     let coverage = clamp(top.x + top.z, 0.0, 1.0);
-    albedo = albedo * mix(vec3f(1.0), clamp(tile * 2.0, vec3f(0.0), vec3f(1.85)), uniforms.uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75));
+    let cliffTexture = mix(1.0, 0.35, mixA.w * (1.0 - smoothstep(0.45, 0.75, normalIn.y)));
+    albedo = albedo * mix(vec3f(1.0), clamp(tile * 2.0, vec3f(0.0), vec3f(1.85)), uniforms.uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75) * cliffTexture);
     let wash = ffDetailNoise(worldPos.xz * 0.013 + 11.0) - 0.5;
     albedo = albedo * (1.0 + wash * 0.16 * (1.0 - mixA.x * 0.6));
   }

@@ -162,8 +162,10 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
   const outcrop = height > SNOWLINE_Y + 9 ? smooth((ridge - 0.3) / 0.25) * smooth((slope - 0.24) / 0.16) : 0;
   const rockWeight = Math.max(biome.rock, outcrop);
   if (rockWeight > 0) {
-    const strata = Math.sin(height * 1.7 + patch * 2) * 0.5 + 0.5;
-    const rock = mix(mix(P.rockShade, P.rock, strata), P.rockLight, fine > 0.75 ? 0.4 : 0);
+    // Broad colour strata support the actual cliff facets. Rapid height stripes
+    // alias against the heightfield cells and make whole walls look cracked/noisy.
+    const strata = Math.sin(height * .18 + softNoise(x, z, .025, 181) * 1.3) * .5 + .5;
+    const rock = mix(mix(P.rockShade, P.rock, .35 + strata * .3), P.rockLight, softNoise(x, z, .06, 182) * .15);
     bare = mix(bare, rock, rockWeight);
     layers.over('rock', rockWeight);
     if (rockWeight > 0.5) surface = 'rock';

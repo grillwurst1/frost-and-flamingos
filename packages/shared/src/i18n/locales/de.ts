@@ -195,6 +195,7 @@ export const de: TranslationDictionary = {
       torso_bathrobe: 'Bademantel',
       torso_bare_suspenders: 'Nackte Hosenträger',
       torso_barrel_armor: 'Fass-Rüstung',
+      torso_field_vest: 'Ärmellose Feldweste',
     },
     back: {
       back_none: 'Kein Rucksack',

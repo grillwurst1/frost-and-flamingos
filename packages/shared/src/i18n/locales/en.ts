@@ -193,6 +193,7 @@ export const en = {
       torso_bathrobe: 'Bathrobe',
       torso_bare_suspenders: 'Bare suspenders',
       torso_barrel_armor: 'Barrel armour',
+      torso_field_vest: 'Sleeveless field waistcoat',
     },
     back: {
       back_none: 'No backpack',

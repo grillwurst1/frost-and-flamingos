@@ -93,7 +93,9 @@ void main(void) {
   vec3 albedo = ffTerrainSurface(vColor, vTerrainMixA, vTerrainMixB, vWorldPosition, normal, gloss, hatch);
   vec3 cliffNormal = normalize(cross(dFdx(vWorldPosition), dFdy(vWorldPosition)));
   cliffNormal *= dot(cliffNormal, normal) < 0.0 ? -1.0 : 1.0;
-  normal = normalize(mix(normal, cliffNormal, 1.0-smoothstep(0.5,0.78,normal.y)));
+  // Keep the cliff volume without amplifying every narrow heightfield triangle
+  // into a high-contrast crease across the entire wall.
+  normal = normalize(mix(normal, cliffNormal, 0.35*(1.0-smoothstep(0.5,0.78,normal.y))));
 #else
   float reliefWeight = ffIsId(floor(vColor.a * 32.0), 4.0) * 0.12;
   vec3 dpx = dFdx(vLocalPosition);
@@ -182,7 +184,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let surface = ffTerrainSurface(input.vColor, input.vTerrainMixA, input.vTerrainMixB, input.vWorldPosition, normalize(input.vWorldNormal), dpx, dpy);
   var cliffNormal = normalize(cross(dpx, dpy));
   cliffNormal *= select(1.0, -1.0, dot(cliffNormal, surface.normal) < 0.0);
-  let normal = normalize(mix(surface.normal, cliffNormal, 1.0-smoothstep(0.5,0.78,surface.normal.y)));
+  let normal = normalize(mix(surface.normal, cliffNormal, 0.35*(1.0-smoothstep(0.5,0.78,surface.normal.y))));
 #else
   let reliefWeight = ffIsId(floor(input.vColor.a * 32.0), 4.0) * 0.12;
   let dpx = dpdx(input.vLocalPosition);

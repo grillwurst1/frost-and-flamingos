@@ -73,7 +73,7 @@ In this build:
   during the results, otherwise at the next respawn (with a notice); leaving the drifter class
   may move you to the smaller team at respawn (toast). Rules in `packages/shared/src/config/conquest.ts`
   and `apps/server/src/rooms/conquest.ts`; full text in `game-decisions.md` §14.1 / §10.6.
-- Protocol version **12**; EN/DE keys for every new surface; `bun run test` runs the script,
+- Protocol version **13**; EN/DE keys for every new surface; `bun run test` runs the script,
   server and client suites.
 
 Deliberately **not** in this build:
@@ -530,5 +530,41 @@ typecheck/build, six isolated native WGSL compilations and error-free WebGL2 mod
 before/after images (different idle poses). The long beached-boat integration case
 has 15 s wall-clock allowance; the failed 5 s attempt passed every physics assertion
 but took 5.19 s in Cloud. Simulation steps/assertions are unchanged. Native Mac is
-unmeasured. Next: a selectable sleeveless field vest and reference Heavy default,
-then broader world/vehicle art. Keep all existing outfits and saved profiles intact.
+unmeasured. The subsequent field-vest/sculpt pass below implements that next step.
+Broader world/vehicle art remains open; keep saved profiles and all old outfits intact.
+
+
+### Continuous sculpt, field vest and reference Heavy (protocol 13)
+
+Implemented the next visual increment: continuous sculpted head with fused facial
+forms, inset eyes/lids and preserved wrap normals; continuous arm lofts instead of
+intersecting shoulder/elbow primitives; rounder boot soles and hidden trouser cuffs.
+Trachten/Hawaii shirts have short/rolled sleeves. Closed tracht/field waistcoats
+replace the enclosed chest/waist, and long spine-bound garment triangles are refined
+before binding as well as limbs. Skin highlights are matte.
+
+Append-only torso code 8 is the selectable EN/DE sleeveless field vest with pockets,
+snaps, zip and shoulder tabs. New/reset Heavy: bald, light skin, bare arms, olive
+vest/trousers, mountain boots. Saved profiles and all old cosmetic options remain.
+Protocol 13 is required on both ends; packet fields and codes 0–7 are unchanged.
+Default Allrounder 50,214 triangles, Heavy 28,308, each one skinned draw; cache 12.
+No added texture/target/post pass; preserve the frame governor and quality budgets.
+
+Cliff vertex paint uses broad strata; reduced steep-rock texture contrast and
+facet-normal emphasis retain relief without emphasising every heightfield triangle.
+No collider, terrain height, path or natural-rock/paving relief changed here.
+WebGL2 model and full field captures pass with no console errors. The field uses
+actual binary players/cow and waits for the real vehicle model, not its fallback.
+See `docs/qa/reference-heavy-vest.png` and `reference-field-vest-1280.png`.
+The image target remains unfinished; next priority is world/vehicle form and scene
+composition, not new M5/M6/M7 features.
+
+Native isolated shaders reached compilation, but strict queue-completion validation
+failed with Cloud SwiftShader's external-instance/device-loss error. This is not a
+successful native game/render test. Do not claim M4 hardware performance or heat.
+
+Field-vest release validation: **280 tests pass** (10 scripts, 198 server, 72 client),
+strict TypeScript/Svelte checks report zero errors/warnings, and production builds
+complete. WebGL2 model/field browser checks pass without console errors. Six native
+WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
+external-instance error. Visual-reference acceptance and native hardware QA remain open.

@@ -100,7 +100,7 @@ describe('hens ignore drifters', () => {
     // /api/health reports the drifter, critter and vehicle blocks side by side.
     const status = harness.room.getStatus();
     // 7 critters, 8 drifter, 9 vehicles (4V).
-    expect(status.protocolVersion).toBe(12);
+    expect(status.protocolVersion).toBe(13);
     expect(status.vehicles.list.length).toBeGreaterThan(0);
     expect(status.critters.total).toBe(6);
     expect(status.critters.alive).toBe(6);

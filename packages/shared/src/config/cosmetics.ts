@@ -54,6 +54,7 @@ export const TORSO_IDS = [
   'torso_bathrobe',
   'torso_bare_suspenders',
   'torso_barrel_armor',
+  'torso_field_vest',
 ] as const satisfies readonly TorsoId[];
 
 export const BACK_IDS = [
@@ -167,6 +168,7 @@ export const TORSO_PALETTES: Record<TorsoId, CosmeticPalette> = {
   torso_bathrobe: { primary: '#f7c6d9', secondary: '#f3f6f8', accent: '#ff8fb1' },
   torso_bare_suspenders: { primary: '#e8b98d', secondary: '#5a3b2a', accent: '#f4c95d' },
   torso_barrel_armor: { primary: '#8a5a33', secondary: '#5a3b2a', accent: '#b9c2c9' },
+  torso_field_vest: { primary: '#586b42', secondary: '#34432d', accent: '#c4b99a' },
 };
 
 export const BACK_PALETTES: Record<BackId, CosmeticPalette> = {
@@ -195,7 +197,7 @@ export const LEGS_PALETTES: Record<LegsId, CosmeticPalette> = {
 };
 
 export const FEET_PALETTES: Record<FeetId, CosmeticPalette> = {
-  feet_mountain_boots: { primary: '#5a3b2a', secondary: '#2b1d16', accent: '#d9a066' },
+  feet_mountain_boots: { primary: '#5a3b2a', secondary: '#2b1d16', accent: '#9a7b5a' },
   feet_ski_boots: { primary: '#c62f45', secondary: '#7a1626', accent: '#f3f6f8' },
   feet_dive_flippers: { primary: '#12b8a6', secondary: '#ffd166', accent: '#0b7f72' },
   feet_sandals_socks: { primary: '#f3f6f8', secondary: '#2288b1', accent: '#ff6b5e' },
@@ -206,17 +208,17 @@ export function createDefaultCosmetics(classId: ClassId): Cosmetics {
   if (classId === 'heavy') {
     return {
       classId,
-      bodyType: 0.18,
-      skinToneIndex: 9,
-      hairColorIndex: 0,
-      hairStyleIndex: 1,
-      headgear: 'head_fondue_pot',
-      face: 'face_full_beard',
-      torso: 'torso_barrel_armor',
-      back: 'back_mini_bbq',
-      hands: 'hands_boxing',
-      legs: 'legs_striped_trousers',
-      feet: 'feet_ski_boots',
+      bodyType: 0.08,
+      skinToneIndex: 1,
+      hairColorIndex: 4,
+      hairStyleIndex: 6,
+      headgear: 'head_none',
+      face: 'face_none',
+      torso: 'torso_field_vest',
+      back: 'back_none',
+      hands: 'hands_bare',
+      legs: 'legs_olive_pants',
+      feet: 'feet_mountain_boots',
       voicePitch: 0.82,
     };
   }

@@ -124,14 +124,16 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const template = new CharacterView(scene, new StandardMaterial('wardrobe-build-shadow', scene), profile);
   const positions: number[] = [], colors: number[] = [], indices: number[] = [];
   const joints: number[] = [], weights: number[] = [];
+  const headNormals: number[] = [];
   try {
     for (const mesh of template.root.getChildMeshes(false)) {
       const name = mesh.name;
       if (!(name === 'character-body-mesh' || /^(left|right)-(arm|leg)-mesh$/.test(name))) continue;
       const points = Array.from(mesh.getVerticesData('position')!), paint = Array.from(mesh.getVerticesData('color')!);
-      const tags = mesh.getVerticesData('uv2');
+      const tags = Array.from(mesh.getVerticesData('uv2') ?? new Float32Array(points.length / 3 * 2));
+      const authoredNormals = mesh.getVerticesData('normal')!;
       let faces = Array.from(mesh.getIndices()!);
-      if (name !== 'character-body-mesh') {
+      {
         // Bend surfaces, not just their endpoints. Long triangles crossing a knee,
         // elbow or ankle otherwise cut through neighbouring clothing when bound.
         // Shared midpoints retain smooth normals; this runs once per cached outfit.
@@ -143,6 +145,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           const index = points.length / 3;
           for (let c = 0; c < 3; c++) points.push((points[a * 3 + c]! + points[b * 3 + c]!) / 2);
           for (let c = 0; c < 4; c++) paint.push((paint[a * 4 + c]! + paint[b * 4 + c]!) / 2);
+          tags.push(tags[a * 2] ?? 0, tags[a * 2 + 1] ?? 0);
           middle.set(key, index);
           return index;
         };
@@ -156,7 +159,12 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           else if (bc >= ca) { const m = midpoint(b, c); split(b, m, a); split(m, c, a); }
           else { const m = midpoint(c, a); split(c, m, b); split(m, a, b); }
         };
-        for (let i = 0; i < faces.length; i += 3) split(faces[i]!, faces[i + 1]!, faces[i + 2]!);
+        for (let i = 0; i < faces.length; i += 3) {
+          const a = faces[i]!, b = faces[i + 1]!, c = faces[i + 2]!;
+          // Refine spine-bound garments too; heads and rigid packs keep their topology.
+          if (name !== 'character-body-mesh' || (tags[a * 2] ?? 0) === 0) split(a, b, c);
+          else refined.push(a, b, c);
+        }
         faces = refined;
       }
       const first = positions.length / 3;
@@ -165,6 +173,11 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const mapped = name === 'character-body-mesh' ? body(p, tags?.[i / 3 * 2] ?? 0)
           : limb(p, name.startsWith('left') ? 'Left' : 'Right', name.includes('arm'));
         positions.push(mapped.at.x, mapped.at.y, mapped.at.z);
+        if (name === 'character-body-mesh' && tags[i / 3 * 2] === 1) {
+          // Head parts map by uniform scale/reflection. Preserve their authored
+          // smooth seams and sharp accessory edges instead of recomputing both.
+          headNormals.push(first + i / 3, -authoredNormals[i]!, authoredNormals[i + 1]!, authoredNormals[i + 2]!);
+        }
         joints.push(...mapped.indices); weights.push(...mapped.weights);
         const c = i / 3 * 4;
         colors.push(paint[c]!, paint[c + 1]!, paint[c + 2]!, paint[c + 3]!);
@@ -174,6 +187,10 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   } finally { template.dispose(); }
   const normals = new Float32Array(positions.length);
   VertexData.ComputeNormals(positions, indices, normals);
+  for (let i = 0; i < headNormals.length; i += 4) {
+    const at = headNormals[i]! * 3;
+    normals[at] = headNormals[i + 1]!; normals[at + 1] = headNormals[i + 2]!; normals[at + 2] = headNormals[i + 3]!;
+  }
   const data = new VertexData();
   data.positions = new Float32Array(positions); data.normals = normals;
   data.colors = new Float32Array(colors); data.indices = new Uint32Array(indices);

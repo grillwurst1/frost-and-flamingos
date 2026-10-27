@@ -132,3 +132,19 @@ actual validation and open art work. Automated test success is not visual sign-o
 Quality pass release: 273 tests, clean typecheck/build, six native WGSL compilations,
 clean WebGL2 model and 1280×714 field capture. Target remains unfinished; next is
 the selectable field vest/reference Heavy, preserving old wardrobe choices/profiles.
+
+
+Field-vest/sculpt increment implements that next step: EN/DE selectable sleeveless
+vest and reference new/reset Heavy, continuous faces/arms, inset eyes/lids, preserved
+head normals, garment binding and boot/cuff cleanup. Existing outfits stay valid;
+protocol 13 appends torso code 8. Calmer cliff shading retains terrain geometry.
+WebGL2 model and actual field captures are clean; native queue completion remains
+blocked by the Cloud GPU external-instance error. Exact visual matching, world
+composition and vehicle model quality remain open. New milestone features stay
+paused; see `VISUAL_REFERENCE_WORK.md`.
+
+Field-vest release validation: **280 tests pass** (10 scripts, 198 server, 72 client),
+strict TypeScript/Svelte checks report zero errors/warnings, and production builds
+complete. WebGL2 model/field browser checks pass without console errors. Six native
+WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
+external-instance error. Visual-reference acceptance and native hardware QA remain open.

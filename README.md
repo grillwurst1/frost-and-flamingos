@@ -500,3 +500,33 @@ and production build. Six isolated WGSL variants compile. WebGL2 detail views an
 [actual gameplay at 1280×714](docs/qa/field-quality-1280.png) pass without errors.
 [Earlier model](docs/qa/figure-quality-before.png) / [updated model](docs/qa/figure-quality-after.png)
 show different idle poses. This is an improvement, not acceptance of the reference target.
+
+
+### Sculpted figures and reference Heavy
+
+Heads now use a continuous sculpted face, inset eyes and lids; arms have connected
+shoulder-to-wrist surfaces. Closed waistcoats replace enclosed torso surfaces to
+avoid skin cutting through clothing. Rounder boot soles and covered cuffs clean up
+the lower silhouette. Skin is less glossy; cliff shading and colour detail are calmer
+while retaining the actual 3D terrain and texture.
+
+The selectable sleeveless field waistcoat adds pockets, snaps and shoulder tabs.
+New/reset Heavy profiles use it with a bald head, bare arms, olive trousers and
+mountain boots. Saved profiles and all previous wardrobe choices remain; select
+“Wear the standard clothing” on the Heavy to apply its new default. EN/DE supported.
+Protocol **13** appends torso code 8; update client and server together.
+
+The default Allrounder has 50,214 triangles, the Heavy 28,308, each in one skinned
+body draw; outfit caches stay bounded at 12. No texture, render target or screen
+pass was added, and the 45 FPS default remains.
+[Model comparison](docs/qa/reference-heavy-vest.png) and
+[actual game at 1280×714](docs/qa/reference-field-vest-1280.png) document this increment.
+The field capture uses real binary-connected profiles, a player cow and a loaded
+vehicle model; test positions are staged. The exact reference, overall map composition
+and vehicle art remain unfinished. Native Mac heat/FPS remain unmeasured.
+
+Field-vest release validation: **280 tests pass** (10 scripts, 198 server, 72 client),
+strict TypeScript/Svelte checks report zero errors/warnings, and production builds
+complete. WebGL2 model/field browser checks pass without console errors. Six native
+WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
+external-instance error. Visual-reference acceptance and native hardware QA remain open.

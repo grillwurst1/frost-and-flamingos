@@ -232,7 +232,7 @@ On 25 October the owner asked to stop after the next playable milestone and test
 - **4W hero weapons:** 13 procedural hero weapons (3 primaries, 4 secondaries, 6 gimmicks) with hold poses for the painted soldiers; the umbrella only opens overhead in a long fall (visual pose).
 - **4V vehicles:** Fondue Crawler, Coconut Beach Tank, Tactical Badi-Flamingo and Sidecar Motorcycle, see §13.8.
 - **4T Climate Conquest:** towers, tickets, weather balance, rounds and spawns, see §14.1 and §10.6.
-- **Protocol 12** (§17.2); EN/DE keys for every new surface.
+- **Protocol 13** (§17.2); EN/DE keys for every new surface.
 
 ### 5.6 Not implemented (design reference or later)
 
@@ -1297,7 +1297,7 @@ M2 implements the audio engine, buses, limiter, 3D panner, footsteps, swim/jump/
 
 ### 17.2 Protocol version
 
-**Current version: 12** (`PROTOCOL_VERSION` in `packages/shared/src/constants.ts`).
+**Current version: 13** (`PROTOCOL_VERSION` in `packages/shared/src/constants.ts`).
 
 - 2: HELLO/WELCOME carry full profiles instead of `displayName`/`faction`/`classId`.
 - 7: ambient critter trailer in the snapshot and the `CRITTER_KILLED` event (3H).
@@ -1306,6 +1306,7 @@ M2 implements the audio engine, buses, limiter, 3D panner, footsteps, swim/jump/
 - 10: conditional aircraft pitch/bank in vehicle snapshots and shared flight poses.
 - 11: append-only cable-car kind, roof crouch flag and cabin/brake events.
 - 12: revised gorge terrain, chalet, bridge sag and fence colliders. The binary layout is unchanged, but both ends must use the same static map for prediction and collision.
+- 13: append-only `torso_field_vest` code 8; old torso codes 0–7 remain stable. Matching versions are required to decode the new wardrobe choice.
 
 Any packet layout change requires a `PROTOCOL_VERSION` bump and matching encode/decode changes on both sides.
 
@@ -1934,3 +1935,35 @@ beached-boat test receives 15 s instead of 5 s wall-clock allowance after a 5.19
 timeout with all assertions passing; no simulated time or gameplay rules changed.
 Screenshots in `docs/qa/figure-quality-*.png` and `field-quality-1280.png` document
 the result; the reference is still unfinished.
+
+
+### Continuous figure sculpt and field waistcoat (27 October 2026)
+
+Keep genuine configurable 3D figures: fused facial surface with inset eyes/lids,
+continuous arms, rounded soles and hidden boot-covered cuffs. Preserve head wrap
+normals through uniform head mapping; refine spine garment surfaces before skin
+binding and omit enclosed chest/waist beneath closed waistcoats. Matte skin avoids
+plastic glints. All skin/hair/wardrobe selection continues to come from real profiles.
+
+Add sleeveless field vest as torso code 8 (append-only, protocol 13). New/reset
+Heavy is bald with bare arms, olive vest/trousers and mountain boots. Old saved
+profiles and all codes/options remain, including barrel armour and pot headgear.
+Default Allrounder 50,214 triangles and Heavy 28,308, one animated body draw each.
+Cache limit 12 and existing frame/pixel budgets stay; no added texture, target or
+post pass. Cliff paint/normal and texture contrast are quieter without changing
+terrain geometry, physics, paving or individual stone texture/relief.
+
+`docs/qa/reference-heavy-vest.png` and `reference-field-vest-1280.png` show actual
+WebGL2 output. Field actors use real binary profiles with test-staged positions;
+the cow is a player mascot and the vehicle has loaded its real model. No fake fire
+or screenshot background is added. Overall composition/model quality still falls
+short of the supplied reference; further world/vehicle art remains active. Native
+shader modules reached compilation, but strict queue completion failed on Cloud
+SwiftShader with an external-instance/device-loss error. Native gameplay/Mac
+thermal performance is unverified.
+
+Field-vest release validation: **280 tests pass** (10 scripts, 198 server, 72 client),
+strict TypeScript/Svelte checks report zero errors/warnings, and production builds
+complete. WebGL2 model/field browser checks pass without console errors. Six native
+WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
+external-instance error. Visual-reference acceptance and native hardware QA remain open.

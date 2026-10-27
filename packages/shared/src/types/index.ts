@@ -108,7 +108,8 @@ export type TorsoId =
   | 'torso_flamingo_ring'
   | 'torso_bathrobe'
   | 'torso_bare_suspenders'
-  | 'torso_barrel_armor';
+  | 'torso_barrel_armor'
+  | 'torso_field_vest';
 
 export type BackId =
   | 'back_none'

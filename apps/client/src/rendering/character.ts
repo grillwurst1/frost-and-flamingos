@@ -69,15 +69,56 @@ function tagParts(parts: readonly Mesh[], tag: number): void {
 function shapedPart(scene: Scene, name: string, width: number, height: number, depth: number): Mesh {
   const batch = new GeometryBatch();
   batch.jitter = 0;
-  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat)$|-(upper-arm|forearm|thigh|shin|lederhosen|boardshort|boot|ski-boot|sock)$/.test(name);
+  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock)$/.test(name);
   if (name === 'sculpted-head') {
-    batch.with(Affine.scaling(1, 1, depth / width), () => batch.lathe([
-      [0.045, -0.215], [0.115, -0.195], [0.155, -0.14], [0.18, -0.075],
+    const controls: Array<[number, number]> = [
+      [0.09, -0.215], [0.14, -0.195], [0.17, -0.14], [0.19, -0.075],
       [0.198, 0], [0.20, 0.075], [0.185, 0.14], [0.145, 0.195], [0.06, 0.22], [0.001, 0.225],
-    ], 28, [1, 1, 1], 'plain', { capBottom: true }));
+    ];
+    const profile: Array<[number, number]> = [];
+    for (let i = 0; i + 1 < controls.length; i++) for (let step = 0; step < 3; step++) {
+      const a = controls[Math.max(0, i - 1)]!, b = controls[i]!, c = controls[i + 1]!, d = controls[Math.min(controls.length - 1, i + 2)]!;
+      const t = step / 3, t2 = t * t, t3 = t2 * t;
+      const r = .5 * (2 * b[0] + (c[0] - a[0]) * t + (2 * a[0] - 5 * b[0] + 4 * c[0] - d[0]) * t2 + (-a[0] + 3 * b[0] - 3 * c[0] + d[0]) * t3);
+      profile.push([Math.max(.001, r), b[1] + (c[1] - b[1]) * t]);
+    }
+    profile.push(controls[controls.length - 1]!);
+    batch.with(Affine.scaling(1, 1, depth / width), () => batch.lathe(profile, 48, [1, 1, 1], 'plain', { capBottom: true, capTop: true }));
+    const bump = (x: number, y: number): number => Math.exp(-x * x - y * y);
+    // Fuse the bridge, nose, cheeks and brow into one sculpted surface instead
+    // of intersecting separate balls with a featureless oval head.
+    for (let v = 0; v < batch.positions.length; v += 3) {
+      const x = batch.positions[v]!, y = batch.positions[v + 1]!, z = batch.positions[v + 2]!;
+      const front = Math.max(0, z / (depth / 2)) ** 4;
+      batch.positions[v + 2] = z + front * (
+        .032 * bump(x / .04, (y + .025) / .058) + .009 * bump(x / .035, (y - .045) / .07)
+        + .006 * bump((Math.abs(x) - .10) / .055, (y + .045) / .06)
+        + .008 * bump((Math.abs(x) - .075) / .06, (y - .08) / .03));
+    }
+    VertexData.ComputeNormals(batch.positions, batch.indices, batch.normals);
+    for (let ring = 0; ring < profile.length; ring++) {
+      const first = ring * 49 * 3, last = first + 48 * 3;
+      const nx = batch.normals[first]! + batch.normals[last]!;
+      const ny = batch.normals[first + 1]! + batch.normals[last + 1]!;
+      const nz = batch.normals[first + 2]! + batch.normals[last + 2]!;
+      const length = Math.hypot(nx, ny, nz) || 1;
+      for (const at of [first, last]) {
+        batch.normals[at] = nx / length; batch.normals[at + 1] = ny / length; batch.normals[at + 2] = nz / length;
+      }
+    }
   } else if (organic) {
-    const torso = /^(chest|waist|hip|ranger-waistcoat)$/.test(name);
-    const profile: Array<[number, number]> = [
+    const torso = /^(chest|waist|hip|ranger-waistcoat|field-waistcoat)$/.test(name);
+    const profile: Array<[number, number]> = name.endsWith('-arm-sculpt') ? [
+      [.23 * width, -height / 2], [.245 * width, -height * .45], [.315 * width, -height * .32],
+      [.385 * width, -height * .15], [.365 * width, 0], [.4 * width, height * .12],
+      [.44 * width, height * .27], [.5 * width, height * .42], [.36 * width, height * .48], [.06 * width, height / 2],
+    ] : name.endsWith('-forearm-sculpt') ? [
+      [.30 * width, -height / 2], [.31 * width, -height * .4], [.4 * width, -height * .12],
+      [.49 * width, height * .25], [.44 * width, height / 2],
+    ] : name.endsWith('-sleeve-sculpt') ? [
+      [.4 * width, -height / 2], [.47 * width, -height * .25], [.5 * width, height * .1],
+      [.48 * width, height * .32], [.30 * width, height * .44], [.06 * width, height / 2],
+    ] : [
       [width * (torso ? 0.43 : 0.34), -height / 2],
       [width * 0.49, -height * 0.35], [width * 0.5, height * 0.12],
       [width * 0.47, height * 0.4], [width * 0.42, height / 2],
@@ -331,11 +372,16 @@ export class CharacterView {
     const bareArms =
       cosmetics.torso === 'torso_bare_suspenders' ||
       cosmetics.torso === 'torso_flamingo_ring' ||
-      cosmetics.torso === 'torso_barrel_armor';
+      cosmetics.torso === 'torso_barrel_armor' ||
+      cosmetics.torso === 'torso_field_vest';
 
     // Torso silhouette morphs continuously with bodyType.
-    box(scene, body, 'chest', shoulderWidth * 0.88, 0.36, chestDepth, 0, 0.36, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
-    box(scene, body, 'waist', waistWidth, 0.24, chestDepth * 0.9, 0, 0.1, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
+    // Closed waistcoats form the complete torso surface. An enclosed second
+    // chest can cut through the garment during a spine bend.
+    if (cosmetics.torso !== 'torso_field_vest' && cosmetics.torso !== 'torso_tracht_shirt') {
+      box(scene, body, 'chest', shoulderWidth * 0.88, 0.36, chestDepth, 0, 0.36, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
+      box(scene, body, 'waist', waistWidth, 0.24, chestDepth * 0.9, 0, 0.1, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
+    }
     box(scene, body, 'hip', hipWidth + 0.05, 0.18, chestDepth * 0.92, 0, -0.04, 0, hexToColor4(LEGS_PALETTES[cosmetics.legs].primary));
     cylinder(scene, body, 'neck', 0.14, 0.16, 0.18, 0, 0.6, 0, skinColor, { skin: true });
 
@@ -350,33 +396,27 @@ export class CharacterView {
       skin: true,
       segments: 6,
     });
-    sphere(scene, body, 'eye-left', 0.058, -0.078, HEAD_Y + 0.035, 0.174, WHITE, { segments: 12 });
-    sphere(scene, body, 'eye-right', 0.058, 0.078, HEAD_Y + 0.035, 0.174, WHITE, { segments: 12 });
-    sphere(scene, body, 'glint-left', 0.009, -0.085, HEAD_Y + 0.043, 0.210, WHITE, { segments: 8 });
-    sphere(scene, body, 'glint-right', 0.009, 0.071, HEAD_Y + 0.043, 0.210, WHITE, { segments: 8 });
-    box(scene, body, 'brow-left', 0.09, 0.026, 0.03, -0.08, HEAD_Y + 0.105, 0.2, hexToColor4(hairHex), {
-      rotationZ: -0.12,
+    sphere(scene, body, 'eye-left', 0.052, -0.078, HEAD_Y + 0.035, 0.184, WHITE, { segments: 12, scaleY: .65, scaleZ: .3 });
+    sphere(scene, body, 'eye-right', 0.052, 0.078, HEAD_Y + 0.035, 0.184, WHITE, { segments: 12, scaleY: .65, scaleZ: .3 });
+    sphere(scene, body, 'glint-left', 0.007, -0.083, HEAD_Y + 0.040, 0.199, WHITE, { segments: 8 });
+    sphere(scene, body, 'glint-right', 0.007, 0.073, HEAD_Y + 0.040, 0.199, WHITE, { segments: 8 });
+    box(scene, body, 'brow-left', 0.085, 0.024, 0.028, -0.08, HEAD_Y + 0.082, 0.185, hexToColor4(hairHex), {
+      rotationZ: -0.18,
     });
-    box(scene, body, 'brow-right', 0.09, 0.026, 0.03, 0.08, HEAD_Y + 0.105, 0.2, hexToColor4(hairHex), {
-      rotationZ: 0.12,
-    });
-    sphere(scene, body, 'nose', 0.082, 0, HEAD_Y - 0.015, 0.205, skinColor, {
-      skin: true,
-      segments: 6,
+    box(scene, body, 'brow-right', 0.085, 0.024, 0.028, 0.08, HEAD_Y + 0.082, 0.185, hexToColor4(hairHex), {
+      rotationZ: 0.18,
     });
     box(scene, body, 'mouth', 0.085, 0.012, 0.012, 0, HEAD_Y - 0.105, 0.174, EYE);
     const shadowSkin = new Color4(skinColor.r * 0.7, skinColor.g * 0.65, skinColor.b * 0.63, 1);
     for (const side of [-1, 1]) {
-      sphere(scene, body, 'cheek', 0.13, side * 0.11, HEAD_Y - 0.05, 0.135, skinColor,
-        { skin: true, scaleY: 0.85, scaleZ: 0.5, segments: 12 });
       sphere(scene, body, 'ear-inner', 0.045, side * 0.224, HEAD_Y - 0.005, 0.012, shadowSkin,
         { scaleX: 0.35, scaleY: 1.2, segments: 10 });
-      sphere(scene, body, 'iris', 0.035, side * 0.078, HEAD_Y + 0.035, 0.198, hexToColor4('#476d68'), { scaleZ: 0.3, segments: 12 });
-      sphere(scene, body, 'pupil-detail', 0.019, side * 0.078, HEAD_Y + 0.035, 0.204, EYE, { scaleZ: 0.35, segments: 12 });
-      sphere(scene, body, 'nostril', 0.015, side * 0.023, HEAD_Y - 0.031, 0.242, shadowSkin, { scaleY: 0.65, scaleZ: 0.5 });
+      sphere(scene, body, 'upper-eyelid', .07, side * .078, HEAD_Y + .057, .187, skinColor,
+        { skin: true, scaleY: .2, scaleZ: .2, segments: 12 });
+      sphere(scene, body, 'iris', 0.026, side * 0.078, HEAD_Y + 0.035, 0.194, hexToColor4('#476d68'), { scaleZ: 0.25, segments: 12 });
+      sphere(scene, body, 'pupil-detail', 0.013, side * 0.078, HEAD_Y + 0.035, 0.198, EYE, { scaleZ: 0.25, segments: 12 });
+      sphere(scene, body, 'nostril', 0.012, side * 0.016, HEAD_Y - 0.031, 0.220, shadowSkin, { scaleY: 0.65, scaleZ: 0.5 });
     }
-    sphere(scene, body, 'nose-bridge', 0.052, 0, HEAD_Y + 0.016, 0.19, skinColor,
-      { skin: true, scaleY: 1.65, scaleX: 0.7, segments: 12 });
     sphere(scene, body, 'lower-lip', 0.064, 0, HEAD_Y - 0.123, 0.171, shadowSkin, { scaleY: 0.3, scaleZ: 0.5, segments: 12 });
     tagParts(body.slice(headStart), 1);
 
@@ -421,7 +461,7 @@ export class CharacterView {
     this.rightShoulder.rotation.z = -0.07;
 
     const limbBulk = lerp(1.30, 0.96, bodyType);
-    const rolledSleeves = cosmetics.torso === 'torso_tracht_shirt';
+    const rolledSleeves = cosmetics.torso === 'torso_tracht_shirt' || cosmetics.torso === 'torso_hawaii_shirt';
     const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', limbBulk, rolledSleeves);
     leftArm.parent = this.leftShoulder;
     const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', limbBulk, rolledSleeves);
@@ -521,7 +561,19 @@ export class CharacterView {
     const { torsoPrimary, torsoSecondary, torsoAccent, skinColor, chestDepth, shoulderWidth, waistWidth } = palette;
     const front = chestDepth / 2 + 0.012;
 
-    if (torso === 'torso_tracht_shirt') {
+    if (torso === 'torso_field_vest') {
+      box(scene, body, 'field-waistcoat', shoulderWidth * 0.93, 0.49, chestDepth + 0.04, 0, 0.27, 0, torsoPrimary);
+      box(scene, body, 'field-zip', 0.022, 0.40, 0.018, 0, 0.27, front + 0.024, torsoAccent);
+      for (const side of [-1, 1]) {
+        const x = side * shoulderWidth * 0.22;
+        const z = (chestDepth + 0.04) / 2 * Math.sqrt(1 - (x / (shoulderWidth * .465)) ** 2) + .015;
+        box(scene, body, 'field-cargo-pocket', 0.14, 0.105, 0.035, x, 0.18, z, torsoSecondary);
+        box(scene, body, 'field-pocket-flap', 0.145, 0.028, 0.045, x, 0.225, z + .005, torsoPrimary);
+        sphere(scene, body, 'field-pocket-snap', 0.017, x, 0.22, z + .03, torsoAccent, { segments: 8 });
+        box(scene, body, 'field-shoulder-tab', .075, .11, .12, side * shoulderWidth * .32, .49, 0, torsoSecondary, { rotationZ: side * .15 });
+      }
+      box(scene, body, 'field-waist-hem', waistWidth + .035, .045, chestDepth, 0, .045, 0, torsoSecondary);
+    } else if (torso === 'torso_tracht_shirt') {
       const vest = hexToColor4('#465d32');
       // A curved shell follows the chest instead of three flat boards floating on the shirt.
       box(scene, body, 'ranger-waistcoat', shoulderWidth * 0.91, 0.47, chestDepth + 0.03, 0, 0.27, 0, vest);
@@ -1010,20 +1062,18 @@ export class CharacterView {
   ): Mesh {
     const parts: PartList = [];
     const armColor = bare ? skin : sleeve;
-    sphere(scene, parts, `${side}-deltoid`, 0.17, 0, -0.035, 0, armColor,
-      { skin: bare, segments: 12, scaleY: 1.15 });
-    box(scene, parts, `${side}-upper-arm`, 0.13, 0.32, 0.14, 0, -0.16, 0, armColor, {
-      skin: bare,
-    });
-    const forearmBare = bare || rolled;
-    sphere(scene, parts, `${side}-elbow`, 0.13, 0, -0.33, 0, forearmBare ? skin : sleeve, { skin: forearmBare, segments: 12 });
-    box(scene, parts, `${side}-forearm`, 0.115, 0.26, 0.125, 0, -0.46, 0, forearmBare ? skin : sleeve, {
-      skin: forearmBare,
-    });
+    if (rolled && !bare) {
+      box(scene, parts, `${side}-sleeve-sculpt`, .18, .30, .185, 0, -.135, 0, sleeve);
+      box(scene, parts, `${side}-forearm-sculpt`, .14, .315, .145, 0, -.4575, 0, skin, { skin: true });
+    } else {
+      // One connected shoulder/biceps/elbow/forearm surface replaces four
+      // intersecting primitives and their visible ball-joint seams.
+      box(scene, parts, `${side}-arm-sculpt`, .176, .615, .183, 0, -.3075, 0, armColor, { skin: bare });
+    }
     if (rolled) {
-      cylinder(scene, parts, `${side}-rolled-sleeve`, 0.065, 0.15, 0.145, 0, -0.285, 0, WHITE, { segments: 20 });
+      cylinder(scene, parts, `${side}-rolled-sleeve`, 0.065, 0.15, 0.145, 0, -0.285, 0, sleeve, { segments: 20 });
       torus(scene, parts, `${side}-sleeve-hem`, 0.145, 0.014, 0, -0.317, 0,
-        hexToColor4('#c6d2df'), { segments: 20 });
+        new Color4(sleeve.r * .8, sleeve.g * .8, sleeve.b * .85, 0), { segments: 20 });
     } else if (!bare) {
       box(scene, parts, `${side}-cuff`, 0.135, 0.06, 0.145, 0, -0.59, 0, WHITE);
     }
@@ -1117,24 +1167,27 @@ export class CharacterView {
       segments: 6,
     });
     const peg = feet === 'feet_peg_leg' && side === 'right';
+    const ankleBoot = feet === 'feet_mountain_boots' || (feet === 'feet_peg_leg' && !peg);
+    const coveredCuffs = feet === 'feet_ski_boots' || ankleBoot;
     // Tall boots cover the shin completely. An enclosed second surface can bend
     // through the shell and expose skin/cloth as triangular spikes at the ankle.
-    if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-shin`, 0.145, 0.34, 0.16, 0, -0.58, 0, shinColor, {
+    const shinBottom = ankleBoot ? -.695 : -.75;
+    if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-shin`, 0.145, -.41 - shinBottom, 0.16, 0, (-.41 + shinBottom) / 2, 0, shinColor, {
       skin: thighSkin,
     });
 
     if (legs === 'legs_striped_trousers') {
       for (let stripe = 0; stripe < 4; stripe += 1) {
-        if (feet === 'feet_ski_boots' && stripe === 3) continue;
+        if ((feet === 'feet_ski_boots' || peg) && stripe === 3) continue;
         box(scene, parts, `${side}-stripe`, 0.152, 0.035, 0.165, 0, -0.1 - stripe * 0.14, 0, secondary);
       }
     } else if (legs === 'legs_olive_pants') {
       box(scene, parts, `${side}-cargo-pocket`, 0.05, 0.12, 0.13, side === 'left' ? -0.1 : 0.1, -0.28, 0.02, secondary);
-      if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
+      if (!peg && !coveredCuffs) box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
     } else if (legs === 'legs_lederhosen') {
       box(scene, parts, `${side}-lederhosen`, 0.18, 0.30, 0.20, 0, -0.15, 0, primary);
       if (!peg && feet !== 'feet_ski_boots') {
-        box(scene, parts, `${side}-sock`, 0.15, 0.12, 0.16, 0, -0.72, 0, secondary);
+        box(scene, parts, `${side}-sock`, 0.15, ankleBoot ? .04 : .12, 0.16, 0, ankleBoot ? -.68 : -.72, 0, secondary);
         box(scene, parts, `${side}-sock-stripe`, 0.155, 0.03, 0.165, 0, -0.66, 0, accent);
       }
       for (const x of [-0.05, 0.05]) {
@@ -1145,7 +1198,7 @@ export class CharacterView {
       box(scene, parts, `${side}-boardshort`, 0.18, 0.34, 0.20, 0, -0.17, 0, primary);
       box(scene, parts, `${side}-boardshort-stripe`, 0.18, 0.035, 0.195, 0, -0.03, 0, secondary);
     } else if (legs === 'legs_long_johns') {
-      if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-longjohn-cuff`, 0.15, 0.05, 0.17, 0, -0.73, 0, WHITE);
+      if (!peg && !coveredCuffs) box(scene, parts, `${side}-longjohn-cuff`, 0.15, 0.05, 0.17, 0, -0.73, 0, WHITE);
       box(scene, parts, `${side}-longjohn-dot`, 0.04, 0.04, 0.02, 0, -0.2, 0.09, accent);
     }
 

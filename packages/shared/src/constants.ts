@@ -10,8 +10,8 @@
  *    PROFILE_NOTICE event (4T). 9 was never published on its own, so the
  *    integrated layout keeps the number.
  */
-// The authored terrain/collider revision requires matching client/server map data.
-export const PROTOCOL_VERSION = 12;
+// 12 revised the shared terrain; 13 appends the selectable sleeveless field vest.
+export const PROTOCOL_VERSION = 13;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;
