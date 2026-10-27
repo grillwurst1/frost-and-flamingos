@@ -97,6 +97,7 @@ const MODEL_TUNING: Readonly<Record<string, ModelTuning>> = {
   'vehicle-flamingo-boat': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
   'vehicle-sidecar': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
   'vehicle-rowboat': { baseSize: 1536, maxTriangles: 12000, keepNormal: false },
+  'vehicle-biplane': { baseSize: 1536, maxTriangles: 12000, keepNormal: false },
 };
 
 interface BakeEntry {

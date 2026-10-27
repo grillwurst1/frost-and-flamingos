@@ -979,6 +979,7 @@ export class AudioEngine {
 
   /** Main gun: cheese-cannon BOOM, bamboo mortar THUMP-PLONK or the harpoon's thwip-clank. */
   playVehicleGun(kind: VehicleSoundKind, position?: Vec3, local = false): void {
+    if (kind === 'aircraft') { this.playWeaponFire('lmg',position,local); return; }
     const panner = local ? undefined : this.panner(position, 8, 160);
     const now = this.ctx?.currentTime ?? 0;
     if (kind === 'coconut') {
@@ -1739,7 +1740,7 @@ export class AudioEngine {
 export const audio = new AudioEngine();
 
 /** Engine timbres per vehicle sound family. */
-export type VehicleSoundKind = 'tank' | 'coconut' | 'sidecar' | 'flamingo';
+export type VehicleSoundKind = 'tank' | 'coconut' | 'sidecar' | 'flamingo' | 'aircraft';
 
 interface EngineTuning {
   idle: number;
@@ -1751,6 +1752,7 @@ interface EngineTuning {
 }
 
 const ENGINE_TUNING: Record<VehicleSoundKind, EngineTuning> = {
+  aircraft: { idle: 82, top: 155, pulse: 31, bright: 1250, level: 0.10, wave: 'sawtooth' },
   tank: { idle: 38, top: 72, pulse: 7, bright: 520, level: 0.16, wave: 'sawtooth' },
   coconut: { idle: 46, top: 88, pulse: 9, bright: 640, level: 0.14, wave: 'sawtooth' },
   sidecar: { idle: 62, top: 180, pulse: 22, bright: 1500, level: 0.11, wave: 'square' },

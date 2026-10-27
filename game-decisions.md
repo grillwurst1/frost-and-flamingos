@@ -932,7 +932,7 @@ Combat shipped with M4 (authoritative fire, server hitbox rollback against a two
 
 ## 13. Vehicles, aircraft and map toys
 
-This is the master reference for the vehicles and map toys of M5. The M5-Kern build implements the four drivable vehicles of §13.2–13.5 with the values in §13.8; the biplane, rowboat, cable car, T-bar, coaster, hammock and cow (§13.6–13.7) are not implemented yet.
+This is the master reference for the vehicles and map toys of M5. The M5-Kern build implements the four drivable vehicles of §13.2–13.5 with the values in §13.8; the biplane and rowboats now also work, together with vehicle repair. Cable car, T-bar, coaster, hammock and NPC cow (§13.7) remain in progress.
 
 ### 13.1 The ten vehicles and map toys
 
@@ -1014,7 +1014,7 @@ This is the master reference for the vehicles and map toys of M5. The M5-Kern bu
 
 Implemented in the M5-Kern build (data in `packages/shared/src/config/vehicles.ts`, shared motor `packages/shared/src/physics/vehicle.ts`, server `apps/server/src/rooms/vehicle-manager.ts`, client `apps/client/src/engine/vehicle-client.ts`):
 
-- **Authority:** kinematic Rapier hulls simulated by the server with the shared vehicle motor; remote vehicles are interpolated, the local driver predicts with the same motor. Health, seats, turret aim, boost and wrecks are server-owned; vehicles travel in a snapshot block (protocol 9).
+- **Authority:** kinematic Rapier hulls simulated by the server with the shared vehicle motor; remote vehicles are interpolated, the local driver predicts with the same motor. Health, seats, turret aim, boost and wrecks are server-owned; vehicles travel in a snapshot block (protocol 10, with conditional signed pitch/bank for aircraft).
 - **Controls:** enter / exit with `F` within 2.4 m of the hull (E stays the class skill); switch seat with `C` (a tap; there is no F1/F2 seat key, F1 stays the telemetry); horn with `H` (on the Heal bit, 0.9 s cooldown, comic “HONK! HONK!”); `LMB` fires the vehicle gun, aimed with the mouse; `Shift` fires the Badi-Flamingo’s plug turbo (only afloat); `Space` is the Sidecar’s handbrake drift. Boarding swings the camera behind the hull.
 - **Who may ride:** only armed, damageable classes (`classMayUseVehicles`): mascots and drifters cannot board, and switching a seated player to one of them frees the seat. Base vehicles are reserved for their faction; map vehicles are open to everyone, but a crewed vehicle only takes its crew’s team.
 
@@ -1747,3 +1747,27 @@ hands cannot. Repairing blocks personal firing. M5's other open items remain in
 `MILESTONE_WORK.md`; this is a verified increment, not completion of M5.
 
 Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.
+
+### M5 continuation — biplane (27 October 2026)
+
+Both authored aircraft are operational: 320 HP, water/glacier takeoff and landing,
+14–28 m/s arcade flight (W/S throttle, mouse steering/pitch, A/D rudder), fixed
+forward MG (15 damage, 500 RPM), pilot and two exposed upper-wing seats. Space
+bails out with inherited momentum; the normal emergency umbrella remains available.
+Wing riders can fire their own loadout and hold X to repair. A spinning propeller
+launches enemy soldiers with the soot-blackened blast death; friendly crew are spared.
+Hard impacts wreck the plane; an abandoned airborne wreck continues falling.
+
+Flight uses the same deterministic motor for authority and prediction. Protocol 10
+adds signed pitch/bank only to records carrying the extended-pose flag; variable
+crew lists and existing vehicle codes are preserved. The owner's source model is
+reduced to 11,817 triangles with one 1536 px colour texture and a separate spinning
+propeller. A procedural fallback remains available. No additional full-screen pass
+or normal texture is introduced. M5 remains in progress.
+
+Validation: all 244 automated tests pass (10 script, 184 server, 50 client),
+including the 15-minute bot soak. Strict typecheck has zero errors/warnings and
+all production bundles build. WebGL2 checks real binary flight with pilot and
+wing rider, painted model, firing and bailout without console errors. The prior
+boat ram fixture now uses open water away from the seaplane spawn. Cloud tests
+use software rendering; native Mac temperature/FPS have not been measured.

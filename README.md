@@ -1,6 +1,6 @@
 # Frost & Flamingos — Bullets, Fondue & Coconuts
 
-**Current build:** M5-Kern test build — the core of M5 (Climate Conquest, four vehicles) plus
+**Current build:** M5 in progress — Climate Conquest, six drivable vehicle types,
 painted world, configurable soldiers, drifters, mascots and hens.
 **Active work:** completing M5, then M6–M8 in order, authorized by the owner on 26 October.
 Development proceeds serially; see [MILESTONE_WORK.md](MILESTONE_WORK.md).
@@ -27,8 +27,8 @@ Lagoon League wants endless summer, flamingo inflatables and barefoot chaos.
 > - [ ] **M5 — Fjord Fiesta, Weather Towers, Vehicles & Map Toys:** full map, three weather
 >   towers, global weather shader, 50-ticket conquest loop and ten networked vehicles.
 >   *In the M5-Kern test build:* rebuilt 257 × 257 Fjord Fiesta, Climate Conquest (towers,
->   tickets, weather balance, rounds) and four drivable vehicles. *Still open:* cable car,
->   T-bar, coaster, hammock, NPC cow, biplane, rowboat, gondola and vehicle repair.
+>   tickets, weather balance, rounds), six drivable vehicle types and repairs. *Still open:*
+>   cable car, T-bar, coaster, hammock, NPC cow and full tower weather transformations.
 > - [ ] **M6 — Destruction, Craters, Decal Ring Buffer & Match Sync:** three-stage buildings,
 >   real terrain craters, repairable bridges, felled trees, billboards, 4,096-decal ring
 >   buffer, deterministic round reset and late-join map sync.
@@ -233,11 +233,10 @@ See [`game-decisions.md`](game-decisions.md) for the full design and decision re
 This is a test build. Deliberately **not** in it:
 
 - **Rest of M5:** no cable car or T-bar ride, alpine coaster, hammock catapult or NPC cow
-  behaviour, and no biplane, rowboat or gondola. Until the cable car exists, Peak Guard gets
+  behaviour, and no cable-car gondola. Until the cable car exists, Peak Guard gets
   interim spawn plates on the gorge floor below the cable-car mid station while it holds
   Tower C. Weather towers change hands and the weather balance tints sky, light and water,
   but the big tower transformations (unfolding snow cannon, spraying flamingos) come later.
-- **No vehicle repair** yet.
 - **Procedural fallback characters (1E)** — the planned rewrite is deferred; every class
   already shows its painted model, and the procedural rig only appears as a fallback.
 - **Hot Beach Girl:** her full exemption from the painterly post pass is open; she still gets
@@ -358,3 +357,27 @@ firing. E remains the class skill. M5 remains in progress; remaining work is in
 [MILESTONE_WORK.md](MILESTONE_WORK.md).
 
 Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.
+
+### M5 continuation — biplane (27 October 2026)
+
+Both authored aircraft are operational: 320 HP, water/glacier takeoff and landing,
+14–28 m/s arcade flight (W/S throttle, mouse steering/pitch, A/D rudder), fixed
+forward MG (15 damage, 500 RPM), pilot and two exposed upper-wing seats. Space
+bails out with inherited momentum; the normal emergency umbrella remains available.
+Wing riders can fire their own loadout and hold X to repair. A spinning propeller
+launches enemy soldiers with the soot-blackened blast death; friendly crew are spared.
+Hard impacts wreck the plane; an abandoned airborne wreck continues falling.
+
+Flight uses the same deterministic motor for authority and prediction. Protocol 10
+adds signed pitch/bank only to records carrying the extended-pose flag; variable
+crew lists and existing vehicle codes are preserved. The owner's source model is
+reduced to 11,817 triangles with one 1536 px colour texture and a separate spinning
+propeller. A procedural fallback remains available. No additional full-screen pass
+or normal texture is introduced. M5 remains in progress.
+
+Validation: all 244 automated tests pass (10 script, 184 server, 50 client),
+including the 15-minute bot soak. Strict typecheck has zero errors/warnings and
+all production bundles build. WebGL2 checks real binary flight with pilot and
+wing rider, painted model, firing and bailout without console errors. The prior
+boat ram fixture now uses open water away from the seaplane spawn. Cloud tests
+use software rendering; native Mac temperature/FPS have not been measured.

@@ -220,7 +220,7 @@ const CONQUEST_BYTES = 14;
 /** Non-mascot player record (3G support uint16 included). */
 const PLAYER_BYTES = 43;
 /** 4V vehicle block: 35 B + 2 B per seat. */
-const vehicleBytes = (vehicle: VehicleSnapshot): number => 35 + 2 * vehicle.seats.length;
+const vehicleBytes = (vehicle: VehicleSnapshot): number => 35 + 2 * vehicle.seats.length + (vehicle.flags & VEHICLE_FLAG.ExtendedPose ? 4 : 0);
 
 /** Header, players, vehicle count + blocks, critter count + 12 B each, conquest block. */
 function expectedBytes(value: WorldSnapshot): number {
@@ -228,9 +228,18 @@ function expectedBytes(value: WorldSnapshot): number {
   return HEADER_BYTES + value.players.length * PLAYER_BYTES + 1 + vehicleBlock + 1 + value.critters.length * 12 + CONQUEST_BYTES;
 }
 
-describe('merged protocol 9 snapshot codec', () => {
-  test('protocol version is 9 (3H critters = 7, 3G drifter = 8, 4V vehicles + 4T conquest = 9)', () => {
-    expect(PROTOCOL_VERSION).toBe(9);
+describe('merged protocol 10 snapshot codec', () => {
+  test('protocol 10 extends vehicle pose with signed aircraft pitch and bank', () => {
+    expect(PROTOCOL_VERSION).toBe(10);
+  });
+
+  test('an aircraft with three crew and signed pitch/bank precedes ordinary hulls without shifting their fields', () => {
+    const aircraft: VehicleSnapshot = { ...snapshot.vehicles[0]!, id: 17, type: VEHICLE_KIND_TABLE.code.biplane,
+      flags: VEHICLE_FLAG.ExtendedPose, pitch: milli(-350), roll: milli(620), seats: [21,22,23] };
+    const mixed: WorldSnapshot = { ...snapshot, vehicles: [aircraft,...snapshot.vehicles] };
+    const encoded = encodeSnapshot(mixed);
+    expect(encoded.byteLength).toBe(expectedBytes(mixed));
+    expect(decodeSnapshot(encoded)).toEqual(mixed);
   });
 
   test('a drifter, a seated teammate, the vehicle block, critters and the conquest block round-trip with deep equality', () => {
@@ -323,7 +332,7 @@ describe('merged protocol 9 snapshot codec', () => {
     const decoded = decodeWelcome(encodeWelcome(welcome));
     expect(decoded?.spawnYaw).toBe(welcome.spawnYaw);
     expect(decoded?.spawn).toEqual(welcome.spawn);
-    expect(decoded?.protocolVersion).toBe(9);
+    expect(decoded?.protocolVersion).toBe(10);
   });
 
   test('an empty vehicle list and an empty critter trailer (conquest block still present) round-trip', () => {

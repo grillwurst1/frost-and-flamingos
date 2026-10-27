@@ -13,6 +13,8 @@ import {
 import { InputButton, createRoom, joinPlayer, parkVehicle, placePlayer, playerOf, run, sendInput, slotByKind, slotBySpawn, tap } from './vehicle-helpers';
 
 const W = InputButton.Forward;
+// Keep the gun/ram course clear of the operational seaplane at (-330, -180).
+const OPEN_WATER = { x: -350, z: -240 };
 
 /** Nearest shore direction from a water point: yaw and distance to ground above the surface. */
 function nearestShore(x: number, z: number): { yaw: number; distance: number } {
@@ -108,7 +110,7 @@ describe('tactical badi-flamingo', () => {
     room.vehicles.devEnter(playerOf(room, gunner.id) as never, slot.id, 1);
     const body = room.vehicles.vehicleBody(slot.id);
     if (!body) throw new Error('no flamingo');
-    parkVehicle(room, slot.id, -330, -200, 0);
+    parkVehicle(room, slot.id, OPEN_WATER.x, OPEN_WATER.z, 0);
     // The pilot's trigger does nothing; the gunner's fires harpoons.
     run(room, 20, () => sendInput(room, pilot, InputButton.FirePrimary, 0));
     expect(pilot.socket.eventsOf('TANK_CANNON_FIRE').length).toBe(0);
@@ -160,7 +162,7 @@ describe('tactical badi-flamingo', () => {
     room.vehicles.devEnter(playerOf(room, pilot.id) as never, slot.id, 0);
     const body = room.vehicles.vehicleBody(slot.id);
     if (!body) throw new Error('no flamingo');
-    parkVehicle(room, slot.id, -330, -200, 0);
+    parkVehicle(room, slot.id, OPEN_WATER.x, OPEN_WATER.z, 0);
     run(room, 150, () => sendInput(room, pilot, W, 0));
     const victim = joinPlayer(room, 'alpine');
     const ahead = vehicleLocalToWorld(body.position, body.yaw, { x: 0, y: 0, z: 1.5 + 6 });

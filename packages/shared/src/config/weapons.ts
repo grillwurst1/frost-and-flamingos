@@ -227,6 +227,8 @@ export const ALL_WEAPON_IDS = [
   'sidecar_ram',
   'flamingo_boing',
   'vehicle_blast',
+  'biplane_mg',
+  'propeller',
 ] as const satisfies readonly WeaponId[];
 
 /** Mascot move ids per slot. Ram ids credit kills made by body contact. */
@@ -514,6 +516,8 @@ const VEHICLE_WEAPON_STATS: Record<VehicleWeaponId, WeaponStats> = {
   sidecar_ram: vehicleWeaponStats('sidecar_ram', 120, 60, 0, 0, 1.6),
   flamingo_boing: vehicleWeaponStats('flamingo_boing', 110, 60, 0, 0, 2),
   vehicle_blast: vehicleWeaponStats('vehicle_blast', 55, 60, 0, 6, 6),
+  biplane_mg: vehicleWeaponStats('biplane_mg', 15, 500, 140, 0, 210),
+  propeller: vehicleWeaponStats('propeller', 1000, 60, 0, 0, 1),
 };
 
 export const VEHICLE_WEAPON_IDS = Object.keys(VEHICLE_WEAPON_STATS) as VehicleWeaponId[];

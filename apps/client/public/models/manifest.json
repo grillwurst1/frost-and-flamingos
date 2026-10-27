@@ -71,6 +71,13 @@
         "normal": "lagoon-infiltrator-normal.webp"
       }
     },
+    "vehicle-biplane": {
+      "file": "vehicle-biplane.glb",
+      "bytes": 795420,
+      "textures": {
+        "basecolor": "vehicle-biplane-basecolor.webp"
+      }
+    },
     "vehicle-coconut-tank": {
       "file": "vehicle-coconut-tank.glb",
       "bytes": 751584,

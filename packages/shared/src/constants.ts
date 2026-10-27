@@ -10,7 +10,7 @@
  *    PROFILE_NOTICE event (4T). 9 was never published on its own, so the
  *    integrated layout keeps the number.
  */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;

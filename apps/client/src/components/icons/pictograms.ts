@@ -127,6 +127,8 @@ const CHEESE_WHEEL = c(32, 32, 20, 20, CHEESE) + c(32, 32, 7, 7, CHEESE_DARK) + 
 const TRACK = r(6, 40, 52, 14, 7, METAL_DARK) + c(16, 47, 4, 4, METAL) + c(32, 47, 4, 4, METAL) + c(48, 47, 4, 4, METAL);
 
 const VEHICLE_ICONS = {
+  biplane_mg: tilt(r(8,23,46,5,2,METAL)+r(8,35,46,5,2,METAL)+r(14,22,14,20,3,WOOD)+spark(59,31,7,CHEESE)),
+  propeller: p('M29 27 Q6 8 10 29 Q14 37 28 35 Q7 55 28 55 Q37 50 35 36 Q58 57 57 35 Q53 26 37 29 Q59 8 37 8 Q27 13 29 27 Z',METAL)+c(32,32,6,6,BRASS),
   fondue_cannon: CHEESE_WHEEL + line('M50 14 L58 8', '#FF6A1A', 3) + line('M52 22 L62 20', '#FF6A1A', 3),
   coconut_mortar:
     tilt(r(4, 28, 34, 9, 3, '#7FB24A') + `<path d="M14 28 V37 M26 28 V37" stroke="${INK}" stroke-width="2.4"/>`, -20) +

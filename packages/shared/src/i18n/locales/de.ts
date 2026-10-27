@@ -270,6 +270,8 @@ export const de: TranslationDictionary = {
       sidecar_ram: { name: 'Seitenwagen-Stoßstange', role: 'Überrollt' },
       flamingo_boing: { name: 'Flamingo-BOING', role: 'Flipper-Rückstoß' },
       vehicle_blast: { name: 'Fahrzeugexplosion', role: 'Wrack-Druckwelle' },
+      biplane_mg: { name: 'Doppel-Flugzeug-MG', role: 'Starre Frontbewaffnung' },
+      propeller: { name: 'Propeller', role: 'Rotierende Gefahrenzone' },
     },
   },
   skills: {
@@ -821,6 +823,7 @@ export const de: TranslationDictionary = {
   },
   vehicles: {
     names: {
+      biplane: 'Himmelsflitzer-Doppeldecker',
       rowboat: 'Holz-Ruderboot',
       fondue_crawler: 'Fondue-Raupe',
       coconut_tank: 'Kokosnuss-Strandpanzer',
@@ -828,6 +831,7 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen-Motorrad',
     },
     enter: {
+      biplane: 'In den Doppeldecker oder auf einen Flügel steigen',
       rowboat: 'Ins Ruderboot steigen',
       fondue_crawler: 'In die Fondue-Raupe klettern',
       coconut_tank: 'In den Kokosnuss-Strandpanzer klettern',
@@ -835,6 +839,7 @@ export const de: TranslationDictionary = {
       sidecar: 'Aufs Seitenwagen-Motorrad steigen',
     },
     seats: {
+      wing: 'Flügelplatz',
       rower: 'Ruderer',
       driverGunner: 'Fahrer & Kanone',
       driver: 'Fahrer',
@@ -845,6 +850,8 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen',
     },
     hud: {
+      flight: 'W/S Schub · Maus steuert · A/D Seitenruder',
+      bail: 'Abspringen',
       repair: 'Zum Reparieren halten',
       rowingSprint: 'Im Takt! Doppeltes Tempo',
       rowingPartner: 'Zu zweit: W gemeinsam für einen Sprint antippen',
@@ -871,6 +878,7 @@ export const de: TranslationDictionary = {
       crew: 'Besatzung',
     },
     keys: {
+      bail: 'Leertaste',
       repair: 'X',
       enter: 'F',
       exit: 'F',

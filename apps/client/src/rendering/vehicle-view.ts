@@ -46,6 +46,8 @@ for (const definition of Object.values(VEHICLES)) {
 }
 
 export interface VehicleViewPose {
+  pitch?: number;
+  roll?: number;
   seats?: readonly number[];
   position: Vec3;
   yaw: number;
@@ -87,6 +89,7 @@ export class VehicleView {
   private turret: TransformNode | null = null;
   private barrel: TransformNode | null = null;
   private steerNode: TransformNode | null = null;
+  private propeller: TransformNode | null = null;
   private readonly wheels: Wheel[] = [];
   private rowboat: RowboatModel | null = null;
   private readonly paintedOars: RowboatModel['oars'] = [];
@@ -160,6 +163,7 @@ export class VehicleView {
       return;
     }
     this.entries = entries;
+    this.propeller?.dispose(); this.propeller = null;
     for (const oar of this.rowboat?.oars ?? []) oar.pivot.dispose();
     this.rowboat = null;
     // Swap the vertex-colour stand-in for the painted texture set.
@@ -177,6 +181,7 @@ export class VehicleView {
       if (name === 'ff-turret') this.turret = node;
       else if (name === 'ff-barrel') this.barrel = node;
       else if (name === 'ff-steer') this.steerNode = node;
+      else if (name === 'ff-propeller') { this.propeller = node; node.rotationQuaternion = null; }
       else if (name === 'ff-oar-left' || name === 'ff-oar-right') {
         node.rotationQuaternion = null;
         this.paintedOars.push({ pivot: node, side: name.endsWith('left') ? -1 : 1, row: name.endsWith('left') ? 0 : 1 });
@@ -198,6 +203,22 @@ export class VehicleView {
       this.fallback = this.rowboat.hull;
       return;
     }
+    if (this.kind === 'biplane') {
+      const parts = new PartList(this.scene), blue = '#72b7d6', cream = '#f3edce', metal = '#4f636e';
+      parts.sphere(blue,1,0,1.7,-0.05,{sx:0.7,sy:0.65,sz:4.8,segments:16});
+      for(const y of [1.38,2.63]) {
+        parts.box(cream,6.4,0.12,1.12,0,y,1.05);
+        for(const x of [-2.2,2.2]) parts.cylinder(metal,1.25,0.055,0.055,x,2,1.0,{segments:12});
+      }
+      for(const x of [-.89,.89]) parts.sphere(metal,1,x,.32,1.0,{sx:.45,sy:.6,sz:3.2,segments:12});
+      parts.box(cream,1.8,.1,.75,0,1.95,-2.2);parts.box(blue,.1,1.1,.65,0,2.2,-2.2);
+      this.fallback = parts.merge('biplane-detailed-standin',this.fallbackMaterial);
+      if(this.fallback)this.fallback.parent=this.tilt;
+      const prop=new PartList(this.scene);prop.box(metal,1.7,.13,.06,0,0,0);prop.box(metal,.13,1.7,.06,0,0,0);
+      this.propeller=prop.merge('biplane-propeller-standin',this.fallbackMaterial);
+      if(this.propeller){this.propeller.parent=this.tilt;this.propeller.position.set(-.023,1.81,2.389);}
+      return;
+    }
     const parts = new PartList(this.scene);
     const half = this.definition.halfExtents;
     const palette: Record<DrivableVehicleKind, [string, string]> = {
@@ -206,6 +227,7 @@ export class VehicleView {
       badi_flamingo: ['#ff6fb5', '#f4e8f0'],
       sidecar: ['#c8702a', '#b9c2c8'],
       rowboat: ['#885b32', '#c79255'],
+      biplane: ['#72b7d6', '#f3edce'],
     };
     const [main, accent] = palette[this.kind];
     if (this.definition.chassis === 'boat') {
@@ -247,7 +269,9 @@ export class VehicleView {
     let targetRoll = 0;
     let lift = 0;
     const half = this.definition.halfExtents;
-    if (this.definition.chassis === 'boat') {
+    if (this.definition.chassis === 'aircraft') {
+      targetPitch = -(pose.pitch ?? 0); targetRoll = pose.roll ?? 0;
+    } else if (this.definition.chassis === 'boat') {
       const speed = Math.abs(pose.forwardSpeed);
       targetPitch = -Math.min(0.12, speed * 0.006) + Math.sin(this.time * 1.7) * 0.025;
       targetRoll = Math.sin(this.time * 1.3 + 0.7) * 0.035;
@@ -304,6 +328,7 @@ export class VehicleView {
     if (this.turret) this.turret.rotation.set(0, -pose.turretYaw, 0);
     if (this.barrel) this.barrel.rotation.set(-pose.turretPitch, 0, 0);
     if (this.steerNode) this.steerNode.rotation.set(0, -pose.steer * 0.8, 0);
+    if (this.propeller && !pose.wreck && ((pose.seats?.[0] ?? 0) !== 0 || Math.abs(pose.forwardSpeed)>1)) this.propeller.rotation.z += dt * (42+Math.abs(pose.forwardSpeed));
     if (!pose.wreck) this.wheelAngle += (pose.forwardSpeed * dt);
     for (const wheel of this.wheels) wheel.node.rotation.set(this.wheelAngle / wheel.radius, 0, 0);
 

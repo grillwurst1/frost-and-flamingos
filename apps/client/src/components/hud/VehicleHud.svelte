@@ -68,6 +68,7 @@
         <progress max="1" value={hud.rowing.phase} aria-label={$t('vehicles.hud.rowingBeat')}></progress>
       </div>
     {/if}
+    {#if hud.kind === 'biplane' && hud.driver}<div class="vehicle-warning">{$t('vehicles.hud.flight')}</div>{/if}
 
     <div class="vehicle-keys">
       <span><kbd>{$t('vehicles.keys.exit')}</kbd> {$t('vehicles.hud.exit')}</span>
@@ -83,6 +84,7 @@
       {#if hud.handWeapons && hud.hp < hud.maxHp}
         <span><kbd>{$t('vehicles.keys.repair')}</kbd> {$t('vehicles.hud.repair')}</span>
       {/if}
+      {#if hud.kind === 'biplane'}<span><kbd>{$t('vehicles.keys.bail')}</kbd> {$t('vehicles.hud.bail')}</span>{/if}
     </div>
   </div>
 {/if}

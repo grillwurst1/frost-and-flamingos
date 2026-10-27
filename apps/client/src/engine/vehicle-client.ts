@@ -47,7 +47,7 @@ import { VehicleView, type VehicleGroundProbe } from '../rendering/vehicle-view'
 import { notify, setInteractionPrompt, showHitMarker } from '../state/game';
 import { translateNow } from '../state/locale';
 import { vehicleHud } from '../state/vehicle';
-import { BOAT_CAMERA, SIDECAR_CAMERA, TANK_CAMERA, type CameraProfile, type CameraRig } from './camera-rig';
+import { AIRCRAFT_CAMERA, BOAT_CAMERA, SIDECAR_CAMERA, TANK_CAMERA, type CameraProfile, type CameraRig } from './camera-rig';
 import type { InputController } from './input';
 
 /**
@@ -100,7 +100,7 @@ interface VehicleEntry {
   latest: VehicleSnapshot;
   lastSeenAt: number;
   /** Rendered pose (interpolated or predicted). */
-  render: { position: Vec3; yaw: number; forwardSpeed: number; turretYaw: number; turretPitch: number; steer: number; speed: number };
+  render: { position: Vec3; yaw: number; pitch: number; roll: number; forwardSpeed: number; turretYaw: number; turretPitch: number; steer: number; speed: number };
   dustTimer: number;
   smokeTimer: number;
   rowSoundTimer: number;
@@ -142,6 +142,7 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 function soundKind(kind: DrivableVehicleKind): VehicleSoundKind {
+  if (kind === 'biplane') return 'aircraft';
   if (kind === 'coconut_tank') return 'coconut';
   if (kind === 'badi_flamingo') return 'flamingo';
   if (kind === 'sidecar') return 'sidecar';
@@ -158,6 +159,7 @@ export interface OnFootState {
 }
 
 export function cameraProfileForVehicle(kind: DrivableVehicleKind): CameraProfile {
+  if (kind === 'biplane') return AIRCRAFT_CAMERA;
   if (kind === 'badi_flamingo' || kind === 'rowboat') return BOAT_CAMERA;
   if (kind === 'sidecar') return SIDECAR_CAMERA;
   return TANK_CAMERA;
@@ -166,6 +168,7 @@ export function cameraProfileForVehicle(kind: DrivableVehicleKind): CameraProfil
 /** Motor state from the wire block. */
 export function vehicleStateFromSnapshot(vehicle: VehicleSnapshot): VehicleMotorState {
   return {
+    ...(vehicle.flags & VEHICLE_FLAG.ExtendedPose ? { pitch: vehicle.pitch ?? 0, roll: vehicle.roll ?? 0 } : {}),
     position: { ...vehicle.position },
     yaw: vehicle.yaw,
     velocity: { ...vehicle.velocity },
@@ -185,6 +188,7 @@ export function vehicleStateFromSnapshot(vehicle: VehicleSnapshot): VehicleMotor
 
 function seatKey(definition: VehicleDefinition, index: number): TranslationKey {
   const seat = definition.seats[index];
+  if (definition.kind === 'biplane') return index === 0 ? 'vehicles.seats.pilot' : 'vehicles.seats.wing';
   if (definition.kind === 'rowboat') return 'vehicles.seats.rower';
   if (!seat) return 'vehicles.seats.driver';
   if (seat.driver && seat.gunner) return 'vehicles.seats.driverGunner';
@@ -347,7 +351,8 @@ export class VehicleClient {
     const yawError = Math.abs(shortestAngle(reference.yaw, authoritative.yaw));
     this.predictionError = error;
     const rowingChanged = entry.kind === 'rowboat' && (reference.boostTicks > 0) !== (authoritative.boostTicks > 0);
-    if (error <= RECONCILE_POSITION && yawError <= RECONCILE_YAW && !rowingChanged) return;
+    const poseError = Math.abs((reference.pitch ?? 0) - (authoritative.pitch ?? 0)) + Math.abs((reference.roll ?? 0) - (authoritative.roll ?? 0));
+    if (error <= RECONCILE_POSITION && yawError <= RECONCILE_YAW && !rowingChanged && poseError < 0.03) return;
     if (error > HARD_SNAP) this.pending = [];
     const first = this.pending[0];
     entry.body.restore(authoritative, first?.previousDriver ?? entry.body.driverButtons, first?.previousGunner ?? entry.body.gunnerButtons);
@@ -373,7 +378,7 @@ export class VehicleClient {
     const entry = this.entries.get(seat.vehicleId);
     if (!entry) return input;
     let sent = entry.kind === 'rowboat' ? { ...input, buttons: input.buttons & ~InputButton.Sprint } : input;
-    if (seat.gunner) {
+    if (seat.gunner && entry.kind !== 'biplane') {
       const aim = this.turretAim(entry, camera);
       if (aim) sent = { ...input, yaw: aim.yaw, pitch: aim.pitch };
     }
@@ -411,7 +416,7 @@ export class VehicleClient {
     const source = entry.id === this.predictedId ? entry.body : null;
     const position = source ? source.position : entry.render.position;
     const yaw = source ? source.yaw : entry.render.yaw;
-    character.teleport(vehicleLocalToWorld(position, yaw, anchor));
+    character.teleport(vehicleLocalToWorld(position, yaw, anchor, source?.pitch ?? entry.render.pitch, source?.roll ?? entry.render.roll));
     character.setColliderEnabled(false);
   }
 
@@ -470,6 +475,8 @@ export class VehicleClient {
         entry.render = {
           position: body.position,
           yaw: body.yaw,
+          pitch: body.pitch,
+          roll: body.roll,
           forwardSpeed: body.forwardSpeed,
           turretYaw: ownTurret ? body.turretYaw : from.turretYaw + shortestAngle(from.turretYaw, b.turretYaw) * t,
           turretPitch: ownTurret ? body.turretPitch : lerp(from.turretPitch, b.turretPitch, t),
@@ -485,6 +492,8 @@ export class VehicleClient {
             z: lerp(from.position.z, b.position.z, t),
           },
           yaw: from.yaw + shortestAngle(from.yaw, b.yaw) * t,
+          pitch: lerp(from.pitch ?? 0,b.pitch ?? 0,t),
+          roll: lerp(from.roll ?? 0,b.roll ?? 0,t),
           forwardSpeed: forward,
           turretYaw: from.turretYaw + shortestAngle(from.turretYaw, b.turretYaw) * t,
           turretPitch: lerp(from.turretPitch, b.turretPitch, t),
@@ -501,6 +510,8 @@ export class VehicleClient {
         delta,
         {
           seats: entry.latest.seats,
+          pitch: entry.render.pitch,
+          roll: entry.render.roll,
           position: entry.render.position,
           yaw: entry.render.yaw,
           forwardSpeed: entry.render.forwardSpeed,
@@ -547,7 +558,7 @@ export class VehicleClient {
       }
       return;
     }
-    if (render.speed < 1.5) return;
+    if (render.speed < 1.5 || entry.kind === 'biplane' && !(entry.latest.flags & VEHICLE_FLAG.Grounded)) return;
     entry.dustTimer -= delta;
     if (entry.dustTimer > 0) return;
     entry.dustTimer = Math.max(0.05, 0.16 - render.speed * 0.006);
@@ -877,6 +888,8 @@ export class VehicleClient {
       } else if (weapon.id === 'coconut_mortar') {
         parts.sphere('#6b4426', 0.72, 0, 0, 0, { segments: 10 });
         parts.sphere('#3a2414', 0.16, 0.1, 0.3, 0.18);
+      } else if (weapon.id === 'biplane_mg') {
+        parts.cylinder('#ffe986',0.5,0.035,0.035,0,0,0,{rx:Math.PI/2,segments:8});
       } else {
         parts.cylinder('#8e8e96', 1.1, 0.06, 0.06, 0, 0, 0, { rx: Math.PI / 2, segments: 6 });
         parts.cylinder('#5e6070', 0.22, 0.0, 0.16, 0, 0, 0.6, { rx: Math.PI / 2, segments: 6 });
@@ -925,7 +938,7 @@ export class VehicleClient {
       shot.mesh.position.copyFrom(shot.position);
       const yaw = Math.atan2(shot.velocity.x, shot.velocity.z);
       const pitch = -Math.atan2(shot.velocity.y, Math.hypot(shot.velocity.x, shot.velocity.z));
-      shot.mesh.rotation.set(pitch + (shot.weapon.id === 'harpoon_gun' ? 0 : shot.spin), yaw, 0);
+      shot.mesh.rotation.set(pitch + (shot.weapon.splashRadius === 0 ? 0 : shot.spin), yaw, 0);
     }
   }
 
@@ -961,6 +974,8 @@ export class VehicleClient {
       render: {
         position: { ...vehicle.position },
         yaw: vehicle.yaw,
+        pitch: vehicle.pitch ?? 0,
+        roll: vehicle.roll ?? 0,
         forwardSpeed: 0,
         turretYaw: vehicle.turretYaw,
         turretPitch: vehicle.turretPitch,

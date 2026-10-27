@@ -268,6 +268,8 @@ export const en = {
       sidecar_ram: { name: 'Sidecar bumper', role: 'Roadkill' },
       flamingo_boing: { name: 'Flamingo BOING', role: 'Pinball knockback' },
       vehicle_blast: { name: 'Vehicle explosion', role: 'Wreck blast' },
+      biplane_mg: { name: 'Twin aircraft MG', role: 'Fixed forward guns' },
+      propeller: { name: 'Propeller', role: 'Spinning nose hazard' },
     },
   },
   skills: {
@@ -819,6 +821,7 @@ export const en = {
   },
   vehicles: {
     names: {
+      biplane: 'Sky Skipper biplane',
       rowboat: 'Wooden rowboat',
       fondue_crawler: 'Fondue Crawler',
       coconut_tank: 'Coconut Beach Tank',
@@ -826,6 +829,7 @@ export const en = {
       sidecar: 'Sidecar Motorcycle',
     },
     enter: {
+      biplane: 'Climb into the biplane or onto a wing',
       rowboat: 'Board the rowboat',
       fondue_crawler: 'Climb into the Fondue Crawler',
       coconut_tank: 'Climb into the Coconut Beach Tank',
@@ -833,6 +837,7 @@ export const en = {
       sidecar: 'Hop on the sidecar motorcycle',
     },
     seats: {
+      wing: 'Wing rider',
       rower: 'Rower',
       driverGunner: 'Driver & cannon',
       driver: 'Driver',
@@ -843,6 +848,8 @@ export const en = {
       sidecar: 'Sidecar seat',
     },
     hud: {
+      flight: 'W/S throttle · mouse steers · A/D rudder',
+      bail: 'Jump out',
       repair: 'Hold to repair',
       rowingSprint: 'In sync! Double speed',
       rowingPartner: 'Second rower: tap W together for a sprint',
@@ -869,6 +876,7 @@ export const en = {
       crew: 'Crew',
     },
     keys: {
+      bail: 'Space',
       repair: 'X',
       enter: 'F',
       exit: 'F',

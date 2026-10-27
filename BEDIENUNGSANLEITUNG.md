@@ -836,3 +836,25 @@ die beide Hände zur Steuerung brauchen, können nicht gleichzeitig reparieren.
 Beim Reparieren kann nicht geschossen werden. **E bleibt deine Klassenfähigkeit.**
 
 Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.
+
+### Doppeldecker (M5-Fortsetzung, 27. Oktober 2026)
+
+An der Lagune und auf der Gletscherpiste steht je ein Doppeldecker mit 320
+Strukturpunkten. F steigt ein, C wechselt zwischen Pilot und den beiden Plätzen
+auf den oberen Tragflächen. W beschleunigt, S reduziert das Tempo; ab etwa
+14 m/s mit der Maus die Nase anheben. Die Maus steuert Richtung und Neigung,
+A/D unterstützt mit dem Seitenruder. Das Höchsttempo beträgt 28 m/s.
+
+Der Pilot feuert mit der linken Maustaste das feste Bord-MG nach vorn (15 Schaden
+pro Treffer, 500 Schuss pro Minute). Auf den Flügeln könnt ihr die eigenen Waffen
+benutzen und mit X das Flugzeug reparieren. **Leertaste springt mit Schwung ab**;
+der vorhandene Notschirm hilft bei einem langen Sturz. Sanft auf Wasser oder
+flachem Boden aufsetzen: steile, schnelle Einschläge zerstören das Flugzeug.
+Der laufende Propeller schleudert gegnerische Soldaten mit einer rußschwarzen
+Comic-Explosion fort. Die eigene Fraktion bleibt davon verschont.
+
+Geprüfter Stand: 244 automatisierte Tests erfolgreich, TypeScript/Svelte ohne
+Fehler oder Warnungen und erfolgreicher Produktionsbuild. Der WebGL2-Spieltest
+prüft Einsteigen, Abheben mit Pilot und Flügelpassagier, Schießen und Abspringen
+über das echte Netzwerkprotokoll ohne Konsolenfehler. Die Cloud rendert per
+Software; Temperatur und Bildrate auf einem Mac wurden hier nicht gemessen.

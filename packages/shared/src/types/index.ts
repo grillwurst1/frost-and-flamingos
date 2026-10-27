@@ -67,7 +67,9 @@ export type VehicleWeaponId =
   | 'grille_ram'
   | 'sidecar_ram'
   | 'flamingo_boing'
-  | 'vehicle_blast';
+  | 'vehicle_blast'
+  | 'biplane_mg'
+  | 'propeller';
 
 export type WeaponId = MainWeaponId | GimmickWeaponId | MascotWeaponId | VehicleWeaponId;
 
@@ -321,6 +323,9 @@ export interface MascotWireState {
 }
 
 export interface VehicleSnapshot {
+  /** ExtendedPose flag: aircraft/carrier hull orientation (radians, +pitch = nose up). */
+  pitch?: number;
+  roll?: number;
   id: number;
   /** VEHICLE_KIND_TABLE code. */
   type: number;

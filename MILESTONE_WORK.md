@@ -11,7 +11,7 @@ This file records actual completion, not aspirational checkmarks.
 - [x] Four rowboats: rowing, two-player rhythm sprint, seats, damage, respawn, visual oars/HUD.
 - [x] Vehicle repair, on foot and from exposed passenger seats; preserve class skills elsewhere.
 - [ ] Sidecar passenger first-person V camera and riding/repair visual poses.
-- [ ] Biplane: shared flight motor, water/glacier takeoff and landing, pilot gun, two wing mounts, jump exits, propeller hazard.
+- [x] Biplane: shared flight motor, water/glacier takeoff and landing, pilot gun, two wing mounts, jump exits, propeller hazard.
 - [ ] Cable car: two counter-running cabins, station boarding/interior/roof, brake levers including hitscan, roof crouch protection, remove interim spawn plates.
 - [ ] Eight T-bars, boarding/exit, free shooting, dead-rider release.
 - [ ] Coaster bobs: banked path, free shooting, 45-degree launch, clear the tank-road conflict.
@@ -62,12 +62,17 @@ The isolated input-edge test and 237 automated tests pass (10 scripts, 177 serve
 50 client); strict typecheck is clean and production build succeeds. Browser
 rendering remains software, so there is no native Mac performance claim.
 
-Next: biplane. Source parts probe (no repo
-changes) is /tmp/m5-plane-parts-probe.log: -X-forward, scale 6.8, bounds +-3.229 X,
-Y 0..2.776, Z -2.694..2.704. Propeller is component 5 at (-.023,1.810,2.389),
-size (1.670,1.229,.139); two wings at Y1.38 and Y2.628. Keep the actual source
-untouched, add split rule and model tuning, shared deterministic flight, 3 seats,
-wing exits, pilot gun, prop hazard and native model propeller spin. Snapshot seats
-already have variable length (up to 8); flight pitch/roll will need explicit wire
-fields and the corresponding protocol bump (currently 9). Do not repurpose turret
-fields as flight state. The rest of M5 follows this aircraft package before M6.
+## Latest increment: M5 biplane
+
+Shared deterministic flight, full pitch/bank collision and binary pose (protocol 10),
+three crew, fixed pilot MG, wing weapons/repairs, Space bailout, water/glacier
+takeoff/landing and propeller blast hazard are implemented. Owner's aircraft is
+11,817 triangles with one 1536 px paint texture and an animated propeller.
+WebGL2 playtest passes boarding, authoritative flight with pilot + wing rider,
+MG, Space exit and the painted model without console errors. Dedicated tests
+cover deterministic replay, wire alignment, both runways, crash vs safe landing,
+3D wing anchors and enemy/friendly propeller handling. Release checks pass: 244 tests (10 scripts, 184 server, 50 client), clean strict
+typecheck, successful production build and WebGL2 flight smoke.
+
+Next: finish sidecar passenger camera and riding poses, then map toys.
+Keep all remaining M5 items gated ahead of M6.

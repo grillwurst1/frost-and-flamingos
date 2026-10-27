@@ -108,6 +108,11 @@ const COCONUT_DOME: V3 = [-0.047, 1.22, -0.728];
  *            the fork + handlebar + front wheel steer.
  */
 export const VEHICLE_PART_SPECS: Readonly<Record<string, VehiclePartSpec>> = {
+  'vehicle-biplane': {
+    forward: '-x', scale: 6.8, center: [0,0],
+    rules: [{ name: 'propeller', role: 'steer', pivot: [-0.023,1.81,2.389],
+      match: c => c.center[2]>2.25 && c.size[2]<0.3 && c.size[0]>1.5 && c.size[1]>0.8 }],
+  },
   'vehicle-rowboat': {
     forward: '-x', scale: 3.6, center: [0, 0],
     rules: [

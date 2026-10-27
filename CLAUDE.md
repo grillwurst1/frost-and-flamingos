@@ -62,7 +62,7 @@ In this build:
   during the results, otherwise at the next respawn (with a notice); leaving the drifter class
   may move you to the smaller team at respawn (toast). Rules in `packages/shared/src/config/conquest.ts`
   and `apps/server/src/rooms/conquest.ts`; full text in `game-decisions.md` §14.1 / §10.6.
-- Protocol version **9**; EN/DE keys for every new surface; `bun run test` runs the script,
+- Protocol version **10**; EN/DE keys for every new surface; `bun run test` runs the script,
   server and client suites.
 
 Deliberately **not** in this build:
@@ -71,7 +71,7 @@ Deliberately **not** in this build:
   These use the existing GLB animation rigs with a configurable skinned body; unrelated
   future-milestone features remain deferred.
 - **Rest of M5:** cable car ride, T-bar ride, alpine coaster, hammock catapult, NPC cow
-  behaviour, biplane, rowboat and gondola vehicles, vehicle repair and the heavy tower weather
+  behaviour, cable-car gondolas and the heavy tower weather
   transformations. Weather currently grades sky, light and water and scales parachute wind.
   `INTERIM_CABLE_CAR_SPAWNS` (Peak Guard plates on the gorge floor below the mid station)
   stays until the cable car lands.
@@ -339,3 +339,27 @@ Repair cannot exceed max HP or be combined with firing. Beat state resets when a
 seat is freed. Remainder of M5 stays active; do not advance to M6 until it passes.
 
 Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.
+
+### M5 continuation — biplane (27 October 2026)
+
+Both authored aircraft are operational: 320 HP, water/glacier takeoff and landing,
+14–28 m/s arcade flight (W/S throttle, mouse steering/pitch, A/D rudder), fixed
+forward MG (15 damage, 500 RPM), pilot and two exposed upper-wing seats. Space
+bails out with inherited momentum; the normal emergency umbrella remains available.
+Wing riders can fire their own loadout and hold X to repair. A spinning propeller
+launches enemy soldiers with the soot-blackened blast death; friendly crew are spared.
+Hard impacts wreck the plane; an abandoned airborne wreck continues falling.
+
+Flight uses the same deterministic motor for authority and prediction. Protocol 10
+adds signed pitch/bank only to records carrying the extended-pose flag; variable
+crew lists and existing vehicle codes are preserved. The owner's source model is
+reduced to 11,817 triangles with one 1536 px colour texture and a separate spinning
+propeller. A procedural fallback remains available. No additional full-screen pass
+or normal texture is introduced. M5 remains in progress.
+
+Validation: all 244 automated tests pass (10 script, 184 server, 50 client),
+including the 15-minute bot soak. Strict typecheck has zero errors/warnings and
+all production bundles build. WebGL2 checks real binary flight with pilot and
+wing rider, painted model, firing and bailout without console errors. The prior
+boat ram fixture now uses open water away from the seaplane spawn. Cloud tests
+use software rendering; native Mac temperature/FPS have not been measured.

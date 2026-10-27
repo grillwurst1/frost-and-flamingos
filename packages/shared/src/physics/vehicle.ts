@@ -6,6 +6,7 @@ import {
   VEHICLE_MAP_LIMIT,
   VEHICLES,
   vehicleLocalToWorld,
+  vehicleRotation,
   vehicleTicks,
   type DrivableVehicleKind,
   type VehicleDefinition,
@@ -15,6 +16,7 @@ import { FIXED_DT, GRAVITY, WATER_LEVEL } from '../constants.js';
 import type { SurfaceTag } from '../types/map.js';
 import { InputButton, type InputButtonMask, type Vec3 } from '../types/index.js';
 import type { PhysicsWorld } from './world.js';
+import { advanceAircraft, AIRCRAFT_RULES } from './aircraft.js';
 
 /**
  * Membership bit 4 (0x0008) = vehicle hulls; filter = world (0x1), players
@@ -44,6 +46,8 @@ export interface VehicleControlInput {
 
 /** Everything prediction needs to restore the motor exactly. */
 export interface VehicleMotorState {
+  pitch?: number;
+  roll?: number;
   position: Vec3;
   yaw: number;
   velocity: Vec3;
@@ -62,7 +66,8 @@ export interface VehicleMotorState {
 
 export type VehicleMotorEvent =
   | { type: 'fire'; origin: Vec3; direction: Vec3; yaw: number; pitch: number }
-  | { type: 'boost' };
+  | { type: 'boost' }
+  | { type: 'crash'; impact: number };
 
 interface Traction {
   /** Acceleration and grip factor. */
@@ -156,7 +161,7 @@ export function vehicleMuzzle(
  * Shared, deterministic vehicle motor: the same code drives the
  * authoritative server vehicles and the driver's client prediction.
  *
- * A yaw-only kinematic hull (rounded box) moved by Rapier's character
+ * A kinematic hull (rounded box) moved by Rapier's character
  * controller, so it collides with the static world and other hulls, climbs
  * up to its slope limit, steps over kerbs and snaps to the ground. Player
  * capsules never block a hull; the server resolves run-overs instead.
@@ -168,6 +173,7 @@ export function vehicleMuzzle(
  *   boat     floats at the waterline (bobbing is visual), thrust and rudder
  *            only while afloat, low side grip (drift), Shift = plug turbo;
  *            terrain shallower than BOAT_BEACH_DEPTH beaches it (no thrust).
+ *   aircraft arcade flight with pitch/bank, fixed gun and float-ski landings.
  * Land vehicles treat water deeper than their ford depth as a wall; a hull
  * that ends up deeper anyway (falling in) reports `drowned`.
  */
@@ -184,6 +190,8 @@ export class VehicleBody {
   private readonly clearanceOffsetY: number;
   private base: Vec3;
   private heading: number;
+  private flightPitch = 0;
+  private flightRoll = 0;
   private linear: Vec3 = { x: 0, y: 0, z: 0 };
   private turnRate = 0;
   private steerAngle = 0;
@@ -248,7 +256,7 @@ export class VehicleBody {
     this.controller.setSlideEnabled(true);
     this.controller.setMaxSlopeClimbAngle(this.definition.maxSlope);
     this.controller.setMinSlopeSlideAngle(this.definition.maxSlope + (6 * Math.PI) / 180);
-    if (boat) {
+    if (boat || this.definition.chassis === 'aircraft') {
       this.controller.disableAutostep();
       this.controller.disableSnapToGround();
     } else {
@@ -267,6 +275,9 @@ export class VehicleBody {
   get yaw(): number {
     return this.heading;
   }
+
+  get pitch(): number { return this.flightPitch; }
+  get roll(): number { return this.flightRoll; }
 
   get velocity(): Vec3 {
     return { ...this.linear };
@@ -319,7 +330,7 @@ export class VehicleBody {
 
   /** A land vehicle whose hull sank below its ford depth (fell into the sea). */
   get drowned(): boolean {
-    if (this.definition.chassis === 'boat') return false;
+    if (this.definition.chassis === 'boat' || this.definition.chassis === 'aircraft') return false;
     return this.base.y < WATER_LEVEL - this.definition.fordDepth - 0.6;
   }
 
@@ -330,6 +341,7 @@ export class VehicleBody {
 
   get state(): VehicleMotorState {
     return {
+      ...(this.definition.chassis === 'aircraft' ? { pitch: this.flightPitch, roll: this.flightRoll } : {}),
       position: { ...this.base },
       yaw: this.heading,
       velocity: { ...this.linear },
@@ -356,6 +368,13 @@ export class VehicleBody {
   }
 
   muzzle(): { origin: Vec3; direction: Vec3; yaw: number; pitch: number } | null {
+    if (this.definition.chassis === 'aircraft' && this.definition.weapon) {
+      const weapon = this.definition.weapon;
+      const local = { x: weapon.barrelPivot.x + weapon.muzzle.x, y: weapon.barrelPivot.y + weapon.muzzle.y, z: weapon.barrelPivot.z + weapon.muzzle.z };
+      const origin = vehicleLocalToWorld(this.base,this.heading,local,this.flightPitch,this.flightRoll);
+      const direction = vehicleLocalToWorld({x:0,y:0,z:0},this.heading,{x:0,y:0,z:1},this.flightPitch,this.flightRoll);
+      return { origin, direction, yaw: this.heading, pitch: this.flightPitch };
+    }
     return vehicleMuzzle(this.definition, this.base, this.heading, this.turret, this.barrel);
   }
 
@@ -373,6 +392,7 @@ export class VehicleBody {
   teleport(position: Vec3, yaw: number): void {
     this.base = { ...position };
     this.heading = wrapAngle(yaw);
+    this.flightPitch = 0; this.flightRoll = 0;
     this.linear = { x: 0, y: 0, z: 0 };
     this.turnRate = 0;
     this.steerAngle = 0;
@@ -397,6 +417,7 @@ export class VehicleBody {
   restore(state: VehicleMotorState, previousDriver?: InputButtonMask, previousGunner?: InputButtonMask): void {
     this.base = { ...state.position };
     this.heading = wrapAngle(state.yaw);
+    this.flightPitch = state.pitch ?? 0; this.flightRoll = state.roll ?? 0;
     this.linear = { ...state.velocity };
     this.turnRate = state.yawRate;
     this.steerAngle = state.steer;
@@ -431,6 +452,7 @@ export class VehicleBody {
    */
   simulate(driver: VehicleControlInput | null, gunner: VehicleControlInput | null, trackButtons = true): void {
     if (this.disposed) return;
+    if (this.definition.chassis === 'aircraft') { this.simulateAircraft(driver,gunner,trackButtons); return; }
     const definition = this.definition;
     const dt = FIXED_DT;
     const buttons = driver?.buttons ?? 0;
@@ -661,6 +683,56 @@ export class VehicleBody {
     this.commitPose();
   }
 
+  private simulateAircraft(driver: VehicleControlInput | null, gunner: VehicleControlInput | null, trackButtons: boolean): void {
+    const dt = FIXED_DT;
+    const terrain = sampleMapHeight(this.base.x,this.base.z);
+    const support = this.physics.raycast({x:this.base.x,y:this.base.y+0.7,z:this.base.z},{x:0,y:-1,z:0},6,this.collider.handle);
+    const floor = Math.max(terrain,WATER_LEVEL-BOAT_DRAFT,support?.point.y ?? -Infinity);
+    const onSurface = this.isGrounded && this.base.y <= floor+1.4 && this.linear.y <= 0.3
+      || this.base.y <= floor+0.06 && Math.abs(this.linear.y) < 0.3;
+    const step = advanceAircraft({position:this.base,velocity:this.linear,yaw:this.heading,pitch:this.flightPitch,roll:this.flightRoll,grounded:onSurface},driver);
+    this.heading = step.yaw; this.turnRate = step.yawRate;
+    this.flightPitch = step.pitch; this.flightRoll = step.roll;
+    if (step.takingOff) this.base.y = Math.max(this.base.y,floor+Math.sin(step.pitch)*this.definition.halfExtents.z+0.04);
+    const velocity = {...step.velocity};
+    if (Math.abs(this.base.x+velocity.x*dt)>VEHICLE_MAP_LIMIT) velocity.x=0;
+    if (Math.abs(this.base.z+velocity.z*dt)>VEHICLE_MAP_LIMIT) velocity.z=0;
+    this.syncCollider();
+    this.controller.computeColliderMovement(this.collider,{x:velocity.x*dt,y:velocity.y*dt,z:velocity.z*dt},RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,undefined,c=>this.solid(c.handle));
+    const moved=this.controller.computedMovement();
+    const next={x:this.base.x+moved.x,y:this.base.y+moved.y,z:this.base.z+moved.z};
+    let impact=0;
+    for(let i=0;i<this.controller.numComputedCollisions();i++) {
+      const normal=this.controller.computedCollision(i)?.normal1;
+      if(!normal)continue;
+      const closing=-(velocity.x*normal.x+velocity.y*normal.y+velocity.z*normal.z);
+      if(normal.y<0.65) impact=Math.max(impact,closing>12?closing:0);
+      else if(!onSurface && -velocity.y>AIRCRAFT_RULES.safeLandingSpeed) impact=Math.max(impact,-velocity.y);
+    }
+    const nextTerrain=sampleMapHeight(next.x,next.z), waterFloor=WATER_LEVEL-BOAT_DRAFT;
+    const landingFloor=Math.max(nextTerrain,waterFloor);
+    this.isGrounded=!step.takingOff && this.controller.computedGrounded();
+    if(next.y<=landingFloor+0.035 && velocity.y<=0) {
+      if(!onSurface && -velocity.y>AIRCRAFT_RULES.safeLandingSpeed)impact=Math.max(impact,-velocity.y);
+      next.y=landingFloor+0.035;velocity.y=0;this.isGrounded=true;
+    } else if(this.isGrounded) velocity.y=0;
+    this.isAfloat=this.isGrounded && nextTerrain<WATER_LEVEL-0.4 && next.y<WATER_LEVEL+0.1;
+    this.isBeached=false;
+    this.measuredSpeed=Math.hypot(moved.x,moved.z)/dt;
+    this.base=next;this.linear=velocity;
+    this.turret=0;this.barrel=0;
+    if(impact>0) {this.events.push({type:'crash',impact});this.linear={x:0,y:0,z:0};}
+    const weapon=this.definition.weapon;
+    if(this.weaponCooldown>0)this.weaponCooldown--;
+    if(!impact && gunner && weapon && (gunner.buttons&InputButton.FirePrimary) && this.weaponCooldown<=0) {
+      this.weaponCooldown=vehicleTicks(weapon.cooldownSeconds);
+      const muzzle=this.muzzle();if(muzzle)this.events.push({type:'fire',...muzzle});
+    }
+    this.restingTicks=!driver && this.isGrounded && Math.hypot(velocity.x,velocity.z)<0.05 ? this.restingTicks+1 : 0;
+    if(trackButtons) {this.previousDriver=driver?.buttons??0;this.previousGunner=gunner?.buttons??0;}
+    this.commitPose();
+  }
+
   /** Colliders the hull moves against: never players; boats follow the terrain analytically. */
   private solid(handle: number): boolean {
     if (this.physics.isPlayerCollider(handle)) return false;
@@ -732,7 +804,14 @@ export class VehicleBody {
 
   /** Puts the collider at the current pose now (queries this tick) and queues the body pose. */
   private syncCollider(): void {
-    const rotation = yawQuaternion(this.heading);
+    const rotation = vehicleRotation(this.heading,this.flightPitch,this.flightRoll);
+    if (this.definition.chassis === 'aircraft') {
+      this.body.setTranslation(this.base,true); this.body.setRotation(rotation,true);
+      this.collider.setTranslation(vehicleLocalToWorld(this.base,this.heading,{x:0,y:this.colliderOffsetY,z:0},this.flightPitch,this.flightRoll));
+      this.collider.setRotation(rotation);
+      this.body.setNextKinematicTranslation(this.base); this.body.setNextKinematicRotation(rotation);
+      return;
+    }
     this.collider.setTranslation({ x: this.base.x, y: this.base.y + this.colliderOffsetY, z: this.base.z });
     this.collider.setRotation(rotation);
     this.body.setTranslation(this.base, true);

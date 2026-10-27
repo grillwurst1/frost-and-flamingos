@@ -32,22 +32,23 @@ export const VEHICLE_KINDS = [
 
 export const VEHICLE_KIND_TABLE = createIdTable<VehicleKind>(VEHICLE_KINDS);
 
-export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar' | 'rowboat';
+export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar' | 'rowboat' | 'biplane';
 
-/** The kinds the M5 core builds. Rowboat and biplane follow after the owner's test. */
+/** Active vehicle kinds. The separate wire table retains its original ordering. */
 export const DRIVABLE_VEHICLE_KINDS: readonly DrivableVehicleKind[] = [
   'fondue_crawler',
   'coconut_tank',
   'badi_flamingo',
   'sidecar',
   'rowboat',
+  'biplane',
 ];
 
 export function isDrivableKind(kind: VehicleKind): kind is DrivableVehicleKind {
   return (DRIVABLE_VEHICLE_KINDS as readonly string[]).includes(kind);
 }
 
-export type VehicleChassis = 'tracked' | 'wheeled' | 'boat';
+export type VehicleChassis = 'tracked' | 'wheeled' | 'boat' | 'aircraft';
 
 /**
  * driver: steers (and fires the vehicle weapon when `gunner` is also set);
@@ -176,6 +177,26 @@ const TANK_DRIVE = {
 const TANK_HALF_EXTENTS: Vec3 = { x: 1.4, y: 0.85, z: 2.3 };
 
 export const VEHICLES: Readonly<Record<DrivableVehicleKind, VehicleDefinition>> = {
+  biplane: {
+    kind: 'biplane', chassis: 'aircraft', modelKey: 'vehicle-biplane',
+    maxHp: 320, respawnSeconds: 25, wreckSeconds: 5,
+    halfExtents: { x: 3.1, y: 1.35, z: 2.5 }, hitSphere: null,
+    maxForwardSpeed: 28, maxReverseSpeed: 0, acceleration: 6, braking: 10,
+    coastDrag: 3, turnRate: 0.95, turnResponse: 5, lateralGrip: 1,
+    maxSlope: 0.52, stepHeight: 0.25, fordDepth: 20,
+    ram: { weaponId: 'propeller', minSpeed: 100, fullSpeed: 100, minDamage: 0, maxDamage: 0, launchHorizontal: 30, launchVertical: 12 },
+    seats: [
+      { driver: true, gunner: true, handWeapons: false, exposed: true, anchor: { x: 0, y: 0.55, z: -0.45 } },
+      { driver: false, gunner: false, handWeapons: true, exposed: true, anchor: { x: -1.8, y: 2.76, z: 1.1 } },
+      { driver: false, gunner: false, handWeapons: true, exposed: true, anchor: { x: 1.8, y: 2.76, z: 1.1 } },
+    ],
+    weapon: {
+      id: 'biplane_mg', turretPivot: { x: 0, y: 0, z: 0 }, barrelPivot: { x: 0, y: 1.65, z: 2 }, muzzle: { x: 0, y: 0, z: 0.5 },
+      projectileSpeed: 140, gravityScale: 0.025, directDamage: 15, splashDamage: 0, splashRadius: 0,
+      cooldownSeconds: 0.12, lifetimeSeconds: 1.5, yawRate: 0, pitchRate: 0, minPitch: 0, maxPitch: 0, radius: 0.08, automatic: true,
+    },
+    armor: { bullet: 0.8, explosive: 1 }, boost: null,
+  },
   rowboat: {
     kind: 'rowboat', chassis: 'boat', modelKey: 'vehicle-rowboat',
     maxHp: 200, respawnSeconds: 20, wreckSeconds: 5,
@@ -415,15 +436,25 @@ export function vehicleDefinition(kind: DrivableVehicleKind): VehicleDefinition 
 }
 
 /** A seat anchor (or any local point) in world space for a vehicle pose. */
-export function vehicleLocalToWorld(position: Vec3, yaw: number, local: Vec3): Vec3 {
-  const rotated = rotateY(local.x, local.z, yaw);
-  return { x: position.x + rotated.x, y: position.y + local.y, z: position.z + rotated.z };
+export function vehicleLocalToWorld(position: Vec3, yaw: number, local: Vec3, pitch = 0, roll = 0): Vec3 {
+  const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const x = local.x * cr - local.y * sr, y = local.x * sr + local.y * cr;
+  const rotated = rotateY(x, local.z * cp - y * sp, yaw);
+  return { x: position.x + rotated.x, y: position.y + y * cp + local.z * sp, z: position.z + rotated.z };
 }
 
-/** World point into vehicle local space (yaw only). */
-export function vehicleWorldToLocal(position: Vec3, yaw: number, world: Vec3): Vec3 {
+/** World point into vehicle local space, including optional nose-up pitch and bank. */
+export function vehicleWorldToLocal(position: Vec3, yaw: number, world: Vec3, pitch = 0, roll = 0): Vec3 {
   const local = rotateY(world.x - position.x, world.z - position.z, -yaw);
-  return { x: local.x, y: world.y - position.y, z: local.z };
+  const cp = Math.cos(pitch), sp = Math.sin(pitch), cr = Math.cos(roll), sr = Math.sin(roll);
+  const y = (world.y - position.y) * cp - local.z * sp;
+  return { x: local.x * cr + y * sr, y: -local.x * sr + y * cr, z: (world.y - position.y) * sp + local.z * cp };
+}
+
+/** Yaw * nose-up pitch * bank, matching the renderer's root and tilt pivots. */
+export function vehicleRotation(yaw: number, pitch = 0, roll = 0): { x: number; y: number; z: number; w: number } {
+  const cy = Math.cos(yaw / 2), sy = Math.sin(yaw / 2), cx = Math.cos(-pitch / 2), sx = Math.sin(-pitch / 2), cz = Math.cos(roll / 2), sz = Math.sin(roll / 2);
+  return { x: cy*sx*cz+sy*cx*sz, y: sy*cx*cz-cy*sx*sz, z: cy*cx*sz-sy*sx*cz, w: cy*cx*cz+sy*sx*sz };
 }
 
 /** Horizontal distance from a point to the hull outline (0 inside). */
@@ -526,11 +557,13 @@ export function rayVehicleHull(
   origin: Vec3,
   direction: Vec3,
   maxDistance: number,
+  pitch = 0,
+  roll = 0,
 ): number | null {
-  const localOrigin = vehicleWorldToLocal(position, yaw, origin);
-  const localDirection = rotateY(direction.x, direction.z, -yaw);
+  const localOrigin = vehicleWorldToLocal(position, yaw, origin, pitch, roll);
+  const localDirection = vehicleWorldToLocal({ x: 0, y: 0, z: 0 }, yaw, direction, pitch, roll);
   const o = [localOrigin.x, localOrigin.y - definition.halfExtents.y, localOrigin.z];
-  const d = [localDirection.x, direction.y, localDirection.z];
+  const d = [localDirection.x, localDirection.y, localDirection.z];
   const h = [definition.halfExtents.x, definition.halfExtents.y, definition.halfExtents.z];
   let near = 0;
   let far = maxDistance;
@@ -589,6 +622,7 @@ export const VEHICLE_FLAG = {
   Afloat: 1 << 3,
   Handbrake: 1 << 4,
   Drowned: 1 << 5,
+  ExtendedPose: 1 << 6,
 } as const;
 
 /** Map clamp so vehicles never leave the playable square. */

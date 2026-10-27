@@ -18,6 +18,7 @@ import {
   SECONDARY_WEAPON_TABLE,
 } from '../config/weapons.js';
 import { CRITTER_BEHAVIOUR_TABLE, CRITTER_SPECIES_TABLE } from '../config/critters.js';
+import { VEHICLE_FLAG } from '../config/vehicles.js';
 import type { IdTable } from '../config/ids.js';
 import type {
   BridgeState,
@@ -274,6 +275,7 @@ function writeVehicleState(writer: BinaryWriter, vehicle: VehicleSnapshot): void
     .writeUint16(ticksToWire(vehicle.weaponCooldownTicks))
     .writeUint8(Math.min(8, vehicle.seats.length));
   for (const occupant of vehicle.seats.slice(0, 8)) writer.writeUint16(occupant & 0xffff);
+  if (vehicle.flags & VEHICLE_FLAG.ExtendedPose) writer.writeInt16(milliToWire(vehicle.pitch ?? 0)).writeInt16(milliToWire(vehicle.roll ?? 0));
 }
 
 function readVehicleState(reader: BinaryReader): VehicleSnapshot {
@@ -295,7 +297,9 @@ function readVehicleState(reader: BinaryReader): VehicleSnapshot {
   if (seatCount > 8) throw new RangeError('Too many vehicle seats.');
   const seats: number[] = [];
   for (let seat = 0; seat < seatCount; seat += 1) seats.push(reader.readUint16());
+  const pose = flags & VEHICLE_FLAG.ExtendedPose ? { pitch: reader.readInt16() / 1000, roll: reader.readInt16() / 1000 } : {};
   return {
+    ...pose,
     id,
     type,
     flags,

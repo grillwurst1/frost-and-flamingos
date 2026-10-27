@@ -40,6 +40,7 @@ export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6,
 export const TANK_CAMERA: CameraProfile = { pivotHeight: 3.7, distance: 10.5, shoulder: 0 };
 export const BOAT_CAMERA: CameraProfile = { pivotHeight: 2.7, distance: 8.4, shoulder: 0 };
 export const SIDECAR_CAMERA: CameraProfile = { pivotHeight: 2.3, distance: 6.8, shoulder: 0 };
+export const AIRCRAFT_CAMERA: CameraProfile = { pivotHeight: 2.8, distance: 11.5, shoulder: 0 };
 
 /** Mouse idle time before the camera starts easing behind a steered body. */
 const FOLLOW_IDLE_SECONDS = 1.1;

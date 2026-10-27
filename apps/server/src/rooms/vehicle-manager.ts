@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import {
   FIXED_DT,
+  AIRCRAFT_RULES,
   GRAVITY,
   InputButton,
   NO_TOWERS_HELD,
@@ -320,6 +321,19 @@ export class VehicleManager<P extends VehicleOccupant> {
       if (beat.aligned && seat.seat < 2) record.strokeBeats[seat.seat as 0 | 1] = beat.beat;
     }
     if (trackButtons) {
+      if (record.definition.chassis === 'aircraft' && pressed(input.buttons, previousButtons, InputButton.Jump)) {
+        const body = record.body;
+        const anchor = record.definition.seats[seat.seat]?.anchor;
+        if (body && anchor) {
+          const at = vehicleLocalToWorld(body.position,body.yaw,anchor,body.pitch,body.roll);
+          at.y += 0.6;
+          player.character.teleport(at); player.character.setColliderEnabled(true);
+          player.character.launch({ ...body.velocity, y: Math.max(0,body.velocity.y)+6 },1.2);
+          this.freeSeat(record,seat.seat);
+          this.hooks.broadcastEvent({ eventType:'VEHICLE_SEAT', actorId:player.id, targetId:record.slot.id, paramX:0, paramZ:0, paramValue:0 });
+        }
+        return 'seated';
+      }
       if (pressed(input.buttons, previousButtons, ENTER_BUTTONS)) {
         this.exit(player, record, seat.seat);
         return 'seated';
@@ -343,7 +357,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     for (const record of this.records) {
       if (record.lifecycle === 'waiting' || !record.body || record.slot.id === skipVehicle) continue;
       if (record.lifecycle === 'wreck' && record.definition.chassis === 'boat') continue;
-      const distance = rayVehicleHull(record.definition, record.body.position, record.body.yaw, origin, direction, maxDistance);
+      const distance = rayVehicleHull(record.definition, record.body.position, record.body.yaw, origin, direction, maxDistance, record.body.pitch, record.body.roll);
       if (distance !== null && (!best || distance < best.distance)) best = { id: record.slot.id, distance };
     }
     return best;
@@ -469,6 +483,10 @@ export class VehicleManager<P extends VehicleOccupant> {
     for (const record of this.records) {
       this.validateSeats(record);
       if (record.lifecycle === 'wreck') {
+        if (record.body && record.definition.chassis === 'aircraft') {
+          record.body.simulate(null,null);
+          record.body.drainEvents();
+        }
         if (record.body && record.definition.chassis === 'boat') {
           // The deflating flamingo zooms off; nothing to collide with.
           record.body.setColliderEnabled(false);
@@ -521,10 +539,14 @@ export class VehicleManager<P extends VehicleOccupant> {
         } else if (event.type === 'fire') {
           const gunner = gunnerId ? this.hooks.player(gunnerId) : undefined;
           if (gunner && gunner.alive) this.fire(record, gunner, event.origin, event.direction, event.yaw, event.pitch);
+        } else if (event.type === 'crash') {
+          this.destroy(record,this.hooks.player(driverId) ?? null,'vehicle_blast');
+          break;
         }
       }
       this.updateEmptyTimers(record, tick);
       if (record.lifecycle !== 'active') continue;
+      if (record.slot.kind === 'biplane') this.resolvePropeller(record,tick);
       this.resolveRams(record, tick);
     }
     this.placeOccupants();
@@ -576,7 +598,9 @@ export class VehicleManager<P extends VehicleOccupant> {
       if (state.afloat) flags |= VEHICLE_FLAG.Afloat;
       if (state.handbrake) flags |= VEHICLE_FLAG.Handbrake;
       if (record.drowned) flags |= VEHICLE_FLAG.Drowned;
+      if (record.definition.chassis === 'aircraft') flags |= VEHICLE_FLAG.ExtendedPose;
       list.push({
+        ...(record.definition.chassis === 'aircraft' ? { pitch: body.pitch, roll: body.roll } : {}),
         id: record.slot.id,
         type: VEHICLE_KIND_TABLE.code[record.slot.kind],
         position: state.position,
@@ -698,6 +722,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   private spawnPosition(record: VehicleRecord): Vec3 {
     const spawn = record.slot.spawn.position;
     if (record.definition.chassis === 'boat') return { x: spawn.x, y: 0, z: spawn.z };
+    if (record.definition.chassis === 'aircraft' && sampleMapHeight(spawn.x,spawn.z)<WATER_LEVEL-0.4) return { ...spawn, y: WATER_LEVEL-0.25 };
     const hit = this.physics.raycast({ x: spawn.x, y: spawn.y + 3, z: spawn.z }, { x: 0, y: -1, z: 0 }, 8);
     return { x: spawn.x, y: (hit ? hit.point.y : spawn.y) + 0.04, z: spawn.z };
   }
@@ -836,7 +861,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       if (!mayEnterVehicle(record.slot.spawn.faction, crew, player.profile.faction)) continue;
       record.definition.seats.forEach((seat, index) => {
         if ((record.seats[index] ?? 1) !== 0) return;
-        const anchor = vehicleLocalToWorld(body.position, body.yaw, seat.anchor);
+        const anchor = vehicleLocalToWorld(body.position, body.yaw, seat.anchor, body.pitch, body.roll);
         // Prefer the wheel a little: a tie goes to the driver seat.
         const distance = horizontalLength(anchor.x - feet.x, anchor.z - feet.z) + (seat.driver ? -0.4 : 0);
         if (!best || distance < best.distance) best = { record, seat: index, distance };
@@ -1011,7 +1036,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     const body = record.body;
     const definition = record.definition.seats[seat];
     if (!body || !definition) return;
-    const anchor = vehicleLocalToWorld(body.position, body.yaw, definition.anchor);
+    const anchor = vehicleLocalToWorld(body.position, body.yaw, definition.anchor, body.pitch, body.roll);
     player.character.teleport(anchor);
     player.character.setColliderEnabled(false);
   }
@@ -1255,6 +1280,31 @@ export class VehicleManager<P extends VehicleOccupant> {
       y: half.y * 2 + 0.05,
       z: Math.max(-half.z, Math.min(half.z, local.z)),
     });
+  }
+
+  private resolvePropeller(record: VehicleRecord, tick: number): void {
+    const body=record.body;
+    if(!body || this.hooks.ceasefire?.())return;
+    const pilot=this.hooks.player(record.seats[0] || record.lastDriverId);
+    if(!record.seats[0] && body.speed<2)return;
+    const team=this.vehicleTeam(record) ?? record.slot.spawn.faction;
+    const prop=AIRCRAFT_RULES.propeller;
+    for(const player of this.hooks.players()) {
+      if(!player.alive || this.seatOf.has(player.id) || player.profile.faction===team || !collidesWithVehicles(player.character.collider))continue;
+      if(tick<(record.ramCooldowns.get(player.id)??0))continue;
+      const feet=player.character.position;
+      const a=vehicleWorldToLocal(body.position,body.yaw,feet,body.pitch,body.roll);
+      const b=vehicleWorldToLocal(body.position,body.yaw,{...feet,y:feet.y+player.character.standHeight},body.pitch,body.roll);
+      const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
+      const t=Math.max(0,Math.min(1,((prop.center.x-a.x)*dx+(prop.center.y-a.y)*dy+(prop.center.z-a.z)*dz)/Math.max(0.01,dx*dx+dy*dy+dz*dz)));
+      const p={x:a.x+dx*t,y:a.y+dy*t,z:a.z+dz*t},r=player.character.stats.radius;
+      if(Math.abs(p.z-prop.center.z)>prop.depth+r || Math.hypot(p.x-prop.center.x,p.y-prop.center.y)>prop.radius+r)continue;
+      record.ramCooldowns.set(player.id,tick+60);
+      const launch=vehicleLocalToWorld({x:0,y:0,z:0},body.yaw,{x:0,y:12,z:30},body.pitch,body.roll);
+      player.character.launch(launch,2);
+      this.hooks.broadcastEvent({eventType:'PINBALL_BOING_HIT',actorId:pilot?.id??0,targetId:player.id,paramX:toDecimetres(feet.x),paramZ:toDecimetres(feet.z),paramValue:1000});
+      this.hooks.damagePlayer(player,pilot??null,1000,'propeller',false);
+    }
   }
 
   /**

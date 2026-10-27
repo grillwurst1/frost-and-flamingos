@@ -1195,7 +1195,7 @@ export class MatchRoom {
     this.conquest.recordDeath(target.profile.faction);
 
     this.broadcastEvent({
-      eventType: 'KILL_RAGDOLL',
+      eventType: weaponId === 'propeller' ? 'KILL_BLAST_LAUNCH' : 'KILL_RAGDOLL',
       actorId: target.killerId,
       targetId: target.id,
       paramX: headshot ? 1 : 0,
