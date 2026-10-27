@@ -147,3 +147,18 @@ test('a bald soldier wearing a hat does not grow an extra painted hair tuft', ()
     expect(rearHair).toBe(0);
   } finally { view.dispose(); }
 });
+
+test('ankle hardware retains outward normals across the shin-to-foot transition', () => {
+  const {view,mesh}=build({feet:'feet_ski_boots',legs:'legs_lederhosen'});
+  try {
+    const p=mesh.getVerticesData('position')!,n=mesh.getVerticesData('normal')!,c=mesh.getVerticesData('color')!;
+    let toe=-Infinity;
+    const white:number[]=[];
+    for(let v=0;v<p.length/3;v++) if(p[v*3+1]!<asset.height*.2&&c[v*4]!>.85&&c[v*4+1]!>.85&&c[v*4+2]!>.85) {
+      white.push(v);toe=Math.max(toe,p[v*3+2]!);
+    }
+    const front=white.filter(v=>p[v*3+2]!>toe-.006);
+    expect(front.filter(v=>n[v*3+2]!>.9).length).toBeGreaterThanOrEqual(4);
+    for(const v of front)expect(n[v*3+2]!).toBeGreaterThan(-.1);
+  }finally{view.dispose()}
+});

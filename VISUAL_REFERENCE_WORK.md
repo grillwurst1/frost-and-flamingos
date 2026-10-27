@@ -63,5 +63,25 @@ real hits behind cover. Release passes: 262 tests (10 scripts, 192 server, 60 cl
 WebGL2 medium confirms an actual centre-reticle hit on a binary-connected opponent
 (150 to 122 HP) and captures the new framing without console errors. The camera
 framing is closer, but the hero silhouette and world layout still differ.
-The backpack clock face currently points inward and the ski boots need taller shafts;
-these are the next visible model corrections.
+The backpack/boot/waistcoat corrections below are the following verified geometry increment.
+
+## Soldier geometry follow-up
+
+Broader body morph, curved waistcoat/pockets, outward clock dial and actual gable/
+weights, tall detailed ski boots, covered cuff suppression and continuous ankle binding
+are implemented. Default body ~44k triangles, one skinned draw; variants remain under
+60k. New geometric checks detect the previous inward dial and inverted ankle faces.
+The old ankle mapping produces minimum front normal Z=-0.827; the corrected mapping
+keeps it above -0.006. WebGL2 front/back/three-quarter captures pass without errors.
+An additional full soldier-scene WebGPU attempt fails in the Cloud with adapter/8 MiB
+mapped-buffer initialization errors even at 320×240. Earlier WGSL material compilation
+passes are separate evidence, not a full native game success. Native Mac is unmeasured.
+
+Next visual work: the actual snowy gorge/chalet/bridge/coast composition. Compare a
+playable close ledge against the target, preserve shared height/colliders/navigation,
+and keep buildings/vegetation solid. The exact screenshot match is still unfinished.
+
+Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
+strict TypeScript/Svelte is clean, production bundles build, and the animated
+WebGL2 close-up passes without console errors. The stricter ankle regression
+also passes and fails against the previous mapping (inward-facing normals).

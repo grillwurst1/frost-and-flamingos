@@ -89,6 +89,16 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     if (right.lengthSquared() < 0.01) right.copyFrom(Vector3.Cross(direction, new Vector3(0, 0, 1)));
     right.normalize();
     const front = Vector3.Cross(right, direction).normalize();
+    if (!arm) {
+      // Meet the foot's horizontal cross-section continuously. Otherwise a toe/clasp
+      // spanning the ankle loses its front.y offset abruptly and folds inside out.
+      const u = Math.max(0, Math.min(1, (distance - 0.55) / 0.20));
+      const flatten = u * u * (3 - 2 * u);
+      const lateral = new Vector3(right.x, 0, right.z).normalize();
+      const toe = Vector3.Cross(lateral, new Vector3(0, -1, 0)).normalize();
+      right.copyFrom(Vector3.Lerp(right, lateral, flatten).normalize());
+      front.copyFrom(Vector3.Lerp(front, toe, flatten).normalize());
+    }
     let at = Vector3.Lerp(a, b, t).add(right.scale(p.x * size)).add(front.scale(p.z * size));
     let skin;
     if (distance >= levels[2]!) {

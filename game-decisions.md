@@ -1849,3 +1849,30 @@ Validation of the framing/aim follow-up: 262 tests pass (10 script, 192 server,
 60 client), strict typecheck is clean and production builds succeed. WebGL2 medium
 confirms an actual reticle hit through the binary client/server path (150 → 122 HP),
 with no browser errors. The exact screenshot match remains open.
+
+### Soldier geometry follow-up (27 October 2026)
+
+Soldier body morphs have broader chests/limbs while retaining all wardrobe and skin
+choices. The green waistcoat is a curved shell with raised pockets, not flat panels.
+The cuckoo clock has an outward-facing dial, twelve hour marks, two hands, two gabled
+roof panels, plank seams and hanging weights. Tall ski boots add shafts, cuffs, straps,
+side clasps and exposed toe hardware. Covered trouser cuffs are omitted to prevent
+clipping through the boot. Ankle binding blends continuously to the horizontal foot
+cross-section, preventing inside-out clasp faces during animation.
+
+The default detail body is about 44,000 triangles in one skinned draw; all tested
+wardrobe variants stay below 60,000. No texture, material draw or full-screen pass is
+added. Regression checks cover dial orientation, curved vest, tall boots and the
+ankle's outward normals; the old binding fails the last check.
+
+The WebGL2 three-view animated detail scene passes without errors. An additional
+whole-scene WebGPU attempt does not pass in this Cloud: adapter initialization /
+8 MiB mapped-buffer allocation fails even at 320×240. Earlier five WGSL material
+compilations passed; do not claim a successful full WebGPU soldier scene or native
+Mac performance measurement. The exact target still needs world-layout/silhouette
+work. Further milestone features remain deferred for the current visual request.
+
+Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
+strict TypeScript/Svelte is clean, production bundles build, and the animated
+WebGL2 close-up passes without console errors. The stricter ankle regression
+also passes and fails against the previous mapping (inward-facing normals).

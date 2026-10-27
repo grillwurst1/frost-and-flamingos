@@ -925,3 +925,23 @@ Geprüft: 262 Tests bestanden (10 Skript-, 192 Server-, 60 Client-Tests), sauber
 Typprüfung und erfolgreicher Build. Im WebGL2-Browser auf „Mittel“ trifft die neue
 Zielberechnung einen echten Mitspieler (150 → 122 HP), ohne Konsolenfehler. Ein
 exakter grafischer Treffer zur Vorlage ist weiterhin nicht erreicht.
+
+### Figuren, Uhr und Stiefel (27. Oktober 2026)
+
+Die Körper sind kräftiger und die grüne Weste folgt räumlich der Brustform. Der
+Kuckucksrucksack hat ein sichtbares Zifferblatt, Stundenmarken, Zeiger, ein richtiges
+Giebeldach und Gewichte. Die hohen Skistiefel zeigen Schäfte, Riemen und Schnallen;
+bedeckte Hosenbündchen ragen nicht mehr durch die Stiefel. Der Übergang zwischen
+Schienbein und Fuß verhindert verdrehte Schnallenflächen. Für das Referenz-Outfit
+beim Allrounder in der Garderobe **„Standardkleidung anziehen“** wählen.
+
+Der Standardkörper hat ungefähr 44.000 Dreiecke in einem animierten Körpermesh. Es
+kommen keine neue Textur und kein zusätzlicher Vollbildfilter hinzu. Die WebGL2-
+Detailkontrolle ist fehlerfrei. Der zusätzliche komplette WebGPU-Figurentest scheitert
+in der Cloud an der Adapter-/Pufferinitialisierung, auch bei kleiner Bildgröße. Das
+ist kein bestandener WebGPU-Spieltest; native Mac-FPS und Temperatur sind ungemessen.
+
+Geprüfter Stand: 266 Tests bestanden (10 Skript-, 192 Server-, 64 Client-Tests),
+TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreiche Produktionsbuilds.
+Die animierte WebGL2-Nahaufnahme ist ohne Konsolenfehler. Der Knöcheltest erkennt
+die frühere falsche Flächenrichtung und besteht mit der korrigierten Bindung.

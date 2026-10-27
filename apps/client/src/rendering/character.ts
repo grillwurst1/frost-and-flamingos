@@ -69,14 +69,14 @@ function tagParts(parts: readonly Mesh[], tag: number): void {
 function shapedPart(scene: Scene, name: string, width: number, height: number, depth: number): Mesh {
   const batch = new GeometryBatch();
   batch.jitter = 0;
-  const organic = /^(chest|waist|hip|dirndl-blouse)$|-(upper-arm|forearm|thigh|shin|lederhosen|boardshort|boot|ski-boot|sock)$/.test(name);
+  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat)$|-(upper-arm|forearm|thigh|shin|lederhosen|boardshort|boot|ski-boot|sock)$/.test(name);
   if (name === 'sculpted-head') {
     batch.with(Affine.scaling(1, 1, depth / width), () => batch.lathe([
       [0.045, -0.215], [0.115, -0.195], [0.155, -0.14], [0.18, -0.075],
       [0.198, 0], [0.20, 0.075], [0.185, 0.14], [0.145, 0.195], [0.06, 0.22], [0.001, 0.225],
     ], 28, [1, 1, 1], 'plain', { capBottom: true }));
   } else if (organic) {
-    const torso = /^(chest|waist|hip)$/.test(name);
+    const torso = /^(chest|waist|hip|ranger-waistcoat)$/.test(name);
     const profile: Array<[number, number]> = [
       [width * (torso ? 0.43 : 0.34), -height / 2],
       [width * 0.49, -height * 0.35], [width * 0.5, height * 0.12],
@@ -308,10 +308,10 @@ export class CharacterView {
     const skinHex = SKIN_TONES[cosmetics.skinToneIndex] ?? SKIN_TONES[0];
     const hairHex = HAIR_COLORS[cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
     const bodyType = Math.min(1, Math.max(0, cosmetics.bodyType));
-    const shoulderWidth = lerp(0.62, 0.5, bodyType);
-    const hipWidth = lerp(0.46, 0.34, bodyType);
-    const waistWidth = lerp(0.46, 0.38, bodyType);
-    const chestDepth = lerp(0.34, 0.3, bodyType);
+    const shoulderWidth = lerp(0.72, 0.52, bodyType);
+    const hipWidth = lerp(0.50, 0.36, bodyType);
+    const waistWidth = lerp(0.52, 0.38, bodyType);
+    const chestDepth = lerp(0.38, 0.3, bodyType);
 
     this.material = createCharacterMaterial(scene, `character-${profile.displayName}`, skinHex);
     this.root = new TransformNode('character-root', scene);
@@ -420,7 +420,7 @@ export class CharacterView {
     this.leftShoulder.rotation.z = 0.07;
     this.rightShoulder.rotation.z = -0.07;
 
-    const limbBulk = lerp(1.14, 0.92, bodyType);
+    const limbBulk = lerp(1.30, 0.96, bodyType);
     const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', limbBulk);
     leftArm.parent = this.leftShoulder;
     const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', limbBulk);
@@ -522,18 +522,21 @@ export class CharacterView {
 
     if (torso === 'torso_tracht_shirt') {
       const vest = hexToColor4('#465d32');
-      box(scene, body, 'ranger-vest-back', shoulderWidth * 0.87, 0.47, 0.025, 0, 0.27, -chestDepth / 2 - 0.014, vest);
+      // A curved shell follows the chest instead of three flat boards floating on the shirt.
+      box(scene, body, 'ranger-waistcoat', shoulderWidth * 0.91, 0.47, chestDepth + 0.03, 0, 0.27, 0, vest);
       for (const side of [-1, 1]) {
-        box(scene, body, 'ranger-vest-panel', shoulderWidth * 0.37, 0.45, 0.035, side * shoulderWidth * 0.24, 0.28, front + 0.01, vest);
-        box(scene, body, 'ranger-vest-pocket', 0.12, 0.07, 0.018, side * 0.14, 0.13, front + 0.035, vest);
+        const pocketX = side * 0.14;
+        const pocketZ = (chestDepth + 0.03) / 2 * Math.sqrt(1 - (pocketX / (shoulderWidth * 0.455)) ** 2) + 0.012;
+        box(scene, body, 'ranger-vest-pocket', 0.12, 0.07, 0.018, pocketX, 0.13, pocketZ, hexToColor4('#526b3b'));
+        box(scene, body, 'ranger-pocket-flap', 0.125, 0.015, 0.021, pocketX, 0.16, pocketZ + 0.006, vest);
       }
-      box(scene, body, 'tracht-placket', 0.07, 0.33, 0.02, 0, 0.36, front, torsoSecondary);
+      box(scene, body, 'tracht-placket', 0.09, 0.33, 0.02, 0, 0.36, front + 0.014, WHITE);
       for (let button = 0; button < 3; button += 1) {
         sphere(scene, body, 'tracht-button', 0.035, 0, 0.25 + button * 0.1, front + 0.012, torsoAccent, {
           segments: 5,
         });
       }
-      box(scene, body, 'tracht-collar', 0.2, 0.05, 0.04, 0, 0.53, front, torsoAccent);
+      box(scene, body, 'tracht-collar', 0.2, 0.05, 0.04, 0, 0.53, front, WHITE);
       for (const side of [-1, 1]) {
         box(scene, body, 'tracht-collar-fold', 0.105, 0.09, 0.025, side * 0.065, 0.49, front + 0.016, WHITE, { rotationZ: side * 0.5 });
         box(scene, body, 'suspender-clasp', 0.042, 0.028, 0.026, side * 0.14, 0.22, front + 0.016, GOLD);
@@ -637,17 +640,31 @@ export class CharacterView {
 
     if (back === 'back_cuckoo_clock') {
       box(scene, body, 'cuckoo-house', 0.34, 0.42, 0.14, 0, 0.28, backZ, primary);
-      box(scene, body, 'cuckoo-roof', 0.42, 0.1, 0.2, 0, 0.54, backZ, secondary, {
-        rotationZ: Math.PI / 4,
-      });
-      disc(scene, body, 'cuckoo-face', 0.18, 0, 0.31, backZ - 0.075, WHITE, {
-        rotationY: Math.PI,
-        segments: 14,
-      });
-      box(scene, body, 'cuckoo-hand', 0.012, 0.07, 0.012, 0, 0.34, backZ - 0.09, BLACK);
-      box(scene, body, 'cuckoo-pendulum', 0.02, 0.16, 0.02, 0, 0.08, backZ - 0.08, GOLD);
-      sphere(scene, body, 'cuckoo-bob', 0.07, 0, -0.01, backZ - 0.08, accent, { segments: 5 });
-      box(scene, body, 'cuckoo-door', 0.1, 0.1, 0.02, 0, 0.42, backZ - 0.08, secondary);
+      for (const side of [-1, 1]) {
+        box(scene, body, 'cuckoo-roof-panel', 0.25, 0.065, 0.23, side * 0.105, 0.54, backZ, secondary,
+          { rotationZ: -side * 0.55 });
+        box(scene, body, 'cuckoo-corner-trim', 0.022, 0.39, 0.018, side * 0.15, 0.28, backZ - 0.08, secondary);
+        box(scene, body, 'cuckoo-weight-chain', 0.008, 0.18, 0.008, side * 0.085, -0.015, backZ - 0.03, GOLD);
+        sphere(scene, body, 'cuckoo-weight', 0.043, side * 0.085, -0.13, backZ - 0.03, secondary,
+          { segments: 8, scaleY: 1.7 });
+      }
+      for (let plank = 0; plank < 5; plank++)
+        box(scene, body, 'cuckoo-plank-seam', 0.29, 0.006, 0.006, 0, 0.13 + plank * 0.07, backZ - 0.073, secondary);
+      // Babylon discs face -Z: the outward dial must face the camera behind the wearer.
+      disc(scene, body, 'cuckoo-face', 0.18, 0, 0.31, backZ - 0.107, WHITE, { segments: 24 });
+      torus(scene, body, 'cuckoo-dial-rim', 0.204, 0.018, 0, 0.31, backZ - 0.1, secondary,
+        { rotationX: Math.PI / 2, segments: 20 });
+      for (let hour = 0; hour < 12; hour++) {
+        const angle = hour * Math.PI / 6;
+        box(scene, body, 'cuckoo-hour-mark', 0.008, hour % 3 ? 0.013 : 0.022, 0.005,
+          Math.sin(angle) * 0.073, 0.31 + Math.cos(angle) * 0.073, backZ - 0.112, BLACK, { rotationZ: -angle });
+      }
+      box(scene, body, 'cuckoo-minute-hand', 0.009, 0.066, 0.007, 0, 0.337, backZ - 0.117, BLACK);
+      box(scene, body, 'cuckoo-hour-hand', 0.009, 0.05, 0.007, 0.014, 0.30, backZ - 0.119, BLACK,
+        { rotationZ: 0.95 });
+      box(scene, body, 'cuckoo-pendulum', 0.012, 0.13, 0.012, 0, 0.015, backZ - 0.08, GOLD);
+      sphere(scene, body, 'cuckoo-bob', 0.055, 0, -0.065, backZ - 0.08, accent, { segments: 8 });
+      box(scene, body, 'cuckoo-door', 0.075, 0.075, 0.018, 0, 0.447, backZ - 0.08, secondary);
     } else if (back === 'back_leather_pack') {
       box(scene, body, 'leather-pack', 0.36, 0.36, 0.16, 0, 0.28, backZ, primary);
       box(scene, body, 'leather-flap', 0.38, 0.12, 0.18, 0, 0.43, backZ, secondary);
@@ -1099,14 +1116,15 @@ export class CharacterView {
 
     if (legs === 'legs_striped_trousers') {
       for (let stripe = 0; stripe < 4; stripe += 1) {
+        if (feet === 'feet_ski_boots' && stripe === 3) continue;
         box(scene, parts, `${side}-stripe`, 0.152, 0.035, 0.165, 0, -0.1 - stripe * 0.14, 0, secondary);
       }
     } else if (legs === 'legs_olive_pants') {
       box(scene, parts, `${side}-cargo-pocket`, 0.05, 0.12, 0.13, side === 'left' ? -0.1 : 0.1, -0.28, 0.02, secondary);
-      if (!peg) box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
+      if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
     } else if (legs === 'legs_lederhosen') {
       box(scene, parts, `${side}-lederhosen`, 0.18, 0.30, 0.20, 0, -0.15, 0, primary);
-      if (!peg) {
+      if (!peg && feet !== 'feet_ski_boots') {
         box(scene, parts, `${side}-sock`, 0.15, 0.12, 0.16, 0, -0.72, 0, secondary);
         box(scene, parts, `${side}-sock-stripe`, 0.155, 0.03, 0.165, 0, -0.66, 0, accent);
       }
@@ -1118,7 +1136,7 @@ export class CharacterView {
       box(scene, parts, `${side}-boardshort`, 0.18, 0.34, 0.20, 0, -0.17, 0, primary);
       box(scene, parts, `${side}-boardshort-stripe`, 0.18, 0.035, 0.195, 0, -0.03, 0, secondary);
     } else if (legs === 'legs_long_johns') {
-      if (!peg) box(scene, parts, `${side}-longjohn-cuff`, 0.15, 0.05, 0.17, 0, -0.73, 0, WHITE);
+      if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-longjohn-cuff`, 0.15, 0.05, 0.17, 0, -0.73, 0, WHITE);
       box(scene, parts, `${side}-longjohn-dot`, 0.04, 0.04, 0.02, 0, -0.2, 0.09, accent);
     }
 
@@ -1143,10 +1161,19 @@ export class CharacterView {
       box(scene, parts, `${side}-flipper-sole`, 0.2, 0.02, 0.5, 0, -0.84, 0.17, footSecondary);
       box(scene, parts, `${side}-flipper-strap`, 0.18, 0.035, 0.07, 0, -0.74, 0.06, footSecondary);
     } else if (feet === 'feet_ski_boots') {
+      cylinder(scene, parts, `${side}-ski-shaft`, 0.34, 0.185, 0.16, 0, -0.645, 0, footPrimary, { segments: 16 });
       box(scene, parts, `${side}-ski-boot`, 0.2, 0.22, 0.3, 0, -0.77, 0.05, footPrimary);
-      box(scene, parts, `${side}-ski-sole`, 0.21, 0.04, 0.32, 0, -0.89, 0.05, footSecondary);
-      box(scene, parts, `${side}-ski-buckle`, 0.21, 0.03, 0.04, 0, -0.73, 0.14, footAccent);
-      box(scene, parts, `${side}-ski-buckle-low`, 0.21, 0.03, 0.04, 0, -0.8, 0.14, footAccent);
+      box(scene, parts, `${side}-ski-sole`, 0.22, 0.04, 0.34, 0, -0.89, 0.055, footSecondary);
+      box(scene, parts, `${side}-ski-tongue`, 0.115, 0.25, 0.025, 0, -0.635, 0.092, footSecondary);
+      torus(scene, parts, `${side}-ski-cuff`, 0.178, 0.023, 0, -0.474, 0, footAccent, { segments: 16 });
+      for (const y of [-0.55, -0.665]) {
+        torus(scene, parts, `${side}-ski-strap`, 0.177, 0.018, 0, y, 0, footSecondary, { segments: 16 });
+        box(scene, parts, `${side}-ski-buckle`, 0.085, 0.028, 0.022, 0.035, y, 0.107, footAccent);
+        box(scene, parts, `${side}-ski-side-clasp`, 0.022, 0.04, 0.055, side === 'left' ? -0.105 : 0.105, y, 0.02, footAccent);
+      }
+      // Front hardware sits beyond the toe shell, rather than disappearing inside it.
+      box(scene, parts, `${side}-ski-ankle-buckle`, 0.19, 0.028, 0.025, 0, -0.75, 0.212, footAccent);
+      box(scene, parts, `${side}-ski-toe-guard`, 0.20, 0.045, 0.03, 0, -0.84, 0.212, footSecondary);
     } else if (feet === 'feet_sandals_socks') {
       box(scene, parts, `${side}-sock`, 0.17, 0.16, 0.22, 0, -0.77, 0.03, WHITE);
       box(scene, parts, `${side}-sandal`, 0.19, 0.035, 0.3, 0, -0.87, 0.07, footPrimary);

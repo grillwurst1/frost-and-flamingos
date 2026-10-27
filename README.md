@@ -447,3 +447,18 @@ Validation of the framing/aim follow-up: 262 tests pass (10 script, 192 server,
 60 client), strict typecheck is clean and production builds succeed. WebGL2 medium
 confirms an actual reticle hit through the binary client/server path (150 → 122 HP),
 with no browser errors. The exact screenshot match remains open.
+
+### Soldier detail pass (27 October 2026)
+
+Broader animated soldiers, curved green waistcoat, outward-facing cuckoo-clock dial
+with roof/hands/weights, and tall ski boots with actual clasps replace the previous
+flat/hidden details. Foot binding no longer folds the ankle hardware. Wardrobe choices
+remain editable; use “Wear the standard clothing” for the new allrounder reference outfit.
+Default body: about 44k triangles, one skinned draw, no new texture or post pass.
+WebGL2 detail captures pass. The optional full WebGPU figure scene remains blocked
+by the Cloud adapter/buffer failure; native Mac performance is not measured.
+
+Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
+strict TypeScript/Svelte is clean, production bundles build, and the animated
+WebGL2 close-up passes without console errors. The stricter ankle regression
+also passes and fails against the previous mapping (inward-facing normals).

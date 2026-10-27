@@ -101,3 +101,14 @@ real reticle convergence and thin-cover projectile fixes pass 262 tests, strict
 typecheck/build and a WebGL2 medium real-opponent hit check. New milestone toys remain
 deferred for current graphics. Next visible corrections: backpack clock orientation,
 tall detailed ski boots and stronger soldier silhouette.
+
+Soldier follow-up: broader body, curved waistcoat, readable cuckoo clock, tall ski boots
+and continuous ankle binding. WebGL2 detail views are verified, default body ~44k tris
+in one skinned draw. Full Cloud WebGPU detail scene is blocked by adapter/buffer errors;
+prior WGSL material compilation is not a successful full-game native check. Next: the
+gorge/chalet/bridge/coast composition in the current visual task.
+
+Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
+strict TypeScript/Svelte is clean, production bundles build, and the animated
+WebGL2 close-up passes without console errors. The stricter ankle regression
+also passes and fails against the previous mapping (inward-facing normals).
