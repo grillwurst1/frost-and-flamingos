@@ -112,3 +112,14 @@ Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
 strict TypeScript/Svelte is clean, production bundles build, and the animated
 WebGL2 close-up passes without console errors. The stricter ankle regression
 also passes and fails against the previous mapping (inward-facing normals).
+
+The gorge increment adds the walkable snow overlook/rail, raised horizontal-board
+chalet/right balcony, floor snow, stronger solid bridge sag and clear northwest
+navigation/spawn. Protocol 12 matches the revised static map. Five new world tests
+and the corrected body-clear hen test fixture pass; full release checks total 271
+(10 scripts, 197 server, 64 client), with clean typecheck and production builds.
+Continue visual work on coast composition, hero proportions, vehicles and effects;
+the exact target is unfinished, and further milestone toys remain deferred.
+
+Final WebGL2 medium comparison passes without browser errors; the actual game capture
+with binary-connected test peers is `docs/qa/gorge-reference-2026-10-27.png`.

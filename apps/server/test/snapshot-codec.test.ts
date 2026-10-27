@@ -230,7 +230,7 @@ function expectedBytes(value: WorldSnapshot): number {
 
 describe('merged protocol 11 snapshot codec', () => {
   test('protocol 10 extends vehicle pose with signed aircraft pitch and bank', () => {
-    expect(PROTOCOL_VERSION).toBe(11);
+    expect(PROTOCOL_VERSION).toBe(12);
   });
 
   test('an aircraft with three crew and signed pitch/bank precedes ordinary hulls without shifting their fields', () => {
@@ -332,7 +332,7 @@ describe('merged protocol 11 snapshot codec', () => {
     const decoded = decodeWelcome(encodeWelcome(welcome));
     expect(decoded?.spawnYaw).toBe(welcome.spawnYaw);
     expect(decoded?.spawn).toEqual(welcome.spawn);
-    expect(decoded?.protocolVersion).toBe(11);
+    expect(decoded?.protocolVersion).toBe(12);
   });
 
   test('an empty vehicle list and an empty critter trailer (conquest block still present) round-trip', () => {

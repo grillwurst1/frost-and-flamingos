@@ -73,7 +73,7 @@ In this build:
   during the results, otherwise at the next respawn (with a notice); leaving the drifter class
   may move you to the smaller team at respawn (toast). Rules in `packages/shared/src/config/conquest.ts`
   and `apps/server/src/rooms/conquest.ts`; full text in `game-decisions.md` §14.1 / §10.6.
-- Protocol version **11**; EN/DE keys for every new surface; `bun run test` runs the script,
+- Protocol version **12**; EN/DE keys for every new surface; `bun run test` runs the script,
   server and client suites.
 
 Deliberately **not** in this build:
@@ -488,3 +488,23 @@ Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
 strict TypeScript/Svelte is clean, production bundles build, and the animated
 WebGL2 close-up passes without console errors. The stricter ankle regression
 also passes and fails against the previous mapping (inward-facing normals).
+
+### Playable gorge composition (27 October 2026, protocol 12)
+
+The shared heightfield now includes an east snow overlook with a walkable south
+approach. A solid timber rail follows the actual per-post terrain heights; the
+same fix applies to existing fences. The north chalet has moved back to its own
+ledge, horizontal-board walls and a right balcony. The gorge floor receives snow,
+the bridge sag is 1.4 m in shared geometry/physics, and giant firs leave the battle
+clearing open. Northwest navigation clears the relocated house and square walls.
+Five real-world physics tests cover these changes. Client/server must update
+together despite unchanged packet fields (protocol 12). No shader, texture or
+post pass was added. Continue the visual comparison; exact composition, coast,
+vehicles and hero proportions still differ. Keep M5 toys and M6/M7 gated as above.
+
+Gorge release validation: 271 tests (10 scripts, 197 server, 64 client), clean strict
+typecheck and production builds. Final WebGL2 medium capture has no browser errors;
+see `docs/qa/gorge-reference-2026-10-27.png`. Test players use real binary connections
+and server-assigned teams. Hen damage fixtures now check standing body clearance,
+preventing rail overlap from moving the shooter before firing. No production hit
+rules changed. Full native WebGPU/Mac limitations above remain; no new shaders here.

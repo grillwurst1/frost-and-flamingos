@@ -91,7 +91,7 @@ const harborPads: Vec3[] = (
   return vec3(point.x, HARBOR_DECK_HEIGHT + 0.05, point.z);
 });
 const villagePads: Vec3[] = [
-  vec3(-20, VILLAGE_HEIGHT + 0.05, 36),
+  ground(-20, 29, 0.05),
   vec3(22, VILLAGE_HEIGHT + 0.05, 38),
   vec3(38, VILLAGE_HEIGHT + 0.05, -16),
   vec3(-40, VILLAGE_HEIGHT + 0.05, 4),
@@ -456,7 +456,8 @@ const NODES: NodeSpec[] = [
   ['square_se', 34, -34],
   ['square_ne', 34, 26],
   ['square_n', 0, 38],
-  ['square_nw', -14, 40],
+  ['square_nw', -33, 34],
+  ['square_nw_exit', -33, 51],
   ['square_w', -40, 12],
   ['ring_n', 0, 9],
   ['ring_s', 0, -9],
@@ -626,7 +627,8 @@ const EDGES: [string, string][] = [
   ['rim_n', 'woods_1'],
   ['woods_1', 'woods_2'],
   ['rim_ne', 'woods_2'],
-  ['square_nw', 'trail_s_top'],
+  ['square_nw', 'square_nw_exit'],
+  ['square_nw_exit', 'trail_s_top'],
   ['trail_s_top', 'trail_s_mid'],
   ['trail_s_mid', 'trail_s_low'],
   ['trail_s_low', 'walk_s_mid'],

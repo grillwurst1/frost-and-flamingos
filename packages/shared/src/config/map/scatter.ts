@@ -13,6 +13,8 @@ import {
   COASTAL_RAMP_WIDTH,
   GLACIER_RUNWAY,
   GORGE,
+  GORGE_OVERLOOK,
+  inGorgeClearing,
   GORGE_TRAIL_POINTS,
   SQUARE_HALF,
   TANK_ROAD_POINTS,
@@ -97,6 +99,7 @@ export function buildOccupancy(structures: readonly PropSeed[], spawns: readonly
   for (const lane of VILLAGE_LANE_POINTS) grid.markPolyline(lane, VILLAGE_LANE_WIDTH / 2 + 2);
   for (const trail of GORGE_TRAIL_POINTS) grid.markPolyline(trail, 2.6);
   grid.markRect(0, 0, SQUARE_HALF + 3, SQUARE_HALF + 3, 0);
+  grid.markRect(GORGE_OVERLOOK.center.x, GORGE_OVERLOOK.center.z, GORGE_OVERLOOK.halfSize.x+2, GORGE_OVERLOOK.halfSize.z+2, 0);
   grid.markPolyline(FJORD_ROUTES.tBar.ridePath.points, 4.5);
   for (const pillar of FJORD_ROUTES.coaster.pillars) grid.markCircle(pillar.top.x, pillar.top.z, 2.6);
   grid.markPolyline(FJORD_ROUTES.coaster.track.points, 2.2);
@@ -183,6 +186,7 @@ export function generateScatter(grid: OccupancyGrid): PropSeed[] {
     const z = -MAP_HALF_SIZE + 6 + random() * (MAP_SIZE - 12);
     const height = sampleMapHeight(x, z);
     if (height < 17.5 || height > 78) continue;
+    if (inGorgeClearing(x,z)) continue;
     const alpine = z > GORGE.centerAt(x) + 14 || height > 26;
     if (!alpine) continue;
     if (terrainSlopeAt(x, z) > 0.62 || isOnIcePatch(x, z)) continue;

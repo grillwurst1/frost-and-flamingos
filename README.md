@@ -462,3 +462,24 @@ Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
 strict TypeScript/Svelte is clean, production bundles build, and the animated
 WebGL2 close-up passes without console errors. The stricter ankle regression
 also passes and fails against the previous mapping (inward-facing normals).
+
+### Playable snowy gorge (27 October 2026)
+
+A raised snow overlook east of the suspension bridge has a walkable south approach
+and solid bevelled timber rails. The north chalet sits further back on its own ledge,
+with horizontal boards and a wraparound right balcony. Snow reaches the gorge floor;
+the bridge has a stronger shared visual/physical sag. Large firs leave the battle
+clearing open. The northwest waypoint route goes around the house and square walls.
+
+Fence colliders now sample the terrain at every visible post, preventing rails from
+becoming buried on curved ground. Five new physics tests cover the approach, rail,
+chalet floors/balcony, clearing, bridge crossing and northwest route. Protocol 12
+requires matching client/server static-map data. No texture or post pass is added;
+the 45 FPS default and quality budgets remain. The exact reference remains unfinished.
+
+Release: 271 tests pass (10 scripts, 197 server, 64 client), clean TypeScript/Svelte
+and production builds. The final WebGL2 medium scene connects, deploys and displays
+real binary-connected player profiles without console errors.
+[Actual game capture](docs/qa/gorge-reference-2026-10-27.png) uses staged test players;
+it records the current result, not completion of the reference. Native Mac performance
+remains unmeasured.

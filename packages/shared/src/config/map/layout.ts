@@ -150,6 +150,21 @@ export interface TerrainPad {
   readonly round: number;
 }
 
+/** Raised playable ledge east of the bridge; the south approach remains a walkable slope. */
+export const GORGE_OVERLOOK: TerrainPad = {
+  id: 'gorge_overlook', center: { x: 40, z: 64 }, halfSize: { x: 7.5, z: 6.5 },
+  rotationY: 0, height: 23, falloff: 2.5, round: 1.5,
+};
+export const GORGE_CHALET_PAD: TerrainPad = {
+  id: 'gorge_chalet', center: { x: -20, z: 48 }, halfSize: { x: 10, z: 8.5 },
+  rotationY: 1.2, height: 21, falloff: 6, round: 0.8,
+};
+
+/** Authored battle clearing leaves the bridge, chalet and opposing bank readable. */
+export function inGorgeClearing(x: number, z: number): boolean {
+  return ((x - 12) / 60) ** 2 + ((z - 82) / 55) ** 2 < 1;
+}
+
 export const TERRAIN_PADS: readonly TerrainPad[] = [
   // Village square: exact 90 × 90 m cobblestone plateau plus a grass apron.
   { id: 'village_square', center: { x: 0, z: 0 }, halfSize: { x: 50, z: 41 }, rotationY: 0, height: VILLAGE_HEIGHT, falloff: 26, round: 8 },

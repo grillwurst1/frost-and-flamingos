@@ -35,6 +35,8 @@ import {
   CABLE_STATION_YAWS,
   GLACIER_RUNWAY,
   GORGE,
+  GORGE_OVERLOOK,
+  GORGE_CHALET_PAD,
   GORGE_TRAIL_WIDTH,
   GORGE_TRAILS,
   GORGE_WALKWAY_HEIGHT,
@@ -541,7 +543,7 @@ export const CHALET_PLACEMENTS = [
   { id: 'chalet_west', nameKey: 'world.buildings.gasthof' as const, x: -31, z: -12, rotationY: Math.PI / 2, style: 'log_chalet' as const, doorOffset: 2.6 },
   { id: 'chalet_east', nameKey: 'world.buildings.bistro' as const, x: 31, z: -6, rotationY: -Math.PI / 2, style: 'plaster_chalet' as const, doorOffset: -2.4 },
   { id: 'chalet_south', nameKey: 'world.buildings.tikiAlm' as const, x: -4, z: -31, rotationY: 0, style: 'tiki_chalet' as const, doorOffset: 2.8 },
-  { id: 'chalet_north', nameKey: 'world.buildings.bakery' as const, x: -29, z: 31, rotationY: (3 * Math.PI) / 4, style: 'log_chalet' as const, doorOffset: -2.2 },
+  { id: 'chalet_north', nameKey: 'world.buildings.bakery' as const, x: GORGE_CHALET_PAD.center.x, z: GORGE_CHALET_PAD.center.z, rotationY: GORGE_CHALET_PAD.rotationY, style: 'log_chalet' as const, doorOffset: -2.2 },
 ];
 
 function villageSeeds(): PropSeed[] {
@@ -587,7 +589,7 @@ function villageSeeds(): PropSeed[] {
   });
 
   for (const placement of CHALET_PLACEMENTS) {
-    const layout = chaletLayout({
+    const baseLayout = chaletLayout({
       style: placement.style,
       width: 13,
       depth: 10,
@@ -595,6 +597,8 @@ function villageSeeds(): PropSeed[] {
       snow: placement.style !== 'tiki_chalet',
       doorOffset: placement.doorOffset,
     });
+    const layout = placement.id === 'chalet_north' && baseLayout.balcony
+      ? { ...baseLayout, balcony: { ...baseLayout.balcony, sides: ['front','right'] as const } } : baseLayout;
     const destructibleId = `building_${placement.id}`;
     const terrace = CHALET_TERRACES[placement.id];
     const extra = terrace
@@ -602,7 +606,7 @@ function villageSeeds(): PropSeed[] {
       : doorStepColliders(layout.depth, layout.plinth, placement.doorOffset, destructibleId);
     seeds.push(
       building(placement.id, 'chalet', layout, placement.x, placement.z, placement.rotationY, {
-        y: VILLAGE_HEIGHT,
+        y: placement.id === 'chalet_north' ? GORGE_CHALET_PAD.height : VILLAGE_HEIGHT,
         destructibleId,
         variant: CHALET_PLACEMENTS.indexOf(placement),
         extra,
@@ -610,10 +614,16 @@ function villageSeeds(): PropSeed[] {
     );
   }
 
+  const overlook = GORGE_OVERLOOK.center;
+  const overlookRail = [[overlook.x+5.2,overlook.z-3.5],[overlook.x+5.2,overlook.z+3.2],
+    [overlook.x-5.2,overlook.z+3.2]].map(([x,z])=>vec3(x!,ground(x!,z!),z!));
+  seeds.push(polylineProp('gorge_overlook_rail','fence',overlookRail,5,fenceColliders(overlookRail)));
+
   // Low stone walls around the square with gaps for the bridge, road, lanes and ramp.
   const e = 45.5;
   const walls: [number, number, number, number][] = [
-    [-e, e, -9, e],
+    // Leave the relocated chalet's ground floor and entrance clear of the old square wall.
+    [-e, e, -36, e],
     [9, e, e, e],
     [e, e, e, 26],
     [e, 3, e, -e],
@@ -736,7 +746,7 @@ function billboard(id: string, x: number, z: number, rotationY: number, variant:
 /** Deck heights of the sagging suspension bridge, metres. */
 export function bridgeDeckHeightAt(z: number): number {
   const t = (z - BRIDGE_SOUTH.z) / (BRIDGE_NORTH.z - BRIDGE_SOUTH.z);
-  return BRIDGE_SOUTH.y - Math.sin(Math.PI * Math.min(1, Math.max(0, t))) * 0.55;
+  return BRIDGE_SOUTH.y - Math.sin(Math.PI * Math.min(1, Math.max(0, t))) * 1.4;
 }
 
 export const BRIDGE_PYLON_Z = [62.5, 80.5] as const;

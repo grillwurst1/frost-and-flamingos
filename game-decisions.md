@@ -232,7 +232,7 @@ On 25 October the owner asked to stop after the next playable milestone and test
 - **4W hero weapons:** 13 procedural hero weapons (3 primaries, 4 secondaries, 6 gimmicks) with hold poses for the painted soldiers; the umbrella only opens overhead in a long fall (visual pose).
 - **4V vehicles:** Fondue Crawler, Coconut Beach Tank, Tactical Badi-Flamingo and Sidecar Motorcycle, see §13.8.
 - **4T Climate Conquest:** towers, tickets, weather balance, rounds and spawns, see §14.1 and §10.6.
-- **Protocol 9** (§17.2); EN/DE keys for every new surface.
+- **Protocol 12** (§17.2); EN/DE keys for every new surface.
 
 ### 5.6 Not implemented (design reference or later)
 
@@ -1297,12 +1297,15 @@ M2 implements the audio engine, buses, limiter, 3D panner, footsteps, swim/jump/
 
 ### 17.2 Protocol version
 
-**Current version: 9** (`PROTOCOL_VERSION` in `packages/shared/src/constants.ts`).
+**Current version: 12** (`PROTOCOL_VERSION` in `packages/shared/src/constants.ts`).
 
 - 2: HELLO/WELCOME carry full profiles instead of `displayName`/`faction`/`classId`.
 - 7: ambient critter trailer in the snapshot and the `CRITTER_KILLED` event (3H).
 - 8: drifter class (`CLASS_CODE` 4), aura status bits and a uint16 support score per snapshot player (3G).
 - 9: vehicle block in the snapshot (between the players and the critter trailer) and the `VEHICLE_*` events (4V); the Climate Conquest block after the critter trailer, `spawnYaw` in Welcome and the `PROFILE_NOTICE` event (4T). Game event codes are unique across all packages (`apps/server/test/event-codes.test.ts`); the merged snapshot has round-trip codec tests.
+- 10: conditional aircraft pitch/bank in vehicle snapshots and shared flight poses.
+- 11: append-only cable-car kind, roof crouch flag and cabin/brake events.
+- 12: revised gorge terrain, chalet, bridge sag and fence colliders. The binary layout is unchanged, but both ends must use the same static map for prediction and collision.
 
 Any packet layout change requires a `PROTOCOL_VERSION` bump and matching encode/decode changes on both sides.
 
@@ -1876,3 +1879,29 @@ Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
 strict TypeScript/Svelte is clean, production bundles build, and the animated
 WebGL2 close-up passes without console errors. The stricter ankle regression
 also passes and fails against the previous mapping (inward-facing normals).
+
+### Shared gorge layout follow-up (27 October 2026)
+
+The east overlook is part of the existing 257×257 terrain heightfield, with a
+gentle south approach and steep gorge face. Its bevelled timber fence and all
+other fence proxies sample each visible post's terrain height, fixing curved
+ground that previously left collision rails underground. The relocated north
+chalet uses the shared enterable layout, horizontal-board walls and a right-hand
+balcony; the old square wall leaves the house clear. Northwest bot waypoints go
+around both house and perimeter wall. The existing bridge keeps its four solid
+segments with a stronger 1.4 m sag. Snow extends to the gorge floor, and the fir
+clearing preserves all sixty fallable trees and three capture towers.
+
+Protocol 12 rejects clients with the previous static map; no binary field changes.
+Five new tests simulate real approach/rail contact, inspect chalet supports/floors,
+cross the bridge and walk the changed navigation corridor. Geometry stays merged;
+there are no new texture, shader or post-processing passes. Existing resolution
+and frame budgets remain. This is a visual increment, not completion of the
+reference or a start on M6 destruction.
+
+Release checks pass: 271 tests (10 scripts, 197 server, 64 client), clean typecheck
+and production builds. The hen damage fixture now also reserves room for the body;
+a clear eye ray could previously put the shooter inside a rail and displace it.
+All ten damage cases pass without weakening production hit rules. Final WebGL2
+medium gameplay capture passes with real binary-connected players and no browser
+errors (`docs/qa/gorge-reference-2026-10-27.png`). Native Mac heat/FPS are unmeasured.

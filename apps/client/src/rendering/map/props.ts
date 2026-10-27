@@ -130,8 +130,9 @@ function drawSignpost(batch: GeometryBatch, variant: number): void {
 /** Leaning rustic fence following a polyline with terrain-snapped posts. */
 function drawFence(batch: GeometryBatch, path: readonly { x: number; y: number; z: number }[], origin: V3, variant: number): void {
   const snowFence = variant === 4;
+  const overlook = variant === 5;
   const post = snowFence ? P.alpineRed : P.logDark;
-  const rail = snowFence ? P.alpineRed : P.log;
+  const rail = snowFence ? P.alpineRed : overlook ? P.plankGrey : P.log;
   for (let index = 0; index + 1 < path.length; index += 1) {
     const a = path[index];
     const b = path[index + 1];
@@ -146,7 +147,9 @@ function drawFence(batch: GeometryBatch, path: readonly { x: number; y: number; 
       const y = sampleMapHeight(x, z);
       const lean = (hash3(x, z, variant) - 0.5) * 0.16;
       const top: V3 = [x - origin[0] + lean, y - origin[1] + 1.25, z - origin[2] + lean * 0.6];
-      batch.log([x - origin[0], y - origin[1] - 0.3, z - origin[2]], top, 0.1, post, 'wood', { segments: 5, taper: 0.85 });
+      if (overlook) batch.with(Affine.translation(x-origin[0],y-origin[1]+.55,z-origin[2])
+        .rotateY(Math.atan2(b.x-a.x,b.z-a.z)),()=>batch.box(0,0,0,.2,1.4,.2,post,'wood',.025));
+      else batch.log([x - origin[0], y - origin[1] - 0.3, z - origin[2]], top, 0.1, post, 'wood', { segments: 5, taper: 0.85 });
     }
     for (let p = 0; p < posts; p += 1) {
       const t0 = p / posts;
@@ -159,7 +162,10 @@ function drawFence(batch: GeometryBatch, path: readonly { x: number; y: number; 
       const y1 = sampleMapHeight(x1, z1);
       for (const height of snowFence ? [0.45, 0.8, 1.1] : [0.5, 1.0]) {
         const sag = (hash3(x0, height, z1) - 0.5) * 0.12;
-        batch.log(
+        if (overlook) batch.with(Affine.translation((x0+x1)/2-origin[0],(y0+y1)/2-origin[1]+height,(z0+z1)/2-origin[2])
+          .rotateY(Math.atan2(x1-x0,z1-z0)).rotateX(-Math.atan2(y1-y0,length/posts)),
+          ()=>batch.box(0,0,0,.13,.18,length/posts+.06,rail,'wood',.02));
+        else batch.log(
           [x0 - origin[0], y0 - origin[1] + height + sag, z0 - origin[2]],
           [x1 - origin[0], y1 - origin[1] + height - sag, z1 - origin[2]],
           0.06,

@@ -17,7 +17,7 @@ import { P } from './palette';
 import type { SurfaceKind } from './surfaces';
 
 type WallSide = WallOpening['wall'];
-type WallMaterial = 'logs' | 'boards' | 'plaster' | 'bamboo' | 'metal' | 'greyBoards';
+type WallMaterial = 'logs' | 'lapBoards' | 'boards' | 'plaster' | 'bamboo' | 'metal' | 'greyBoards';
 
 interface BuildingStyle {
   ground: WallMaterial;
@@ -36,6 +36,10 @@ function styleFor(layout: BuildingLayout, variant: number): BuildingStyle {
   const shutters = [P.shutterRed, P.shutterGreen, P.shutterRed, P.shutterBlue];
   const shutter = shutters[variant % shutters.length] ?? P.shutterRed;
   switch (layout.style) {
+    case 'log_chalet':
+      if (variant === 3) return { ground:'lapBoards',upper:'lapBoards',wood:[.45,.35,.26],
+        trim:P.logDark,shutter:P.logDark,roof:P.shingleDark,roofKind:'shingle',flowers:false,hearts:false,plinthStone:true };
+      return { ground:'logs',upper:'logs',wood:P.log,trim:P.trim,shutter,roof:P.shingle,roofKind:'shingle',flowers:true,hearts:true,plinthStone:true };
     case 'plaster_chalet':
       // Alpen-Bistro: white plaster ground floor, plank upper floor with flower boxes.
       return { ground: 'plaster', upper: 'boards', wood: P.log, trim: P.trim, shutter, roof: P.shingle, roofKind: 'shingle', flowers: true, hearts: true, plinthStone: true };
@@ -126,6 +130,17 @@ function drawWalls(batch: GeometryBatch, layout: BuildingLayout, floor: Building
   const spans = wallSpans(layout, floor, true);
   for (const frame of wallFrames(layout)) {
     const frameSpans = spans.filter((span) => span.side === frame.side);
+    if (material === 'lapBoards') {
+      const rows = Math.ceil(floor.height/0.32), course = floor.height/rows;
+      for(let row=0;row<rows;row++)for(const span of frameSpans) {
+        const lo=Math.max(span.bottom,row*course),hi=Math.min(span.top,(row+1)*course);
+        if(hi-lo<.025)continue;
+        const a=wallPoint(frame,span.from,floor.elevation+lo+.008,0);
+        const b=wallPoint(frame,span.to,floor.elevation+hi-.008,0);
+        drawWallSlab(batch,frame,a,b,t,shade(style.wood,.92+hash3(row,floorIndex,frame.plane)*.14),'wood');
+      }
+      continue;
+    }
     if (material === 'logs') {
       const course = 0.33;
       const courses = Math.max(1, Math.round(floor.height / course));

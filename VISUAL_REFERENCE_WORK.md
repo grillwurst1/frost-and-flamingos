@@ -85,3 +85,28 @@ Geometry release validation: 266 tests pass (10 scripts, 192 server, 64 client),
 strict TypeScript/Svelte is clean, production bundles build, and the animated
 WebGL2 close-up passes without console errors. The stricter ankle regression
 also passes and fails against the previous mapping (inward-facing normals).
+
+## Playable gorge composition
+
+A shared raised overlook east of the bridge, foot approach and solid timber rail,
+relocated horizontal-board chalet on a higher ledge with a right-hand balcony, and a
+battle clearing are implemented. Heightfield, props and colliders share the same blueprint.
+Protocol 12 requires matching static maps. Five new world tests and existing solidity/
+spawn checks pass (21 focused cases). The bridge's stronger 1.4 m sag remains walkable;
+northwest navigation and the nearby spawn pad clear the house and square walls.
+Fences now sample the same
+per-post terrain heights as the render mesh instead of linearly interpolating only
+path endpoints, which could bury rails under curved ground. Snow reaches the gorge floor.
+
+Release checks: 271 tests pass (10 scripts, 197 server, 64 client), zero TypeScript/
+Svelte errors or warnings and successful production builds. The hen damage fixture
+now reserves body space as well as eye line of sight: its old stand could intersect
+a rail, causing physics to displace the shooter before the shot. All ten damage
+cases pass with the corrected stand. No production hit rules were weakened.
+No shader, texture or full-screen pass was added. Exact target matching is still open.
+
+Final WebGL2 medium scene passes without console errors: menu connected, deployment,
+actual overlook terrain and four visible server-assigned player tags. The capture is
+`docs/qa/gorge-reference-2026-10-27.png` (staged test peers, real binary sockets).
+Observed frame draw calls: 304 with these players/settings; this is software rendering,
+not a native FPS or Mac thermal benchmark. Continue coast, silhouette and vehicle work.

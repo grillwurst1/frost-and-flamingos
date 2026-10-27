@@ -945,3 +945,24 @@ Geprüfter Stand: 266 Tests bestanden (10 Skript-, 192 Server-, 64 Client-Tests)
 TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreiche Produktionsbuilds.
 Die animierte WebGL2-Nahaufnahme ist ohne Konsolenfehler. Der Knöcheltest erkennt
 die frühere falsche Flächenrichtung und besteht mit der korrigierten Bindung.
+
+### Verschneite Schlucht und Aussicht (27. Oktober 2026)
+
+Östlich der Hängebrücke erreichst du vom Dorf aus einen erhöhten Schneevorsprung.
+Das Holzgeländer sichert die Kante; seine Kollision folgt jetzt auch auf gewölbtem
+Boden den sichtbaren Pfosten. Das nördliche Chalet steht weiter zurück auf einem
+festen Absatz und hat waagerechte Holzbretter sowie einen seitlichen Balkon.
+Die Schlucht ist bis zum Talboden verschneit, die Brücke hängt stärker durch und
+bleibt begehbar. Große Tannen verdecken den Kampfbereich nicht mehr. Die Bot-Route
+führt am versetzten Haus und den Dorfmauern vorbei.
+
+Client und Server müssen wegen der geänderten Karte gemeinsam aktualisiert werden
+(Protokoll 12); eine bereits offene ältere Spielseite bitte neu laden. Es kommen
+keine neuen Texturen oder Vollbildfilter hinzu. Die bisherigen Qualitätsstufen und
+das Standardlimit von 45 FPS bleiben erhalten. Die Vorlage ist noch nicht exakt erreicht.
+
+Geprüft: 271 Tests bestanden, TypeScript/Svelte ohne Fehler oder Warnungen und
+erfolgreiche Produktionsbuilds. Die abschließende WebGL2-Kontrolle auf „Mittel“
+zeigt die echte Karte und verbundene Testspieler ohne Konsolenfehler.
+[Aktueller Spielausschnitt](docs/qa/gorge-reference-2026-10-27.png).
+Temperatur und Bildrate auf einem echten Mac wurden hier nicht gemessen.

@@ -429,6 +429,14 @@ function standPoint(physics: PhysicsWorld, hen: CritterState, distance: number, 
       const ground = physics.raycast({ x, y: hen.position.y + 3, z }, { x: 0, y: -1, z: 0 }, 6);
       if (!ground || ground.distance < 0.05 || !isCritterDryGround(ground.point.y)) continue;
       if (Math.abs(ground.point.y - hen.position.y) > 0.6) continue;
+      // A clear eye ray alone can choose a spot inside a boardwalk railing.
+      // Keep room for the standing body, so physics does not push it sideways before firing.
+      const blocked = [0.35, 0.9, 1.5].some(height => Array.from({ length: 8 }, (_, side) => {
+        const angle = side * Math.PI / 4;
+        return physics.raycast({ x, y: ground.point.y + height, z },
+          { x: Math.sin(angle), y: 0, z: Math.cos(angle) }, 0.5) !== null;
+      }).some(Boolean));
+      if (blocked) continue;
       const eye = { x, y: ground.point.y + 0.02 + eyeHeight, z };
       const aim = aimAt(eye, body);
       const reach = Math.hypot(body.x - eye.x, body.y - eye.y, body.z - eye.z);

@@ -13,6 +13,8 @@ import {
   COASTAL_RAMP_POINTS,
   COASTAL_RAMP_WIDTH,
   GORGE,
+  GORGE_OVERLOOK,
+  GORGE_CHALET_PAD,
   GORGE_TRAIL_POINTS,
   GORGE_TRAIL_WIDTH,
   ICE_PATCH_LAYOUT,
@@ -361,6 +363,20 @@ function applyPads(x: number, z: number, height: number): number {
   return result;
 }
 
+const OVERLOOK_APPROACH = { ...GORGE_OVERLOOK, falloff: 12 };
+
+function applyGorgeLedges(x: number, z: number, height: number): number {
+  const o = GORGE_OVERLOOK;
+  if (Math.abs(x-o.center.x)<20 && Math.abs(z-o.center.z)<20) {
+    const pad = z < o.center.z-o.halfSize.z ? OVERLOOK_APPROACH : o;
+    height = lerp(height, pad.height, padMask(x,z,pad));
+  }
+  const c = GORGE_CHALET_PAD;
+  if (Math.abs(x-c.center.x)<24 && Math.abs(z-c.center.z)<24)
+    height = lerp(height,c.height,padMask(x,z,c));
+  return height;
+}
+
 /** Height of the gorge carve at a point (∞ when outside the gorge). */
 export function gorgeCarveHeight(x: number, z: number): number {
   if (x < GORGE.westEnd - 40 || x > GORGE.eastEnd + 8) return Number.POSITIVE_INFINITY;
@@ -432,10 +448,11 @@ const CARVED_ROADS: CarvedRoad[] = [
     depth: 0.05,
   })),
   // Gorge boardwalks: the wall is only notched (never filled) below the decks.
-  ...GORGE_TRAIL_POINTS.map((points) => ({
+  ...GORGE_TRAIL_POINTS.map((points, index) => ({
     points,
     halfWidth: GORGE_TRAIL_WIDTH / 2 + 0.9,
-    shoulder: 2.2,
+    // A narrow notch keeps the south trail clear without undercutting the chalet ledge.
+    shoulder: index === 0 ? 0.6 : 2.2,
     bounds: polylineBounds(points, GORGE_TRAIL_WIDTH + 6),
     bridgeSpan: { from: -1e9, to: 1e9 },
     depth: 0.45,
@@ -531,6 +548,7 @@ export function analyticTerrainHeight(x: number, z: number, coast = coastDistanc
   height = applyPads(x, z, height);
   const gorge = gorgeCarveHeight(x, z);
   if (gorge < height) height = gorge;
+  height = applyGorgeLedges(x,z,height);
   height = applyRoads(x, z, height);
 
   // Keep the outer rim readable: never fold below the lagoon floor.

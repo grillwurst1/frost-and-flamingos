@@ -1,6 +1,7 @@
 import type { Vec3 } from '../../types/index.js';
 import type { PropCollider } from '../../types/map.js';
 import { boxCollider, cylinderCollider } from './buildings.js';
+import { sampleMapHeight } from './terrain.js';
 
 /** Solid pieces are shared by the render mesh and both Rapier worlds. */
 export interface CrateStackPart {
@@ -50,8 +51,12 @@ export function fenceColliders(path: readonly Vec3[]): PropCollider[] {
     const spans = Math.max(1, Math.round(length / 2.4));
     for (let span = 0; span < spans; span++) {
       const t = (span + 0.5) / spans;
-      const ground = a.y + (b.y - a.y) * t;
-      colliders.push(boxCollider(0.1, 0.6 + Math.abs(b.y - a.y) / spans / 2, length / spans / 2 + 0.035,
+      const x0=a.x+(b.x-a.x)*span/spans,z0=a.z+(b.z-a.z)*span/spans;
+      const x1=a.x+(b.x-a.x)*(span+1)/spans,z1=a.z+(b.z-a.z)*(span+1)/spans;
+      // Rendering samples every visible post, not only the authored path endpoints.
+      const y0=sampleMapHeight(x0,z0),y1=sampleMapHeight(x1,z1);
+      const ground=(y0+y1)/2;
+      colliders.push(boxCollider(0.1, 0.6 + Math.abs(y1-y0) / 2, length / spans / 2 + 0.035,
         a.x + (b.x - a.x) * t - origin.x, ground - origin.y + 0.55,
         a.z + (b.z - a.z) * t - origin.z,
         { rotation: { x: 0, y: Math.atan2(b.x - a.x, b.z - a.z), z: 0 }, surface: 'wood' }));
