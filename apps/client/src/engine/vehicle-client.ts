@@ -4,6 +4,7 @@ import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   GRAVITY,
+  CLASS_STATS,
   InputButton,
   VEHICLE_ENTER_HEIGHT,
   VEHICLE_ENTER_RANGE,
@@ -20,7 +21,10 @@ import {
   rowingBeat,
   surfaceTagAt,
   vehicleLocalToWorld,
+  vehicleEyeDrop,
+  vehicleRidingPose,
   vehicleTicks,
+  weaponForSlot,
   type CharacterBody,
   type ClassId,
   type DrivableVehicleKind,
@@ -44,6 +48,8 @@ import { createGlbMaterial, updateGlbMaterial } from '../rendering/glb/material'
 import { PartList } from '../rendering/glb/props';
 import { puffKindForSurface, type MascotFx } from '../rendering/mascot-fx';
 import { VehicleView, type VehicleGroundProbe } from '../rendering/vehicle-view';
+import { VehicleHands } from '../rendering/vehicle-hands';
+import type { AvatarPose } from '../rendering/avatar';
 import { notify, setInteractionPrompt, showHitMarker } from '../state/game';
 import { translateNow } from '../state/locale';
 import { vehicleHud } from '../state/vehicle';
@@ -123,6 +129,9 @@ export interface OccupantPose {
   visible: boolean;
   /** Drivers hold the bars/wheel: no weapon in hand. */
   unarmed: boolean;
+  riding: AvatarPose['riding'];
+  vehiclePitch: number;
+  vehicleRoll: number;
 }
 
 function sequenceAfter(a: number, b: number): boolean {
@@ -207,6 +216,8 @@ export class VehicleClient {
   private readonly entries = new Map<number, VehicleEntry>();
   private readonly ground: VehicleGroundProbe;
   private seat: LocalSeat | null = null;
+  private passengerView = false;
+  private passengerHands: VehicleHands | null = null;
   private predictedId = 0;
   private pending: PendingVehicleInput[] = [];
   private lastAcknowledged: PendingVehicleInput | null = null;
@@ -246,6 +257,22 @@ export class VehicleClient {
   /** The seat the local player occupies (from the latest snapshot), or null. */
   get localSeat(): LocalSeat | null {
     return this.seat;
+  }
+
+  /** V changes only the sidecar passenger's view; other seats retain shoulder swapping. */
+  togglePassengerView(): boolean {
+    if (this.seat?.kind !== 'sidecar' || this.seat.driver) return false;
+    this.passengerView = !this.passengerView;
+    if (!this.passengerView) this.passengerHands?.hide();
+    return true;
+  }
+
+  hidePassengerHands(): void { this.passengerHands?.hide(); }
+  kickPassengerWeapon(): void { if (this.passengerView) this.passengerHands?.kick(); }
+  passengerMuzzle(): Vector3 | null { return this.passengerView ? this.passengerHands?.muzzlePosition() ?? null : null; }
+
+  eyeDrop(height: number): number {
+    return this.seat ? vehicleEyeDrop(this.seat.kind, this.seat.seat, height) : 0;
   }
 
   /** Hull collider of the local player's vehicle (camera occlusion ignores it). */
@@ -320,6 +347,10 @@ export class VehicleClient {
     const previous = this.seat;
     const changed = previous?.vehicleId !== seat?.vehicleId || previous?.seat !== seat?.seat;
     this.seat = seat;
+    if (changed) {
+      this.passengerView = false;
+      this.passengerHands?.hide();
+    }
     this.input?.setVehicleMode(seat !== null);
     const predicted = seat && seat.driver ? seat.vehicleId : 0;
     if (predicted !== this.predictedId) {
@@ -652,9 +683,10 @@ export class VehicleClient {
   // -------------------------------------------------------------------------
 
   /** Hook: the vehicle camera while seated. Returns false when not seated. */
-  updateCamera(delta: number, camera: CameraRig, physics: PhysicsWorld): boolean {
+  updateCamera(delta: number, camera: CameraRig, physics: PhysicsWorld, profile: PlayerProfile | null = null): boolean {
     const seat = this.seat;
     if (!seat) {
+      this.passengerHands?.hide();
       camera.setIgnoredCollider(null);
       return false;
     }
@@ -671,7 +703,23 @@ export class VehicleClient {
     // Drivers without a turret get the camera eased behind them while the mouse rests.
     if (seat.driver && !seat.gunner) camera.followHeading(delta, entry.render.yaw, entry.render.speed);
     const position = entry.render.position;
-    camera.updatePlayer(delta, new Vector3(position.x, position.y, position.z), physics);
+    if (this.passengerView && profile) {
+      const anchor = entry.view.seatWorld(seat.seat);
+      if (anchor) {
+        const stats = CLASS_STATS[profile.cosmetics.classId];
+        const eye = stats.height - stats.radius * 0.65 - this.eyeDrop(stats.height);
+        // A slight forward lean keeps the seat cushion behind the near plane.
+        const lean = vehicleLocalToWorld(anchor, entry.render.yaw, { x: 0, y: eye, z: 0.24 });
+        camera.updatePassengerEyes(delta, lean);
+        this.passengerHands ??= new VehicleHands(this.scene, camera.camera);
+        const buttons = this.input?.buttons() ?? 0;
+        this.passengerHands.update(delta, profile, weaponForSlot(profile.loadout, this.input?.currentWeaponSlot() ?? 1),
+          Boolean(buttons & InputButton.Wrench), Boolean(buttons & InputButton.FirePrimary));
+      }
+    } else {
+      this.passengerHands?.hide();
+      camera.updatePlayer(delta, new Vector3(position.x, position.y, position.z), physics);
+    }
     this.lastCameraYaw = camera.lookYaw;
     return true;
   }
@@ -685,7 +733,9 @@ export class VehicleClient {
       const seat = entry.definition.seats[index];
       const position = entry.view.seatWorld(index);
       if (!seat || !position) return null;
-      return { position, yaw: entry.render.yaw, visible: seat.exposed, unarmed: !seat.handWeapons };
+      const riding = vehicleRidingPose(entry.kind, index);
+      return { position, yaw: entry.render.yaw, visible: seat.exposed && !(playerId === this.localId && this.passengerView),
+        unarmed: !seat.handWeapons, riding, vehiclePitch: entry.render.pitch, vehicleRoll: entry.render.roll };
     }
     return null;
   }
@@ -715,6 +765,7 @@ export class VehicleClient {
       driver: seat.driver,
       gunner: seat.gunner,
       handWeapons: seat.handWeapons,
+      passengerView: this.passengerView,
       weaponId: weapon && seat.gunner ? weapon.id : null,
       weaponReady: weapon ? 1 - Math.min(1, state.weaponCooldownTicks / cooldownTicks) : 1,
       boost: boost && seat.driver && entry.kind !== 'rowboat'
@@ -1016,6 +1067,8 @@ export class VehicleClient {
 
   dispose(): void {
     this.clear();
+    this.passengerHands?.dispose();
+    this.passengerHands = null;
     for (const template of this.shotTemplates.values()) template.dispose();
     this.shotTemplates.clear();
     this.shotMaterial?.dispose();
@@ -1027,6 +1080,7 @@ export class VehicleClient {
     return {
       localId: this.localId,
       seat: this.seat,
+      passengerView: this.passengerView,
       predicted: this.predictedId,
       pending: this.pending.length,
       correction: Math.round(this.predictionError * 1000) / 1000,

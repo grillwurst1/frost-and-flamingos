@@ -850,6 +850,7 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen',
     },
     hud: {
+      passengerView: 'Beifahreransicht',
       flight: 'W/S Schub · Maus steuert · A/D Seitenruder',
       bail: 'Abspringen',
       repair: 'Zum Reparieren halten',
@@ -878,6 +879,7 @@ export const de: TranslationDictionary = {
       crew: 'Besatzung',
     },
     keys: {
+      view: 'V',
       bail: 'Leertaste',
       repair: 'X',
       enter: 'F',

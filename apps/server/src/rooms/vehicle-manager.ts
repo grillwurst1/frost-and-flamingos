@@ -30,6 +30,7 @@ import {
   rowingBeat,
   sampleMapHeight,
   vehicleLocalToWorld,
+  vehicleEyeDrop,
   vehicleSlotActive,
   vehicleTicks,
   vehicleWorldToLocal,
@@ -292,6 +293,17 @@ export class VehicleManager<P extends VehicleOccupant> {
   /** Seat of a player as `{ vehicleId, seat }`, or null. */
   seatFor(playerId: number): { vehicleId: number; seat: number } | null {
     return this.seatOf.get(playerId) ?? null;
+  }
+
+  eyeDrop(playerId: number, height: number): number {
+    const seat = this.seatOf.get(playerId);
+    const record = seat ? this.byId.get(seat.vehicleId) : undefined;
+    return record && seat ? vehicleEyeDrop(record.slot.kind, seat.seat, height) : 0;
+  }
+
+  hullColliderOf(playerId: number): number | undefined {
+    const seat = this.seatOf.get(playerId);
+    return seat ? this.byId.get(seat.vehicleId)?.body?.colliderHandle : undefined;
   }
 
   /**

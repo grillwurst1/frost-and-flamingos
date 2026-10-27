@@ -12,6 +12,8 @@ import {
 } from '@frost-and-flamingos/shared';
 import { GlbCharacterView, createPaintedAvatarView } from '../src/rendering/glb-character';
 import { paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
+import type { GlbRig } from '../src/rendering/glb/rig';
+import type { AvatarPose } from '../src/rendering/avatar';
 
 const modelDirectory = resolve(import.meta.dir, '../public/models');
 globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -26,6 +28,31 @@ beforeAll(async () => {
   if (!loaded) throw new Error('Missing committed animation rig'); asset = loaded;
 });
 afterAll(() => { scene.dispose(); scene.getEngine().dispose(); });
+
+test('vehicle pose bends the detailed legs, plants footrests, tilts the body and equips a repair tool', () => {
+  const { view } = build();
+  const rig = (view as unknown as { rig: GlbRig }).rig;
+  const pose: AvatarPose = { position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, grounded: true, alive: true, weaponId: 'smg' };
+  const settle = (extra: Partial<AvatarPose>) => { for (let i = 0; i < 60; i++) view.update(1 / 60, { ...pose, ...extra }); rig.refresh(); };
+  try {
+    settle({});
+    const standingHip = rig.position('Hips')!.y, foot = rig.position('LeftFoot')!.clone();
+    settle({ riding: 'seat', vehiclePitch: 0.2, vehicleRoll: -0.3 });
+    expect(rig.position('Hips')!.y).toBeLessThan(standingHip * 0.8);
+    expect(rig.position('LeftFoot')!.y).toBeCloseTo(foot.y, 1);
+    expect(rig.position('LeftLeg')!.z).toBeGreaterThan(foot.z + 0.15);
+    const tilt = view.root.getChildren().find(n => n.name.includes('tilt')) as import('@babylonjs/core/Meshes/transformNode').TransformNode;
+    expect(tilt.rotation.x).toBeCloseTo(-0.2);
+    expect(tilt.rotation.z).toBeCloseTo(-0.3);
+    settle({ riding: 'seat', repairing: true });
+    expect(view.debugInfo().weapon).toBe('wrench');
+    expect(view.root.getChildMeshes().some(m => m.name === 'repair-wrench' && m.isEnabled())).toBe(true);
+    settle({});
+    expect(view.debugInfo().weapon).toBe('smg');
+    expect(rig.position('Hips')!.y).toBeCloseTo(standingHip, 1);
+    expect(tilt.rotation.z).toBe(0);
+  } finally { view.dispose(); }
+});
 
 function build(changes: Partial<Cosmetics> = {}): { view: GlbCharacterView; mesh: Mesh } {
   const profile = createDefaultProfile('Wardrobe'); profile.cosmetics = { ...profile.cosmetics, ...changes };

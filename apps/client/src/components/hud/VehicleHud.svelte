@@ -15,7 +15,7 @@
 </script>
 
 {#if hud}
-  <div class="vehicle-card" class:is-raised={raised} class:is-low={lowHull} aria-label={$t('vehicles.hud.card')}>
+  <div class="vehicle-card" class:is-raised={raised} class:is-low={lowHull} class:is-first-person={hud.passengerView} aria-label={$t('vehicles.hud.card')}>
     <div class="vehicle-head">
       <span class="vehicle-name">{$t(hud.nameKey)}</span>
       <span class="vehicle-seat">{$t(hud.seatKey)} · {$t('vehicles.hud.seat', { index: hud.seatIndex + 1, count: hud.seatCount })}</span>
@@ -81,6 +81,9 @@
       {#if hud.driver && hud.kind === 'sidecar'}
         <span><kbd>{$t('vehicles.keys.drift')}</kbd> {$t('vehicles.hud.drift')}</span>
       {/if}
+      {#if hud.kind === 'sidecar' && !hud.driver}
+        <span><kbd>{$t('vehicles.keys.view')}</kbd> {$t('vehicles.hud.passengerView')}</span>
+      {/if}
       {#if hud.handWeapons && hud.hp < hud.maxHp}
         <span><kbd>{$t('vehicles.keys.repair')}</kbd> {$t('vehicles.hud.repair')}</span>
       {/if}
@@ -114,6 +117,11 @@
 
   .vehicle-card.is-raised {
     bottom: 9.6rem;
+  }
+
+  .vehicle-card.is-first-person {
+    top: 7.2rem;
+    bottom: auto;
   }
 
   .vehicle-head {

@@ -48,6 +48,20 @@ export function isDrivableKind(kind: VehicleKind): kind is DrivableVehicleKind {
   return (DRIVABLE_VEHICLE_KINDS as readonly string[]).includes(kind);
 }
 
+/** Body pose and firing eye use the same hip drop for the existing standing-foot anchors. */
+export function vehicleRidingPose(kind: DrivableVehicleKind, seat: number): 'seat' | 'steer' | 'wing' | 'row' | undefined {
+  if (kind === 'biplane' && seat > 0) return 'wing';
+  if (kind === 'rowboat') return 'row';
+  if (kind === 'sidecar') return seat === 0 ? 'steer' : 'seat';
+  if (kind === 'badi_flamingo' || kind === 'biplane') return 'seat';
+  return undefined;
+}
+
+export function vehicleEyeDrop(kind: DrivableVehicleKind, seat: number, height: number): number {
+  const pose = vehicleRidingPose(kind, seat);
+  return height * (pose === 'wing' ? 0.07 : pose ? 0.18 : 0);
+}
+
 export type VehicleChassis = 'tracked' | 'wheeled' | 'boat' | 'aircraft';
 
 /**

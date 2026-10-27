@@ -548,7 +548,7 @@ export class GameClient {
       this.input = new InputController(this.canvas, {
         onMouseMove: (deltaX, deltaY) => this.cameraRig?.handleMouse(deltaX, deltaY),
         onWheel: (delta) => this.cameraRig?.zoom(delta),
-        onSwapShoulder: () => this.cameraRig?.swapShoulder(),
+        onSwapShoulder: () => { if (!this.vehicles?.togglePassengerView()) this.cameraRig?.swapShoulder(); },
         onToggleDebug: () => debugVisible.update((visible) => !visible),
         onScoreboard: (held) => {
           const open = held && (this.currentPhase === 'playing' || this.currentPhase === 'deploying');
@@ -1734,7 +1734,7 @@ export class GameClient {
     const direction = directionFromAngles(camera.lookYaw, camera.lookPitch);
     const origin = {
       x: character.position.x + direction.x * 0.25,
-      y: character.position.y + character.eyeHeight + direction.y * 0.25,
+      y: character.position.y + character.eyeHeight - (this.vehicles?.eyeDrop(character.stats.height) ?? 0) + direction.y * 0.25,
       z: character.position.z + direction.z * 0.25,
     };
     this.network.sendFire({
@@ -1746,7 +1746,7 @@ export class GameClient {
     audio.playWeaponFire(weaponId, undefined, true);
     this.tracers?.shot(
       weaponId,
-      this.localView?.muzzlePosition?.() ?? {
+      this.vehicles?.passengerMuzzle() ?? this.localView?.muzzlePosition?.() ?? {
         x: character.position.x,
         y: character.position.y + character.eyeHeight,
         z: character.position.z,
@@ -1755,10 +1755,12 @@ export class GameClient {
       camera.lookPitch,
     );
     this.localView?.kick?.();
+    this.vehicles?.kickPassengerWeapon();
     if (stats.magazine > 0 && state && state.ammo <= 0) audio.playDryFire();
   }
 
   private updateCamera(delta: number): void {
+    this.vehicles?.hidePassengerHands();
     const camera = this.cameraRig;
     if (!camera) return;
     if (this.devFrame) {
@@ -1791,7 +1793,7 @@ export class GameClient {
       (this.currentPhase === 'paused' && !this.wardrobeIsOpen);
     if (playerCamera) {
       const character = this.localCharacter;
-      if (this.physics && this.vehicles?.updateCamera(delta, camera, this.physics)) return;
+      if (this.physics && this.vehicles?.updateCamera(delta, camera, this.physics, this.localProfile)) return;
       if (character && this.physics) {
         camera.setProfile(cameraProfileFor(character.form));
         if (character.form === 'cow' && this.currentPhase === 'playing') {
@@ -1849,9 +1851,12 @@ export class GameClient {
           : null,
       pitch: this.cameraRig?.lookPitch ?? 0,
       reloading: this.latestLocalState?.reloading ?? false,
+      repairing: Boolean((this.input?.buttons() ?? 0) & InputButton.Wrench),
     };
     if (seated) {
-      Object.assign(pose, { position: seated.position, velocity: { x: 0, y: 0, z: 0 }, yaw: seated.yaw, heading: seated.yaw, grounded: true, crouched: false, swimming: false, sprinting: false, rolling: false });
+      Object.assign(pose, { position: seated.position, velocity: { x: 0, y: 0, z: 0 }, yaw: seated.unarmed ? seated.yaw : character.yaw, heading: seated.yaw,
+        riding: seated.riding, vehiclePitch: seated.vehiclePitch, vehicleRoll: seated.vehicleRoll,
+        grounded: true, crouched: false, crouchBlend: 0, swimming: false, sprinting: false, rolling: false });
       if (seated.unarmed) pose.weaponId = null;
     }
     // Where the body is drawn (the seat while riding): tracers and drifter FX start here.
@@ -1984,8 +1989,11 @@ export class GameClient {
       remote.view.update(delta, {
         position,
         velocity,
-        yaw: seated ? seated.yaw : yaw,
+        yaw: seated?.unarmed ? seated.yaw : yaw,
         heading: seated ? seated.yaw : heading,
+        riding: seated?.riding,
+        vehiclePitch: seated?.vehiclePitch,
+        vehicleRoll: seated?.vehicleRoll,
         mascot: newer.mascot ? { ...newer.mascot, heading } : null,
         launchSeconds: newer.launchSeconds,
         dazed: newer.dazed,

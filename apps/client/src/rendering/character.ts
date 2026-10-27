@@ -252,6 +252,9 @@ function shortestAngle(from: number, to: number): number {
 }
 
 export interface CharacterPose {
+  riding?: 'seat' | 'steer' | 'wing' | 'row';
+  vehiclePitch?: number;
+  vehicleRoll?: number;
   position: Vec3;
   velocity: Vec3;
   yaw: number;
@@ -1177,6 +1180,7 @@ export class CharacterView {
     if (this.disposed) return;
     this.setPosition(pose.position);
     this.setYaw(pose.yaw);
+    this.shadow.setEnabled(!pose.riding);
     const speed = Math.hypot(pose.velocity.x, pose.velocity.z);
     const normalizedSpeed = Math.min(2.2, speed / Math.max(1, this.stats.moveSpeed));
     const crouch = Math.min(1, Math.max(0, pose.crouchBlend ?? (pose.crouched ? 1 : 0)));
@@ -1232,6 +1236,19 @@ export class CharacterView {
       return;
     }
     this.rollPhase = 0;
+
+    if (pose.riding) {
+      const seated = pose.riding !== 'wing';
+      this.spine.position.y = SPINE_Y - (seated ? 0.3 : 0.12);
+      this.spine.rotation.x = -(pose.vehiclePitch ?? 0);
+      this.spine.rotation.z = pose.vehicleRoll ?? 0;
+      this.leftHip.rotation.x = seated ? -0.85 : 0.25;
+      this.rightHip.rotation.x = seated ? -0.85 : 0.25;
+      this.leftShoulder.rotation.x = this.rightShoulder.rotation.x = pose.riding === 'steer' ? -0.9 : -0.4;
+      this.updateMaterial();
+      return;
+    }
+    this.spine.rotation.z = 0;
 
     const baseLean = 0.12 * crouch + (sprinting ? 0.16 : 0);
     this.spine.rotation.x = approach(this.spine.rotation.x, baseLean, deltaSeconds * 6);

@@ -931,7 +931,7 @@ export class MatchRoom {
     const position = player.character.position;
     return {
       x: position.x,
-      y: position.y + player.character.eyeHeight,
+      y: position.y + player.character.eyeHeight - this.vehicles.eyeDrop(player.id, player.character.stats.height),
       z: position.z,
     };
   }
@@ -1002,7 +1002,7 @@ export class MatchRoom {
       const eye = this.eyePosition(player);
       const aim = directionFromAngles(player.lastInput.yaw, player.lastInput.pitch);
       const lane =
-        stats.fireMode === 'projectile' ? 0 : Math.min(stats.range, this.physics.raycast(eye, aim, stats.range)?.distance ?? stats.range);
+        stats.fireMode === 'projectile' ? 0 : Math.min(stats.range, this.physics.raycast(eye, aim, stats.range, this.vehicles.hullColliderOf(player.id))?.distance ?? stats.range);
       this.critters.alertShot(eye, aim, lane);
     }
 
@@ -1049,7 +1049,7 @@ export class MatchRoom {
     clientTick: number,
   ): void {
     const origin = this.eyePosition(player);
-    const worldHit = this.physics.raycast(origin, direction, range);
+    const worldHit = this.physics.raycast(origin, direction, range, this.vehicles.hullColliderOf(player.id));
     const maxDistance = Math.min(range, worldHit?.distance ?? range);
     const targets = this.combatTargets(player, player.isBot ? 0 : clientTick);
     const hit = raycastTargets(origin, direction, maxDistance, targets);
@@ -1334,7 +1334,7 @@ export class MatchRoom {
       const step = speed * FIXED_DT;
       const direction = normalizeDirection(projectile.velocity);
       const from = projectile.position;
-      const worldHit = this.physics.raycast(from, direction, step);
+      const worldHit = this.physics.raycast(from, direction, step, this.vehicles.hullColliderOf(owner.id));
       if (worldHit) {
         this.explode(owner, worldHit.point, projectile.damage, projectile.splashRadius, projectile.weaponId);
         this.projectiles.splice(index, 1);

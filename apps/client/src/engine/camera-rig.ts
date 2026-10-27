@@ -243,6 +243,21 @@ export class CameraRig {
     if (this.wobble > 0) this.camera.rotation.z = Math.sin(this.wobbleTime * 4.1) * 0.09 * this.wobble;
   }
 
+  /** A vehicle passenger's eye socket; mouse look remains independent of the hull. */
+  updatePassengerEyes(dt: number, eyes: Vec3): void {
+    const step = Math.min(0.05, Math.max(0.001, dt));
+    this.easeFov(PLAYER_FOV, step);
+    this.yaw += shortestAngle(this.yaw, this.targetYaw) * (1 - Math.exp(-step * 22));
+    this.pitch += (this.targetPitch - this.pitch) * (1 - Math.exp(-step * 20));
+    this.camera.position.set(eyes.x, eyes.y, eyes.z);
+    const cos = Math.cos(this.pitch);
+    this.camera.setTarget(new Vector3(eyes.x + Math.sin(this.yaw) * cos, eyes.y + Math.sin(this.pitch), eyes.z + Math.cos(this.yaw) * cos));
+    // Returning to the spring camera starts at the new seat, without the old orbit's momentum.
+    this.initialized = false;
+    this.pivotSpring.velocity.setAll(0);
+    this.positionSpring.velocity.setAll(0);
+  }
+
   /**
    * Slow cinematic orbit around the live killer. The spring keeps the camera
    * from snapping when the victim dies or the killer strafes behind cover.

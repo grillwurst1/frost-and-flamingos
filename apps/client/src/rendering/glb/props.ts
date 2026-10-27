@@ -303,6 +303,18 @@ export function buildWeaponProp(scene: Scene, id: WeaponId, material: ShaderMate
   return { mesh, hold };
 }
 
+/** Open-ended steel wrench in the same right-hand grip frame as hero weapons. */
+export function buildWrenchProp(scene: Scene, material: ShaderMaterial): WeaponProp | null {
+  const parts = new PartList(scene);
+  parts.box('#8498a3', 0.045, 0.027, 0.37, 0, 0, 0.12);
+  parts.box('#d8e1e5', 0.027, 0.03, 0.32, 0, 0.016, 0.13);
+  parts.box('#a7b8bf', 0.12, 0.04, 0.065, 0, 0, 0.32);
+  for (const side of [-1, 1]) parts.box('#c5d0d4', 0.043, 0.04, 0.09, side * 0.065, 0, 0.37, { ry: side * -0.24 });
+  parts.torus('#a7b8bf', 0.08, 0.024, 0, 0, -0.085);
+  const mesh = parts.merge('repair-wrench', material);
+  return mesh ? { mesh, hold: { style: 'melee', support: null, tilt: -0.45, offset: [0.16, -0.12, 0.32] } } : null;
+}
+
 /** Faction-coloured parachute canopy (pivot at the harness, canopy above). */
 export function buildCanopyProp(scene: Scene, alpine: boolean, material: ShaderMaterial): Mesh | null {
   const parts = new PartList(scene);

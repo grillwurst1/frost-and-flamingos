@@ -10,7 +10,7 @@ This file records actual completion, not aspirational checkmarks.
 
 - [x] Four rowboats: rowing, two-player rhythm sprint, seats, damage, respawn, visual oars/HUD.
 - [x] Vehicle repair, on foot and from exposed passenger seats; preserve class skills elsewhere.
-- [ ] Sidecar passenger first-person V camera and riding/repair visual poses.
+- [x] Sidecar passenger first-person V camera and riding/repair visual poses.
 - [x] Biplane: shared flight motor, water/glacier takeoff and landing, pilot gun, two wing mounts, jump exits, propeller hazard.
 - [ ] Cable car: two counter-running cabins, station boarding/interior/roof, brake levers including hitscan, roof crouch protection, remove interim spawn plates.
 - [ ] Eight T-bars, boarding/exit, free shooting, dead-rider release.
@@ -74,5 +74,10 @@ cover deterministic replay, wire alignment, both runways, crash vs safe landing,
 3D wing anchors and enemy/friendly propeller handling. Release checks pass: 244 tests (10 scripts, 184 server, 50 client), clean strict
 typecheck, successful production build and WebGL2 flight smoke.
 
-Next: finish sidecar passenger camera and riding poses, then map toys.
+Sidecar passenger first-person view, held wrench and skeletal riding poses are
+verified: 248 tests (10 scripts, 185 server, 53 client), clean strict typecheck,
+production build and WebGL2 passenger/repair/wardrobe checks without errors.
+No new shaders or wire-layout changes in this increment. Next: cable car, then
+other map toys. Both shared firing height and own-hull exclusions now match
+the seated camera; do not regress personal weapon fire from the tub.
 Keep all remaining M5 items gated ahead of M6.

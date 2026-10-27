@@ -12,6 +12,8 @@ import { MascotPreviewPair, MascotView } from './mascot-view';
 
 /** Pose for any avatar. The mascot fields are ignored by the human rig. */
 export interface AvatarPose extends CharacterPose {
+  /** Cosmetic tool pose only; authoritative repair remains a server input action. */
+  repairing?: boolean;
   heading?: number;
   mascot?: MascotWireState | null;
   launchSeconds?: number;

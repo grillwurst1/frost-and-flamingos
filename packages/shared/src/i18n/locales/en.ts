@@ -848,6 +848,7 @@ export const en = {
       sidecar: 'Sidecar seat',
     },
     hud: {
+      passengerView: 'Passenger view',
       flight: 'W/S throttle · mouse steers · A/D rudder',
       bail: 'Jump out',
       repair: 'Hold to repair',
@@ -876,6 +877,7 @@ export const en = {
       crew: 'Crew',
     },
     keys: {
+      view: 'V',
       bail: 'Space',
       repair: 'X',
       enter: 'F',

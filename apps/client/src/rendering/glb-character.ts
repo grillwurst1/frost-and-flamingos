@@ -37,7 +37,7 @@ import {
   type PaintedModelAsset,
 } from './glb/library';
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
-import { buildCanopyProp, buildWeaponProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
+import { buildCanopyProp, buildWeaponProp, buildWrenchProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
 import { closestOnSegment, fistTargets, groundLift, headFrame, keepOutZ, segmentReach, supportPoints, type HandSide, type HeadFrame } from './glb/hold';
 import { GlbRig, type RigJoint } from './glb/rig';
 import { registerHeroWeaponProps } from './weapons/glb-adapter';
@@ -301,7 +301,7 @@ export class GlbCharacterView implements AvatarView {
   private readonly accumulator: Float32Array;
   private readonly hipsAccumulator = new Vector3();
   private readonly bindings = new Map<BindingRole, ClipBinding>();
-  private readonly weapons = new Map<WeaponId, WeaponProp | null>();
+  private readonly weapons = new Map<WeaponId | 'wrench', WeaponProp | null>();
   private readonly attachments: Mesh[] = [];
   private readonly height: number;
   /** false for unarmed characters: weapons are never shown. */
@@ -318,7 +318,8 @@ export class GlbCharacterView implements AvatarView {
   private weapon: WeaponProp | null = null;
   /** Rear end (weapon-space z) of the held prop, kept in front of the chest. */
   private weaponRear = 0;
-  private weaponId: WeaponId | null = null;
+  private weaponId: WeaponId | 'wrench' | null = null;
+  private riding: AvatarPose['riding'] = undefined;
   /** Head centre and mouth in the Head joint's frame (alphorn mouthpiece, umbrella clearance). */
   private readonly head: HeadFrame | null;
   /** Finger joints and their fist rotations: the hands close on what they hold. */
@@ -713,6 +714,7 @@ export class GlbCharacterView implements AvatarView {
     this.snapNext = false;
     this.setPosition(pose.position);
     this.setYaw(pose.yaw);
+    this.shadow.setEnabled(!pose.riding);
 
     const alive = pose.alive;
     const swimming = pose.swimming ?? false;
@@ -836,7 +838,7 @@ export class GlbCharacterView implements AvatarView {
       if (reloading && reload.weight < 0.05) reload.time = 0;
       reload.target = reloading ? 0.85 : 0;
       reload.weight = approach(reload.weight, reload.target, dt * 6);
-      const seconds = this.weaponId ? WEAPON_STATS[this.weaponId].reloadSeconds : 0;
+      const seconds = this.weaponId && this.weaponId !== 'wrench' ? WEAPON_STATS[this.weaponId].reloadSeconds : 0;
       reload.rate = seconds > 0.2 ? Math.min(3, reload.clip.duration / seconds) : 1.5;
     }
     const tauntBinding = this.bindings.get('taunt');
@@ -907,11 +909,12 @@ export class GlbCharacterView implements AvatarView {
 
     // ---- procedural layers ---------------------------------------------
     this.breath += dt;
+    this.riding = pose.riding;
+    this.setWeapon(this.armedModel ? pose.repairing ? 'wrench' : pose.weaponId ?? null : null);
     const style = this.weapon?.hold.style ?? null;
     const weaponVisible =
       alive && !swimming && !rolling && this.parachute < 0.2 && this.tauntTime < 0 && this.weapon !== null;
     this.armed = approach(this.armed, weaponVisible ? 1 : 0, dt * 6 * snap);
-    this.setWeapon(this.armedModel ? pose.weaponId ?? null : null);
     if (this.weapon) this.weapon.mesh.setEnabled(this.armed > 0.3);
     this.holdDt = dt;
     const falling = airborne && this.airTime > FALL_AIR_TIME && pose.velocity.y < -FALL_SPEED;
@@ -945,7 +948,8 @@ export class GlbCharacterView implements AvatarView {
     const proneSwim = swimming && !has('swim') ? 1.2 : 0;
     const deathTarget = !alive && !has('death') ? -1.45 : 0;
     this.deathTilt = approach(this.deathTilt, deathTarget, dt * (deathTarget !== 0 ? 4.5 : 8));
-    this.tiltPivot.rotation.x = this.deathTilt + proneSwim * this.swim;
+    this.tiltPivot.rotation.x = this.deathTilt + proneSwim * this.swim - (pose.vehiclePitch ?? 0);
+    this.tiltPivot.rotation.z = pose.vehicleRoll ?? 0;
     this.tiltPivot.position.y = has('swim') ? 0 : -0.32 * this.swim;
     if (this.hover) {
       // Ghostly hover: the body floats a hand's breadth up with a slow bob;
@@ -1300,6 +1304,33 @@ export class GlbCharacterView implements AvatarView {
       if (rightFoot) rig.solveTwoBone('RightUpLeg', 'RightLeg', 'RightFoot', rightFoot, new Vector3(-0.2, 0, 1), 1);
     }
 
+    // Bent knees with planted footrests; the existing skeleton and IK do all skinning.
+    if (this.riding) {
+      const seated = this.riding !== 'wing';
+      const left = rig.position('LeftFoot')?.clone();
+      const right = rig.position('RightFoot')?.clone();
+      const hips = rig.node('Hips');
+      if (hips) hips.position.y -= this.bindHips.y * (seated ? 0.36 : 0.14) * blend;
+      rig.refresh();
+      for (const [side, foot] of [['Left', left], ['Right', right]] as const) {
+        if (!foot) continue;
+        foot.z += this.height * (seated ? 0.16 : 0.015) * blend;
+        rig.solveTwoBone(`${side}UpLeg`, `${side}Leg`, `${side}Foot`, foot, new Vector3(side === 'Left' ? 0.15 : -0.15, 0, 1), blend);
+        rig.refresh();
+      }
+      if (this.riding === 'steer' || this.riding === 'row') {
+        const chest = rig.position('Spine2');
+        if (chest) for (const side of ['Left', 'Right'] as const) {
+          const sign = side === 'Left' ? 1 : -1;
+          const stroke = this.riding === 'row' ? Math.sin(this.breath * 7.85) * 0.09 : 0;
+          const grip = chest.add(new Vector3(sign * this.height * 0.14, -this.height * 0.13, this.height * 0.25 + stroke));
+          rig.solveTwoBone(`${side}Arm`, `${side}ForeArm`, `${side}Hand`, grip, new Vector3(sign, -1, 0), blend);
+          rig.refresh();
+          this.closeHand(side, blend, false);
+        }
+      }
+    }
+
     // Dodge-roll tuck: curl the spine and head forward.
     const tuck = this.rollTuck * blend;
     if (tuck > 0.01) {
@@ -1596,7 +1627,7 @@ export class GlbCharacterView implements AvatarView {
     return grip.add(support);
   }
 
-  private setWeapon(id: WeaponId | null): void {
+  private setWeapon(id: WeaponId | 'wrench' | null): void {
     if (id === this.weaponId) return;
     this.weaponId = id;
     if (this.weapon) this.weapon.mesh.setEnabled(false);
@@ -1604,7 +1635,7 @@ export class GlbCharacterView implements AvatarView {
     if (!id) return;
     let prop = this.weapons.get(id);
     if (prop === undefined) {
-      prop = buildWeaponProp(this.scene, id, this.propMaterial);
+      prop = id === 'wrench' ? buildWrenchProp(this.scene, this.propMaterial) : buildWeaponProp(this.scene, id, this.propMaterial);
       if (prop) {
         prop.mesh.parent = this.weaponAnchor;
         prop.mesh.position.set(0, 0, 0);

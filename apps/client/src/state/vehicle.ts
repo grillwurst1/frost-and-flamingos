@@ -15,6 +15,7 @@ export interface VehicleHudState {
   driver: boolean;
   gunner: boolean;
   handWeapons: boolean;
+  passengerView: boolean;
   weaponId: WeaponId | null;
   /** 0 = just fired, 1 = ready. */
   weaponReady: number;

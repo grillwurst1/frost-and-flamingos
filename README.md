@@ -381,3 +381,31 @@ all production bundles build. WebGL2 checks real binary flight with pilot and
 wing rider, painted model, firing and bailout without console errors. The prior
 boat ram fixture now uses open water away from the seaplane spawn. Cloud tests
 use software rendering; native Mac temperature/FPS have not been measured.
+
+### M5 continuation — sidecar passenger view and vehicle poses (27 October 2026)
+
+V toggles a true first-person view in the sidecar passenger seat. Mouse look
+remains free through 360 degrees; the riveted tub, driver, wardrobe-coloured
+forearms, individual fingers/gloves and current hero weapon remain visible.
+Holding X replaces the weapon with a steel wrench; repairing still blocks fire.
+The vehicle card moves above the hands. The view resets on seat changes or exit
+and hides its hands behind the menu/wardrobe. Other seats retain shoulder swapping.
+
+The existing animated skeleton now bends knees at seated footrests, puts drivers'
+hands on the controls, rows and braces wing riders. Aircraft pitch/bank carries
+the rider's body. Shared seat eye drops keep authoritative firing at seated
+height; the shooter's own hull is excluded from personal hitscan/projectile
+world rays. Other hulls and walls still block shots. No packet-layout change.
+
+Only one local hands mesh and the existing hero weapon are active. Appearance
+changes replace/dispose that geometry; no full-screen pass, texture or new
+animation library is added. The actual five hand choices and both extreme skin
+tones are covered by geometry/colour checks; repeated switches remain bounded.
+
+Validation: 248 automated tests pass (10 scripts, 185 server, 53 client),
+including the bot soak and real passenger damage/repair/fire suppression.
+Strict typecheck reports zero errors/warnings; production bundles build.
+WebGL2 checks V, painted motorcycle interior, hands/weapon and held wrench,
+actual repair, return to third person and hiding hands in the wardrobe, with no
+console errors. A focused viewmodel lifecycle check also passes after the final
+framing adjustment. Native Mac temperature/FPS remain unmeasured.

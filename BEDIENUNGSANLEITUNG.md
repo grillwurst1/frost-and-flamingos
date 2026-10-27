@@ -858,3 +858,24 @@ Fehler oder Warnungen und erfolgreicher Produktionsbuild. Der WebGL2-Spieltest
 prüft Einsteigen, Abheben mit Pilot und Flügelpassagier, Schießen und Abspringen
 über das echte Netzwerkprotokoll ohne Konsolenfehler. Die Cloud rendert per
 Software; Temperatur und Bildrate auf einem Mac wurden hier nicht gemessen.
+
+### Beifahreransicht und Fahrzeugposen (27. Oktober 2026)
+
+Im Beiwagen wechselt **V** zwischen der Außenansicht und deiner Sitzperspektive.
+Mit der Maus kannst du dich frei umsehen und deine eigenen Waffen benutzen.
+Hände, Hautfarbe, Handschuhe und Waffe folgen deiner Garderobe. **X halten**
+zeigt den Schraubenschlüssel und repariert das Motorrad; dabei kannst du nicht
+schießen. Die Fahrzeuganzeige steht in dieser Ansicht oben, damit sie die Hände
+nicht verdeckt. Beim Aussteigen oder Platzwechsel wird die Außenansicht
+wiederhergestellt. In Garderobe und Menü werden die Hände ausgeblendet.
+
+Figuren sitzen jetzt mit gebeugten Knien, halten die Steuerung beziehungsweise
+die Ruder und stemmen sich auf Flugzeugflügeln gegen den Fahrtwind. Der Körper
+folgt der Flugzeugneigung. Die Schusshöhe berücksichtigt die tiefere Sitzposition;
+die eigene Fahrzeughülle fängt deine Beifahrerschüsse nicht mehr ab.
+
+Geprüfter Stand: 248 Tests erfolgreich (10 Skript-, 185 Server-, 53 Client-Tests),
+TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreicher Produktionsbuild.
+Der WebGL2-Spieltest prüft V, die bemalte Beiwagen-Innenseite, Hände und Waffe,
+Schraubenschlüssel und tatsächliche Reparatur sowie Rückkehr zur Außenansicht
+und Garderobe ohne Konsolenfehler.
