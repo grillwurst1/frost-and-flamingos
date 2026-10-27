@@ -240,7 +240,7 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
   }
   float ink = (1.0 - smoothstep(0.07, 0.2, value)) * strength * uFFDetailScale.w;
   albedo = mix(albedo, uFFInkColor.rgb, ink * 0.7);
-  albedo += vec3(1.0) * c.a * sparkleWeight * 0.85 * fade;
+  albedo += vec3(1.0) * c.a * sparkleWeight * 0.06 * fade;
   hatch = mix(1.0, c.b, fade);
   return albedo;
 }
@@ -360,7 +360,7 @@ vec3 ffTerrainSurface(vec4 vertexColor, vec4 mixA, vec4 mixB, vec3 worldPos, ino
     }
     vec3 tile = mix(first, second, blend);
     float coverage = clamp(top.x + top.z, 0.0, 1.0);
-    albedo *= mix(vec3(1.0), clamp(tile * 2.0, 0.0, 1.85), uFFColorParams.x * coverage);
+    albedo *= mix(vec3(1.0), clamp(tile * 2.0, 0.0, 1.85), uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75));
     // Painterly macroMix variation: broad warm/cool patches like brush washes.
     float wash = ffDetailNoise(worldPos.xz * 0.013 + 11.0) - 0.5;
     albedo *= 1.0 + wash * 0.16 * (1.0 - mixA.x * 0.6);
@@ -382,7 +382,7 @@ vec3 ffTerrainSurface(vec4 vertexColor, vec4 mixA, vec4 mixB, vec3 worldPos, ino
   vec4 c = textureGrad(detailC, worldPos.xz * uFFDetailScale.z, dpx.xz * uFFDetailScale.z, dpy.xz * uFFDetailScale.z);
   float fade = 1.0 - smoothstep(uFFDetailParams.y, uFFDetailParams.z, distanceToCamera);
   hatch = mix(1.0, c.b, fade);
-  albedo += vec3(1.0) * c.a * mixA.x * smoothstep(0.55, 0.85, normal.y) * 0.7 * fade;
+  albedo += vec3(1.0) * c.a * mixA.x * smoothstep(0.55, 0.85, normal.y) * 0.06 * fade;
   normal = ffTerrainBump(normal, worldPos, mixA.x, mixA.y * (1.0 - mixB.w), distanceToCamera);
   return albedo;
 }
@@ -587,7 +587,7 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
   }
   let ink = (1.0 - smoothstep(0.07, 0.2, value)) * strength * uniforms.uFFDetailScale.w;
   albedo = mix(albedo, uniforms.uFFInkColor.rgb, ink * 0.7);
-  albedo += vec3f(1.0) * c.a * sparkleWeight * 0.85 * fade;
+  albedo += vec3f(1.0) * c.a * sparkleWeight * 0.06 * fade;
   result.albedo = albedo;
   result.hatch = mix(1.0, c.b, fade);
   return result;
@@ -718,7 +718,7 @@ fn ffTerrainSurface(vertexColor : vec4f, mixA : vec4f, mixB : vec4f, worldPos : 
     }
     let tile = mix(first, second, blend);
     let coverage = clamp(top.x + top.z, 0.0, 1.0);
-    albedo = albedo * mix(vec3f(1.0), clamp(tile * 2.0, vec3f(0.0), vec3f(1.85)), uniforms.uFFColorParams.x * coverage);
+    albedo = albedo * mix(vec3f(1.0), clamp(tile * 2.0, vec3f(0.0), vec3f(1.85)), uniforms.uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75));
     let wash = ffDetailNoise(worldPos.xz * 0.013 + 11.0) - 0.5;
     albedo = albedo * (1.0 + wash * 0.16 * (1.0 - mixA.x * 0.6));
   }
@@ -736,7 +736,7 @@ fn ffTerrainSurface(vertexColor : vec4f, mixA : vec4f, mixB : vec4f, worldPos : 
   let c = textureSampleGrad(detailC, detailCSampler, worldPos.xz * uniforms.uFFDetailScale.z, dpx.xz * uniforms.uFFDetailScale.z, dpy.xz * uniforms.uFFDetailScale.z);
   let fade = 1.0 - smoothstep(uniforms.uFFDetailParams.y, uniforms.uFFDetailParams.z, distanceToCamera);
   result.hatch = mix(1.0, c.b, fade);
-  albedo += vec3f(1.0) * c.a * mixA.x * smoothstep(0.55, 0.85, normalIn.y) * 0.7 * fade;
+  albedo += vec3f(1.0) * c.a * mixA.x * smoothstep(0.55, 0.85, normalIn.y) * 0.06 * fade;
   result.albedo = albedo;
   result.normal = ffTerrainBump(normalIn, worldPos, mixA.x, mixA.y * (1.0 - mixB.w), distanceToCamera);
   return result;

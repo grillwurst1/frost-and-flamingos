@@ -508,3 +508,27 @@ see `docs/qa/gorge-reference-2026-10-27.png`. Test players use real binary conne
 and server-assigned teams. Hen damage fixtures now check standing body clearance,
 preventing rail overlap from moving the shooter before firing. No production hit
 rules changed. Full native WebGPU/Mac limitations above remain; no new shaders here.
+
+### Owner rejected the graphic quality (27 October 2026)
+
+The owner still finds the game unprofessional/pixelated and requires the supplied
+reference. Passing tests is not visual acceptance. Keep further milestone features
+paused and judge changes in actual gameplay captures at the reference resolution.
+The current pass removes enclosed shin surfaces from tall boots, subdivides long
+limb triangles before nonlinear rig binding, rolls the reference shirt sleeves,
+rounds the Tyrolean hat, and softens sculpted character form lighting. Character
+contours preserve resolved coverage rather than applying a binary alpha threshold
+and coarse half-resolution depth ink over the same silhouette. Snow decoration
+and snow colour-tile contrast are reduced; stone textures and terrain relief stay.
+No new screen target, texture or post pass; frame/quality limits remain. The default
+body has 51,384 triangles in one skinned draw; tested variants remain below 60k.
+Do not call the screenshot target complete. Continue silhouette, vehicle and map art.
+
+Quality-pass release: 273 tests pass (10 scripts, 197 server, 66 client), clean
+typecheck/build, six isolated native WGSL compilations and error-free WebGL2 model/
+1280×714 gameplay captures. See `docs/qa/field-quality-1280.png` and the figure-quality
+before/after images (different idle poses). The long beached-boat integration case
+has 15 s wall-clock allowance; the failed 5 s attempt passed every physics assertion
+but took 5.19 s in Cloud. Simulation steps/assertions are unchanged. Native Mac is
+unmeasured. Next: a selectable sleeveless field vest and reference Heavy default,
+then broader world/vehicle art. Keep all existing outfits and saved profiles intact.

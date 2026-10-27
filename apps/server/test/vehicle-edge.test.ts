@@ -590,7 +590,9 @@ describe('vehicle edge cases', () => {
     // A crewed boat on the sand never deflates on its own; an empty one does after 10 s.
     expect(VEHICLE_BEACHED_SECONDS).toBe(10);
     room.stop();
-  });
+  // This integration case advances thousands of fixed physics ticks. Cloud CPU
+  // pauses can exceed Bun's 5 s default even when all physical assertions pass.
+  }, 15000);
 
   test('hulls never block, ram or shove a character outside their collision filter (the drifter)', async () => {
     const room = await createRoom();

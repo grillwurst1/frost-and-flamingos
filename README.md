@@ -483,3 +483,20 @@ real binary-connected player profiles without console errors.
 [Actual game capture](docs/qa/gorge-reference-2026-10-27.png) uses staged test players;
 it records the current result, not completion of the reference. Native Mac performance
 remains unmeasured.
+
+### Character and contour quality pass
+
+The owner rejected the prior visual result; exact reference matching remains active.
+Long limb surfaces are refined before rig binding, hidden shin surfaces no longer
+pierce tall boots, and the reference shirt has rolled sleeves. The hat has a smoother
+silhouette. Character lighting has a broad form gradient, and the contour pass keeps
+MSAA coverage instead of drawing coarse depth-buffer ink over the character edge.
+Snow has quieter colour detail and much less decorative glitter. Existing stone
+textures/relief remain. No new texture, render target or screen pass is added.
+The default soldier is 51,384 triangles in one skinned draw, with bounded outfit caches.
+
+Validation: 273 tests pass (10 scripts, 197 server, 66 client), clean strict typecheck
+and production build. Six isolated WGSL variants compile. WebGL2 detail views and
+[actual gameplay at 1280×714](docs/qa/field-quality-1280.png) pass without errors.
+[Earlier model](docs/qa/figure-quality-before.png) / [updated model](docs/qa/figure-quality-after.png)
+show different idle poses. This is an improvement, not acceptance of the reference target.

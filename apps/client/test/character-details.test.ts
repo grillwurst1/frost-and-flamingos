@@ -5,6 +5,27 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { createDefaultProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../src/rendering/character';
 
+test('reference sleeves expose skin below the elbow and tall boots contain no hidden shin surface', () => {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  const profile = createDefaultProfile('Clean garment surfaces');
+  profile.cosmetics.torso = 'torso_tracht_shirt';
+  profile.cosmetics.legs = 'legs_lederhosen';
+  profile.cosmetics.feet = 'feet_ski_boots';
+  const view = new CharacterView(scene, new StandardMaterial('shadow', scene), profile);
+  try {
+    for (const side of ['left', 'right']) {
+      const arm = view.root.getChildMeshes().find(m => m.name === `${side}-arm-mesh`)!;
+      const p = arm.getVerticesData('position')!, c = arm.getVerticesData('color')!;
+      let forearmSkin = 0;
+      for (let v = 0; v < p.length / 3; v++) if (p[v * 3 + 1]! < -.38 && p[v * 3 + 1]! > -.55 && c[v * 4 + 3]! > .9) forearmSkin++;
+      expect(forearmSkin).toBeGreaterThan(30);
+      const leg = view.root.getChildMeshes().find(m => m.name === `${side}-leg-mesh`)!;
+      const lp = leg.getVerticesData('position')!, lc = leg.getVerticesData('color')!;
+      for (let v = 0; v < lp.length / 3; v++) if (lp[v * 3 + 1]! < -.5) expect(lc[v * 4 + 3]!).toBeLessThan(.1);
+    }
+  } finally { view.dispose(); scene.dispose(); engine.dispose(); }
+});
+
 test('the backpack dial faces outward and remains in front of its wooden shell', () => {
   const engine=new NullEngine(),scene=new Scene(engine),profile=createDefaultProfile('Dial');
   profile.cosmetics.back='back_cuckoo_clock';

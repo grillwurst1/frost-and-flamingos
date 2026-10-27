@@ -110,3 +110,31 @@ actual overlook terrain and four visible server-assigned player tags. The captur
 `docs/qa/gorge-reference-2026-10-27.png` (staged test peers, real binary sockets).
 Observed frame draw calls: 304 with these players/settings; this is software rendering,
 not a native FPS or Mac thermal benchmark. Continue coast, silhouette and vehicle work.
+
+## Owner rejection: still too unprofessional and pixelated
+
+Treat this as an art-quality task, not an accepted screenshot match. Corrected
+enclosed-shin/boot intersections and long triangles crossing nonlinear limb bends;
+added rolled reference sleeves and a rounder hat. Default body: 51,384 tris, one
+skinned draw; all tested outfits below 60k. Two new checks cover exposed forearm/
+hidden shin surfaces and short boot bend spans. The 18 focused model tests pass.
+
+Character lighting now retains smooth form shading; contours preserve resolved
+coverage and avoid duplicate coarse depth ink. Snow decoration/colour contrast is
+quieter while rock textures and terrain relief remain. Six isolated native WGSL
+variants (world, paving, terrain, painted, modular and contour) compile without
+shader/device errors. A whole native scene attempt still fails with the Cloud's
+external-instance error; compilation is not a successful full native game check.
+WebGL2 animated detail views pass without errors. Full field comparison/release
+checks follow; exact target matching and native Mac thermal measurements remain open.
+
+Release validation is complete: 273 tests pass (10 scripts, 197 server, 66 client),
+clean typecheck/build, six isolated native WGSL compilations and error-free WebGL2
+model/1280×714 actual gameplay captures. See `docs/qa/field-quality-1280.png` and
+`figure-quality-before.png` / `figure-quality-after.png` (different idle poses).
+The beached-boat test's wall-clock allowance is 15 s after a 5.19 s Cloud timeout;
+all physical assertions and fixed simulation steps remain. The target is not accepted.
+
+Next: selectable sleeveless field vest and a reference Heavy default (bald head,
+bare arms, olive clothing), retaining saved outfits and all old choices. Broader
+world/vehicle art and consistent reference comparison remain open.

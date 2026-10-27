@@ -138,7 +138,10 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
 #endif
   float terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uFFToonParams.z);
   float full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uFFToonParams.z);
-#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
+#if defined(FF_SOFT_CHARACTER)
+  // Smooth form shading across curved cloth and skin, with a restrained cel step.
+  float lightLevel = mix(terminator * 0.7 + full * 0.3, smoothstep(-0.65, 0.9, ndl), 0.65) * shadow;
+#elif defined(FF_TEXTURED)
   // Two broad light bands keep the sculpted forms readable in the new cel reference.
   float lightLevel = (terminator * 0.7 + full * 0.3) * shadow;
 #else
@@ -282,7 +285,9 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
 #endif
   let terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uniforms.uFFToonParams.z);
   let full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uniforms.uFFToonParams.z);
-#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
+#if defined(FF_SOFT_CHARACTER)
+  let lightLevel = mix(terminator * 0.7 + full * 0.3, smoothstep(-0.65, 0.9, ndl), 0.65) * shadow;
+#elif defined(FF_TEXTURED)
   let lightLevel = (terminator * 0.7 + full * 0.3) * shadow;
 #else
   let lightLevel = (terminator * 0.58 + full * 0.42) * shadow;

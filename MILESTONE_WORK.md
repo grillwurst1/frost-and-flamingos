@@ -123,3 +123,12 @@ the exact target is unfinished, and further milestone toys remain deferred.
 
 Final WebGL2 medium comparison passes without browser errors; the actual game capture
 with binary-connected test peers is `docs/qa/gorge-reference-2026-10-27.png`.
+
+The owner rejected this graphic quality. Further milestone features remain paused.
+Current art pass fixes boot/limb intersections, reference sleeves/hat, character
+lighting/coverage contours and noisy snow. See `VISUAL_REFERENCE_WORK.md` for
+actual validation and open art work. Automated test success is not visual sign-off.
+
+Quality pass release: 273 tests, clean typecheck/build, six native WGSL compilations,
+clean WebGL2 model and 1280×714 field capture. Target remains unfinished; next is
+the selectable field vest/reference Heavy, preserving old wardrobe choices/profiles.

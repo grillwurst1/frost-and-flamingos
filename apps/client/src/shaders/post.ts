@@ -319,7 +319,8 @@ float ffNormalEdge(vec3 n0, vec3 n1) {
 // Stylised-character coverage of a scene-alpha value (the world reads 0; a
 // blend over a character, alpha = the blend's own alpha, mostly reads 0 too).
 float ffCharOf(float a) {
-  return 1.0 - smoothstep(0.12, 0.3, a);
+  // Preserve resolved MSAA coverage rather than thresholding it into stair steps.
+  return clamp(1.0 - a, 0.0, 1.0);
 }
 
 // Silhouette tap: the mask flips between this pixel and the one at o, and
@@ -328,7 +329,7 @@ float ffCharOf(float a) {
 float ffSilhouetteTap(vec2 uv, float char0, float d0, vec2 o) {
   float charN = ffCharOf(texture2D(textureSampler, uv + o).a);
   float gate = smoothstep(0.0012, 0.005, abs(ffDepth(uv + o) / d0 - 1.0));
-  return abs(charN - char0) * gate;
+  return abs(charN - char0) * gate * smoothstep(0.5, 0.95, max(char0, charN));
 }
 
 void main(void) {
@@ -390,16 +391,18 @@ void main(void) {
 
   // Bold character silhouette (see the mask contract above).
   float char0 = ffCharOf(texture2D(textureSampler, uv).a);
-  vec2 sx = ox * 1.25;
-  vec2 sy = oy * 1.25;
+  vec2 sx = vec2(uTexel.x * 1.1, 0.0);
+  vec2 sy = vec2(0.0, uTexel.y * 1.1);
   float silhouette = max(max(ffSilhouetteTap(uv, char0, d0, sx), ffSilhouetteTap(uv, char0, d0, -sx)),
     max(ffSilhouetteTap(uv, char0, d0, sy), ffSilhouetteTap(uv, char0, d0, -sy)));
   if (detailed) {
-    silhouette = max(silhouette, max(max(ffSilhouetteTap(uv, char0, d0, od1 * 1.25), ffSilhouetteTap(uv, char0, d0, -od1 * 1.25)),
-      max(ffSilhouetteTap(uv, char0, d0, od2 * 1.25), ffSilhouetteTap(uv, char0, d0, -od2 * 1.25))));
+    silhouette = max(silhouette, max(max(ffSilhouetteTap(uv, char0, d0, (sx + sy) * 0.7071), ffSilhouetteTap(uv, char0, d0, -(sx + sy) * 0.7071)),
+      max(ffSilhouetteTap(uv, char0, d0, (sx - sy) * 0.7071), ffSilhouetteTap(uv, char0, d0, -(sx - sy) * 0.7071))));
   }
 
-  float ink = max(max(depthEdge, normalEdge), silhouette) * mix(1.0, uInkFade.w, farMix);
+  // Characters use the full-resolution coverage contour. The half-resolution
+  // geometric edge would put a second, visibly blocky line over that silhouette.
+  float ink = max(max(depthEdge, normalEdge) * (1.0 - charMask), silhouette) * mix(1.0, uInkFade.w, farMix);
   if (near < 50000.0 && uCamPos.y > uWaterLevel.x) {
     vec3 ray = uCamForward + (vUV.x * 2.0 - 1.0) * uCamRight + (vUV.y * 2.0 - 1.0) * uCamUp;
     float worldY = uCamPos.y + ray.y * near;
@@ -514,13 +517,13 @@ fn ffNormalEdge(n0 : vec3f, n1 : vec3f) -> f32 {
 }
 
 fn ffCharOf(a : f32) -> f32 {
-  return 1.0 - smoothstep(0.12, 0.3, a);
+  return clamp(1.0 - a, 0.0, 1.0);
 }
 
 fn ffSilhouetteTap(uv : vec2f, char0 : f32, d0 : f32, o : vec2f) -> f32 {
   let charN = ffCharOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv + o, 0.0).a);
   let gate = smoothstep(0.0012, 0.005, abs(ffDepth(uv + o) / d0 - 1.0));
-  return abs(charN - char0) * gate;
+  return abs(charN - char0) * gate * smoothstep(0.5, 0.95, max(char0, charN));
 }
 
 @fragment
@@ -575,16 +578,16 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let normalEdge = smoothstep(uniforms.uInkParams.z, uniforms.uInkParams.z + 0.18, nEdge) * (1.0 - smoothstep(uniforms.uInkFade.x * 0.5, uniforms.uInkFade.x * 2.1, near)) * (1.0 - charMask);
 
   let char0 = ffCharOf(textureSampleLevel(textureSampler, textureSamplerSampler, uv, 0.0).a);
-  let sx = ox * 1.25;
-  let sy = oy * 1.25;
+  let sx = vec2f(texel.x * 1.1, 0.0);
+  let sy = vec2f(0.0, texel.y * 1.1);
   var silhouette = max(max(ffSilhouetteTap(uv, char0, d0, sx), ffSilhouetteTap(uv, char0, d0, -sx)),
     max(ffSilhouetteTap(uv, char0, d0, sy), ffSilhouetteTap(uv, char0, d0, -sy)));
   if (detailed) {
-    silhouette = max(silhouette, max(max(ffSilhouetteTap(uv, char0, d0, od1 * 1.25), ffSilhouetteTap(uv, char0, d0, -od1 * 1.25)),
-      max(ffSilhouetteTap(uv, char0, d0, od2 * 1.25), ffSilhouetteTap(uv, char0, d0, -od2 * 1.25))));
+    silhouette = max(silhouette, max(max(ffSilhouetteTap(uv, char0, d0, (sx + sy) * 0.7071), ffSilhouetteTap(uv, char0, d0, -(sx + sy) * 0.7071)),
+      max(ffSilhouetteTap(uv, char0, d0, (sx - sy) * 0.7071), ffSilhouetteTap(uv, char0, d0, -(sx - sy) * 0.7071))));
   }
 
-  var ink = max(max(depthEdge, normalEdge), silhouette) * mix(1.0, uniforms.uInkFade.w, farMix);
+  var ink = max(max(depthEdge, normalEdge) * (1.0 - charMask), silhouette) * mix(1.0, uniforms.uInkFade.w, farMix);
   if (near < 50000.0 && uniforms.uCamPos.y > uniforms.uWaterLevel.x) {
     let ray = uniforms.uCamForward + (input.vUV.x * 2.0 - 1.0) * uniforms.uCamRight + (input.vUV.y * 2.0 - 1.0) * uniforms.uCamUp;
     let worldY = uniforms.uCamPos.y + ray.y * near;

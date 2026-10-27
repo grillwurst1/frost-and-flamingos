@@ -966,3 +966,22 @@ erfolgreiche Produktionsbuilds. Die abschließende WebGL2-Kontrolle auf „Mitte
 zeigt die echte Karte und verbundene Testspieler ohne Konsolenfehler.
 [Aktueller Spielausschnitt](docs/qa/gorge-reference-2026-10-27.png).
 Temperatur und Bildrate auf einem echten Mac wurden hier nicht gemessen.
+
+### Figuren und sauberere Konturen
+
+Die vorherige Grafik entspricht noch nicht der geforderten Vorlage. In diesem
+Schritt verschwinden die Hautspitzen an den Skistiefeln: Verdeckte Unterschenkel
+werden ausgelassen und lange Flächen vor dem Binden ans Skelett unterteilt. Das
+Trachtenhemd hat hochgekrempelte Ärmel; die gewählte Hautfarbe bleibt sichtbar.
+Die Hutkante ist runder, die Figurenbeleuchtung verläuft weicher und die Konturen
+nutzen die bereits geglättete Bildkante statt einer zusätzlichen groben Tiefenkante.
+Der Schnee zeigt weniger Sprenkel und ruhigere Farbdetails. Steintexturen und
+Bodenrelief bleiben erhalten. Es kommt kein zusätzlicher Vollbildfilter hinzu.
+Das Referenzziel ist weiterhin in Arbeit; die bisherigen Bildratenlimits bleiben.
+
+Geprüft: 273 Tests bestanden, saubere Typprüfung und erfolgreiche Produktionsbuilds.
+Sechs Shader-Varianten kompilieren unter WebGPU; der vollständige native Cloud-
+Spieltest scheitert weiterhin am bekannten Cloud-GPU-Fehler. WebGL2-Nahaufnahme und
+[Spielbild in Referenzauflösung](docs/qa/field-quality-1280.png) sind ohne Browserfehler.
+[Vorher](docs/qa/figure-quality-before.png) und [nachher](docs/qa/figure-quality-after.png)
+zeigen die Modelle in unterschiedlichen Ruheposen. Die Vorlage ist noch nicht erreicht.

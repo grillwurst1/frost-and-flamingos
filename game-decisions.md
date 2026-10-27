@@ -1905,3 +1905,32 @@ a clear eye ray could previously put the shooter inside a rail and displace it.
 All ten damage cases pass without weakening production hit rules. Final WebGL2
 medium gameplay capture passes with real binary-connected players and no browser
 errors (`docs/qa/gorge-reference-2026-10-27.png`). Native Mac heat/FPS are unmeasured.
+
+### Graphic quality follow-up after owner rejection
+
+The previous result is not accepted as the reference quality. Refine the actual
+3D models and rendering rather than treating compile/test success as art approval.
+Long arm/leg triangles now split along their longitudinal span before nonlinear
+binding; shared midpoint indices keep smooth surfaces connected. This happens once
+per outfit in the existing bounded cache, not during animation. Tall boots omit the
+enclosed shin surface that previously poked through the shell. Reference sleeves
+roll above the elbow; all skin colours still affect the forearms. Hat segmentation
+increases locally, without a global subdivision or extra draw. Default: 51,384 tris,
+one skinned body; all wardrobe variants tested below the existing 60k ceiling.
+
+Character light mixes broad smooth form shading with a restrained cel step. The
+contour shader preserves MSAA alpha coverage, uses a fine full-resolution character
+outline and suppresses the duplicate half-resolution geometric edge on character
+pixels. A coverage gate keeps ordinary sprite edges out of this silhouette path.
+GLSL/WGSL remain paired. Snow sparkle and snow-only colour-tile contrast decrease;
+terrain relief and stone colour detail remain. No additional texture, render target
+or post-processing pass. The 45 FPS default, resolution budgets and governor remain.
+
+Release validation: 273 tests (10 scripts, 197 server, 66 client), zero strict
+TypeScript/Svelte errors/warnings, successful production bundles, six isolated
+WGSL compilations, and clean WebGL2 detail/1280×714 gameplay captures. Full native
+scene validation remains blocked by the Cloud external-instance error. The long
+beached-boat test receives 15 s instead of 5 s wall-clock allowance after a 5.19 s
+timeout with all assertions passing; no simulated time or gameplay rules changed.
+Screenshots in `docs/qa/figure-quality-*.png` and `field-quality-1280.png` document
+the result; the reference is still unfinished.

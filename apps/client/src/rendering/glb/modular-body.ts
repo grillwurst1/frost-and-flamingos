@@ -128,8 +128,37 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     for (const mesh of template.root.getChildMeshes(false)) {
       const name = mesh.name;
       if (!(name === 'character-body-mesh' || /^(left|right)-(arm|leg)-mesh$/.test(name))) continue;
-      const points = mesh.getVerticesData('position')!, paint = mesh.getVerticesData('color')!;
+      const points = Array.from(mesh.getVerticesData('position')!), paint = Array.from(mesh.getVerticesData('color')!);
       const tags = mesh.getVerticesData('uv2');
+      let faces = Array.from(mesh.getIndices()!);
+      if (name !== 'character-body-mesh') {
+        // Bend surfaces, not just their endpoints. Long triangles crossing a knee,
+        // elbow or ankle otherwise cut through neighbouring clothing when bound.
+        // Shared midpoints retain smooth normals; this runs once per cached outfit.
+        const middle = new Map<string, number>();
+        const midpoint = (a: number, b: number): number => {
+          const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+          const cached = middle.get(key);
+          if (cached !== undefined) return cached;
+          const index = points.length / 3;
+          for (let c = 0; c < 3; c++) points.push((points[a * 3 + c]! + points[b * 3 + c]!) / 2);
+          for (let c = 0; c < 4; c++) paint.push((paint[a * 4 + c]! + paint[b * 4 + c]!) / 2);
+          middle.set(key, index);
+          return index;
+        };
+        const refined: number[] = [];
+        const split = (a: number, b: number, c: number): void => {
+          const ab = Math.abs(points[a * 3 + 1]! - points[b * 3 + 1]!);
+          const bc = Math.abs(points[b * 3 + 1]! - points[c * 3 + 1]!);
+          const ca = Math.abs(points[c * 3 + 1]! - points[a * 3 + 1]!);
+          if (Math.max(ab, bc, ca) <= 0.07) { refined.push(a, b, c); return; }
+          if (ab >= bc && ab >= ca) { const m = midpoint(a, b); split(a, m, c); split(m, b, c); }
+          else if (bc >= ca) { const m = midpoint(b, c); split(b, m, a); split(m, c, a); }
+          else { const m = midpoint(c, a); split(c, m, b); split(m, a, b); }
+        };
+        for (let i = 0; i < faces.length; i += 3) split(faces[i]!, faces[i + 1]!, faces[i + 2]!);
+        faces = refined;
+      }
       const first = positions.length / 3;
       for (let i = 0; i < points.length; i += 3) {
         const p = new Vector3(points[i]!, points[i + 1]!, points[i + 2]!);
@@ -140,7 +169,6 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const c = i / 3 * 4;
         colors.push(paint[c]!, paint[c + 1]!, paint[c + 2]!, paint[c + 3]!);
       }
-      const faces = mesh.getIndices()!;
       for (let i = 0; i < faces.length; i += 3) indices.push(first + faces[i]!, first + faces[i + 2]!, first + faces[i + 1]!);
     }
   } finally { template.dispose(); }

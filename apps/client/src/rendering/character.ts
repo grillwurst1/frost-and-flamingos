@@ -421,9 +421,10 @@ export class CharacterView {
     this.rightShoulder.rotation.z = -0.07;
 
     const limbBulk = lerp(1.30, 0.96, bodyType);
-    const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', limbBulk);
+    const rolledSleeves = cosmetics.torso === 'torso_tracht_shirt';
+    const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', limbBulk, rolledSleeves);
     leftArm.parent = this.leftShoulder;
-    const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', limbBulk);
+    const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', limbBulk, rolledSleeves);
     rightArm.parent = this.rightShoulder;
 
     this.leftHip = new TransformNode('left-hip', scene);
@@ -908,13 +909,13 @@ export class CharacterView {
 
     if (headgear === 'head_tirol') {
       cylinder(scene, body, 'tirol-brim', 0.05, 0.62, 0.62, 0, headY + 0.18, 0, primary, {
-        segments: 14,
+        segments: 32,
       });
       cylinder(scene, body, 'tirol-crown', 0.18, 0.28, 0.36, 0, headY + 0.29, 0, primary, {
-        segments: 10,
+        segments: 24,
       });
       cylinder(scene, body, 'tirol-band', 0.06, 0.37, 0.37, 0, headY + 0.22, 0, secondary, {
-        segments: 12,
+        segments: 24,
       });
       box(scene, body, 'tirol-feather', 0.05, 0.24, 0.02, 0.2, headY + 0.33, 0.05, accent, {
         rotationZ: -0.5,
@@ -1005,6 +1006,7 @@ export class CharacterView {
     bare: boolean,
     side: 'left' | 'right',
     bulk: number,
+    rolled = false,
   ): Mesh {
     const parts: PartList = [];
     const armColor = bare ? skin : sleeve;
@@ -1013,11 +1015,16 @@ export class CharacterView {
     box(scene, parts, `${side}-upper-arm`, 0.13, 0.32, 0.14, 0, -0.16, 0, armColor, {
       skin: bare,
     });
-    sphere(scene, parts, `${side}-elbow`, 0.13, 0, -0.33, 0, armColor, { skin: bare, segments: 6 });
-    box(scene, parts, `${side}-forearm`, 0.115, 0.26, 0.125, 0, -0.46, 0, armColor, {
-      skin: bare,
+    const forearmBare = bare || rolled;
+    sphere(scene, parts, `${side}-elbow`, 0.13, 0, -0.33, 0, forearmBare ? skin : sleeve, { skin: forearmBare, segments: 12 });
+    box(scene, parts, `${side}-forearm`, 0.115, 0.26, 0.125, 0, -0.46, 0, forearmBare ? skin : sleeve, {
+      skin: forearmBare,
     });
-    if (!bare) {
+    if (rolled) {
+      cylinder(scene, parts, `${side}-rolled-sleeve`, 0.065, 0.15, 0.145, 0, -0.285, 0, WHITE, { segments: 20 });
+      torus(scene, parts, `${side}-sleeve-hem`, 0.145, 0.014, 0, -0.317, 0,
+        hexToColor4('#c6d2df'), { segments: 20 });
+    } else if (!bare) {
       box(scene, parts, `${side}-cuff`, 0.135, 0.06, 0.145, 0, -0.59, 0, WHITE);
     }
 
@@ -1110,7 +1117,9 @@ export class CharacterView {
       segments: 6,
     });
     const peg = feet === 'feet_peg_leg' && side === 'right';
-    if (!peg) box(scene, parts, `${side}-shin`, 0.145, 0.34, 0.16, 0, -0.58, 0, shinColor, {
+    // Tall boots cover the shin completely. An enclosed second surface can bend
+    // through the shell and expose skin/cloth as triangular spikes at the ankle.
+    if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-shin`, 0.145, 0.34, 0.16, 0, -0.58, 0, shinColor, {
       skin: thighSkin,
     });
 

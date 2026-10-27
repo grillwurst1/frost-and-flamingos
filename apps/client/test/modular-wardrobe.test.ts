@@ -162,3 +162,19 @@ test('ankle hardware retains outward normals across the shin-to-foot transition'
     for(const v of front)expect(n[v*3+2]!).toBeGreaterThan(-.1);
   }finally{view.dispose()}
 });
+
+test('tall boot surfaces have short bend spans instead of triangles stretching through the ankle', () => {
+  const { view, mesh } = build({ feet: 'feet_ski_boots', legs: 'legs_lederhosen' });
+  try {
+    const p = mesh.getVerticesData('position')!, c = mesh.getVerticesData('color')!, faces = mesh.getIndices()!;
+    let bootFaces = 0;
+    for (let i = 0; i < faces.length; i += 3) {
+      const vertices = [faces[i]!, faces[i + 1]!, faces[i + 2]!];
+      if (!vertices.every(v => p[v * 3 + 1]! < asset.height * .3 && c[v * 4]! > .6 && c[v * 4 + 1]! < .3)) continue;
+      const heights = vertices.map(v => p[v * 3 + 1]!);
+      expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(.13);
+      bootFaces++;
+    }
+    expect(bootFaces).toBeGreaterThan(100);
+  } finally { view.dispose(); }
+});
