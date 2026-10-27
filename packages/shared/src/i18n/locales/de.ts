@@ -438,6 +438,8 @@ export const de: TranslationDictionary = {
     vehicleTurboKey: 'Umschalt (Badi-Flamingo)',
     vehicleDrift: 'Seitenwagen-Handbremsdrift',
     vehicleDriftKey: 'Leertaste (Seitenwagen)',
+    vehicleRepair: 'Nahes eigenes Fahrzeug reparieren',
+    vehicleRepairKey: 'X halten',
   },
   hud: {
     health: 'Vitalität',
@@ -819,18 +821,21 @@ export const de: TranslationDictionary = {
   },
   vehicles: {
     names: {
+      rowboat: 'Holz-Ruderboot',
       fondue_crawler: 'Fondue-Raupe',
       coconut_tank: 'Kokosnuss-Strandpanzer',
       badi_flamingo: 'Taktischer Badi-Flamingo',
       sidecar: 'Seitenwagen-Motorrad',
     },
     enter: {
+      rowboat: 'Ins Ruderboot steigen',
       fondue_crawler: 'In die Fondue-Raupe klettern',
       coconut_tank: 'In den Kokosnuss-Strandpanzer klettern',
       badi_flamingo: 'In den Badi-Flamingo hüpfen',
       sidecar: 'Aufs Seitenwagen-Motorrad steigen',
     },
     seats: {
+      rower: 'Ruderer',
       driverGunner: 'Fahrer & Kanone',
       driver: 'Fahrer',
       pilot: 'Steuer',
@@ -840,6 +845,11 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen',
     },
     hud: {
+      repair: 'Zum Reparieren halten',
+      rowingSprint: 'Im Takt! Doppeltes Tempo',
+      rowingPartner: 'Zu zweit: W gemeinsam für einen Sprint antippen',
+      rowingTogether: 'W gemeinsam tippen, wenn der Balken neu beginnt',
+      rowingBeat: 'Rudertakt',
       card: 'Fahrzeug',
       hull: 'Panzerung',
       seat: 'Platz {index} von {count}',
@@ -861,6 +871,7 @@ export const de: TranslationDictionary = {
       crew: 'Besatzung',
     },
     keys: {
+      repair: 'X',
       enter: 'F',
       exit: 'F',
       seat: 'C',

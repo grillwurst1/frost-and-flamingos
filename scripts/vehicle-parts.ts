@@ -108,6 +108,13 @@ const COCONUT_DOME: V3 = [-0.047, 1.22, -0.728];
  *            the fork + handlebar + front wheel steer.
  */
 export const VEHICLE_PART_SPECS: Readonly<Record<string, VehiclePartSpec>> = {
+  'vehicle-rowboat': {
+    forward: '-x', scale: 3.6, center: [0, 0],
+    rules: [
+      { name: 'oar-left', role: 'steer', pivot: [-0.679, 0.628, 0.191], match: c => c.center[0] < -0.8 },
+      { name: 'oar-right', role: 'steer', pivot: [0.727, 0.664, -0.047], match: c => c.center[0] > 0.8 },
+    ],
+  },
   'vehicle-fondue-crawler': {
     forward: '-x',
     scale: 4.9,

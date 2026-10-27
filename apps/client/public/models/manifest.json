@@ -92,6 +92,13 @@
         "basecolor": "vehicle-fondue-crawler-basecolor.webp"
       }
     },
+    "vehicle-rowboat": {
+      "file": "vehicle-rowboat.glb",
+      "bytes": 745160,
+      "textures": {
+        "basecolor": "vehicle-rowboat-basecolor.webp"
+      }
+    },
     "vehicle-sidecar": {
       "file": "vehicle-sidecar.glb",
       "bytes": 751854,

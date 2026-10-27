@@ -32,7 +32,7 @@ export const VEHICLE_KINDS = [
 
 export const VEHICLE_KIND_TABLE = createIdTable<VehicleKind>(VEHICLE_KINDS);
 
-export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar';
+export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar' | 'rowboat';
 
 /** The kinds the M5 core builds. Rowboat and biplane follow after the owner's test. */
 export const DRIVABLE_VEHICLE_KINDS: readonly DrivableVehicleKind[] = [
@@ -40,6 +40,7 @@ export const DRIVABLE_VEHICLE_KINDS: readonly DrivableVehicleKind[] = [
   'coconut_tank',
   'badi_flamingo',
   'sidecar',
+  'rowboat',
 ];
 
 export function isDrivableKind(kind: VehicleKind): kind is DrivableVehicleKind {
@@ -175,6 +176,22 @@ const TANK_DRIVE = {
 const TANK_HALF_EXTENTS: Vec3 = { x: 1.4, y: 0.85, z: 2.3 };
 
 export const VEHICLES: Readonly<Record<DrivableVehicleKind, VehicleDefinition>> = {
+  rowboat: {
+    kind: 'rowboat', chassis: 'boat', modelKey: 'vehicle-rowboat',
+    maxHp: 200, respawnSeconds: 20, wreckSeconds: 5,
+    halfExtents: { x: 0.85, y: 0.42, z: 1.8 }, hitSphere: null,
+    maxForwardSpeed: 8, maxReverseSpeed: 3, acceleration: 5, braking: 7,
+    coastDrag: 1.2, turnRate: 1.3, turnResponse: 4, lateralGrip: 4,
+    maxSlope: 28 * DEG, stepHeight: 0.15, fordDepth: 0,
+    ram: { weaponId: 'vehicle_blast', minSpeed: 100, fullSpeed: 100, minDamage: 0, maxDamage: 0, launchHorizontal: 3, launchVertical: 2 },
+    seats: [
+      { driver: true, gunner: false, handWeapons: true, exposed: true, anchor: { x: 0, y: -0.48, z: 0.55 } },
+      { driver: false, gunner: false, handWeapons: true, exposed: true, anchor: { x: 0, y: -0.48, z: -0.6 } },
+    ],
+    weapon: null, armor: { bullet: 1, explosive: 1 },
+    // Sprint is synthesized by the server only after both rowers hit a beat.
+    boost: { speedScale: 2, seconds: 0.65, cooldownSeconds: 0.78 },
+  },
   fondue_crawler: {
     kind: 'fondue_crawler',
     chassis: 'tracked',
@@ -382,6 +399,16 @@ export const VEHICLE_BEACHED_SECONDS = 10;
 export const VEHICLE_WRECK_BLAST = { damage: 55, radius: 6, crewDamage: 40, crewLaunch: 9 } as const;
 /** Horn cooldown (s). */
 export const VEHICLE_HORN_COOLDOWN = 0.9;
+/** Rowers tap W together every 0.8 seconds, within 0.14 s of the beat. */
+export const ROWBOAT_RHYTHM = { seconds: 0.8, toleranceSeconds: 0.14 } as const;
+export const VEHICLE_REPAIR = { range: 3.5, hpPerSecond: 40 } as const;
+
+/** Beat nearest a physics tick; shared by the authoritative rhythm and its HUD. */
+export function rowingBeat(tick: number): { beat: number; aligned: boolean; phase: number } {
+  const period = vehicleTicks(ROWBOAT_RHYTHM.seconds);
+  const beat = Math.round(tick / period);
+  return { beat, aligned: Math.abs(tick - beat * period) <= vehicleTicks(ROWBOAT_RHYTHM.toleranceSeconds), phase: (tick % period) / period };
+}
 
 export function vehicleDefinition(kind: DrivableVehicleKind): VehicleDefinition {
   return VEHICLES[kind];

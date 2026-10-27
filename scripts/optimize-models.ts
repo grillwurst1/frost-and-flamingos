@@ -96,6 +96,7 @@ const MODEL_TUNING: Readonly<Record<string, ModelTuning>> = {
   'vehicle-coconut-tank': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
   'vehicle-flamingo-boat': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
   'vehicle-sidecar': { baseSize: 1024, maxTriangles: 8000, keepNormal: false },
+  'vehicle-rowboat': { baseSize: 1536, maxTriangles: 12000, keepNormal: false },
 };
 
 interface BakeEntry {
@@ -308,7 +309,7 @@ function externalizeImages(parts: GlbParts, key: string): Array<[string, Uint8Ar
 }
 
 async function run(args: string[]): Promise<void> {
-  const proc = Bun.spawn(['bunx', CLI, ...args], { stdout: 'pipe', stderr: 'pipe' });
+  const proc = Bun.spawn([process.execPath, 'x', CLI, ...args], { stdout: 'pipe', stderr: 'pipe' });
   const [code, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
   if (code !== 0) throw new Error(`gltf-transform ${args[0]} failed (${code}):\n${stderr}`);
 }

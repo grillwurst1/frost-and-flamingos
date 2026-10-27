@@ -964,7 +964,7 @@ export class MatchRoom {
     // Mascots and drifters carry no firearms.
     if (player.character.form || !capabilitiesOf(player).armed) return;
     // Only seats that keep their hands free (commander hatch, sidecar tub) fire the own loadout.
-    if (!this.vehicles.mayUseHandWeapons(player.id)) return;
+    if (!this.vehicles.mayUseHandWeapons(player.id) || (player.lastInput.buttons & InputButton.Wrench) !== 0) return;
     const weaponId = weaponForSlot(player.profile.loadout, player.activeSlot);
     const stats = WEAPON_STATS[weaponId];
     if (stats.fireMode === 'melee' && stats.damage <= 0) return;

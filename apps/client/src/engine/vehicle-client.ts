@@ -7,6 +7,7 @@ import {
   InputButton,
   VEHICLE_ENTER_HEIGHT,
   VEHICLE_ENTER_RANGE,
+  VEHICLE_REPAIR,
   VEHICLE_FLAG,
   VEHICLE_KIND_TABLE,
   VEHICLE_SLOTS,
@@ -16,6 +17,7 @@ import {
   distanceToHull,
   isDrivableKind,
   mayEnterVehicle,
+  rowingBeat,
   surfaceTagAt,
   vehicleLocalToWorld,
   vehicleTicks,
@@ -101,6 +103,7 @@ interface VehicleEntry {
   render: { position: Vec3; yaw: number; forwardSpeed: number; turretYaw: number; turretPitch: number; steer: number; speed: number };
   dustTimer: number;
   smokeTimer: number;
+  rowSoundTimer: number;
   wreck: boolean;
 }
 
@@ -155,7 +158,7 @@ export interface OnFootState {
 }
 
 export function cameraProfileForVehicle(kind: DrivableVehicleKind): CameraProfile {
-  if (kind === 'badi_flamingo') return BOAT_CAMERA;
+  if (kind === 'badi_flamingo' || kind === 'rowboat') return BOAT_CAMERA;
   if (kind === 'sidecar') return SIDECAR_CAMERA;
   return TANK_CAMERA;
 }
@@ -182,6 +185,7 @@ export function vehicleStateFromSnapshot(vehicle: VehicleSnapshot): VehicleMotor
 
 function seatKey(definition: VehicleDefinition, index: number): TranslationKey {
   const seat = definition.seats[index];
+  if (definition.kind === 'rowboat') return 'vehicles.seats.rower';
   if (!seat) return 'vehicles.seats.driver';
   if (seat.driver && seat.gunner) return 'vehicles.seats.driverGunner';
   if (seat.driver) return definition.chassis === 'boat' ? 'vehicles.seats.pilot' : 'vehicles.seats.driver';
@@ -209,6 +213,8 @@ export class VehicleClient {
   private promptShown = false;
   private enginesOn = new Set<number>();
   private localId: number | null = null;
+  private rhythmClock = { tick: 0, receivedAt: 0 };
+  private nextRepairSoundAt = 0;
   /**
    * Hook: first avatar a shot segment passes (origin, unit direction, max
    * distance), as its hit point, or null. Set by GameClient.
@@ -251,6 +257,7 @@ export class VehicleClient {
   /** Hook: every snapshot (before the character reconcile). */
   onSnapshot(snapshot: WorldSnapshot, localId: number | null, now: number): void {
     this.localId = localId;
+    this.rhythmClock = { tick: snapshot.serverTick * 2, receivedAt: now };
     const seen = new Set<number>();
     let seat: LocalSeat | null = null;
     for (const vehicle of snapshot.vehicles) {
@@ -261,6 +268,10 @@ export class VehicleClient {
       if (!entry || entry.kind !== kind) {
         if (entry) this.removeEntry(entry);
         entry = this.createEntry(vehicle, kind);
+      }
+      if (vehicle.health > entry.latest.health && now >= this.nextRepairSoundAt
+        && (this.input?.buttons() ?? 0) & InputButton.Wrench) {
+        audio.playWrench(vehicle.position); this.nextRepairSoundAt = now + 400;
       }
       entry.latest = vehicle;
       entry.lastSeenAt = now;
@@ -335,7 +346,8 @@ export class VehicleClient {
     );
     const yawError = Math.abs(shortestAngle(reference.yaw, authoritative.yaw));
     this.predictionError = error;
-    if (error <= RECONCILE_POSITION && yawError <= RECONCILE_YAW) return;
+    const rowingChanged = entry.kind === 'rowboat' && (reference.boostTicks > 0) !== (authoritative.boostTicks > 0);
+    if (error <= RECONCILE_POSITION && yawError <= RECONCILE_YAW && !rowingChanged) return;
     if (error > HARD_SNAP) this.pending = [];
     const first = this.pending[0];
     entry.body.restore(authoritative, first?.previousDriver ?? entry.body.driverButtons, first?.previousGunner ?? entry.body.gunnerButtons);
@@ -360,7 +372,7 @@ export class VehicleClient {
     if (!seat) return input;
     const entry = this.entries.get(seat.vehicleId);
     if (!entry) return input;
-    let sent = input;
+    let sent = entry.kind === 'rowboat' ? { ...input, buttons: input.buttons & ~InputButton.Sprint } : input;
     if (seat.gunner) {
       const aim = this.turretAim(entry, camera);
       if (aim) sent = { ...input, yaw: aim.yaw, pitch: aim.pitch };
@@ -488,6 +500,7 @@ export class VehicleClient {
       entry.view.update(
         delta,
         {
+          seats: entry.latest.seats,
           position: entry.render.position,
           yaw: entry.render.yaw,
           forwardSpeed: entry.render.forwardSpeed,
@@ -503,6 +516,11 @@ export class VehicleClient {
       );
       this.groundIgnore = undefined;
       this.motionFx(entry, delta);
+      if (audible && entry.kind === 'rowboat' && !entry.wreck && entry.render.speed > 0.3
+        && entry.latest.seats.some(id => id !== 0) && Vector3.DistanceSquared(cameraPosition, entry.view.root.position) < 55 * 55) {
+        entry.rowSoundTimer -= delta;
+        if (entry.rowSoundTimer <= 0) { entry.rowSoundTimer = 0.8; audio.playSwimStroke(entry.render.position); }
+      }
     }
     this.updateShots(delta, cameraPosition);
     if (audible) {
@@ -556,7 +574,7 @@ export class VehicleClient {
   private updateEngines(cameraPosition: Vector3): void {
     const candidates: Array<{ entry: VehicleEntry; distance: number }> = [];
     for (const entry of this.entries.values()) {
-      if (entry.wreck) continue;
+      if (entry.wreck || entry.kind === 'rowboat') continue;
       const crewed = entry.latest.seats[0] !== 0 || entry.id === this.predictedId;
       if (!crewed) continue;
       const position = entry.render.position;
@@ -580,6 +598,7 @@ export class VehicleClient {
   /** "Board the …" prompt while on foot next to a free, allowed seat. */
   private updatePrompt(onFoot: OnFootState | null): void {
     let key: TranslationKey | null = null;
+    let repair = false;
     // Same rule as the server seat gate: alive, on foot, a class that may ride (classMayUseVehicles).
     if (onFoot && onFoot.alive && classMayUseVehicles(onFoot.classId) && !this.seat) {
       let best = Number.POSITIVE_INFINITY;
@@ -588,17 +607,21 @@ export class VehicleClient {
         const position = entry.render.position;
         if (Math.abs(onFoot.position.y - position.y) > VEHICLE_ENTER_HEIGHT) continue;
         const distance = distanceToHull(entry.definition, position, entry.render.yaw, onFoot.position);
-        if (distance > VEHICLE_ENTER_RANGE || distance >= best) continue;
-        if (!entry.latest.seats.some((id) => id === 0)) continue;
+        if (distance > VEHICLE_REPAIR.range || distance >= best) continue;
         const slot = VEHICLE_SLOTS.find((candidate) => candidate.id === entry.id);
         const crew = this.crewFaction(entry);
         if (!mayEnterVehicle(slot?.spawn.faction ?? null, crew, onFoot.faction)) continue;
+        const free = entry.latest.seats.some(id => id === 0);
+        const damaged = entry.latest.health < entry.definition.maxHp;
+        const repairing = ((this.input?.buttons() ?? 0) & InputButton.Wrench) !== 0;
+        if ((!free || distance > VEHICLE_ENTER_RANGE) && !damaged) continue;
         best = distance;
-        key = `vehicles.enter.${entry.kind}` as TranslationKey;
+        repair = damaged && (repairing || !free || distance > VEHICLE_ENTER_RANGE);
+        key = repair ? 'vehicles.hud.repair' : `vehicles.enter.${entry.kind}` as TranslationKey;
       }
     }
     if (key) {
-      setInteractionPrompt({ key, keyLabel: 'vehicles.keys.enter' });
+      setInteractionPrompt({ key, keyLabel: repair ? 'vehicles.keys.repair' : 'vehicles.keys.enter', icon: repair ? 'wrench' : undefined });
       this.promptShown = true;
     } else if (this.promptShown) {
       setInteractionPrompt(null);
@@ -683,11 +706,15 @@ export class VehicleClient {
       handWeapons: seat.handWeapons,
       weaponId: weapon && seat.gunner ? weapon.id : null,
       weaponReady: weapon ? 1 - Math.min(1, state.weaponCooldownTicks / cooldownTicks) : 1,
-      boost: boost && seat.driver
+      boost: boost && seat.driver && entry.kind !== 'rowboat'
         ? { active: state.boostTicks > 0, ready: 1 - Math.min(1, state.boostCooldownTicks / vehicleTicks(boost.cooldownSeconds)) }
         : null,
       beached: state.beached,
       speedKmh: Math.round(Math.hypot(state.velocity.x, state.velocity.z) * 3.6),
+      rowing: entry.kind === 'rowboat' ? {
+        phase: rowingBeat(this.rhythmClock.tick + (performance.now() - this.rhythmClock.receivedAt) * 0.06).phase,
+        active: state.boostTicks > 0,
+      } : null,
     });
   }
 
@@ -942,6 +969,7 @@ export class VehicleClient {
       },
       dustTimer: 0,
       smokeTimer: 0,
+      rowSoundTimer: 0,
       wreck: false,
     };
     this.entries.set(vehicle.id, entry);

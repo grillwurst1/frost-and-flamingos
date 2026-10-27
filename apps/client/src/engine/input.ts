@@ -25,6 +25,8 @@ export class InputController {
   private readonly handlers: InputHandlers;
   private readonly pressed = new Set<string>();
   private readonly mouseButtons = new Set<number>();
+  /** Short taps survive a slow render frame until simulation samples them. */
+  private queuedButtons = 0;
   private locked = false;
   private crouchToggle = false;
   private crouchPulseUntil = 0;
@@ -117,7 +119,15 @@ export class InputController {
     if (this.pressed.has('KeyT')) mask |= InputButton.Skill3OrTaunt;
     // Vehicle horn (H) travels on the otherwise unused Heal bit.
     if (this.pressed.has('KeyH')) mask |= InputButton.Heal;
-    return mask;
+    if (this.pressed.has('KeyX')) mask |= InputButton.Wrench;
+    return mask | this.queuedButtons;
+  }
+
+  consumeButtonEdges(): void { this.queuedButtons = 0; }
+
+  clearButtons(): void {
+    this.pressed.clear(); this.mouseButtons.clear(); this.queuedButtons = 0;
+    this.crouchPulseUntil = 0;
   }
 
   dispose(): void {
@@ -138,6 +148,12 @@ export class InputController {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    const target = event.target;
+    if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+    if (!event.repeat) {
+      const edge = KEY_EDGES[event.code] ?? (this.vehicleMode && event.code === 'KeyW' ? InputButton.Forward : 0);
+      this.queuedButtons |= edge;
+    }
     if (event.code === 'F1') {
       event.preventDefault();
       this.handlers.onToggleDebug();
@@ -160,6 +176,7 @@ export class InputController {
     }
     if (event.code === 'KeyC' && !event.repeat && this.vehicleMode) {
       this.crouchPulseUntil = performance.now() + 130;
+      this.queuedButtons |= InputButton.Crouch;
       return;
     }
     if (event.code === 'KeyC' && !event.repeat) {
@@ -168,6 +185,7 @@ export class InputController {
       if (sprinting && forward) {
         // A crouch tap during a forward sprint is the dodge-roll gesture.
         this.crouchPulseUntil = performance.now() + 130;
+        this.queuedButtons |= InputButton.Crouch;
       } else {
         this.crouchToggle = !this.crouchToggle;
       }
@@ -251,16 +269,14 @@ export class InputController {
   };
 
   private readonly handleBlur = (): void => {
-    this.pressed.clear();
-    this.mouseButtons.clear();
+    this.clearButtons();
     this.scoreboardHeld = false;
     this.handlers.onScoreboard(false);
   };
 
   private readonly handleVisibility = (): void => {
     if (document.hidden) {
-      this.pressed.clear();
-      this.mouseButtons.clear();
+      this.clearButtons();
     }
   };
 
@@ -268,3 +284,9 @@ export class InputController {
     event.preventDefault();
   };
 }
+
+const KEY_EDGES: Readonly<Record<string, number>> = {
+  Space: InputButton.Jump, KeyF: InputButton.Interact, KeyR: InputButton.Reload,
+  KeyQ: InputButton.Skill1, KeyE: InputButton.Skill2, KeyT: InputButton.Skill3OrTaunt,
+  KeyH: InputButton.Heal, KeyX: InputButton.Wrench,
+};

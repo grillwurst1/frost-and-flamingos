@@ -11,6 +11,7 @@ import {
   VEHICLE_ENTER_RANGE,
   VEHICLE_FLAG,
   VEHICLE_HORN_COOLDOWN,
+  VEHICLE_REPAIR,
   VEHICLE_KIND_TABLE,
   VEHICLE_SLOTS,
   VEHICLE_WRECK_BLAST,
@@ -25,6 +26,7 @@ import {
   exitCandidates,
   mayEnterVehicle,
   rayVehicleHull,
+  rowingBeat,
   sampleMapHeight,
   vehicleLocalToWorld,
   vehicleSlotActive,
@@ -109,6 +111,8 @@ interface VehicleRecord {
   /** Last driver and the tick they left the wheel (a coasting hull still credits them). */
   lastDriverId: number;
   driverLeftTick: number;
+  strokeBeats: [number, number];
+  sprintBeat: number;
 }
 
 interface SeatInput {
@@ -196,6 +200,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   /** Seated player id → vehicle id. */
   private readonly seatOf = new Map<number, { vehicleId: number; seat: number }>();
   private readonly inputs = new Map<number, SeatInput>();
+  private readonly repairInputs = new Map<number, PlayerInput>();
   private readonly projectiles: VehicleProjectile[] = [];
   private towerHeld: TowerHeldQuery = NO_TOWERS_HELD;
   /** Vehicle excluded from the next splash (it already took the direct hit). */
@@ -226,6 +231,8 @@ export class VehicleManager<P extends VehicleOccupant> {
       drowned: false,
       lastDriverId: 0,
       driverLeftTick: -1e9,
+      strokeBeats: [-1, -1],
+      sprintBeat: -1,
     }));
     for (const record of this.records) {
       this.byId.set(record.slot.id, record);
@@ -293,6 +300,7 @@ export class VehicleManager<P extends VehicleOccupant> {
    */
   handleInput(player: P, input: PlayerInput, previousButtons: number, trackButtons: boolean): SeatResult {
     if (!player.alive) return 'none';
+    if (input.buttons & InputButton.Wrench) this.repairInputs.set(player.id, input);
     const seat = this.seatOf.get(player.id);
     if (!seat) {
       if (!trackButtons) return 'none';
@@ -307,6 +315,10 @@ export class VehicleManager<P extends VehicleOccupant> {
     const record = this.byId.get(seat.vehicleId);
     if (!record) return 'none';
     this.inputs.set(player.id, { input, trackButtons });
+    if (record.slot.kind === 'rowboat' && trackButtons && pressed(input.buttons, previousButtons, InputButton.Forward)) {
+      const beat = rowingBeat(this.hooks.physicsTick());
+      if (beat.aligned && seat.seat < 2) record.strokeBeats[seat.seat as 0 | 1] = beat.beat;
+    }
     if (trackButtons) {
       if (pressed(input.buttons, previousButtons, ENTER_BUTTONS)) {
         this.exit(player, record, seat.seat);
@@ -476,11 +488,19 @@ export class VehicleManager<P extends VehicleOccupant> {
       const body = record.body;
       if (!body) continue;
       const driverId = record.seats[0] ?? 0;
-      const driverInput = driverId ? this.inputs.get(driverId) : undefined;
+      let driverInput = driverId ? this.inputs.get(driverId) : undefined;
       const gunnerIndex = record.definition.seats.findIndex((seat) => seat.gunner);
       const gunnerId = gunnerIndex >= 0 ? record.seats[gunnerIndex] ?? 0 : 0;
       const gunnerInput = gunnerId ? this.inputs.get(gunnerId) : undefined;
       const occupied = record.seats.some((id) => id !== 0);
+      if (record.slot.kind === 'rowboat' && driverInput) {
+        const beat = rowingBeat(tick);
+        const synchronized = occupied && record.seats.every(id => id !== 0)
+          && record.strokeBeats.every(stroke => stroke === beat.beat) && record.sprintBeat !== beat.beat;
+        let buttons = driverInput.input.buttons & ~InputButton.Sprint;
+        if (synchronized) { buttons |= InputButton.Sprint; record.sprintBeat = beat.beat; }
+        driverInput = { ...driverInput, input: { ...driverInput.input, buttons } };
+      }
       if (!occupied && body.resting && !record.drowned) {
         this.updateEmptyTimers(record, tick);
         continue;
@@ -489,6 +509,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       body.simulate(driverInput?.input ?? null, gunnerInput?.input ?? null, trackButtons);
       for (const event of body.drainEvents()) {
         if (event.type === 'boost') {
+          if (record.slot.kind === 'rowboat') continue;
           this.hooks.broadcastEvent({
             eventType: 'FLAMINGO_BOOST',
             actorId: driverId,
@@ -507,8 +528,39 @@ export class VehicleManager<P extends VehicleOccupant> {
       this.resolveRams(record, tick);
     }
     this.placeOccupants();
+    this.repairVehicles();
     this.updateProjectiles();
     this.inputs.clear();
+    this.repairInputs.clear();
+  }
+
+  /** Continuous, authoritative repair; X uses the reserved Wrench input bit. */
+  private repairVehicles(): void {
+    if (this.hooks.ceasefire?.()) return;
+    for (const id of this.repairInputs.keys()) {
+      const player = this.hooks.player(id);
+      if (!player?.alive || !classMayUseVehicles(player.profile.cosmetics.classId)) continue;
+      const ownSeat = this.seatOf.get(id);
+      if (ownSeat && !this.mayUseHandWeapons(id)) continue;
+      const feet = player.character.position;
+      let nearest: VehicleRecord | null = null;
+      let nearestDistance: number = VEHICLE_REPAIR.range;
+      for (const record of this.records) {
+        const body = record.body;
+        if (!body || record.lifecycle !== 'active' || record.hp >= record.definition.maxHp) continue;
+        const faction = this.crewFaction(record) ?? record.slot.spawn.faction;
+        if (faction !== null && faction !== player.profile.faction) continue;
+        const distance = distanceToVehicle(record.definition, body.position, body.yaw, feet);
+        if (distance > nearestDistance) continue;
+        const eye = { x: feet.x, y: feet.y + player.character.stats.height * 0.75, z: feet.z };
+        const center = { ...body.position, y: body.position.y + record.definition.halfExtents.y };
+        const length = Math.hypot(center.x - eye.x, center.y - eye.y, center.z - eye.z);
+        const ray = this.physics.raycast(eye, normalizeDirection({ x: center.x - eye.x, y: center.y - eye.y, z: center.z - eye.z }), length, player.character.collider.handle, true);
+        if (ray && ray.distance < length - 0.15) continue;
+        nearest = record; nearestDistance = distance;
+      }
+      if (nearest) nearest.hp = Math.min(nearest.definition.maxHp, nearest.hp + VEHICLE_REPAIR.hpPerSecond * FIXED_DT);
+    }
   }
 
   snapshot(): VehicleSnapshot[] {
@@ -764,6 +816,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       record.driverLeftTick = this.hooks.physicsTick();
     }
     record.seats[index] = 0;
+    if (index < 2) record.strokeBeats[index as 0 | 1] = -1;
     record.seatBodies[index] = null;
     this.seatOf.delete(id);
     this.inputs.delete(id);

@@ -6,7 +6,7 @@
 **Platform:** Browser (WebGPU with WebGL2 fallback), local macOS playtest target  
 **Engine:** Babylon.js v8 · Rapier3D · Bun · Svelte 5  
 **Languages:** English (master dictionary) and German (fully typed translation)  
-**Status:** Milestones 1–4 complete; M5-Kern test build (core of Milestone 5) waiting for the owner's playtest  
+**Status:** Milestones 1–4 and M5 core complete; remaining M5–M8 authorized on 26 October 2026
 **Last updated:** 26 October 2026
 
 This document is the single written record of the game’s direction, content, systems, technical contracts and scope decisions. It intentionally separates **what is implemented**, **what is being implemented**, and **what is a design reference for later milestones**. When the code and this document disagree, the code is the current truth and this document must be corrected.
@@ -1552,7 +1552,7 @@ Accounts, progression, Alpen-Taler, armory rentals, VIP, custom lobbies, ads/rew
 
 Performance, netcode, audio and typecheck pass, final manual, deployment.
 
-**Stop rule (25 October 2026):** the owner tests the M5-Kern build before work resumes; nothing continues until the owner says so.
+**Continuation (26 October 2026):** the owner lifted the previous playtest pause and authorized all remaining milestones. Complete and verify each milestone in order; work serially to conserve usage.
 
 **Do not implement ahead of the gate.** If a feature is written in this document but belongs to a later milestone, it is a reference, not an instruction.
 
@@ -1730,3 +1730,20 @@ Gesicht mit Kiefer, Augen, Nase und Ohren, einzelne Finger, Bartsträhnen, runde
 Die Garderobe bezeichnet den Standard-Reset jetzt als „Standardkleidung anziehen“. Haut- und Haarfarbfelder haben eindeutige Beschriftungen, auch für Tastatur-/Screenreader-Bedienung. Die bestehende Profil-Speicherung und binäre Übertragung bleiben erhalten. Dies ersetzt die frühere Aussage, dass frei kombinierte Oberteile, Hosen und Schuhe nur am einfachen Baukasten-Modell dargestellt werden. Neue M5-Spielmechaniken bleiben pausiert.
 
 Schnelle Mehrfachklicks auf Frisur- und Kleidungspfeile lesen den aktuellen Auswahlwert, statt einen noch nicht aktualisierten UI-Zwischenstand wiederzuverwenden. „Glatze“ erzeugt auch unter Hüten keinen zusätzlichen Haarbüschel. Validierung: 230 automatisierte Tests (10 Skript-, 171 Server-, 49 Client-Tests), TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreicher Produktionsbuild. WebGL2-Browsertests prüfen Vorschau, alle sieben Kleidungsbereiche, Haut-/Haarwahl, Körperbau, Speicherung nach Neuladen, die eigene Figur, eine über das echte binäre Protokoll verbundene Mitspielerfigur und schnelle Auswahlwechsel ohne Konsolenfehler. Der neue Materialshader wurde außerdem unter WebGPU kompiliert. Die Cloud verwendet Software-Rendering; native Mac-FPS und Wärmeentwicklung wurden damit nicht gemessen.
+
+### M5 continuation — boats and repair, 26 October 2026
+
+The prior test pause is lifted. The four authored rowboat slots are now active:
+200 HP, 8 m/s forward, two rowers; tapping W together on the 0.8 s HUD beat gives
+16 m/s strokes. Both strokes must fall within 0.14 s of the same beat. Manual
+Shift cannot bypass the rhythm. Respawn 20 s. Owner-supplied painted hull and
+separate animated oars are the near model; a bounded procedural boat is the LOD.
+
+Vehicle repair uses **hold X**, reserving E for the shipped class skill (supersedes
+the old wrench key in §13). It restores 40 HP/s within 3.5 m, requires a clear world
+ray to a friendly active hull and never exceeds max HP. Armed, damageable players
+on foot or in exposed seats with free hands may repair; drivers with occupied
+hands cannot. Repairing blocks personal firing. M5's other open items remain in
+`MILESTONE_WORK.md`; this is a verified increment, not completion of M5.
+
+Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.

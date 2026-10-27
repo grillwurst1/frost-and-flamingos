@@ -1,8 +1,9 @@
 # Frost & Flamingos — Bullets, Fondue & Coconuts
 
 **Current build:** M5-Kern test build — the core of M5 (Climate Conquest, four vehicles) plus
-painted world, painted soldiers, drifters, mascots and hens. Paused for the owner's playtest.
-**Next:** the rest of M5 (map toys and the remaining vehicles), after the owner's test.
+painted world, configurable soldiers, drifters, mascots and hens.
+**Active work:** completing M5, then M6–M8 in order, authorized by the owner on 26 October.
+Development proceeds serially; see [MILESTONE_WORK.md](MILESTONE_WORK.md).
 
 A clean-room, browser-based third-person multiplayer action-cartoon shooter built with
 **Bun**, **Svelte 5**, **Babylon.js 8** and **Rapier3D**. Two absurd holiday resorts fight
@@ -339,3 +340,21 @@ Gesicht mit Kiefer, Augen, Nase und Ohren, einzelne Finger, Bartsträhnen, runde
 Die Garderobe bezeichnet den Standard-Reset jetzt als „Standardkleidung anziehen“. Haut- und Haarfarbfelder haben eindeutige Beschriftungen, auch für Tastatur-/Screenreader-Bedienung. Die bestehende Profil-Speicherung und binäre Übertragung bleiben erhalten. Dies ersetzt die frühere Aussage, dass frei kombinierte Oberteile, Hosen und Schuhe nur am einfachen Baukasten-Modell dargestellt werden. Neue M5-Spielmechaniken bleiben pausiert.
 
 Schnelle Mehrfachklicks auf Frisur- und Kleidungspfeile lesen den aktuellen Auswahlwert, statt einen noch nicht aktualisierten UI-Zwischenstand wiederzuverwenden. „Glatze“ erzeugt auch unter Hüten keinen zusätzlichen Haarbüschel. Validierung: 230 automatisierte Tests (10 Skript-, 171 Server-, 49 Client-Tests), TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreicher Produktionsbuild. WebGL2-Browsertests prüfen Vorschau, alle sieben Kleidungsbereiche, Haut-/Haarwahl, Körperbau, Speicherung nach Neuladen, die eigene Figur, eine über das echte binäre Protokoll verbundene Mitspielerfigur und schnelle Auswahlwechsel ohne Konsolenfehler. Der neue Materialshader wurde außerdem unter WebGPU kompiliert. Die Cloud verwendet Software-Rendering; native Mac-FPS und Wärmeentwicklung wurden damit nicht gemessen.
+
+### M5 resumed: rowing and repairs (26 October 2026)
+
+Four two-seat rowboats now spawn at the harbour piers and waterfall. W/S rows,
+A/D steers, F boards/exits and C changes seats. Normal top speed is 8 m/s; both
+rowers tapping W on the 0.8-second HUD beat trigger 16 m/s synchronized strokes.
+Shift alone cannot trigger this sprint. Boats have 200 HP and a 20-second respawn.
+The owner's painted boat is split into a hull and two animated oars, reduced to
+11,846 triangles with one shared 1536 px colour texture; distant/loading boats
+use a bounded, detailed procedural hull with oars.
+
+Hold X within 3.5 m to repair a friendly vehicle at 40 HP/s. Exposed passengers
+can repair while riding; drivers with occupied hands cannot. Walls, faction,
+class eligibility and health limits are checked on the server. Repairing prevents
+firing. E remains the class skill. M5 remains in progress; remaining work is in
+[MILESTONE_WORK.md](MILESTONE_WORK.md).
+
+Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.

@@ -21,6 +21,7 @@ export interface VehicleHudState {
   boost: { active: boolean; ready: number } | null;
   beached: boolean;
   speedKmh: number;
+  rowing: { phase: number; active: boolean } | null;
 }
 
 export const vehicleHud = writable<VehicleHudState | null>(null);

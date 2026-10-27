@@ -436,6 +436,8 @@ export const en = {
     vehicleTurboKey: 'Shift (Badi-Flamingo)',
     vehicleDrift: 'Sidecar handbrake drift',
     vehicleDriftKey: 'Space (sidecar)',
+    vehicleRepair: 'Repair a nearby friendly vehicle',
+    vehicleRepairKey: 'Hold X',
   },
   hud: {
     health: 'Vitality',
@@ -817,18 +819,21 @@ export const en = {
   },
   vehicles: {
     names: {
+      rowboat: 'Wooden rowboat',
       fondue_crawler: 'Fondue Crawler',
       coconut_tank: 'Coconut Beach Tank',
       badi_flamingo: 'Tactical Badi-Flamingo',
       sidecar: 'Sidecar Motorcycle',
     },
     enter: {
+      rowboat: 'Board the rowboat',
       fondue_crawler: 'Climb into the Fondue Crawler',
       coconut_tank: 'Climb into the Coconut Beach Tank',
       badi_flamingo: 'Hop into the Badi-Flamingo',
       sidecar: 'Hop on the sidecar motorcycle',
     },
     seats: {
+      rower: 'Rower',
       driverGunner: 'Driver & cannon',
       driver: 'Driver',
       pilot: 'Pilot',
@@ -838,6 +843,11 @@ export const en = {
       sidecar: 'Sidecar seat',
     },
     hud: {
+      repair: 'Hold to repair',
+      rowingSprint: 'In sync! Double speed',
+      rowingPartner: 'Second rower: tap W together for a sprint',
+      rowingTogether: 'Tap W together when the bar wraps',
+      rowingBeat: 'Rowing rhythm',
       card: 'Vehicle',
       hull: 'Hull',
       seat: 'Seat {index} of {count}',
@@ -859,6 +869,7 @@ export const en = {
       crew: 'Crew',
     },
     keys: {
+      repair: 'X',
       enter: 'F',
       exit: 'F',
       seat: 'C',

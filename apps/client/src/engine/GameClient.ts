@@ -475,6 +475,7 @@ export class GameClient {
         this.qualityGovernor.reset();
       }
       this.currentPhase = next;
+      if (next !== 'playing') this.input?.clearButtons();
       this.applyFrameLimit();
       if (next !== 'playing' && next !== 'deploying') scoreboardOpen.set(false);
       this.look?.setBooting(next === 'booting');
@@ -1625,9 +1626,10 @@ export class GameClient {
     const character = this.localCharacter;
     const camera = this.cameraRig;
     if (!character || !camera || !this.network) return;
-    if (this.latestLocalState && !this.latestLocalState.alive) return;
+    if (this.latestLocalState && !this.latestLocalState.alive) { this.input?.consumeButtonEdges(); return; }
 
     let buttons = this.input?.buttons() ?? 0;
+    this.input?.consumeButtonEdges();
     if (this.devFireSteps > 0) {
       this.devFireSteps -= 1;
       buttons |= InputButton.FirePrimary;
@@ -1714,7 +1716,7 @@ export class GameClient {
     const pressed = (buttons & InputButton.FirePrimary) !== 0;
     const justPressed = pressed && !this.fireHeld;
     this.fireHeld = pressed;
-    if (!pressed) return;
+    if (!pressed || (buttons & InputButton.Wrench) !== 0) return;
     if (!stats.automatic && !justPressed) return;
     if (this.latestLocalState?.reloading) return;
 

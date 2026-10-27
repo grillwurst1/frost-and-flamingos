@@ -36,6 +36,7 @@
     { label: 'controls.vehicleHorn', value: 'controls.vehicleHornKey' },
     { label: 'controls.vehicleTurbo', value: 'controls.vehicleTurboKey' },
     { label: 'controls.vehicleDrift', value: 'controls.vehicleDriftKey' },
+    { label: 'controls.vehicleRepair', value: 'controls.vehicleRepairKey' },
     ...SHARED_ROWS,
   ];
 

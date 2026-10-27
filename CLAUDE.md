@@ -12,13 +12,13 @@ bars on the other. No Battlefield/EA assets, names, maps or audio may be used or
 The project is delivered in milestones. **Only the current milestone may be implemented.**
 Future-milestone code, placeholder gameplay loops and speculative systems are not allowed.
 
-## Current state: M5-Kern test build (stopped for the owner's test)
+## Current state: M5 completion authorized (26 October 2026)
 
-M1–M4 are complete (M4: three weapon slots, server hitbox rollback, nine class skills, four
-named AI bots, kill feed, 10-second live killer cam, procedural combat audio). The owner asked
-to **stop after this build and test it before any further work**. It is the core of M5
-("M5-Kern") plus the art and character packages that landed with it. **Do not start new work
-until the owner says to continue.**
+M1–M4 and the M5 core are complete. On 26 October the owner explicitly authorized
+continuing through the remaining milestones to completion. The previous playtest pause
+is lifted. Finish and verify M5 before implementing M6, then M7 and M8. Work serially,
+keep checks focused, avoid unnecessary repeated work, and push completed, verified
+increments to master. Track the remaining work in `MILESTONE_WORK.md`.
 
 In this build:
 
@@ -272,10 +272,10 @@ Milestone numbering follows the README. Do not implement ahead of the milestone 
   overlays, dynamic billboards, end-of-round podium and rewards.
 - **M8:** final polish, QA, performance/netcode/audio pass and deployment.
 
-The owner first asked for the remaining milestones to be completed autonomously, with a GitHub
-push after each one. Since 25 October the standing instruction is: **stop after the M5-Kern
-test build and wait** — the owner tests it, and work resumes only when the owner says so.
-Update this file, `README.md`, `game-decisions.md` and the German guide before each push.
+The owner authorized all remaining milestones on 26 October 2026, lifting the prior
+M5-Kern playtest pause. Proceed in milestone order without asking for that authorization
+again. Keep development serial to conserve usage. Update this file, `README.md`,
+`game-decisions.md` and the German guide before each push.
 
 
 ### Klarer 3D-Look und Laptop-Budget (26. Oktober 2026)
@@ -321,3 +321,21 @@ Gesicht mit Kiefer, Augen, Nase und Ohren, einzelne Finger, Bartsträhnen, runde
 Die Garderobe bezeichnet den Standard-Reset jetzt als „Standardkleidung anziehen“. Haut- und Haarfarbfelder haben eindeutige Beschriftungen, auch für Tastatur-/Screenreader-Bedienung. Die bestehende Profil-Speicherung und binäre Übertragung bleiben erhalten. Dies ersetzt die frühere Aussage, dass frei kombinierte Oberteile, Hosen und Schuhe nur am einfachen Baukasten-Modell dargestellt werden. Neue M5-Spielmechaniken bleiben pausiert.
 
 Schnelle Mehrfachklicks auf Frisur- und Kleidungspfeile lesen den aktuellen Auswahlwert, statt einen noch nicht aktualisierten UI-Zwischenstand wiederzuverwenden. „Glatze“ erzeugt auch unter Hüten keinen zusätzlichen Haarbüschel. Validierung: 230 automatisierte Tests (10 Skript-, 171 Server-, 49 Client-Tests), TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreicher Produktionsbuild. WebGL2-Browsertests prüfen Vorschau, alle sieben Kleidungsbereiche, Haut-/Haarwahl, Körperbau, Speicherung nach Neuladen, die eigene Figur, eine über das echte binäre Protokoll verbundene Mitspielerfigur und schnelle Auswahlwechsel ohne Konsolenfehler. Der neue Materialshader wurde außerdem unter WebGPU kompiliert. Die Cloud verwendet Software-Rendering; native Mac-FPS und Wärmeentwicklung wurden damit nicht gemessen.
+
+### M5 continuation: rowboats and vehicle repair
+
+The owner lifted the playtest pause and authorized all remaining milestones.
+Four rowboats are now active in the existing vehicle system (wire kind already
+reserved, no packet-layout change). Two crew, 200 HP, 8 m/s, synchronized 16 m/s
+strokes on a 0.8 s beat, authoritative timing and matching HUD. Source Meshy boat
+is processed into hull/oar-left/oar-right; 11,846 triangles, 1536 px shared paint,
+no normal texture. A detailed procedural fallback keeps loading/missing assets
+functional. Only nearby/on-screen boats request the painted model. Model tooling
+uses the current Bun executable's `x` command, requiring no separate bunx binary.
+
+X holds vehicle repair (40 HP/s, 3.5 m, world line of sight, friendly hulls only,
+armed/damageable classes; exposed hand-weapon seats can repair). E remains skill 2.
+Repair cannot exceed max HP or be combined with firing. Beat state resets when a
+seat is freed. Remainder of M5 stays active; do not advance to M6 until it passes.
+
+Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.

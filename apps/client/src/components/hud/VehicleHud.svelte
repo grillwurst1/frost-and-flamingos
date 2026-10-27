@@ -62,6 +62,13 @@
       <div class="vehicle-warning">{$t('vehicles.hud.beached')}</div>
     {/if}
 
+    {#if hud.rowing}
+      <div class="rowing-rhythm" class:is-synced={hud.rowing.active}>
+        <span>{hud.rowing.active ? $t('vehicles.hud.rowingSprint') : hud.crew < 2 ? $t('vehicles.hud.rowingPartner') : $t('vehicles.hud.rowingTogether')}</span>
+        <progress max="1" value={hud.rowing.phase} aria-label={$t('vehicles.hud.rowingBeat')}></progress>
+      </div>
+    {/if}
+
     <div class="vehicle-keys">
       <span><kbd>{$t('vehicles.keys.exit')}</kbd> {$t('vehicles.hud.exit')}</span>
       {#if hud.seatCount > 1}
@@ -73,11 +80,17 @@
       {#if hud.driver && hud.kind === 'sidecar'}
         <span><kbd>{$t('vehicles.keys.drift')}</kbd> {$t('vehicles.hud.drift')}</span>
       {/if}
+      {#if hud.handWeapons && hud.hp < hud.maxHp}
+        <span><kbd>{$t('vehicles.keys.repair')}</kbd> {$t('vehicles.hud.repair')}</span>
+      {/if}
     </div>
   </div>
 {/if}
 
 <style>
+  .rowing-rhythm { display: grid; gap: 0.2rem; padding: 0.3rem; background: #efddb5; border-radius: 0.3rem; }
+  .rowing-rhythm progress { width: 100%; height: 0.7rem; accent-color: #2f927d; }
+  .rowing-rhythm.is-synced { background: #a9e4b7; }
   .vehicle-card {
     position: absolute;
     right: 1.3rem;

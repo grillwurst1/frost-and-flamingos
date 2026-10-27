@@ -16,6 +16,7 @@ import { registerPaintedModel } from './glb/catalog';
 import { paintedModelLibrary } from './glb/library';
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { PartList } from './glb/props';
+import { buildRowboat, type RowboatModel } from './rowboat';
 
 /**
  * Renders one drivable vehicle with the owner's painted Meshy model through
@@ -45,6 +46,7 @@ for (const definition of Object.values(VEHICLES)) {
 }
 
 export interface VehicleViewPose {
+  seats?: readonly number[];
   position: Vec3;
   yaw: number;
   /** Signed ground speed along the hull (wheel spin). */
@@ -86,6 +88,8 @@ export class VehicleView {
   private barrel: TransformNode | null = null;
   private steerNode: TransformNode | null = null;
   private readonly wheels: Wheel[] = [];
+  private rowboat: RowboatModel | null = null;
+  private readonly paintedOars: RowboatModel['oars'] = [];
   private pitch = 0;
   private roll = 0;
   private wheelAngle = 0;
@@ -105,7 +109,7 @@ export class VehicleView {
     this.tilt = new TransformNode(`vehicle-${kind}-tilt`, scene);
     this.tilt.parent = this.root;
     this.material = createGlbMaterial(scene, `vehicle-${kind}-paint`, null);
-    this.fallbackMaterial = createGlbMaterial(scene, `vehicle-${kind}-standin`, null);
+    this.fallbackMaterial = createGlbMaterial(scene, `vehicle-${kind}-standin`, null, { soft: kind === 'rowboat' });
     this.lastPose = {
       position: { x: 0, y: 0, z: 0 },
       yaw: 0,
@@ -156,6 +160,8 @@ export class VehicleView {
       return;
     }
     this.entries = entries;
+    for (const oar of this.rowboat?.oars ?? []) oar.pivot.dispose();
+    this.rowboat = null;
     // Swap the vertex-colour stand-in for the painted texture set.
     const painted = createGlbMaterial(this.scene, `vehicle-${this.kind}-painted`, textures);
     this.material.dispose();
@@ -171,6 +177,10 @@ export class VehicleView {
       if (name === 'ff-turret') this.turret = node;
       else if (name === 'ff-barrel') this.barrel = node;
       else if (name === 'ff-steer') this.steerNode = node;
+      else if (name === 'ff-oar-left' || name === 'ff-oar-right') {
+        node.rotationQuaternion = null;
+        this.paintedOars.push({ pivot: node, side: name.endsWith('left') ? -1 : 1, row: name.endsWith('left') ? 0 : 1 });
+      }
       const wheel = /^ff-(?:wheel|front)\d+-r(\d+)$/.exec(name);
       if (wheel?.[1]) this.wheels.push({ node, radius: Math.max(0.05, Number(wheel[1]) / 100) });
     }
@@ -183,6 +193,11 @@ export class VehicleView {
 
   /** Box hull + turret stand-in in the vehicle's palette (loading / missing model). */
   private buildFallback(): void {
+    if (this.kind === 'rowboat') {
+      this.rowboat = buildRowboat(this.scene, this.fallbackMaterial, this.tilt);
+      this.fallback = this.rowboat.hull;
+      return;
+    }
     const parts = new PartList(this.scene);
     const half = this.definition.halfExtents;
     const palette: Record<DrivableVehicleKind, [string, string]> = {
@@ -190,6 +205,7 @@ export class VehicleView {
       coconut_tank: ['#5a6b2c', '#7a5230'],
       badi_flamingo: ['#ff6fb5', '#f4e8f0'],
       sidecar: ['#c8702a', '#b9c2c8'],
+      rowboat: ['#885b32', '#c79255'],
     };
     const [main, accent] = palette[this.kind];
     if (this.definition.chassis === 'boat') {
@@ -210,7 +226,7 @@ export class VehicleView {
   }
 
   get loaded(): boolean {
-    return this.entries !== null;
+    return this.kind === 'rowboat' || this.entries !== null;
   }
 
   /**
@@ -259,7 +275,7 @@ export class VehicleView {
     this.pitch += (targetPitch - this.pitch) * alpha;
     this.roll += (targetRoll - this.roll) * alpha;
 
-    if (pose.wreck && this.definition.chassis === 'boat') {
+    if (pose.wreck && this.kind === 'badi_flamingo') {
       // 0 HP balloon: the flamingo zooms off in a wild zigzag and shrinks away.
       this.balloon += dt;
       const t = this.balloon;
@@ -267,10 +283,21 @@ export class VehicleView {
       this.tilt.rotation.set(Math.sin(t * 9) * 0.6, t * 6.5, Math.cos(t * 8) * 0.5);
       this.tilt.scaling.setAll(Math.max(0.05, 1 - t * 0.22));
     } else {
-      this.balloon = 0;
+      if (!pose.wreck || this.kind !== 'rowboat') this.balloon = 0;
       this.tilt.position.set(0, lift, 0);
       this.tilt.rotation.set(this.pitch, 0, this.roll);
       this.tilt.scaling.setAll(1);
+      if (pose.wreck && this.kind === 'rowboat') {
+        this.balloon += dt;
+        this.tilt.position.y -= this.balloon * 0.25;
+        this.tilt.rotation.z += Math.min(0.6, this.balloon * 0.18);
+      }
+    }
+    for (const oar of this.paintedOars.length ? this.paintedOars : this.rowboat?.oars ?? []) {
+      const rowing = !pose.wreck && Math.abs(pose.forwardSpeed) > 0.2 && (pose.seats?.[oar.row] ?? 1) !== 0;
+      const stroke = this.time * Math.PI * 2 / 0.8;
+      oar.pivot.rotation.y = rowing ? Math.sin(stroke) * oar.side * 0.45 : oar.side * 0.45;
+      oar.pivot.rotation.z = rowing ? Math.cos(stroke) * oar.side * 0.14 : oar.side * 0.08;
     }
 
     // Parts (the glTF root mirrors X: yaws are negated, pitches keep their sign).

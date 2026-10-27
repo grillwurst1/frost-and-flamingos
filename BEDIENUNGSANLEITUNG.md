@@ -813,3 +813,26 @@ Gesicht mit Kiefer, Augen, Nase und Ohren, einzelne Finger, Bartsträhnen, runde
 Die Garderobe bezeichnet den Standard-Reset jetzt als „Standardkleidung anziehen“. Haut- und Haarfarbfelder haben eindeutige Beschriftungen, auch für Tastatur-/Screenreader-Bedienung. Die bestehende Profil-Speicherung und binäre Übertragung bleiben erhalten. Dies ersetzt die frühere Aussage, dass frei kombinierte Oberteile, Hosen und Schuhe nur am einfachen Baukasten-Modell dargestellt werden. Neue M5-Spielmechaniken bleiben pausiert.
 
 Schnelle Mehrfachklicks auf Frisur- und Kleidungspfeile lesen den aktuellen Auswahlwert, statt einen noch nicht aktualisierten UI-Zwischenstand wiederzuverwenden. „Glatze“ erzeugt auch unter Hüten keinen zusätzlichen Haarbüschel. Validierung: 230 automatisierte Tests (10 Skript-, 171 Server-, 49 Client-Tests), TypeScript/Svelte ohne Fehler oder Warnungen und erfolgreicher Produktionsbuild. WebGL2-Browsertests prüfen Vorschau, alle sieben Kleidungsbereiche, Haut-/Haarwahl, Körperbau, Speicherung nach Neuladen, die eigene Figur, eine über das echte binäre Protokoll verbundene Mitspielerfigur und schnelle Auswahlwechsel ohne Konsolenfehler. Der neue Materialshader wurde außerdem unter WebGPU kompiliert. Die Cloud verwendet Software-Rendering; native Mac-FPS und Wärmeentwicklung wurden damit nicht gemessen.
+
+
+### Fortsetzung der Entwicklung (26. Oktober 2026)
+
+Der Besitzer hat die Testpause aufgehoben. Die restlichen Funktionen von M5 werden nun fertiggestellt und geprüft; danach folgen M6, M7 und M8 in dieser Reihenfolge. Der genaue Arbeitsstand steht in `MILESTONE_WORK.md`. Bestehende Beschreibungen des pausierten Test-Builds dokumentieren den vorherigen Stand.
+
+### Ruderboote und Reparaturen (M5-Fortsetzung)
+
+An den drei Hafenstegen und unter dem Wasserfall stehen vier Ruderboote für je
+zwei Personen. F steigt ein/aus, C wechselt den Platz. W/S rudert, A/D lenkt.
+Allein fährt das Boot bis 8 m/s. Tippt zu zweit W gemeinsam an, wenn der Taktbalken
+neu beginnt (alle 0,8 Sekunden), für Ruderschläge mit bis zu 16 m/s. Umschalt
+löst diesen Sprint nicht aus. Das Boot hat 200 Strukturpunkte und erscheint nach
+Zerstörung nach 20 Sekunden wieder. Die Ruder des gemalten Bootsmodells bewegen
+sich während der Fahrt; die Taktanzeige sagt, ob ein zweiter Ruderer fehlt.
+
+**X halten** repariert nahe eigene Fahrzeuge mit 40 Strukturpunkten pro Sekunde,
+solange sie höchstens 3,5 Meter entfernt und nicht hinter einer Wand stehen.
+Reparaturen funktionieren auch in Passagierplätzen mit freien Händen. Fahrer,
+die beide Hände zur Steuerung brauchen, können nicht gleichzeitig reparieren.
+Beim Reparieren kann nicht geschossen werden. **E bleibt deine Klassenfähigkeit.**
+
+Validation (27 October): 237 automated tests pass (10 scripts, 177 server, 50 client), strict typecheck reports zero errors/warnings, and all production bundles build. The WebGL2 browser test checks the painted hull and moving oars, short-tap boarding, movement, rhythm HUD and actual repair (130 to 137 HP), with no console errors. Short action taps now survive slow render frames until consumed by simulation; inputs in text fields are ignored. No native Mac heat/FPS measurement is claimed.
