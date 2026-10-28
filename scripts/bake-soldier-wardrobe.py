@@ -68,6 +68,12 @@ for v in range(len(p)):
 regions = []
 for n, face in enumerate(faces):
     region = int(np.bincount(vertex_family[face], minlength=8).argmax())
+    if key == 'alpine-allrounder' and region == 7:
+        # This sculpt has separate ankle boots (top < .25 m) and calves/socks
+        # (bottom > .30 m). The old knee-based split called both footwear,
+        # bypassing skin colour and leaving old socks on mixed long trousers.
+        at = p[face].mean(0); side = 'Left' if at[0] > 0 else 'Right'
+        if at[1] > bind[side + 'Foot'][1] + .12: region = 6
     if m['hatSplit'] and region == 2 and p[face, 1].mean() >= hat_cut: region = 1
     regions.append(region)
 

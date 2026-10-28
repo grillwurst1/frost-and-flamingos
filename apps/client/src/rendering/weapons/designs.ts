@@ -3,7 +3,8 @@ import { shadeHex, type Ring, type V3, type WeaponKit } from './kit';
 
 /**
  * The thirteen hero weapons as chunky cartoon props, modelled on the owner's
- * painted icon sheet (`art-out/icons/*.png`): oversized ~1.3-1.6x, clean
+ * painted icon sheet (`art-out/icons/*.png`): compact reference SMG, otherwise
+ * oversized ~1.3-1.6x, clean
  * rounded hard-surface blocks, the icons' colour blocks.
  *
  * GUN SPACE (what the builders below draw in), metres:
@@ -21,8 +22,8 @@ import { shadeHex, type Ring, type V3, type WeaponKit } from './kit';
  *
  * Design notes for the procedural fallback: the pose names and grip axes
  * follow package 1E's weapon table (rifle/hip/pistol/launcher/knife/polearm/
- * umbrella/horn), and several silhouettes adapt its toy designs (finned
- * tommy-gun barrel and drum, ribbed shotgun pump, flamer twin tanks and hose,
+ * umbrella/horn), and several silhouettes adapt its toy designs (compact
+ * box-magazine SMG, ribbed shotgun pump, flamer twin tanks and hose,
  * the alphorn's swept tube and bell) at the icons' larger hero scale.
  */
 
@@ -167,84 +168,53 @@ function bipod(kit: WeaponKit, hex: string, y: number, z: number, length: number
 const HORN_FIST = 0.08;
 
 const DESIGNS: Record<string, WeaponDesign> = {
-  /** Tommy gun: walnut stock and grips, steel receiver, finned barrel, big drum. */
+  /** Compact original SMG: readable steel receiver, box magazine and walnut stock. */
   smg: {
     hold: {
       pose: 'rifle',
       shoulder: [0.22, -0.09, 0.13],
       tilt: 0.04,
       yaw: 0.0,
-      support: [0, 0.01, 0.22],
-      supportBack: [0, 0.04, 0.15],
+      support: [0, 0.058, 0.215],
+      supportBack: [0, 0.058, 0.17],
       gripAxis: [0, -1, -0.3],
       supportAxis: [0, -1, 0.1],
-      butt: -0.29,
-      muzzle: [0, 0.165, 0.7],
+      butt: -0.235,
+      muzzle: [0, 0.12, 0.49],
       muzzleKind: 'bullet',
     },
     preview: { shoulder: [0.09, -0.155, 0.08], tilt: 0.04, yaw: 0.26 },
     build: (kit) => {
-      // Receiver with a top rib and rear sight.
-      kit.box(STEEL, [0.1, 0.125, 0.34], { at: [0, 0.162, 0.08], bevel: 0.026 });
-      kit.box(STEEL_DARK, [0.05, 0.03, 0.2], { at: [0, 0.225, 0.06], bevel: 0.012 });
-      kit.box(STEEL_DARK, [0.03, 0.05, 0.03], { at: [0, 0.245, -0.05], bevel: 0.01 });
-      // Finned barrel and compensator.
-      const fins: Ring[] = [{ z: 0.25, r: 0.03, hex: STEEL_DARK }];
-      for (let fin = 0; fin < 5; fin += 1) {
-        const z = 0.28 + fin * 0.05;
-        fins.push({ z, r: 0.03 }, { z: z + 0.008, r: 0.045 }, { z: z + 0.028, r: 0.045 }, { z: z + 0.036, r: 0.03 });
+      // Bevelled, layered steel catches broad highlights without extra textures.
+      kit.box(STEEL, [.067, .078, .27], { at: [0, .112, .045], bevel: .012 });
+      kit.box(STEEL_DARK, [.047, .012, .23], { at: [0, .157, .035], bevel: .004 });
+      kit.box(STEEL_LIGHT, [.003, .025, .074], { at: [-.035, .128, .068], bevel: .003 });
+      kit.box(BLACK, [.004, .017, .060], { at: [-.037, .13, .070], bevel: .002 });
+      kit.lathe([{ z: -.014, r: .008, hex: STEEL_DARK }, { z: .014, r: .008 }],
+        { at: [.046, .13, .035], rot: [0, HALF_PI, 0], segments: 8, capStart: true, capEnd: true });
+      kit.box(STEEL_DARK, [.023, .027, .022], { at: [0, .17, -.045], bevel: .004 });
+      // Narrow barrel and a recessed muzzle, rather than oversized cooling fins.
+      barrel(kit, STEEL_DARK, .12, .17, .49, .019, 1.18);
+      kit.lathe([{ z: .485, r: .014, hex: BLACK }, { z: .491, r: .014 }],
+        { at: [0, .12, 0], segments: 12, capEnd: true });
+      kit.box(STEEL_DARK, [.012, .030, .016], { at: [0, .155, .455], bevel: .003 });
+      // Box magazine with a reinforced floor and two long stamped ribs.
+      kit.box(STEEL_DARK, [.043, .25, .058], { at: [0, -.04, .105], bevel: .009 });
+      kit.box(BLACK, [.049, .014, .064], { at: [0, -.166, .105], bevel: .004 });
+      for (const z of [.090, .118]) kit.box(STEEL, [.003, .177, .006],
+        { at: [-.023, -.05, z], bevel: .001 });
+      // The support hand seats under the foregrip; grip sockets use these units.
+      kit.box(STEEL_DARK, [.056, .043, .13], { at: [0, .109, .215], bevel: .009 });
+      kit.box(WALNUT, [.066, .057, .108], { at: [0, .062, .215], bevel: .014 });
+      pistolGrip(kit, WALNUT, .09, .20, .052);
+      triggerGuard(kit, STEEL_DARK, .075, .026, .078);
+      kit.extrude(WALNUT, [[-.08, .146], [-.16, .123], [-.23, .10], [-.23, -.035],
+        [-.20, -.038], [-.15, .03], [-.08, .073]], .060, { bevel: .016 });
+      kit.box(WALNUT_DARK, [.058, .139, .012], { at: [0, .034, -.235], bevel: .004 });
+      for (const x of [-.031, .031]) {
+        kit.box(WALNUT_DARK, [.003, .006, .09], { at: [x, .068, .215], bevel: .001 });
+        kit.box(STEEL_LIGHT, [.004, .009, .009], { at: [x, .115, -.13], bevel: .002 });
       }
-      fins.push({ z: 0.58, r: 0.03 }, { z: 0.58, r: 0.04, hard: true, hex: STEEL }, { z: 0.7, r: 0.038 });
-      kit.lathe(fins, { at: [0, 0.165, 0], segments: 10, capEnd: true });
-      kit.box(STEEL_DARK, [0.018, 0.04, 0.026], { at: [0, 0.2, 0.66], bevel: 0.006 });
-      // Drum magazine (axis across the gun) with a raised hub.
-      kit.lathe(
-        [
-          { z: -0.05, r: 0.085, hex: STEEL_DARK },
-          { z: -0.045, r: 0.115, hex: STEEL_LIGHT },
-          { z: -0.034, r: 0.115, hex: STEEL_DARK },
-          { z: 0.034, r: 0.115 },
-          { z: 0.045, r: 0.115, hex: STEEL_LIGHT },
-          { z: 0.05, r: 0.085, hex: STEEL_DARK },
-          { z: 0.045, r: 0.04, hard: true, hex: BRASS },
-          { z: 0.06, r: 0.03 },
-        ],
-        { at: [0, 0.05, 0.135], rot: [0, HALF_PI, 0], segments: 16, capStart: true, capEnd: true },
-      );
-      kit.blob(BRASS, [0.016, 0.034, 0.034], { at: [-0.055, 0.05, 0.135], segments: 8, rings: 4 });
-      // Walnut grips.
-      pistolGrip(kit, WALNUT, 0.11, 0.24, 0.062);
-      kit.lathe(
-        [
-          { z: -0.18, r: 0.03, hex: WALNUT },
-          { z: -0.15, r: 0.036 },
-          { z: -0.13, r: 0.031 },
-          { z: -0.1, r: 0.037 },
-          { z: -0.07, r: 0.031 },
-          { z: -0.04, r: 0.037 },
-          { z: -0.01, r: 0.032 },
-          { z: 0.05, r: 0.028 },
-        ],
-        { at: [0, 0.1, 0.31], rot: [-HALF_PI - 0.14, 0, 0], segments: 10, capStart: true, capEnd: true },
-      );
-      triggerGuard(kit, STEEL_DARK, 0.1, 0.03, 0.1);
-      // Shaped walnut stock with a dark butt plate.
-      kit.extrude(
-        WALNUT,
-        [
-          [-0.08, 0.215],
-          [-0.18, 0.19],
-          [-0.27, 0.15],
-          [-0.29, 0.13],
-          [-0.29, -0.04],
-          [-0.25, -0.05],
-          [-0.17, 0.04],
-          [-0.08, 0.1],
-        ],
-        0.076,
-        { bevel: 0.025 },
-      );
-      kit.box(WALNUT_DARK, [0.07, 0.19, 0.02], { at: [0, 0.045, -0.296], rot: [-0.04, 0, 0], bevel: 0.008 });
     },
   },
 

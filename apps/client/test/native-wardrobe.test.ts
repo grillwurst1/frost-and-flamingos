@@ -344,3 +344,21 @@ test('mixed olive trousers keep the waist closed and calf fabric visible with na
     expect(mesh.subMeshes).toHaveLength(1); expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
   } finally { view.dispose(); }
 });
+
+
+test('the original Alpine calf is skin-bearing leg anatomy rather than fixed-colour footwear', () => {
+  const source = asset.container.meshes.find(m => m.skeleton) as Mesh;
+  const p = source.getVerticesData('position')!, indices = source.getIndices()!, data = asset.wardrobe!;
+  let calfSkin = 0;
+  for (let f = 0; f < data.regions.length; f++) {
+    const vs = [indices[f * 3]!, indices[f * 3 + 1]!, indices[f * 3 + 2]!];
+    const y = vs.reduce((sum, v) => sum + p[v * 3 + 1]!, 0) / 3;
+    if (y > .42 && y < .49 && data.regions[f] === 6) for (const v of vs) if (data.pigment[v] === 1) calfSkin++;
+    if (data.regions[f] === 7) {
+      const x = vs.reduce((sum, v) => sum + p[v * 3]!, 0) / 3;
+      const foot = asset.bindPositions.get(x > 0 ? 'LeftFoot' : 'RightFoot')!;
+      expect(y).toBeLessThanOrEqual(foot.y + .120001);
+    }
+  }
+  expect(calfSkin).toBeGreaterThan(30);
+});

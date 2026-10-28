@@ -1100,3 +1100,10 @@ mit den Original-Bergstiefeln erhalten.
 
 Ein geschlossener Hosenbund liegt jetzt unter gemischten Hemd-/Hosenkombinationen.
 Damit bleibt beim Wechsel der Originalhose keine offene Stelle am Bauch zurück.
+
+
+Die SMG ist kompakter und besitzt jetzt ein Kastenmagazin wie im Zielbild.
+Die linke Hand sitzt am Vordergriff; Schusswerte, Munition und Nachladen bleiben
+gleich. Beim Alpen-Allrounder folgen auch die freiliegenden Waden deiner
+Hautfarbe. Alte Strumpfteile werden beim Wechsel auf lange Hosen nicht mehr
+zusammen mit den Bergstiefeln eingeblendet. Nach dem Update die Seite neu laden.

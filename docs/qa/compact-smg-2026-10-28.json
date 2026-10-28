@@ -1,0 +1,117 @@
+{
+  "date": "2026-10-28",
+  "renderer": "WebGL2 (cloud SwiftShader)",
+  "weaponBefore": {
+    "triangles": 1318,
+    "vertices": 806,
+    "muzzle": [
+      0,
+      0.165,
+      0.7
+    ]
+  },
+  "weaponAfter": {
+    "triangles": 1052,
+    "vertices": 664,
+    "muzzle": [
+      0,
+      0.12,
+      0.49
+    ]
+  },
+  "actualGameplay": {
+    "ammoBefore": 30,
+    "ammoAfterShot": 29,
+    "ammoAfterReload": 30,
+    "browserErrors": [],
+    "visibleNames": [
+      "GipfelRanger",
+      "Wuzzi",
+      "Senn_Koloss",
+      "RoofSniper77",
+      "Angry_Cow_Beta"
+    ]
+  },
+  "figureViews": [
+    {
+      "triangles": 25880,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "muzzle": [
+        -1.5688447952270508,
+        1.1723802089691162,
+        0.6275284886360168
+      ],
+      "weapon": {
+        "vertices": 664,
+        "triangles": 1052
+      },
+      "forward": [
+        -0.3129037320613861,
+        0,
+        1.0115326642990112
+      ]
+    },
+    {
+      "triangles": 24616,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "muzzle": [
+        -0.6232341527938843,
+        1.2393653392791748,
+        0.7933297753334045
+      ],
+      "weapon": {
+        "vertices": 664,
+        "triangles": 1052
+      },
+      "forward": [
+        -0.3389790654182434,
+        0,
+        1.0958272218704224
+      ]
+    },
+    {
+      "triangles": 32501,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "muzzle": [
+        0.11077868193387985,
+        1.1223772764205933,
+        0.6133908629417419
+      ],
+      "weapon": {
+        "vertices": 664,
+        "triangles": 1052
+      },
+      "forward": [
+        -0.3129037618637085,
+        0,
+        1.0115327835083008
+      ]
+    },
+    {
+      "triangles": 23201,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "muzzle": [
+        0.9211552143096924,
+        1.1723802089691162,
+        0.6275284886360168
+      ],
+      "weapon": {
+        "vertices": 664,
+        "triangles": 1052
+      },
+      "forward": [
+        -0.3129037320613861,
+        0,
+        1.0115326642990112
+      ]
+    }
+  ]
+}

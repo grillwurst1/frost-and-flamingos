@@ -779,3 +779,25 @@ bald Heavy in field vest/olive trousers. The first two bodies use 26,814 and
 are `docs/qa/tailored-trousers-four-2026-10-28.png` and the tailored-wardrobe JSON.
 Remaining source garment edges, hand silhouettes and weapon scale still need
 work; no complete visual-target acceptance is claimed.
+
+
+The reference SMG is now a compact box-magazine prop with correctly placed
+support-hand and muzzle sockets, using about 20% fewer weapon triangles.
+The original Alpine calf also follows the selected skin tone; long-trouser
+combinations no longer inherit the old socks through their boot selection.
+Weapon behaviour and all existing configuration choices remain available.
+
+
+Validation: **303 tests pass** (13 script/asset, 198 server, 92 client), including
+the original-calf skin/boot-boundary regression. Strict types report zero errors
+and warnings; production builds pass. GPU base-colour readback matches all 12
+selected skin colours exactly at the tested face/scalp/native-forehead/shared-arm
+and original-calf fixtures; scope and content version are in
+`docs/qa/calf-skin-base-probe-2026-10-28.json`.
+
+The real staged WebGL2 game also passes: SMG fires (30 → 29), reports a finite
+new muzzle position and reloads to 30. Live allied/enemy labels and the painted
+crawler load without browser errors. The figure/field captures and measured
+weapon counts are `docs/qa/compact-smg-*.png` / `compact-smg-2026-10-28.json`.
+These are functional/cloud visual checks; native M4 temperatures/FPS and full
+reference-image acceptance remain unverified. Continue hand and world artwork.
