@@ -22,6 +22,8 @@ new milestone features. Preserve all existing mechanics, wardrobe choices and
 laptop rendering budgets. Work serially and compare the running game visually.
 On 28 October the owner again rejected soldier quality. Prioritise actual player
 sculpting, proportions and articulated hands before broader world art or M5 additions.
+The owner explicitly requires continuing until the screenshot figure quality is met,
+not ending after another small polish pass. Save verified increments, then continue.
 `VISUAL_REFERENCE_WORK.md` records this task. Finish validation of the already
 implemented cable car alongside the graphics; M6/M7 remain gated.
 
@@ -610,3 +612,55 @@ See [model views](docs/qa/player-sculpt-2026-10-28.png) and
 [actual 1280×714 game](docs/qa/player-field-2026-10-28.png). The field uses actual
 binary-connected profiles; positions are staged. Earlier model captures use
 different poses. These record progress, not acceptance of the screenshot target.
+
+
+### Authored soldier surfaces restored (28 October 2026)
+
+The direct comparison found the principal quality loss: the configurable body had
+replaced the owner's detailed Meshy geometry with simpler procedural forms. The
+new native wardrobe mesh retains matching authored head, shirt/arms, hands, trousers
+and headgear surfaces and merges selected replacement parts into the same skinned
+draw. Authored normals, UV paint and finger weights survive. glTF's opposite face
+winding is corrected when importing its surfaces into the mixed mesh. Unused
+replacement vertices are compacted out. The reference allrounder has 25,364 triangles
+in one body draw (previously 46,236). This is a triangle reduction, not a measured
+Mac thermal/FPS result.
+
+Skin, hair and cloth masks are derived from the original UV paint and skeletal
+regions, including named/unnamed face descendants. Padded UV-island gutters prevent
+pale seams on dark skin. The green waistcoat preserves shirt/sleeve details. Paint
+and a 1024 mask are shared per visible class; soldier normal maps are not loaded
+for this path. No render target or post pass is added. Full-screen/FPS limits and
+the 12-outfit cache remain. Colour textures add a bounded per-class memory cost
+compared with the previous untextured body; they are never copied per player.
+
+`bun run wardrobe-assets` rebuilds six metadata/mask pairs from the unchanged
+optimised GLBs (Python 3, NumPy, Pillow). Run it after `bun run models`; committed
+SHA-256/topology checks reject stale derived data and keep the complete fallback.
+Both loaded rig and wardrobe paint are awaited before a detailed view is swapped
+in. Protocol 13 and saved profile IDs remain unchanged.
+
+Not every head/outfit has an authored counterpart yet. Unsupported hair/beard/hat
+combinations currently retain complete configurable replacement parts, avoiding
+open scalp holes or hidden stale cosmetics. Continue with a reusable detailed
+clean/bald head (especially the reference Heavy), then other hair/face variants and
+class-specific anatomy. The owner's screenshot target is still active; do not
+resume new M5/M6/M7 features or call this visual acceptance.
+
+Native wardrobe release validation: **289 automated tests pass** (11 asset/script,
+198 server, 80 client); strict TypeScript/Svelte has zero errors/warnings and all
+production bundles build. The server suite was rerun by itself after two 5-second
+fixtures timed out while competing with software rendering; all 198 then passed
+without changing any assertion or timeout. Client tests also passed in isolation.
+WebGL2 renders verify actual painted anatomy, the corrected front-face winding,
+three skin/hair combinations and a single skinned draw. Seven shader variants,
+including native wardrobe, compile through the WebGPU path, but the cloud's strict
+GPU queue check still fails with an external-instance OperationError; this is not
+a successful native GPU gameplay test. Native M4 performance remains unmeasured.
+
+The full WebGL2 game check also passed at 1280×714 on Low (software rendering):
+Connected → Play Now, authoritative overlook positioning, live named protocol
+peers, loaded painted crawler and actual local native-wardrobe body, with no
+browser errors. The saved field image is `docs/qa/native-wardrobe-field-2026-10-28.png`;
+model/colour comparisons sit beside it. This remains a progress capture, not
+screenshot acceptance; remote custom heads and other art differences remain.

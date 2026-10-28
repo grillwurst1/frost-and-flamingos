@@ -6,8 +6,10 @@
       "bytes": 2626830,
       "textures": {
         "basecolor": "alpine-allrounder-basecolor.webp",
-        "normal": "alpine-allrounder-normal.webp"
-      }
+        "normal": "alpine-allrounder-normal.webp",
+        "wardrobeMask": "alpine-allrounder-wardrobe-mask.webp"
+      },
+      "wardrobe": "alpine-allrounder-wardrobe.json"
     },
     "alpine-ghostgirl": {
       "file": "alpine-ghostgirl.glb",
@@ -21,16 +23,20 @@
       "bytes": 2309284,
       "textures": {
         "basecolor": "alpine-heavy-basecolor.webp",
-        "normal": "alpine-heavy-normal.webp"
-      }
+        "normal": "alpine-heavy-normal.webp",
+        "wardrobeMask": "alpine-heavy-wardrobe-mask.webp"
+      },
+      "wardrobe": "alpine-heavy-wardrobe.json"
     },
     "alpine-infiltrator": {
       "file": "alpine-infiltrator.glb",
       "bytes": 2614596,
       "textures": {
         "basecolor": "alpine-infiltrator-basecolor.webp",
-        "normal": "alpine-infiltrator-normal.webp"
-      }
+        "normal": "alpine-infiltrator-normal.webp",
+        "wardrobeMask": "alpine-infiltrator-wardrobe-mask.webp"
+      },
+      "wardrobe": "alpine-infiltrator-wardrobe.json"
     },
     "hen": {
       "file": "hen.glb",
@@ -44,8 +50,10 @@
       "bytes": 2616234,
       "textures": {
         "basecolor": "lagoon-allrounder-basecolor.webp",
-        "normal": "lagoon-allrounder-normal.webp"
-      }
+        "normal": "lagoon-allrounder-normal.webp",
+        "wardrobeMask": "lagoon-allrounder-wardrobe-mask.webp"
+      },
+      "wardrobe": "lagoon-allrounder-wardrobe.json"
     },
     "lagoon-beachgirl": {
       "file": "lagoon-beachgirl.glb",
@@ -60,16 +68,20 @@
       "bytes": 2177930,
       "textures": {
         "basecolor": "lagoon-heavy-basecolor.webp",
-        "normal": "lagoon-heavy-normal.webp"
-      }
+        "normal": "lagoon-heavy-normal.webp",
+        "wardrobeMask": "lagoon-heavy-wardrobe-mask.webp"
+      },
+      "wardrobe": "lagoon-heavy-wardrobe.json"
     },
     "lagoon-infiltrator": {
       "file": "lagoon-infiltrator.glb",
       "bytes": 2745896,
       "textures": {
         "basecolor": "lagoon-infiltrator-basecolor.webp",
-        "normal": "lagoon-infiltrator-normal.webp"
-      }
+        "normal": "lagoon-infiltrator-normal.webp",
+        "wardrobeMask": "lagoon-infiltrator-wardrobe-mask.webp"
+      },
+      "wardrobe": "lagoon-infiltrator-wardrobe.json"
     },
     "vehicle-biplane": {
       "file": "vehicle-biplane.glb",

@@ -20,6 +20,7 @@ import {
 import { bakeAnimationGroup, gaitContactPhase, jointName, readRig, stanceSpeed, type BakedClip, type RigInfo } from './clips';
 import { readBakedClips, readGlb, writeGlb } from './glb-binary';
 import type { PaintedTextures } from './material';
+import { parseNativeWardrobe, type NativeWardrobeData } from './native-wardrobe';
 
 export { BAKE_FPS, bindWorldTransform, jointName, type BakedClip, type BindPose } from './clips';
 
@@ -48,6 +49,7 @@ export { BAKE_FPS, bindWorldTransform, jointName, type BakedClip, type BindPose 
  */
 export interface PaintedModelAsset extends RigInfo {
   spec: PaintedModelSpec;
+  wardrobe?: NativeWardrobeData;
   container: AssetContainer;
   /** false for static GLBs (no skeleton, no clips). */
   skinned: boolean;
@@ -111,6 +113,7 @@ export type PaintedModelStatus = 'pending' | 'missing' | 'loading' | 'ready' | '
 
 interface ManifestEntry {
   file: string;
+  wardrobe?: string;
   /** Sidecar texture files by slot ("basecolor", "normal"). */
   textures: Readonly<Record<string, string>>;
 }
@@ -134,7 +137,7 @@ async function fetchManifest(): Promise<ReadonlyMap<string, ManifestEntry>> {
     if (!models || typeof models !== 'object') return result;
     for (const [key, value] of Object.entries(models as Record<string, unknown>)) {
       if (!value || typeof value !== 'object') continue;
-      const entry = value as { file?: unknown; textures?: unknown };
+      const entry = value as { file?: unknown; textures?: unknown; wardrobe?: unknown };
       if (typeof entry.file !== 'string' || !FILE_PATTERN.test(entry.file)) continue;
       const textures: Record<string, string> = {};
       if (entry.textures && typeof entry.textures === 'object') {
@@ -142,7 +145,7 @@ async function fetchManifest(): Promise<ReadonlyMap<string, ManifestEntry>> {
           if (typeof file === 'string' && FILE_PATTERN.test(file)) textures[slot] = file;
         }
       }
-      result.set(key, { file: entry.file, textures });
+      result.set(key, { file: entry.file, textures, wardrobe: typeof entry.wardrobe === 'string' && /^[a-z0-9-]+-wardrobe\.json$/.test(entry.wardrobe) ? entry.wardrobe : undefined });
     }
   } catch {
     // Offline or malformed manifest: every class keeps the procedural rig.
@@ -239,12 +242,13 @@ function isClipRole(role: string): role is ClipRole {
   return KNOWN_ROLES.has(role);
 }
 
-async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Promise<PaintedModelAsset | null> {
+async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string, wardrobeFile?: string): Promise<PaintedModelAsset | null> {
   const response = await fetch(`${MODELS_BASE}${file}`);
   if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
   let bytes: Uint8Array = new Uint8Array(await response.arrayBuffer());
   // Clips baked by the pipeline are read straight from the binary; the
   // animations are then removed so Babylon builds no animation groups.
+  const originalBytes = bytes;
   const parts = readGlb(bytes);
   const baked = readBakedClips(parts);
   if (baked.size > 0) {
@@ -290,6 +294,17 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string): Pr
     torso: skeleton ? measureTorso(mesh, rig) : null,
     clips: new Map(),
   };
+  if (wardrobeFile) {
+    try {
+      const response = await fetch(`${MODELS_BASE}${wardrobeFile}`);
+      const metadata = response.ok ? parseNativeWardrobe(await response.json(), mesh.getTotalVertices(), mesh.getTotalIndices()) : null;
+      if (metadata) {
+        const digest = await crypto.subtle.digest('SHA-256', originalBytes.slice().buffer);
+        const hash = [...new Uint8Array(digest)].map(n => n.toString(16).padStart(2, '0')).join('');
+        if (hash === metadata.sourceHash) asset.wardrobe = metadata;
+      }
+    } catch { /* Stale/missing optional derived data keeps the complete wardrobe fallback. */ }
+  }
   if (baked.size > 0) {
     for (const [role, clip] of baked) if (isClipRole(role)) asset.clips.set(role, clip);
   } else {
@@ -340,6 +355,8 @@ export class PaintedModelLibrary {
   private isSettled = false;
   private readonly textureLoads = new Map<string, Promise<PaintedTextures | null>>();
   private readonly loadedTextures = new Map<string, PaintedTextures>();
+  private readonly wardrobeLoads = new Map<string, Promise<PaintedTextures | null>>();
+  private readonly wardrobeTexturesReady = new Map<string, PaintedTextures>();
   /** Load time per model (ms, request to ready), for the DEV probe. */
   readonly timings = new Map<string, number>();
 
@@ -403,7 +420,7 @@ export class PaintedModelLibrary {
         return null;
       }
       try {
-        const asset = await loadModel(this.scene, spec, entry.file);
+        const asset = await loadModel(this.scene, spec, entry.file, entry.wardrobe);
         this.assets.set(key, asset);
         this.timings.set(key, Math.round(performance.now() - started));
         return asset;
@@ -462,6 +479,22 @@ export class PaintedModelLibrary {
     this.textureLoads.set(key, promise);
     return promise;
   }
+
+  /** Native wardrobe paint + semantic mask; shared per class, no normal map. */
+  wardrobeTextures(key: string): Promise<PaintedTextures | null> {
+    const cached = this.wardrobeLoads.get(key); if (cached) return cached;
+    const pending = this.manifest.then(async entries => {
+      const files = entries.get(key)?.textures;
+      if (!files?.basecolor || !files.wardrobeMask) return null;
+      const [albedo, wardrobeMask] = await Promise.all([loadTexture(this.scene, files.basecolor), loadTexture(this.scene, files.wardrobeMask)]);
+      if (!albedo || !wardrobeMask) { albedo?.dispose(); wardrobeMask?.dispose(); return null; }
+      const textures: PaintedTextures = { albedo, normal: null, wardrobeMask };
+      this.wardrobeTexturesReady.set(key, textures); return textures;
+    });
+    this.wardrobeLoads.set(key, pending); return pending;
+  }
+
+  loadedWardrobeTexturesOf(key: string): PaintedTextures | null { return this.wardrobeTexturesReady.get(key) ?? null; }
 
   /** Textures of a model if they finished loading, else null (no fetch). */
   loadedTexturesOf(key: string): PaintedTextures | null {

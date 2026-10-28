@@ -1047,3 +1047,19 @@ in Cloud weiterhin am Fehler „external Instance“. Der native Spieltest und e
 Mac-Messwerte bleiben offen. Die Körpermodelle haben nun 46.236 beziehungsweise
 25.756 Dreiecke, jeweils in einem animierten Körpermesh. Die vollständige
 Übereinstimmung mit der Grafikvorlage ist weiterhin nicht bestätigt.
+
+
+### Detaillierte Originalmodelle und Garderobe
+
+Passende Körperteile verwenden jetzt die detaillierten Meshy-Modelle: Gesicht,
+Hände, Stofffalten, Lederhosen und Hut behalten ihre modellierten Formen und
+gemalten Einzelheiten. Die gewählte Ausrüstung wird damit kombiniert; die
+Körperteile bleiben gemeinsam animiert. Haut- und Haarfarben werden über eigene
+Masken angepasst, ohne Hemd und Leder pauschal umzufärben.
+
+Die Farbdaten werden pro Figurentyp gemeinsam geladen. Zusätzliche Vollbildfilter
+oder höhere FPS-Limits kommen nicht hinzu. Bereits gespeicherte Figuren werden
+nach Neuladen der Seite aktualisiert; eine Rücksetzung der Garderobe ist unnötig.
+Einige Gesichts- und Haarkombinationen verwenden noch vollständige Ersatzteile.
+Diese werden als Nächstes überarbeitet, besonders der glattrasierte Heavy. Die
+Screenshotvorgabe ist damit weiterhin nicht abgeschlossen.

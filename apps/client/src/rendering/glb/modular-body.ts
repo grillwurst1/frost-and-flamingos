@@ -4,9 +4,10 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
-import { profileAppearanceKey, SKIN_TONES, type PlayerProfile } from '@frost-and-flamingos/shared';
+import { profileAppearanceKey, SKIN_TONES, HAIR_COLORS, type PlayerProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../character';
 import { bindWorldTransform, jointName, type PaintedModelAsset } from './library';
+import { nativeWardrobeRecipe, usesNativeRegion } from './native-wardrobe';
 import { RIG_JOINTS, type RigJoint } from './rig';
 
 export interface ModularRollBox { joint: RigJoint; corners: readonly Vector3[] }
@@ -15,8 +16,9 @@ interface CachedBody { data: VertexData; boxes: readonly ModularRollBox[] }
 const bodyCache = new WeakMap<Scene, Map<string, CachedBody>>();
 const MAX_CACHED_BODIES = 12;
 
-export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset): PaintedModelAsset['spec']['head'] {
+export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset, native = false): PaintedModelAsset['spec']['head'] {
   const head = asset.spec.head;
+  if (native && nativeWardrobeRecipe(profile, asset).head) return head;
   return { ...head, radius: head.radius * (profile.cosmetics.classId === 'heavy' ? .80 : .90) };
 }
 
@@ -24,12 +26,13 @@ export function modularRollBoxes(mesh: Mesh): readonly ModularRollBox[] { return
 
 /** A single skinned draw, with every wardrobe choice represented by geometry/colour. */
 export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: PaintedModelAsset,
-  source: Mesh, material: ShaderMaterial): Mesh {
+  source: Mesh, material: ShaderMaterial, native = false): Mesh {
   const skeleton = source.skeleton;
   if (!skeleton) throw new Error('A modular soldier needs the shared animation skeleton.');
   let cache = bodyCache.get(scene);
   if (!cache) { cache = new Map(); bodyCache.set(scene, cache); }
-  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}`;
+  const recipe = nativeWardrobeRecipe(profile, native ? asset : { ...asset, wardrobe: undefined });
+  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}`;
   const finish = (cached: CachedBody): Mesh => {
     const mesh = new Mesh('soldier-modular-detail', scene);
     cached.data.applyToMesh(mesh, false);
@@ -49,7 +52,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const size = asset.height / 1.88;
   const shoulder = Math.abs(bind('LeftArm').x - bind('RightArm').x) / 2;
   const bodyScaleX = shoulder / 0.30;
-  const headScale = modularHeadFrame(profile, asset).radius / 0.21;
+  const headScale = modularHeadFrame(profile, asset, native).radius / 0.21;
   const anchors = [
     [0.75, bind('Hips').y - 0.12 * size], [0.88, bind('Hips').y],
     [1.03, bind('Spine').y], [1.15, bind('Spine1').y], [1.28, bind('Spine2').y],
@@ -137,6 +140,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const positions: number[] = [], colors: number[] = [], indices: number[] = [];
   const joints: number[] = [], weights: number[] = [], cavities: number[] = [];
   const headNormals: number[] = [];
+  const nativeFlags: number[] = [];
   try {
     for (const mesh of template.root.getChildMeshes(false)) {
       const name = mesh.name;
@@ -181,23 +185,35 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         }
         faces = refined;
       }
-      const first = positions.length / 3;
-      for (let i = 0; i < points.length; i += 3) {
+      const visible: number[] = [];
+      for (let f = 0; f < faces.length; f += 3) {
+        const a = faces[f]!, detail = tags[a * 2 + 1] ?? 0, tag = tags[a * 2] ?? 0;
+        let replaced = false;
+        if (name === 'character-body-mesh') {
+          if (tag === 1) replaced = detail === 4 ? recipe.hat : recipe.head;
+          else if (tag === 0) replaced = detail === 6 ? recipe.head : detail === 7 ? recipe.legs : recipe.torso;
+        } else if (name.includes('arm')) {
+          const distance = -(points[a * 3 + 1]! + points[faces[f + 1]! * 3 + 1]! + points[faces[f + 2]! * 3 + 1]!) / 3;
+          replaced = distance > .60 ? recipe.hands : recipe.arms;
+        } else replaced = detail === 2 ? recipe.feet : recipe.legs;
+        if (!replaced) visible.push(faces[f]!, faces[f + 1]!, faces[f + 2]!);
+      }
+      // Compact discarded wardrobe parts; keep neither hidden body vertices nor
+      // duplicate full figures in GPU buffers when native surfaces replace them.
+      const remap = new Map<number, number>();
+      for (const vertex of new Set(visible)) {
+        const i = vertex * 3, target = positions.length / 3; remap.set(vertex, target);
         const p = new Vector3(points[i]!, points[i + 1]!, points[i + 2]!);
-        const mapped = name === 'character-body-mesh' ? body(p, tags?.[i / 3 * 2] ?? 0)
+        const mapped = name === 'character-body-mesh' ? body(p, tags[vertex * 2] ?? 0)
           : limb(p, name.startsWith('left') ? 'Left' : 'Right', name.includes('arm'));
         positions.push(mapped.at.x, mapped.at.y, mapped.at.z);
-        if (name === 'character-body-mesh' && tags[i / 3 * 2] === 1) {
-          // Head parts map by uniform scale/reflection. Preserve their authored
-          // smooth seams and sharp accessory edges instead of recomputing both.
-          headNormals.push(first + i / 3, -authoredNormals[i]!, authoredNormals[i + 1]!, authoredNormals[i + 2]!);
-        }
+        if (name === 'character-body-mesh' && tags[vertex * 2] === 1)
+          headNormals.push(target, -authoredNormals[i]!, authoredNormals[i + 1]!, authoredNormals[i + 2]!);
         joints.push(...mapped.indices); weights.push(...mapped.weights);
-        cavities.push(tone[i / 3 * 2]!, tone[i / 3 * 2 + 1]!);
-        const c = i / 3 * 4;
-        colors.push(paint[c]!, paint[c + 1]!, paint[c + 2]!, paint[c + 3]!);
+        cavities.push(tone[vertex * 2]!, tone[vertex * 2 + 1]!); nativeFlags.push(0, 0);
+        const c = vertex * 4; colors.push(paint[c]!, paint[c + 1]!, paint[c + 2]!, paint[c + 3]!);
       }
-      for (let i = 0; i < faces.length; i += 3) indices.push(first + faces[i]!, first + faces[i + 2]!, first + faces[i + 1]!);
+      for (let i = 0; i < visible.length; i += 3) indices.push(remap.get(visible[i]!)!, remap.get(visible[i + 2]!)!, remap.get(visible[i + 1]!)!);
     }
   } finally { template.dispose(); }
   // Bind genuine phalanges to the rig's existing finger joints. Previously the
@@ -205,7 +221,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   // rigidly attached to Hand. Shared rings bend with the real grip/reload pose.
   const skinHex = SKIN_TONES[profile.cosmetics.skinToneIndex] ?? SKIN_TONES[0];
   const skinRGB = [1, 3, 5].map(i => Number.parseInt(skinHex.slice(i, i + 2), 16) / 255);
-  for (const side of articulated) {
+  for (const side of recipe.hands ? [] : articulated) {
     const wrist = bind(`${side}Hand`), index = bind(`${side}HandIndex1`), pinky = bind(`${side}HandPinky1`);
     const knuckles = ['Index', 'Middle', 'Ring', 'Pinky'].map(d => bind(`${side}Hand${d}1`))
       .reduce((sum, p) => sum.add(p), Vector3.Zero()).scale(.25);
@@ -219,7 +235,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       for (let col = 0; col <= sides; col++) {
         const angle = col / sides * Math.PI * 2;
         const at = center.add(across.scale(Math.sin(angle) * width)).add(front.scale(Math.cos(angle) * .023 * size));
-        positions.push(at.x, at.y, at.z); colors.push(...skinRGB, 1); cavities.push(.04, 0);
+        positions.push(at.x, at.y, at.z); colors.push(...skinRGB, 1); cavities.push(.04, 0); nativeFlags.push(0, 0);
         const influence = weight([`${side}Hand`], 0); joints.push(...influence.indices); weights.push(...influence.weights);
         if (ring && col) {
           const a = first + (ring - 1) * (sides + 1) + col - 1, b = a + 1, c = first + ring * (sides + 1) + col, d = c - 1;
@@ -228,7 +244,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       }
     }
   }
-  for (const side of articulated) for (const digit of digits) {
+  for (const side of recipe.hands ? [] : articulated) for (const digit of digits) {
     const names = [1, 2, 3].map(n => `${side}Hand${digit}${n}`);
     const centers = names.map(name => bind(name));
     centers.push(centers[2]!.add(centers[2]!.subtract(centers[1]!).scale(.8)));
@@ -248,7 +264,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         positions.push(at.x, at.y, at.z); colors.push(...skinRGB, 1);
         const influence = weight([names[segment]!, names[Math.min(2, segment + 1)]!], Math.min(1, t));
         joints.push(...influence.indices); weights.push(...influence.weights);
-        cavities.push(.04 + .06 * Math.sin(along * Math.PI) ** 2, 0);
+        cavities.push(.04 + .06 * Math.sin(along * Math.PI) ** 2, 0); nativeFlags.push(0, 0);
         if (ring && col) {
           const aa = first + (ring - 1) * (sides + 1) + col - 1, bb = aa + 1;
           const cc = first + ring * (sides + 1) + col, dd = cc - 1;
@@ -260,6 +276,32 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     const last = first + rings * (sides + 1);
     for (let n = 1; n < sides - 1; n++) indices.push(last, last + n + 1, last + n);
   }
+  if (native && asset.wardrobe) {
+    const srcP = source.getVerticesData('position')!, srcN = source.getVerticesData('normal')!, srcUV = source.getVerticesData('uv')!;
+    const srcJ = source.getVerticesData('matricesIndices')!, srcW = source.getVerticesData('matricesWeights')!, srcI = source.getIndices()!;
+    const hair = HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
+    const hairRGB = [1, 3, 5].map(i => Number.parseInt(hair.slice(i, i + 2), 16) / 255);
+    const remap = new Map<number, number>(), width = 1 + (.15 - profile.cosmetics.bodyType) * .18;
+    const add = (old: number, region: number): number => {
+      const found = remap.get(old); if (found !== undefined) return found;
+      const index = positions.length / 3; remap.set(old, index);
+      const scaleX = region === 3 || region === 6 ? width : 1;
+      positions.push(srcP[old * 3]! * scaleX, srcP[old * 3 + 1]!, srcP[old * 3 + 2]!);
+      const n = new Vector3(srcN[old * 3]! / scaleX, srcN[old * 3 + 1]!, srcN[old * 3 + 2]!).normalize();
+      headNormals.push(index, n.x, n.y, n.z);
+      const pigment = asset.wardrobe!.pigment[old];
+      colors.push(...(pigment === 1 ? skinRGB : pigment === 2 ? hairRGB : [1, 1, 1]), pigment === 1 ? 1 : 0);
+      cavities.push(srcUV[old * 2]!, srcUV[old * 2 + 1]!); nativeFlags.push(1, region);
+      for (let k = 0; k < 4; k++) { joints.push(srcJ[old * 4 + k]!); weights.push(srcW[old * 4 + k]!); }
+      return index;
+    };
+    for (let f = 0; f < srcI.length; f += 3) {
+      const region = asset.wardrobe.regions[f / 3]!;
+      // Imported glTF meshes override Babylon's front-face convention. The new
+      // mixed mesh uses the procedural convention, so native faces must flip.
+      if (usesNativeRegion(recipe, region)) indices.push(add(srcI[f]!, region), add(srcI[f + 2]!, region), add(srcI[f + 1]!, region));
+    }
+  }
   const normals = new Float32Array(positions.length);
   VertexData.ComputeNormals(positions, indices, normals);
   for (let i = 0; i < headNormals.length; i += 4) {
@@ -269,6 +311,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const data = new VertexData();
   data.positions = new Float32Array(positions); data.normals = normals;
   data.uvs = new Float32Array(cavities);
+  data.uvs2 = new Float32Array(nativeFlags);
   data.colors = new Float32Array(colors); data.indices = new Uint32Array(indices);
   data.matricesIndices = new Float32Array(joints); data.matricesWeights = new Float32Array(weights);
   // Conservative per-joint envelopes protect the *selected* headgear, hands
@@ -289,7 +332,13 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       // Fine finger joints are outside the coarse roll solver. Their entire
       // rest envelope belongs to Hand, so articulated tips cannot be omitted.
       const name = influenced.match(/^(Left|Right)Hand(?:Thumb|Index|Middle|Ring|Pinky)/)?.[1];
-      const envelopeJoint = name ? `${name}Hand` : influenced;
+      let envelopeJoint = name ? `${name}Hand` : influenced;
+      // Meshy also carries small named/unnamed face joints. Bound them under
+      // their nearest solver ancestor, not outside the roll-clearance model.
+      while (!(RIG_JOINTS as readonly string[]).includes(envelopeJoint)) {
+        const parent = asset.jointParents.get(envelopeJoint); if (!parent) break;
+        envelopeJoint = parent;
+      }
       const b = inverseBinds.get(envelopeJoint);
       if (!b) continue;
       const point = p.subtract(b.position).rotateByQuaternionToRef(b.inverse, new Vector3());

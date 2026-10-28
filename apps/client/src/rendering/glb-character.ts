@@ -11,6 +11,8 @@ import type { StandardMaterial } from '@babylonjs/core/Materials/standardMateria
 import type { Scene } from '@babylonjs/core/scene';
 import {
   CLASS_STATS,
+  SKIN_TONES,
+  HAIR_COLORS,
   ParachuteState,
   WEAPON_STATS,
   type PlayerProfile,
@@ -20,6 +22,7 @@ import {
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
 import { buildModularBody, modularHeadFrame, modularRollBoxes } from './glb/modular-body';
+import { nativeWardrobeRecipe } from './glb/native-wardrobe';
 import { createShadowMaterial, type CharacterMaterialState } from './materials';
 import {
   PAINTED_MODELS,
@@ -73,12 +76,12 @@ type GlbPose = AvatarPose;
 type BindingRole = ClipRole | 'crouchRun' | 'runBack';
 type AvatarAsset = { asset: PaintedModelAsset; textures: PaintedTextures | null };
 
-/** Soldiers only need the animation rig; fixed-look drifters keep their paint. */
+/** Native wardrobe paint is shared per class; incomplete assets retain the full fallback. */
 async function loadAvatarModel(scene: Scene, key: string): Promise<AvatarAsset | null> {
   const library = paintedModelLibrary(scene);
   if (PAINTED_MODELS[key]?.cosmetics === false) return library.loadWithTextures(key);
   const asset = await library.load(key);
-  return asset ? { asset, textures: null } : null;
+  return asset ? { asset, textures: asset.wardrobe ? await library.wardrobeTextures(key) : null } : null;
 }
 
 const LOOPING: Readonly<Record<BindingRole, boolean>> = {
@@ -367,6 +370,7 @@ export class GlbCharacterView implements AvatarView {
   private locoPhase = Math.random();
   /** Walk-only characters (spec.gait): idle/walk/backpedal blending only. */
   private readonly gait: PaintedModelSpec['gait'] | null;
+  private readonly nativeWardrobe: boolean;
   private readonly hover: PaintedModelSpec['hover'] | null;
   private hoverPhase = Math.random() * Math.PI * 2;
   private emoteTime = -1;
@@ -431,11 +435,18 @@ export class GlbCharacterView implements AvatarView {
     // the character look mask (no interior ink, only the bold silhouette)
     // and stays in the g-buffer like every character: the painterly post
     // has no out-of-band exemption yet (see shaders/post.ts).
+    this.nativeWardrobe = spec.cosmetics !== false && Boolean(asset.wardrobe && textures?.wardrobeMask);
     this.material = createGlbMaterial(
       scene,
       `glb-${spec.key}-${profile.displayName}`,
-      spec.cosmetics === false ? textures : null,
-      spec.cosmetics === false ? (spec.photoreal ? { photoreal: true } : {}) : { soft: true },
+      spec.cosmetics === false || this.nativeWardrobe ? textures : null,
+      spec.cosmetics === false ? (spec.photoreal ? { photoreal: true } : {}) : { soft: true,
+        wardrobe: this.nativeWardrobe && asset.wardrobe ? {
+          skin: SKIN_TONES[profile.cosmetics.skinToneIndex] ?? SKIN_TONES[0], hair: HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0],
+          skinReference: asset.wardrobe.skinReference, hairReference: asset.wardrobe.hairReference,
+          greenVest: profile.cosmetics.torso === 'torso_tracht_shirt' && nativeWardrobeRecipe(profile, asset).torso,
+          torso: [Math.abs(leftArm?.x ?? .2), asset.bindPositions.get('Hips')?.y ?? .85, (asset.bindPositions.get('Neck')?.y ?? 1.25) + .10, asset.bindPositions.get('Spine2')?.z ?? 0],
+        } : undefined },
     );
     this.propMaterial = createGlbMaterial(scene, `glb-props-${profile.displayName}`, null);
 
@@ -495,13 +506,13 @@ export class GlbCharacterView implements AvatarView {
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
     if (spec.cosmetics !== false) {
-      this.bodyMesh = buildModularBody(scene, profile, asset, mesh, this.material);
+      this.bodyMesh = buildModularBody(scene, profile, asset, mesh, this.material, this.nativeWardrobe);
       mesh.isVisible = false;
       const box = this.bodyMesh.getBoundingInfo();
       this.bodyMesh.setBoundingInfo(new BoundingInfo(box.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), box.maximum.add(new Vector3(1.2, 0.5, 1.2))));
       this.hatHidden = profile.cosmetics.headgear === 'head_none';
     }
-    this.head = headFrame(asset, this.bodyMesh, spec.cosmetics === false ? spec.head : modularHeadFrame(profile, asset));
+    this.head = headFrame(asset, this.bodyMesh, spec.cosmetics === false ? spec.head : modularHeadFrame(profile, asset, this.nativeWardrobe));
     const fist = (side: HandSide): Array<{ node: TransformNode; fist: Quaternion; trigger: boolean }> =>
       fistTargets(asset, side).flatMap((target) => {
         const node = nodes.get(target.joint);
@@ -585,7 +596,7 @@ export class GlbCharacterView implements AvatarView {
     }
     return {
       model: this.asset.spec.key,
-      renderer: this.asset.spec.cosmetics === false ? 'painted-fixed' : 'modular-skinned',
+      renderer: this.asset.spec.cosmetics === false ? 'painted-fixed' : this.nativeWardrobe ? 'native-wardrobe' : 'modular-skinned',
       cosmetics: this.renderedCosmetics,
       geometry: { vertices: this.bodyMesh.getTotalVertices(), triangles: this.bodyMesh.getTotalIndices() / 3 },
       view: this.shadowMaterial.name,
@@ -1956,8 +1967,8 @@ export function createPaintedAvatarView(
   if (status === 'missing' || status === 'failed') return null;
   const asset = library.get(spec.key);
   if (asset && !asset.skinned) return null;
-  const textures = spec.cosmetics === false ? library.loadedTexturesOf(spec.key) : null;
-  if (asset && (textures || spec.cosmetics !== false)) {
+  const textures = spec.cosmetics === false ? library.loadedTexturesOf(spec.key) : library.loadedWardrobeTexturesOf(spec.key);
+  if (asset && (textures || (spec.cosmetics !== false && !asset.wardrobe))) {
     // Same budget as the stand-in swaps: at most one painted view is built
     // per frame (N remotes joining at once queue up, one per frame).
     if (!takeSwapBudget(scene)) return new PendingPaintedView(scene, shadowMaterial, profile, { asset, textures }, priority);

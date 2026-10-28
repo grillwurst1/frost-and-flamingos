@@ -45,10 +45,14 @@ function fakeTextures(scene: Scene): PaintedTextures {
   const library = paintedModelLibrary(scene) as unknown as {
     textures: (key: string) => Promise<PaintedTextures | null>;
     loadedTexturesOf: (key: string) => PaintedTextures | null;
+    wardrobeTextures: (key: string) => Promise<PaintedTextures | null>;
+    loadedWardrobeTexturesOf: (key: string) => PaintedTextures | null;
   };
-  const textures: PaintedTextures = { albedo: new Texture(null, scene), normal: null };
+  const textures: PaintedTextures = { albedo: new Texture(null, scene), normal: null, wardrobeMask: new Texture(null, scene) };
   library.textures = async () => textures;
   library.loadedTexturesOf = () => textures;
+  library.wardrobeTextures = async () => textures;
+  library.loadedWardrobeTexturesOf = () => textures;
   return textures;
 }
 
@@ -139,6 +143,7 @@ describe('locomotion cadence', () => {
         const view = new GlbCharacterView(scene, new StandardMaterial('shadow', scene), profileOf(key), asset, {
           albedo: new Texture(null, scene),
           normal: null,
+          wardrobeMask: new Texture(null, scene),
         });
         for (let frame = 0; frame < 90; frame += 1) {
           view.update(1 / 60, pose({ velocity: { x: 0, y: 0, z: speed * direction }, ...extra }));
@@ -282,6 +287,7 @@ describe('dodge roll', () => {
         const view = new GlbCharacterView(scene, new StandardMaterial('shadow', scene), profile, asset, {
           albedo: new Texture(null, scene),
           normal: null,
+          wardrobeMask: new Texture(null, scene),
         });
         const internals = view as unknown as { bodyMesh: Mesh; root: TransformNode; attachments: Mesh[]; rollLift: number };
         const bind = internals.bodyMesh.getVerticesData('position') ?? new Float32Array();

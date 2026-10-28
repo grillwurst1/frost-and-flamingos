@@ -47,6 +47,11 @@ attribute vec2 uv;
 #ifndef FF_TEXTURED
 attribute vec4 color;
 #endif
+#ifdef FF_NATIVE_WARDROBE
+attribute vec2 uv2;
+varying vec2 vWardrobe;
+varying vec3 vWardrobeRest;
+#endif
 #include<bonesDeclaration>
 
 uniform mat4 world;
@@ -58,6 +63,10 @@ varying vec2 vUV;
 varying vec4 vColor;
 
 void main(void) {
+#ifdef FF_NATIVE_WARDROBE
+  vWardrobe = uv2;
+  vWardrobeRest = position;
+#endif
   mat4 finalWorld = world;
 #include<bonesVertex>
   vec4 worldPosition = finalWorld * vec4(position, 1.0);
@@ -98,6 +107,18 @@ uniform vec4 uPaintParams;
 uniform float uLookMask;
 /** Share of fragments discarded in an ordered pattern (pass-through shimmer). */
 uniform float uDither;
+#ifdef FF_NATIVE_WARDROBE
+varying vec2 vWardrobe;
+varying vec3 vWardrobeRest;
+uniform sampler2D albedoSampler;
+uniform sampler2D wardrobeMaskSampler;
+uniform vec3 uWardrobeSkin;
+uniform vec3 uWardrobeHair;
+uniform vec3 uSkinReference;
+uniform vec3 uHairReference;
+uniform float uGreenVest;
+uniform vec4 uWardrobeTorso;
+#endif
 #ifdef FF_TEXTURED
 uniform sampler2D albedoSampler;
 uniform sampler2D normalSampler;
@@ -196,6 +217,34 @@ void main(void) {
   float gloss = 0.3;
 #endif
   float grain = hash13(floor(vWorldPosition * 24.0));
+#ifdef FF_NATIVE_WARDROBE
+  // The original paint carries seams, knuckles and facial detail. A separately
+  // baked semantic mask changes only selected pigments, never all warm colours.
+  vec2 footprint = vec2(textureSize(albedoSampler, 0));
+  vec2 dx = dFdx(vUV) * footprint, dy = dFdy(vUV) * footprint;
+  float naturalLod = 0.5 * log2(max(max(dot(dx, dx), dot(dy, dy)), 1e-8));
+  float nativeLod = clamp(min(naturalLod, max(1.5, naturalLod - 0.25)), 0.0, 12.0);
+  if (vWardrobe.x > 0.5) {
+    vec3 original = texture2DLodEXT(albedoSampler, vUV, nativeLod).rgb;
+    float maskShift = log2(max(footprint.x / float(textureSize(wardrobeMaskSampler, 0).x), 1.0));
+    vec3 mask = texture2DLodEXT(wardrobeMaskSampler, vUV, max(0.0, nativeLod - maskShift)).rgb;
+    float headRegion = 1.0 - smoothstep(0.25, 0.5, abs(vWardrobe.y - 2.0));
+    mask.r *= max(headRegion, smoothstep(3.5, 3.75, vWardrobe.y) * (1.0 - smoothstep(6.25, 6.5, vWardrobe.y)));
+    mask.g *= headRegion;
+    vec3 skinPaint = uWardrobeSkin * clamp(original / max(uSkinReference, vec3(0.01)), 0.28, 1.45);
+    vec3 hairPaint = uWardrobeHair * clamp(original / max(uHairReference, vec3(0.01)), 0.35, 1.6);
+    base = mix(original, skinPaint, mask.r);
+    base = mix(base, hairPaint, mask.g);
+    vec3 waistcoat = vec3(0.275, 0.365, 0.196) * clamp(dot(original, vec3(0.299, 0.587, 0.114)) / 0.75, 0.4, 1.3);
+    float shape = smoothstep(uWardrobeTorso.y + 0.025, uWardrobeTorso.y + 0.09, vWardrobeRest.y)
+      * (1.0 - smoothstep(uWardrobeTorso.z - 0.085, uWardrobeTorso.z - 0.015, vWardrobeRest.y))
+      * (1.0 - smoothstep(uWardrobeTorso.x * 0.95, uWardrobeTorso.x * 1.12, abs(vWardrobeRest.x)));
+    float opening = max(0.018, (vWardrobeRest.y - (uWardrobeTorso.z - 0.12)) * 0.7);
+    float placket = mix(1.0, smoothstep(opening, opening + 0.014, abs(vWardrobeRest.x)), step(uWardrobeTorso.w, vWardrobeRest.z));
+    base = mix(base, waistcoat, mask.b * uGreenVest * shape * placket);
+    gloss = mix(0.10, 0.035, mask.r);
+  }
+#endif
 #endif
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
   base = mix(vec3(luma), base, uPaintParams.y);
@@ -222,6 +271,9 @@ void main(void) {
 
   // Rest-pose cavity stays attached during animation. Never changes profile paint.
 #ifdef FF_SOFT_CHARACTER
+#ifdef FF_NATIVE_WARDROBE
+  if (vWardrobe.x < 0.5)
+#endif
   lit *= 1.0 - clamp(vUV.x, 0.0, 0.5);
 #endif
   lit = ffHaze(lit, vWorldPosition);
@@ -244,6 +296,11 @@ attribute uv : vec2f;
 #ifndef FF_TEXTURED
 attribute color : vec4f;
 #endif
+#ifdef FF_NATIVE_WARDROBE
+attribute uv2 : vec2f;
+varying vWardrobe : vec2f;
+varying vWardrobeRest : vec3f;
+#endif
 #include<bonesDeclaration>
 
 uniform world : mat4x4f;
@@ -256,6 +313,10 @@ varying vColor : vec4f;
 
 @vertex
 fn main(input : VertexInputs) -> FragmentInputs {
+#ifdef FF_NATIVE_WARDROBE
+  vertexOutputs.vWardrobe = input.uv2;
+  vertexOutputs.vWardrobeRest = input.position;
+#endif
   var finalWorld = uniforms.world;
 #include<bonesVertex>
   let worldPosition = finalWorld * vec4f(input.position, 1.0);
@@ -287,6 +348,18 @@ uniform uTime : f32;
 uniform uPaintParams : vec4f;
 uniform uLookMask : f32;
 uniform uDither : f32;
+#ifdef FF_NATIVE_WARDROBE
+uniform uWardrobeSkin : vec3f;
+uniform uWardrobeHair : vec3f;
+uniform uSkinReference : vec3f;
+uniform uHairReference : vec3f;
+uniform uGreenVest : f32;
+uniform uWardrobeTorso : vec4f;
+var albedoSamplerSampler : sampler;
+var albedoSampler : texture_2d<f32>;
+var wardrobeMaskSamplerSampler : sampler;
+var wardrobeMaskSampler : texture_2d<f32>;
+#endif
 #ifdef FF_TEXTURED
 var albedoSamplerSampler : sampler;
 var albedoSampler : texture_2d<f32>;
@@ -379,11 +452,37 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
 #else
   var base = input.vColor.rgb;
 #ifdef FF_SOFT_CHARACTER
-  let gloss = mix(0.18, 0.035, clamp(input.vColor.a, 0.0, 1.0));
+  var gloss = mix(0.18, 0.035, clamp(input.vColor.a, 0.0, 1.0));
 #else
   let gloss = 0.3;
 #endif
   let grain = hash13(floor(input.vWorldPosition * 24.0));
+#ifdef FF_NATIVE_WARDROBE
+  let footprint = vec2f(textureDimensions(albedoSampler, 0));
+  let nativeDx = dpdx(input.vUV) * footprint; let nativeDy = dpdy(input.vUV) * footprint;
+  let naturalLod = 0.5 * log2(max(max(dot(nativeDx, nativeDx), dot(nativeDy, nativeDy)), 1e-8));
+  let nativeLod = clamp(min(naturalLod, max(1.5, naturalLod - 0.25)), 0.0, 12.0);
+  if (input.vWardrobe.x > 0.5) {
+    let original = textureSampleLevel(albedoSampler, albedoSamplerSampler, input.vUV, nativeLod).rgb;
+    let maskShift = log2(max(footprint.x / f32(textureDimensions(wardrobeMaskSampler, 0).x), 1.0));
+    var mask = textureSampleLevel(wardrobeMaskSampler, wardrobeMaskSamplerSampler, input.vUV, max(0.0, nativeLod - maskShift)).rgb;
+    let headRegion = 1.0 - smoothstep(0.25, 0.5, abs(input.vWardrobe.y - 2.0));
+    mask.r *= max(headRegion, smoothstep(3.5, 3.75, input.vWardrobe.y) * (1.0 - smoothstep(6.25, 6.5, input.vWardrobe.y)));
+    mask.g *= headRegion;
+    let skinPaint = uniforms.uWardrobeSkin * clamp(original / max(uniforms.uSkinReference, vec3f(0.01)), vec3f(0.28), vec3f(1.45));
+    let hairPaint = uniforms.uWardrobeHair * clamp(original / max(uniforms.uHairReference, vec3f(0.01)), vec3f(0.35), vec3f(1.6));
+    base = mix(original, skinPaint, mask.r);
+    base = mix(base, hairPaint, mask.g);
+    let waistcoat = vec3f(0.275, 0.365, 0.196) * clamp(dot(original, vec3f(0.299, 0.587, 0.114)) / 0.75, 0.4, 1.3);
+    let shape = smoothstep(uniforms.uWardrobeTorso.y + 0.025, uniforms.uWardrobeTorso.y + 0.09, input.vWardrobeRest.y)
+      * (1.0 - smoothstep(uniforms.uWardrobeTorso.z - 0.085, uniforms.uWardrobeTorso.z - 0.015, input.vWardrobeRest.y))
+      * (1.0 - smoothstep(uniforms.uWardrobeTorso.x * 0.95, uniforms.uWardrobeTorso.x * 1.12, abs(input.vWardrobeRest.x)));
+    let opening = max(0.018, (input.vWardrobeRest.y - (uniforms.uWardrobeTorso.z - 0.12)) * 0.7);
+    let placket = mix(1.0, smoothstep(opening, opening + 0.014, abs(input.vWardrobeRest.x)), step(uniforms.uWardrobeTorso.w, input.vWardrobeRest.z));
+    base = mix(base, waistcoat, mask.b * uniforms.uGreenVest * shape * placket);
+    gloss = mix(0.10, 0.035, mask.r);
+  }
+#endif
 #endif
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));
   base = mix(vec3f(luma), base, uniforms.uPaintParams.y);
@@ -408,7 +507,13 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
 
   // Match GLSL: local cavity, independent of selected skin/cloth colour.
 #ifdef FF_SOFT_CHARACTER
+#ifdef FF_NATIVE_WARDROBE
+  if (input.vWardrobe.x < 0.5) {
+#endif
   lit *= 1.0 - clamp(input.vUV.x, 0.0, 0.5);
+#ifdef FF_NATIVE_WARDROBE
+  }
+#endif
 #endif
   lit = ffHaze(lit, input.vWorldPosition);
   // Pass-through shimmer (last, after every derivative).

@@ -4,6 +4,7 @@ import { NullEngine } from '@babylonjs/core/Engines/nullEngine';
 import { Scene } from '@babylonjs/core/scene';
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
+import { Texture } from '@babylonjs/core/Materials/Textures/texture';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import {
@@ -107,6 +108,7 @@ function build(changes: Partial<Cosmetics> = {}): { view: GlbCharacterView; mesh
 function geometryFingerprint(mesh: Mesh): string {
   const hash = new Bun.CryptoHasher('sha256');
   for (const kind of ['position', 'color']) hash.update(Float32Array.from(mesh.getVerticesData(kind)!));
+  hash.update(Uint32Array.from(mesh.getIndices()!));
   return hash.digest('hex');
 }
 
@@ -170,6 +172,10 @@ test('body shape changes the mesh and outfit edits never select the old rigid fa
   scene.render();
   const profile = createDefaultProfile('Configured');
   profile.cosmetics = { ...profile.cosmetics, torso: 'torso_hawaii_shirt', legs: 'legs_olive_pants', feet: 'feet_dive_flippers', skinToneIndex: 11 };
+  // NullEngine has no image decoder; provide the same ready paint handle as
+  // a successful asynchronous wardrobe preload before exercising the factory.
+  const library = paintedModelLibrary(scene);
+  library.loadedWardrobeTexturesOf = () => ({ albedo: new Texture(null, scene), normal: null, wardrobeMask: new Texture(null, scene) });
   const view = createPaintedAvatarView(scene, new StandardMaterial('qa-factory', scene), profile);
   expect(view).toBeInstanceOf(GlbCharacterView);
   expect((view as GlbCharacterView).renderedCosmetics).toEqual(profile.cosmetics);

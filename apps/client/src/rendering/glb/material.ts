@@ -2,7 +2,7 @@ import '@babylonjs/core/Shaders/ShadersInclude/bonesDeclaration';
 import '@babylonjs/core/Shaders/ShadersInclude/bonesVertex';
 import '@babylonjs/core/ShadersWGSL/ShadersInclude/bonesDeclaration';
 import '@babylonjs/core/ShadersWGSL/ShadersInclude/bonesVertex';
-import { Vector3, Vector4 } from '@babylonjs/core/Maths/math';
+import { Color3, Vector3, Vector4 } from '@babylonjs/core/Maths/math';
 import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
 import { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { BaseTexture } from '@babylonjs/core/Materials/Textures/baseTexture';
@@ -23,6 +23,7 @@ import { markCharacterLookMaterial, SUN_DIRECTION, type CharacterMaterialState }
 export interface PaintedTextures {
   albedo: BaseTexture;
   normal: BaseTexture | null;
+  wardrobeMask?: BaseTexture;
 }
 
 /**
@@ -63,6 +64,7 @@ export const LOOK_MASK_WORLD = 1;
 export interface GlbMaterialOptions {
   /** Continuous lighting for the detailed, fully configurable skinned body. */
   soft?: boolean;
+  wardrobe?: { skin: string; hair: string; skinReference: readonly number[]; hairReference: readonly number[]; greenVest: boolean; torso: readonly number[] };
   /** Scene-alpha look mask: {@link LOOK_MASK_CHARACTER} (default) or {@link LOOK_MASK_WORLD}. */
   lookMask?: number;
   /** Physically based shading instead of the cel bands (textured only). */
@@ -76,7 +78,8 @@ export function createGlbMaterial(
   options: GlbMaterialOptions = {},
 ): ShaderMaterial {
   const webgpu = scene.getEngine().isWebGPU;
-  const textured = textures !== null;
+  const native = Boolean(textures?.wardrobeMask && options.wardrobe);
+  const textured = textures !== null && !native;
   const material = new ShaderMaterial(
     name,
     scene,
@@ -85,7 +88,7 @@ export function createGlbMaterial(
       fragmentSource: webgpu ? glbCharacterFragmentWGSL : glbCharacterFragmentGLSL,
     },
     {
-      attributes: textured ? ['position', 'normal', 'uv'] : ['position', 'normal', 'color', ...(options.soft ? ['uv'] : [])],
+      attributes: textured ? ['position', 'normal', 'uv'] : ['position', 'normal', 'color', ...(options.soft ? ['uv'] : []), ...(native ? ['uv2'] : [])],
       uniforms: [
         'world',
         'viewProjection',
@@ -99,12 +102,13 @@ export function createGlbMaterial(
         'uPaintParams',
         'uLookMask',
         'uDither',
+        ...(native ? ['uWardrobeSkin', 'uWardrobeHair', 'uSkinReference', 'uHairReference', 'uGreenVest', 'uWardrobeTorso'] : []),
         ...LOOK_UNIFORMS,
       ],
-      samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : [...LOOK_SAMPLERS],
+      samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : native ? ['albedoSampler', 'wardrobeMaskSampler', ...LOOK_SAMPLERS] : [...LOOK_SAMPLERS],
       defines: textured
         ? ['#define FF_TEXTURED', ...(options.photoreal ? ['#define FF_PHOTOREAL'] : [])]
-        : options.soft ? ['#define FF_SOFT_CHARACTER'] : [],
+        : options.soft ? ['#define FF_SOFT_CHARACTER', ...(native ? ['#define FF_NATIVE_WARDROBE'] : [])] : [],
       shaderLanguage: webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
     },
   );
@@ -118,7 +122,13 @@ export function createGlbMaterial(
   material.setVector4('uPaintParams', textured ? PAINT_PARAMS : options.soft ? new Vector4(0, 1, 1, 0) : PROP_PARAMS);
   material.setFloat('uLookMask', options.lookMask ?? LOOK_MASK_CHARACTER);
   material.setFloat('uDither', 0);
-  if (textures) {
+  if (native && textures && options.wardrobe) {
+    const w = options.wardrobe;
+    material.setTexture('albedoSampler', textures.albedo); material.setTexture('wardrobeMaskSampler', textures.wardrobeMask!);
+    material.setColor3('uWardrobeSkin', Color3.FromHexString(w.skin)); material.setColor3('uWardrobeHair', Color3.FromHexString(w.hair));
+    material.setVector3('uSkinReference', Vector3.FromArray(w.skinReference)); material.setVector3('uHairReference', Vector3.FromArray(w.hairReference));
+    material.setFloat('uGreenVest', w.greenVest ? 1 : 0); material.setVector4('uWardrobeTorso', Vector4.FromArray(w.torso));
+  } else if (textures) {
     material.setTexture('albedoSampler', textures.albedo);
     // Without a normal map: a flat 1×1 normal (tangent-space +Z) and zero strength.
     material.setTexture('normalSampler', textures.normal ?? flatNormalTexture(scene));

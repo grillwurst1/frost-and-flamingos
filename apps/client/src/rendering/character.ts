@@ -59,10 +59,10 @@ interface MeshOptions {
 type PartList = Mesh[];
 
 /** Preserve semantic regions while merging the authored wardrobe parts. */
-function tagParts(parts: readonly Mesh[], tag: number): void {
+function tagParts(parts: readonly Mesh[], tag: number, detail = 0): void {
   for (const part of parts) {
     const data = new Float32Array(part.getTotalVertices() * 2);
-    for (let i = 0; i < data.length; i += 2) data[i] = tag;
+    for (let i = 0; i < data.length; i += 2) { data[i] = tag; data[i + 1] = detail; }
     part.setVerticesData('uv2', data, false, 2);
   }
 }
@@ -489,11 +489,15 @@ export class CharacterView {
     tagParts(body.slice(backStart), 2);
     const faceStart = body.length;
     this.buildFace(scene, body, cosmetics.face, HEAD_Y, skinColor, hairHex);
+    tagParts(body.slice(faceStart), 1, 2);
+    const hairStart = body.length;
     this.buildHair(scene, body, cosmetics.hairStyleIndex, HEAD_Y, hairHex);
+    tagParts(body.slice(hairStart), 1, 3);
+    const hatStart = body.length;
     const hatLift = [0, 0.1, 0.025, 0.025, 0.025, 0.07, 0][cosmetics.hairStyleIndex] ?? 0;
     this.buildHeadgear(scene, body, cosmetics.headgear, HEAD_Y + hatLift);
-    tagParts(body.slice(faceStart), 1);
-    for (const part of body) if (!part.isVerticesDataPresent('uv2')) tagParts([part], 0);
+    tagParts(body.slice(hatStart), 1, 4);
+    for (const part of body) if (!part.isVerticesDataPresent('uv2')) tagParts([part], 0, part.name === 'neck' ? 6 : /^(hip|waist-belt|belt-buckle)/.test(part.name) ? 7 : 0);
 
     const bodyMesh = mergeParts(scene, 'character-body-mesh', body, this.material);
     if (bodyMesh) {
@@ -1274,6 +1278,7 @@ export class CharacterView {
       box(scene, parts, `${side}-longjohn-dot`, 0.04, 0.04, 0.02, 0, -0.2, 0.09, accent);
     }
 
+    const footStart = parts.length;
     const feetPalette = FEET_PALETTES[feet];
     const footPrimary = hexToColor4(feetPalette.primary);
     const footSecondary = hexToColor4(feetPalette.secondary);
@@ -1295,11 +1300,11 @@ export class CharacterView {
       box(scene, parts, `${side}-flipper-sole`, 0.2, 0.02, 0.5, 0, -0.84, 0.17, footSecondary);
       box(scene, parts, `${side}-flipper-strap`, 0.18, 0.035, 0.07, 0, -0.74, 0.06, footSecondary);
     } else if (feet === 'feet_ski_boots') {
-      cylinder(scene, parts, `${side}-ski-shaft`, 0.34, 0.185, 0.16, 0, -0.645, 0, footPrimary, { segments: 16 });
+      cylinder(scene, parts, `${side}-ski-shaft`, 0.405, 0.185, 0.16, 0, -0.6125, 0, footPrimary, { segments: 16 });
       box(scene, parts, `${side}-ski-boot`, 0.2, 0.22, 0.3, 0, -0.77, 0.05, footPrimary);
       box(scene, parts, `${side}-ski-sole`, 0.22, 0.04, 0.34, 0, -0.89, 0.055, footSecondary);
       box(scene, parts, `${side}-ski-tongue`, 0.115, 0.25, 0.025, 0, -0.635, 0.092, footSecondary);
-      torus(scene, parts, `${side}-ski-cuff`, 0.178, 0.023, 0, -0.474, 0, footSecondary, { segments: 16 });
+      torus(scene, parts, `${side}-ski-cuff`, 0.178, 0.023, 0, -0.410, 0, footSecondary, { segments: 16 });
       for (const y of [-0.55, -0.665]) {
         torus(scene, parts, `${side}-ski-strap`, 0.177, 0.018, 0, y, 0, footSecondary, { segments: 16 });
         box(scene, parts, `${side}-ski-buckle`, 0.060, 0.028, 0.022, 0.035, y, 0.107, footAccent);
@@ -1324,6 +1329,7 @@ export class CharacterView {
 
     for (const part of parts) { part.position.x *= bulk; part.position.z *= bulk; part.scaling.x *= bulk; part.scaling.z *= bulk; }
     for (const part of parts) if (/-(ski-|boot|flipper|sandal)/.test(part.name)) { part.position.x *= .84; part.scaling.x *= .84; }
+    parts.forEach((part, i) => tagParts([part], 0, i >= footStart || /-(shin|sock|sock-stripe|cuff|longjohn-cuff)$/.test(part.name) ? 2 : 1));
     const merged = mergeParts(scene, `${side}-leg-mesh`, parts, this.material);
     if (!merged) throw new Error('Failed to build character leg.');
     merged.parent = side === 'left' ? this.leftHip : this.rightHip;
