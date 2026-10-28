@@ -848,3 +848,22 @@ at one per figure; the four captures have 25,880 / 24,904 / 32,501 / 23,201
 triangles. Face sculpting and wrist blending still need artwork refinement.
 The Lagoon Heavy also exposes fragments of its fused original ring/vest when
 changing to a field vest with native trousers; fix that outfit combination next.
+
+
+### Complete Lagoon Heavy clothing — 28 October 2026
+
+The donor's fused vest/ring and short ragged trousers are not the selectable
+bare-chest flamingo ring or full-length olive pants. Stop using those donor
+clothes as native replacements. Generate complete chosen garments instead,
+retaining the sculpted/shared anatomical surfaces and compatible native hands.
+This removes old ring/vest fragments when switching tops and restores missing
+calves in the former native-pants combination. All existing choices remain.
+
+Validation: 95 client tests pass, including four garment combinations and
+bilateral calf-fabric coverage; strict types report zero errors/warnings and
+production builds pass. The previously passing 13 script and 198 server checks
+are unaffected (306 checks in total). A serial WebGL2 four-figure capture has
+one body draw per figure, finite muzzle positions and zero browser errors.
+See `docs/qa/heavy-complete-outfits-2026-10-28.*`. No texture or frame-loop work
+was added. Face, sleeve and wrist artwork still needs refinement; the reference
+quality and native M4 thermal/FPS goals remain open.

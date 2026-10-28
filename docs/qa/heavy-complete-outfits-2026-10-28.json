@@ -1,0 +1,94 @@
+{
+  "scope": "Real WebGL2 figure comparison of four Lagoon Heavy garment combinations; not native M4 performance or screenshot acceptance",
+  "records": [
+    {
+      "native": false,
+      "result": [
+        {
+          "triangles": 25092,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "muzzle": [
+            -1.500611662864685,
+            1.3732140064239502,
+            0.9455822706222534
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389791250228882,
+            0,
+            1.095827341079712
+          ]
+        },
+        {
+          "triangles": 23592,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "muzzle": [
+            -0.6706116199493408,
+            1.3732140064239502,
+            0.9455822706222534
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389791250228882,
+            0,
+            1.095827341079712
+          ]
+        },
+        {
+          "triangles": 24494,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "muzzle": [
+            0.15938837826251984,
+            1.3732140064239502,
+            0.9455822706222534
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389791250228882,
+            0,
+            1.095827341079712
+          ]
+        },
+        {
+          "triangles": 27464,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "muzzle": [
+            0.9893883466720581,
+            1.3732140064239502,
+            0.9455822706222534
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389791250228882,
+            0,
+            1.095827341079712
+          ]
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": []
+    }
+  ]
+}

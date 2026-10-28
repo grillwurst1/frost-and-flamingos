@@ -27,7 +27,10 @@ const outfits: Record<string, { torso?: Cosmetics['torso']; legs?: Cosmetics['le
   'alpine-heavy': { hair: 0 },
   'alpine-infiltrator': { torso: 'torso_loden_coat', legs: 'legs_olive_pants', feet: 'feet_mountain_boots', hair: 0 },
   'lagoon-allrounder': { torso: 'torso_hawaii_shirt', legs: 'legs_boardshorts', hair: 1 },
-  'lagoon-heavy': { torso: 'torso_flamingo_ring', legs: 'legs_olive_pants', hair: 0 },
+  // This source fuses a vest, swim ring and short ragged trousers. It does
+  // not contain the selectable bare-chest ring or full-length olive pants.
+  // Reuse its sculpted anatomy, while generating complete selected clothes.
+  'lagoon-heavy': { hair: 0 },
   'lagoon-infiltrator': { torso: 'torso_hawaii_shirt', legs: 'legs_boardshorts', hair: 0 },
 };
 

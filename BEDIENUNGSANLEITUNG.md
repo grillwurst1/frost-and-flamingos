@@ -1119,3 +1119,8 @@ geschlossen. Beim Lagoon-Heavy erhält die linke Hand bei einer abweichenden
 Hand-Auswahl einen kompakten Griff statt ausgestreckter Finger. Diese Hand
 folgt als Ganzes dem Handgelenk; andere Figuren behalten ihre beweglichen
 Finger. Hautfarbe, Uhr und übrige Hand-Auswahl bleiben wählbar.
+
+
+Beim Lagoon-Heavy passen jetzt auch lange Olivhosen vollständig bis zu den
+Stiefeln. Beim Wechsel zwischen Feldweste, Hawaiihemd und Flamingo-Ring bleiben
+keine Teile der ursprünglichen Weste oder zerrissenen Modellhose stehen.

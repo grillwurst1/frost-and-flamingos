@@ -69,6 +69,46 @@ test('Heavy wrist without finger bones has a closed grip and follows the request
   } finally { view.dispose(); }
 });
 
+test('Lagoon Heavy clothes have complete calves and never retain the fused donor ring or vest hem', async () => {
+  const heavy = (await paintedModelLibrary(scene).load('lagoon-heavy'))!;
+  for (const [torso, legs] of [
+    ['torso_flamingo_ring', 'legs_olive_pants'],
+    ['torso_field_vest', 'legs_olive_pants'],
+    ['torso_hawaii_shirt', 'legs_olive_pants'],
+    ['torso_flamingo_ring', 'legs_lederhosen'],
+  ] as const) {
+    const profile = createDefaultProfile('Heavy clothes', 'heavy'); profile.faction = 'lagoon';
+    Object.assign(profile.cosmetics, { torso, legs });
+    const recipe = nativeWardrobeRecipe(profile, heavy);
+    expect(recipe.torso).toBe(false); expect(recipe.legs).toBe(false);
+    const view = new GlbCharacterView(scene, new StandardMaterial('clothes-shadow', scene), profile, heavy, textures);
+    try {
+      const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail')!;
+      const flags = mesh.getVerticesData('uv2')!;
+      let torsoVertices = 0, legVertices = 0;
+      for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2] === 1) {
+        if (flags[v * 2 + 1] === 3) torsoVertices++;
+        if (flags[v * 2 + 1] === 6) legVertices++;
+      }
+      expect(torsoVertices).toBe(0); expect(legVertices).toBe(0);
+      if (legs === 'legs_olive_pants') {
+        const p = mesh.getVerticesData('position')!, c = mesh.getVerticesData('color')!;
+        const red = Number.parseInt(LEGS_PALETTES.legs_olive_pants.primary.slice(1, 3), 16) / 255;
+        for (const side of ['Left', 'Right']) {
+          const ankle = heavy.bindPositions.get(`${side}Foot`)!.y, knee = heavy.bindPositions.get(`${side}Leg`)!.y;
+          const heights = [];
+          for (let v = 0; v < mesh.getTotalVertices(); v++) if ((p[v * 3]! > 0) === (side === 'Left')
+            && flags[v * 2] === 0 && Math.abs(c[v * 4]! - red) < .001
+            && p[v * 3 + 1]! > ankle + .02 && p[v * 3 + 1]! < knee - .02) heights.push(p[v * 3 + 1]!);
+          expect(heights.length).toBeGreaterThan(40);
+          expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan((knee - ankle) * .5);
+        }
+      }
+      expect(mesh.subMeshes).toHaveLength(1);
+    } finally { view.dispose(); }
+  }
+});
+
 test('the detailed reference body preserves native surfaces in one compact skinned draw', () => {
   const { view, mesh } = build();
   try {
