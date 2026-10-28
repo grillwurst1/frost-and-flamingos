@@ -1,0 +1,641 @@
+{
+  "scope": "Software WebGL2 visual/gameplay checks and six base-colour fixtures for all twelve skin tones. Eight WGSL variants compile; cloud WebGPU device is destroyed at queue validation with external Instance OperationError, so WebGPU runtime/native M4 performance remain unverified.",
+  "records": {
+    "close": [
+      {
+        "native": false,
+        "result": [
+          {
+            "triangles": 25640,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "forward": [
+              -0.7818797826766968,
+              0,
+              0.839290201663971
+            ]
+          },
+          {
+            "triangles": 25828,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "forward": [
+              -0.7818797826766968,
+              0,
+              0.839290201663971
+            ]
+          }
+        ]
+      },
+      {
+        "status": "passed",
+        "errors": []
+      }
+    ],
+    "four": [
+      {
+        "native": false,
+        "result": [
+          {
+            "triangles": 25880,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "muzzle": [
+              -1.5688447952270508,
+              1.1723802089691162,
+              0.6275284886360168
+            ],
+            "weapon": {
+              "vertices": 664,
+              "triangles": 1052
+            },
+            "forward": [
+              -0.3129037320613861,
+              0,
+              1.0115326642990112
+            ]
+          },
+          {
+            "triangles": 25640,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "muzzle": [
+              -0.6232341527938843,
+              1.2393653392791748,
+              0.7933297753334045
+            ],
+            "weapon": {
+              "vertices": 664,
+              "triangles": 1052
+            },
+            "forward": [
+              -0.3389790654182434,
+              0,
+              1.0958272218704224
+            ]
+          },
+          {
+            "triangles": 33237,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "muzzle": [
+              0.11077868193387985,
+              1.1223772764205933,
+              0.6133908629417419
+            ],
+            "weapon": {
+              "vertices": 664,
+              "triangles": 1052
+            },
+            "forward": [
+              -0.3129037618637085,
+              0,
+              1.0115327835083008
+            ]
+          },
+          {
+            "triangles": 23201,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "muzzle": [
+              0.9211552143096924,
+              1.1723802089691162,
+              0.6275284886360168
+            ],
+            "weapon": {
+              "vertices": 664,
+              "triangles": 1052
+            },
+            "forward": [
+              -0.3129037320613861,
+              0,
+              1.0115326642990112
+            ]
+          }
+        ]
+      },
+      {
+        "status": "passed",
+        "errors": []
+      }
+    ],
+    "skin": [
+      {
+        "assetRevision": "c72c8277e7541a09db60240399d8f8d90e7d6670d3d2400c02f56c351a6ab693",
+        "textureRequests": [
+          "http://127.0.0.1:5173/models/alpine-infiltrator-basecolor.webp?v=c72c8277e7541a09db60240399d8f8d90e7d6670d3d2400c02f56c351a6ab693",
+          "http://127.0.0.1:5173/models/alpine-infiltrator-wardrobe-mask.webp?v=c72c8277e7541a09db60240399d8f8d90e7d6670d3d2400c02f56c351a6ab693",
+          "http://127.0.0.1:5173/models/soldier-head-basecolor.webp?v=c72c8277e7541a09db60240399d8f8d90e7d6670d3d2400c02f56c351a6ab693",
+          "http://127.0.0.1:5173/models/soldier-head-mask.webp?v=c72c8277e7541a09db60240399d8f8d90e7d6670d3d2400c02f56c351a6ab693",
+          "http://127.0.0.1:5173/models/alpine-allrounder-basecolor.webp?v=c72c8277e7541a09db60240399d8f8d90e7d6670d3d2400c02f56c351a6ab693",
+          "http://127.0.0.1:5173/models/alpine-allrounder-wardrobe-mask.webp?v=c72c8277e7541a09db60240399d8f8d90e7d6670d3d2400c02f56c351a6ab693"
+        ]
+      },
+      {
+        "native": false,
+        "result": [
+          {
+            "skin": "#fad7c0",
+            "face": [
+              250,
+              215,
+              192
+            ],
+            "scalp": [
+              250,
+              215,
+              192
+            ],
+            "originalForehead": [
+              250,
+              215,
+              192
+            ],
+            "authoredArm": [
+              250,
+              215,
+              192
+            ],
+            "originalCalf": [
+              250,
+              215,
+              192
+            ],
+            "eyeSocket": [
+              250,
+              215,
+              192
+            ]
+          },
+          {
+            "skin": "#f3c2a2",
+            "face": [
+              243,
+              194,
+              162
+            ],
+            "scalp": [
+              243,
+              194,
+              162
+            ],
+            "originalForehead": [
+              243,
+              194,
+              162
+            ],
+            "authoredArm": [
+              243,
+              194,
+              162
+            ],
+            "originalCalf": [
+              243,
+              194,
+              162
+            ],
+            "eyeSocket": [
+              243,
+              194,
+              162
+            ]
+          },
+          {
+            "skin": "#e8ad88",
+            "face": [
+              232,
+              173,
+              136
+            ],
+            "scalp": [
+              232,
+              173,
+              136
+            ],
+            "originalForehead": [
+              232,
+              173,
+              136
+            ],
+            "authoredArm": [
+              232,
+              173,
+              136
+            ],
+            "originalCalf": [
+              232,
+              173,
+              136
+            ],
+            "eyeSocket": [
+              232,
+              173,
+              136
+            ]
+          },
+          {
+            "skin": "#d99568",
+            "face": [
+              217,
+              149,
+              104
+            ],
+            "scalp": [
+              217,
+              149,
+              104
+            ],
+            "originalForehead": [
+              217,
+              149,
+              104
+            ],
+            "authoredArm": [
+              217,
+              149,
+              104
+            ],
+            "originalCalf": [
+              217,
+              149,
+              104
+            ],
+            "eyeSocket": [
+              217,
+              149,
+              104
+            ]
+          },
+          {
+            "skin": "#c67d4e",
+            "face": [
+              198,
+              125,
+              78
+            ],
+            "scalp": [
+              198,
+              125,
+              78
+            ],
+            "originalForehead": [
+              198,
+              125,
+              78
+            ],
+            "authoredArm": [
+              198,
+              125,
+              78
+            ],
+            "originalCalf": [
+              198,
+              125,
+              78
+            ],
+            "eyeSocket": [
+              198,
+              125,
+              78
+            ]
+          },
+          {
+            "skin": "#b06a3b",
+            "face": [
+              176,
+              106,
+              59
+            ],
+            "scalp": [
+              176,
+              106,
+              59
+            ],
+            "originalForehead": [
+              176,
+              106,
+              59
+            ],
+            "authoredArm": [
+              176,
+              106,
+              59
+            ],
+            "originalCalf": [
+              176,
+              106,
+              59
+            ],
+            "eyeSocket": [
+              176,
+              106,
+              59
+            ]
+          },
+          {
+            "skin": "#8e5129",
+            "face": [
+              142,
+              81,
+              41
+            ],
+            "scalp": [
+              142,
+              81,
+              41
+            ],
+            "originalForehead": [
+              142,
+              81,
+              41
+            ],
+            "authoredArm": [
+              142,
+              81,
+              41
+            ],
+            "originalCalf": [
+              142,
+              81,
+              41
+            ],
+            "eyeSocket": [
+              142,
+              81,
+              41
+            ]
+          },
+          {
+            "skin": "#733e1d",
+            "face": [
+              115,
+              62,
+              29
+            ],
+            "scalp": [
+              115,
+              62,
+              29
+            ],
+            "originalForehead": [
+              115,
+              62,
+              29
+            ],
+            "authoredArm": [
+              115,
+              62,
+              29
+            ],
+            "originalCalf": [
+              115,
+              62,
+              29
+            ],
+            "eyeSocket": [
+              115,
+              62,
+              29
+            ]
+          },
+          {
+            "skin": "#5c2e14",
+            "face": [
+              92,
+              46,
+              20
+            ],
+            "scalp": [
+              92,
+              46,
+              20
+            ],
+            "originalForehead": [
+              92,
+              46,
+              20
+            ],
+            "authoredArm": [
+              92,
+              46,
+              20
+            ],
+            "originalCalf": [
+              92,
+              46,
+              20
+            ],
+            "eyeSocket": [
+              92,
+              46,
+              20
+            ]
+          },
+          {
+            "skin": "#48220e",
+            "face": [
+              72,
+              34,
+              14
+            ],
+            "scalp": [
+              72,
+              34,
+              14
+            ],
+            "originalForehead": [
+              72,
+              34,
+              14
+            ],
+            "authoredArm": [
+              72,
+              34,
+              14
+            ],
+            "originalCalf": [
+              72,
+              34,
+              14
+            ],
+            "eyeSocket": [
+              72,
+              34,
+              14
+            ]
+          },
+          {
+            "skin": "#361809",
+            "face": [
+              54,
+              24,
+              9
+            ],
+            "scalp": [
+              54,
+              24,
+              9
+            ],
+            "originalForehead": [
+              54,
+              24,
+              9
+            ],
+            "authoredArm": [
+              54,
+              24,
+              9
+            ],
+            "originalCalf": [
+              54,
+              24,
+              9
+            ],
+            "eyeSocket": [
+              54,
+              24,
+              9
+            ]
+          },
+          {
+            "skin": "#261005",
+            "face": [
+              38,
+              16,
+              5
+            ],
+            "scalp": [
+              38,
+              16,
+              5
+            ],
+            "originalForehead": [
+              38,
+              16,
+              5
+            ],
+            "authoredArm": [
+              38,
+              16,
+              5
+            ],
+            "originalCalf": [
+              38,
+              16,
+              5
+            ],
+            "eyeSocket": [
+              38,
+              16,
+              5
+            ]
+          }
+        ]
+      },
+      {
+        "status": "passed",
+        "errors": []
+      }
+    ],
+    "wgsl": [
+      {
+        "result": {
+          "compiled": [
+            "qa-world",
+            "qa-paving",
+            "qa-terrain",
+            "qa-character",
+            "qa-modular",
+            "qa-native-wardrobe",
+            "qa-shared-head",
+            "qa-contour"
+          ],
+          "failures": [
+            "device lost during compile: destroyed"
+          ],
+          "queueError": "OperationError: A valid external Instance reference no longer exists."
+        },
+        "errors": []
+      }
+    ],
+    "field": [
+      {
+        "nativeViews": [
+          {
+            "view": "character-shadow-local-3-painted",
+            "renderer": "native-wardrobe",
+            "geometry": {
+              "vertices": 23636,
+              "triangles": 25880
+            }
+          },
+          {
+            "view": "shadow-3-5-painted",
+            "renderer": "native-wardrobe",
+            "geometry": {
+              "vertices": 29258,
+              "triangles": 41969
+            }
+          },
+          {
+            "view": "shadow-5-7-painted",
+            "renderer": "native-wardrobe",
+            "geometry": {
+              "vertices": 17840,
+              "triangles": 24142
+            }
+          },
+          {
+            "view": "shadow-4-6-painted",
+            "renderer": "native-wardrobe",
+            "geometry": {
+              "vertices": 16894,
+              "triangles": 25640
+            }
+          }
+        ],
+        "feet": {
+          "x": 35,
+          "y": 23.02499923706055,
+          "z": 64
+        },
+        "camera": [
+          38.03713826638488,
+          25.24684535069448,
+          66.1470319631784
+        ],
+        "stats": {
+          "drawCalls": 311,
+          "activeMeshes": 178,
+          "meshes": 532,
+          "materials": 93,
+          "mapVertices": 1696011,
+          "destructibleMeshes": 102,
+          "destructibleSprites": 0,
+          "fps": 0,
+          "boot_facadeAtlas": 43,
+          "boot_spriteAtlas": 5788,
+          "boot_map": 3846,
+          "boot_world": 9634
+        }
+      },
+      {
+        "status": "passed",
+        "errors": [],
+        "names": [
+          "GipfelRanger",
+          "Wuzzi",
+          "Senn_Koloss",
+          "RoofSniper77",
+          "Angry_Cow_Beta"
+        ]
+      }
+    ]
+  }
+}

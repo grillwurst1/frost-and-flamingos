@@ -2330,3 +2330,14 @@ one body draw per figure, finite muzzle positions and zero browser errors.
 See `docs/qa/heavy-complete-outfits-2026-10-28.*`. No texture or frame-loop work
 was added. Face, sleeve and wrist artwork still needs refinement; the reference
 quality and native M4 thermal/FPS goals remain open.
+
+
+Configurable-head eye detail uses original procedural 3D surfaces instead of
+enlarging the donor eye texture. Closed eye whites and lens-shaped iris/pupil/
+highlight surfaces follow the socket angle. They share the skinned body draw,
+material and bounded outfit cache. Existing native heads remain untouched.
+Selected skin under the old eye pigment uses vertex alpha 2; shared atlas UVs
+and category 2 remain intact. Both shader backends override pigment and gloss
+for this solid anatomical base, preventing a donor pupil or foreign body atlas
+from leaking through. No wardrobe options, samplers or protocol fields change.
+Validation and limitations: `docs/qa/sculpted-eyes-2026-10-28.json`.

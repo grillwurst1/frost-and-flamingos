@@ -867,3 +867,12 @@ one body draw per figure, finite muzzle positions and zero browser errors.
 See `docs/qa/heavy-complete-outfits-2026-10-28.*`. No texture or frame-loop work
 was added. Face, sleeve and wrist artwork still needs refinement; the reference
 quality and native M4 thermal/FPS goals remain open.
+
+
+Configurable heads now use sculpted eye whites, irises, pupils and glints. Their
+skin base remains independent of clothing and painted donor pupils. The eyes
+add 736 triangles to the existing body draw, with no new texture allocation.
+97 client tests, strict types and production builds pass; gameplay fire/reload
+and all twelve skin colours are checked in WebGL2. Captures, fixture scope and
+the cloud WebGPU limitation are in `docs/qa/sculpted-eyes-2026-10-28.json`.
+The wider screenshot-quality work remains open.

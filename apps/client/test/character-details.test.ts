@@ -6,6 +6,27 @@ import { createDefaultProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../src/rendering/character';
 import { sculptedBeard, tailoredStrip } from '../src/rendering/character-surfaces';
 import { Color4, Vector3 } from '@babylonjs/core/Maths/math';
+import { sculptedEyes } from '../src/rendering/glb/eye-surfaces';
+
+test('sculpted eyes have finite outward 3D surfaces and texture-independent feature colours', () => {
+  const eyes = sculptedEyes(), used = new Set(eyes.indices);
+  expect(eyes.indices.length / 3).toBeLessThanOrEqual(800);
+  expect(used.size).toBe(eyes.positions.length / 3);
+  expect(eyes.positions.every(Number.isFinite)).toBe(true);
+  expect(eyes.colors.every(c => c >= 0 && c <= 1)).toBe(true);
+  for (let v = 0; v < eyes.positions.length / 3; v++) {
+    expect(Vector3.FromArray(eyes.normals, v * 3).length()).toBeCloseTo(1, 5);
+    expect(eyes.colors[v * 4 + 3]).toBe(0);
+  }
+  for (let f = 0; f < eyes.indices.length; f += 3) {
+    const [a, b, c] = eyes.indices.slice(f, f + 3) as [number, number, number];
+    const at = (v: number) => Vector3.FromArray(eyes.positions, v * 3);
+    const normal = Vector3.FromArray(eyes.normals, a * 3).add(Vector3.FromArray(eyes.normals, b * 3)).add(Vector3.FromArray(eyes.normals, c * 3));
+    expect(Vector3.Dot(Vector3.Cross(at(b).subtract(at(a)), at(c).subtract(at(a))), normal)).toBeGreaterThan(0);
+  }
+  const depths = eyes.positions.filter((_, i) => i % 3 === 2);
+  expect(Math.max(...depths) - Math.min(...depths)).toBeGreaterThan(.014);
+});
 
 test('the beard and fitted shoulder ribbon have outward front surfaces with back-face culling', () => {
   const engine = new NullEngine(), scene = new Scene(engine);

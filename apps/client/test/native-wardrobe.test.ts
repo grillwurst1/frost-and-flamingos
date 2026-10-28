@@ -210,6 +210,23 @@ test('custom hair and clean face keep the same detailed painted anatomy in one d
   expect(silhouettes.size).toBe(7);
 });
 
+test('sculpted eyes keep head-atlas socket categories intact and add solid feature colours', () => {
+  const { view, mesh } = build({ headgear: 'head_none', face: 'face_none', hairStyleIndex: 6 }, true);
+  try {
+    const c = mesh.getVerticesData('color')!, flags = mesh.getVerticesData('uv2')!;
+    let sockets = 0, whites = 0;
+    for (let v = 0; v < mesh.getTotalVertices(); v++) {
+      if (c[v * 4 + 3]! > 1.5) {
+        expect(flags[v * 2]).toBe(2); expect(flags[v * 2 + 1]).toBe(2); sockets++;
+      }
+      if (flags[v * 2] === 0 && c[v * 4 + 3] === 0 && Math.abs(c[v * 4]! - .94) < .001
+        && Math.abs(c[v * 4 + 1]! - .94) < .001 && Math.abs(c[v * 4 + 2]! - .90) < .001) whites++;
+    }
+    expect(sockets).toBeGreaterThan(100); expect(whites).toBeGreaterThan(100);
+    expect(mesh.subMeshes).toHaveLength(1);
+  } finally { view.dispose(); }
+});
+
 test('the replacement skull is a closed surface with outward faces and finite atlas data', () => {
   const head = asset.wardrobeHead!; expect(parseWardrobeHead(head)).not.toBeNull();
   const edges = new Map<string, number>(); let cap = 0, outward = 0;

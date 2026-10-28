@@ -286,6 +286,12 @@ void main(void) {
 #endif
 #endif
 #endif
+#ifdef FF_SOFT_CHARACTER
+  // Solid anatomy beneath geometric eyes suppresses the donor's raster pupils.
+  // Keep its head-atlas category/UVs intact across neighbouring triangles.
+  base = mix(base, uSkinColor, step(1.5, vColor.a));
+  gloss = mix(gloss, 0.035, step(1.5, vColor.a));
+#endif
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
   base = mix(vec3(luma), base, uPaintParams.y);
   base = clamp((base - 0.5) * uPaintParams.z + 0.5, 0.0, 1.0);
@@ -562,6 +568,10 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   }
 #endif
 #endif
+#endif
+#ifdef FF_SOFT_CHARACTER
+  base = mix(base, uniforms.uSkinColor, step(1.5, input.vColor.a));
+  gloss = mix(gloss, 0.035, step(1.5, input.vColor.a));
 #endif
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));
   base = mix(vec3f(luma), base, uniforms.uPaintParams.y);

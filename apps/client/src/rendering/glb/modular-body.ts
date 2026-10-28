@@ -9,6 +9,7 @@ import { CharacterView } from '../character';
 import { bindWorldTransform, jointName, type PaintedModelAsset } from './library';
 import { bodySurfaceRecipe, bodySurfaceRetarget } from './body-surfaces';
 import { wristHandSurface } from './hand-surface';
+import { sculptedEyes } from './eye-surfaces';
 import { nativeWardrobeRecipe, usesNativeRegion } from './native-wardrobe';
 import { RIG_JOINTS, type RigJoint } from './rig';
 
@@ -366,12 +367,27 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const normal = new Vector3(h.normals[v * 3]! / broad, h.normals[v * 3 + 1]!, h.normals[v * 3 + 2]!).normalize();
       headNormals.push(first + v, normal.x, normal.y, normal.z);
       const pigment = h.painted[v] === 2 ? hairRGB : skinRGB;
-      colors.push(pigment[0]! * h.tints[v * 3]!, pigment[1]! * h.tints[v * 3 + 1]!, pigment[2]! * h.tints[v * 3 + 2]!, h.painted[v] === 2 ? 0 : 1);
+      const socket = h.painted[v] === 1 && h.positions[v * 3 + 1]! > 1.420 && h.positions[v * 3 + 1]! < 1.453
+        && Math.abs(h.positions[v * 3]!) > .018 && Math.abs(h.positions[v * 3]!) < .081 && h.positions[v * 3 + 2]! > .015;
+      colors.push(pigment[0]! * h.tints[v * 3]!, pigment[1]! * h.tints[v * 3 + 1]!, pigment[2]! * h.tints[v * 3 + 2]!, socket ? 2 : h.painted[v] === 2 ? 0 : 1);
+      // Replace rasterised eye whites/irises with the selected skin underneath
+      // the new sculpt. This also removes the old mismatched/pixelated pupils.
       cavities.push(h.uvs[v * 2]!, h.uvs[v * 2 + 1]!);
       nativeFlags.push(h.painted[v] === 1 ? 2 : 0, h.painted[v] === 1 ? 2 : 0);
       const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
     }
     for (let f = 0; f < h.indices.length; f += 3) indices.push(first + h.indices[f]!, first + h.indices[f + 2]!, first + h.indices[f + 1]!);
+    const eyes = sculptedEyes(), eyeBase = positions.length / 3;
+    for (let v = 0; v < eyes.positions.length / 3; v++) {
+      positions.push(eyes.positions[v * 3]! * scale * broad,
+        frame.y + (eyes.positions[v * 3 + 1]! - h.frame.y) * scale,
+        frame.z + (eyes.positions[v * 3 + 2]! - h.frame.z) * scale);
+      const normal = new Vector3(eyes.normals[v * 3]! / broad, eyes.normals[v * 3 + 1]!, eyes.normals[v * 3 + 2]!).normalize();
+      headNormals.push(eyeBase + v, normal.x, normal.y, normal.z);
+      colors.push(...eyes.colors.slice(v * 4, v * 4 + 4)); cavities.push(0, 0); nativeFlags.push(0, 0);
+      const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
+    }
+    for (let f = 0; f < eyes.indices.length; f += 3) indices.push(eyeBase + eyes.indices[f]!, eyeBase + eyes.indices[f + 2]!, eyeBase + eyes.indices[f + 1]!);
     if (profile.cosmetics.hairStyleIndex === 1 && h.afro) {
       const hair = h.afro, base = positions.length / 3;
       for (let v = 0; v < hair.positions.length / 3; v++) {

@@ -947,3 +947,25 @@ one body draw per figure, finite muzzle positions and zero browser errors.
 See `docs/qa/heavy-complete-outfits-2026-10-28.*`. No texture or frame-loop work
 was added. Face, sleeve and wrist artwork still needs refinement; the reference
 quality and native M4 thermal/FPS goals remain open.
+
+
+### Geometric eyes on configurable heads — 28 October 2026
+
+Shared configurable heads now have closed sculpted eyes with solid iris, pupil
+and highlight geometry, aligned to the wrapped sockets. Original native heads
+are retained. Old raster eye pigment underneath becomes the selected anatomical
+skin. Vertex alpha 2 marks this solid anatomy; preserve the existing head-atlas
+category/UVs to avoid interpolation through the body-atlas category. GLSL/WGSL
+apply selected skin and matte skin gloss after painted pigment.
+
+This adds 736 triangles per configurable head in its existing single body draw,
+built only in the bounded outfit cache; texture allocation stays unchanged.
+97 client tests pass, types have zero errors/warnings, production builds pass.
+The earlier 13 script and 198 server checks are unchanged (308 checks total).
+WebGL2 six-region fixtures match all twelve skin RGB values exactly, including
+the eye sockets. Actual SMG fire/reload and staged 1280x714 game pass without
+browser errors. Eight WGSL variants compile; the cloud device is destroyed at
+queue validation, so WebGPU gameplay/M4 thermals remain unverified. Evidence:
+`docs/qa/sculpted-eyes-2026-10-28.json` and `sculpted-eyes-*.png`.
+Continue the real mouth/upper-lip sculpt, then sleeve/wrist and world artwork.
+The reference acceptance and M5 art gate remain open.

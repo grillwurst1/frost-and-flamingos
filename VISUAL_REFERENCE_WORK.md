@@ -526,3 +526,30 @@ one body draw per figure, finite muzzle positions and zero browser errors.
 See `docs/qa/heavy-complete-outfits-2026-10-28.*`. No texture or frame-loop work
 was added. Face, sleeve and wrist artwork still needs refinement; the reference
 quality and native M4 thermal/FPS goals remain open.
+
+
+### Sculpted eyes and texture-independent sockets — 28 October 2026
+
+Closed ellipsoid eye whites and curved iris/pupil/glint surfaces replace the
+raster eyes on the shared configurable head. Their tilt follows the real face
+wrap; skin underneath uses the selected base independently of donor texture.
+Keep head-atlas IDs and UVs intact; a solid-anatomy alpha marker overrides old
+pigment and gloss in both shader backends, avoiding a body-atlas transition.
+Original native heads remain unchanged. Per configurable head: 736 triangles,
+no extra texture, material or draw; no per-frame geometry construction.
+
+Validation: 97 client tests pass (including finite/outward eye geometry and
+socket-category/feature-colour checks); types report zero errors/warnings and
+production builds pass. The 13 script/198 server checks are unchanged: 308
+checks in total. GPU base readback matches all twelve skin colours in six
+fixtures: face, scalp, original forehead, shared arm, original calf and socket.
+The four views have 25,880 / 25,640 / 33,237 / 23,201 body triangles and one
+body draw each. Actual 1280x714 game: SMG 30 -> 29 -> 30 on firing/reload, finite
+muzzle, live nameplates and painted crawler, zero browser errors. These are
+cloud software-renderer checks, not native M4 thermal/FPS measurements.
+
+All eight WGSL variants compile. Queue validation still reports the existing
+cloud external-Instance OperationError/device destruction; WebGPU runtime is
+unverified. Raw records and captures: `docs/qa/sculpted-eyes-2026-10-28.json`
+and `sculpted-eyes-*.png`. Mouth/upper-lip topology and sleeve/wrist sculpting
+remain visibly unfinished, as does the wider world/reference artwork.

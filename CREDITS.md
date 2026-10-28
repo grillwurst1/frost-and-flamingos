@@ -173,3 +173,8 @@ The closed wrist/palm caps, rounded procedural fingertips and wrist-only grip
 are original project geometry. The complete wrist cross-section is derived
 from the owner's Lagoon Heavy Meshy sculpt, clipped/capped in the wardrobe
 bake; original source GLBs, paint and animation files remain unchanged.
+
+
+The configurable-head ellipsoid eye whites and geometric iris, pupil and glint
+surfaces are original project art. They follow the owner's shared scout head
+coordinates, without modifying the source GLBs or importing external assets.

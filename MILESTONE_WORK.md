@@ -472,3 +472,11 @@ one body draw per figure, finite muzzle positions and zero browser errors.
 See `docs/qa/heavy-complete-outfits-2026-10-28.*`. No texture or frame-loop work
 was added. Face, sleeve and wrist artwork still needs refinement; the reference
 quality and native M4 thermal/FPS goals remain open.
+
+
+Verified configurable-head eye geometry, solid socket skin, six-region/all-12
+WebGL2 skin fixtures and actual game firing/reload. 97 client tests and strict
+types/build pass; script/server checks are unchanged. Eight WGSL variants
+compile, but cloud queue/device failure prevents runtime acceptance. The next
+art defect is the actual upper-lip/mouth surface, not its texture resolution.
+Reference quality and M5 completion remain gated. See `docs/qa/sculpted-eyes-*`.

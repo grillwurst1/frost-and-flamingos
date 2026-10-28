@@ -1124,3 +1124,8 @@ Finger. Hautfarbe, Uhr und übrige Hand-Auswahl bleiben wählbar.
 Beim Lagoon-Heavy passen jetzt auch lange Olivhosen vollständig bis zu den
 Stiefeln. Beim Wechsel zwischen Feldweste, Hawaiihemd und Flamingo-Ring bleiben
 keine Teile der ursprünglichen Weste oder zerrissenen Modellhose stehen.
+
+
+Anpassbare Köpfe besitzen jetzt modellierte Augen mit Iris, Pupille und
+Lichtpunkt. Die Haut um die Augen folgt deiner Hautfarbe; Augenweiß und Iris
+werden dabei nicht mitgefärbt. Haar-, Bart- und Kleidungswahl bleiben erhalten.
