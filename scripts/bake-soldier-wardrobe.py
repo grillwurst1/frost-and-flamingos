@@ -71,21 +71,51 @@ for n, face in enumerate(faces):
     if m['hatSplit'] and region == 2 and p[face, 1].mean() >= hat_cut: region = 1
     regions.append(region)
 
+def clipped_forehead(face):
+    # The loader's hat split labels whole triangles. Clip genuine forehead
+    # pigment eligibility in 3D, rather than discarding the skin half with a hat.
+    poly=[(p[v].copy(),uv[v].copy()) for v in face]
+    limits=[(1,head['y']+head['radius']*.65,False),
+            (0,-head['radius']*.85,True),(0,head['radius']*.85,False),
+            (2,head['z']+head['radius']*.25,True),(2,head['z']+head['radius']*1.10,False)]
+    for axis,level,above in limits:
+        result=[]
+        for a,b in zip(poly,poly[1:]+poly[:1]):
+            ia=a[0][axis]>=level if above else a[0][axis]<=level
+            ib=b[0][axis]>=level if above else b[0][axis]<=level
+            if ia:result.append(a)
+            if ia!=ib:
+                t=(level-a[0][axis])/(b[0][axis]-a[0][axis])
+                result.append((a[0]*(1-t)+b[0]*t,a[1]*(1-t)+b[1]*t))
+        poly=result
+        if not poly:break
+    return [(float(tex[0])*(size[0]-1),float(tex[1])*(size[1]-1)) for _,tex in poly]
+
 # Rasterise eligibility in the original UV atlas, not a screen projection.
 # Channels: exposed skin; head hair/beard; white torso cloth for the green vest.
 eligibility = [Image.new('L', size) for _ in range(3)]
 draws = [ImageDraw.Draw(image) for image in eligibility]
-for face, region in zip(faces, regions):
+afro_image=Image.new('L',size);afro_draw=ImageDraw.Draw(afro_image);afro_faces=[]
+for face_index, (face, region) in enumerate(zip(faces, regions)):
     points = [(float(uv[v, 0]) * (size[0] - 1), float(uv[v, 1]) * (size[1] - 1)) for v in face]
     at = p[face].mean(axis=0)
     side = 'Left' if at[0] > 0 else 'Right'
     knee = bind.get(side + 'Leg', [0, .45, 0])[1]
     forearm = sum(w[v, k] for v in face for k in range(4) if 'ForeArm' in names.get(int(j[v, k]), '')) / 3
     arm_skin = region == 4 and (key == 'alpine-allrounder' or forearm > .35)
+    if region == 1 and key.startswith('alpine-'):
+        forehead=clipped_forehead(face)
+        if len(forehead)>=3:draws[0].polygon(forehead,fill=255)
     if region in (2, 5) or (region == 6 and at[1] < knee + .065) or arm_skin:
         draws[0].polygon(points, fill=255)
     if region == 2:
         draws[1].polygon(points, fill=255)
+        if key == 'lagoon-allrounder':
+            outer=at[1]>1.575 or (abs(at[0])>.135 and at[1]>1.35) or (at[2]<-.09 and at[1]>1.35) or (at[1]>1.48 and at[2]<.065)
+            colour=vertex_rgb[face].mean(0);rr,gg,bb=colour
+            hair_colour=max(colour)<.5 and rr<=gg*1.5+.025 and gg<=bb*1.7+.025 and rr>=bb*.5-.01 and rr>=gg*.7-.01
+            if outer and hair_colour:
+                afro_draw.polygon(points,fill=255);afro_faces.append(face_index)
     if region == 3 and at[1] < bind['Neck'][1] - .025:
         # Preserve the shirt placket and collar through the green waistcoat.
         if abs(at[0]) > .035 or at[2] < bind['Spine2'][2] or at[1] < bind['Spine1'][1] + .015:
@@ -112,6 +142,14 @@ d1 = ((rgb - centers[1 - skin_cluster]) ** 2).sum(axis=2)
 body_skin = (r < g * 1.72) & (g < b * 2.25)
 skin = warm & eligible_skin & ((~eligible_head & body_skin) | (eligible_head & (d0 <= d1)))
 hair = warm & eligible_head & (d1 < d0)
+if key == 'lagoon-allrounder':
+    afro_area=np.asarray(afro_image.filter(ImageFilter.MaxFilter(9)))>0
+    afro_hair=afro_area & (r<.50) & (r<=g*1.5+.025) & (g<=b*1.7+.025) & (r>=b*.5-.01) & (r>=g*.7-.01)
+    # Restore facial creases previously mistaken for warm hair. The black afro
+    # is a distinct spatial pigment, not a dark-skin colour cluster.
+    skin |= hair & ~afro_hair
+    hair=afro_hair
+    skin &= ~afro_hair
 white_cloth = ((rgb.max(axis=2) - rgb.min(axis=2)) < .16) & (rgb.mean(axis=2) > .38)
 mask = np.stack([skin, hair, white_cloth], axis=2).astype(np.uint8) * 255
 Image.fromarray(mask).resize((1024, 1024), Image.Resampling.BILINEAR).save(output_dir / f'{key}-wardrobe-mask.webp', lossless=True, method=6)
@@ -126,7 +164,7 @@ def reference(where, fallback):
 votes = np.zeros((len(p), 8), dtype=np.int32)
 for face, region in zip(faces, regions): votes[face, region] += 1
 vertex_region = votes.argmax(axis=1)
-skin_vertices = skin[tex_y, tex_x] & np.isin(vertex_region, [2, 4, 5, 6])
+skin_vertices = skin[tex_y, tex_x] & np.isin(vertex_region, [1, 2, 4, 5, 6])
 hair_vertices = hair[tex_y, tex_x] & (vertex_region == 2)
 pigment = np.where(skin_vertices, 1, np.where(hair_vertices, 2, 0)).tolist()
 metadata = {
@@ -134,5 +172,6 @@ metadata = {
     'vertexCount': len(p), 'indexCount': len(faces) * 3, 'regions': regions, 'pigment': pigment,
     'skinReference': reference(skin, [.90, .68, .53]), 'hairReference': reference(hair, [.30, .15, .07]),
 }
+if key == 'lagoon-allrounder':metadata['afroFaces']=afro_faces
 (output_dir / f'{key}-wardrobe.json').write_text(json.dumps(metadata, separators=(',', ':')))
 print(key, 'regions', dict(zip(*[a.tolist() for a in np.unique(regions, return_counts=True)])), 'skin/hair pixels', int(skin.sum()), int(hair.sum()))

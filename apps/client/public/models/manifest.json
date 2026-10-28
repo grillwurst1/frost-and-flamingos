@@ -7,9 +7,12 @@
       "textures": {
         "basecolor": "alpine-allrounder-basecolor.webp",
         "normal": "alpine-allrounder-normal.webp",
-        "wardrobeMask": "alpine-allrounder-wardrobe-mask.webp"
+        "wardrobeMask": "alpine-allrounder-wardrobe-mask.webp",
+        "headPaint": "soldier-head-basecolor.webp",
+        "headMask": "soldier-head-mask.webp"
       },
-      "wardrobe": "alpine-allrounder-wardrobe.json"
+      "wardrobe": "alpine-allrounder-wardrobe.json",
+      "wardrobeRevision": "af3d3bade8782a44e32637537b885789a61bda7511c6ee360e379de6583e7261"
     },
     "alpine-ghostgirl": {
       "file": "alpine-ghostgirl.glb",
@@ -24,9 +27,12 @@
       "textures": {
         "basecolor": "alpine-heavy-basecolor.webp",
         "normal": "alpine-heavy-normal.webp",
-        "wardrobeMask": "alpine-heavy-wardrobe-mask.webp"
+        "wardrobeMask": "alpine-heavy-wardrobe-mask.webp",
+        "headPaint": "soldier-head-basecolor.webp",
+        "headMask": "soldier-head-mask.webp"
       },
-      "wardrobe": "alpine-heavy-wardrobe.json"
+      "wardrobe": "alpine-heavy-wardrobe.json",
+      "wardrobeRevision": "af3d3bade8782a44e32637537b885789a61bda7511c6ee360e379de6583e7261"
     },
     "alpine-infiltrator": {
       "file": "alpine-infiltrator.glb",
@@ -34,9 +40,12 @@
       "textures": {
         "basecolor": "alpine-infiltrator-basecolor.webp",
         "normal": "alpine-infiltrator-normal.webp",
-        "wardrobeMask": "alpine-infiltrator-wardrobe-mask.webp"
+        "wardrobeMask": "alpine-infiltrator-wardrobe-mask.webp",
+        "headPaint": "soldier-head-basecolor.webp",
+        "headMask": "soldier-head-mask.webp"
       },
-      "wardrobe": "alpine-infiltrator-wardrobe.json"
+      "wardrobe": "alpine-infiltrator-wardrobe.json",
+      "wardrobeRevision": "af3d3bade8782a44e32637537b885789a61bda7511c6ee360e379de6583e7261"
     },
     "hen": {
       "file": "hen.glb",
@@ -51,9 +60,12 @@
       "textures": {
         "basecolor": "lagoon-allrounder-basecolor.webp",
         "normal": "lagoon-allrounder-normal.webp",
-        "wardrobeMask": "lagoon-allrounder-wardrobe-mask.webp"
+        "wardrobeMask": "lagoon-allrounder-wardrobe-mask.webp",
+        "headPaint": "soldier-head-basecolor.webp",
+        "headMask": "soldier-head-mask.webp"
       },
-      "wardrobe": "lagoon-allrounder-wardrobe.json"
+      "wardrobe": "lagoon-allrounder-wardrobe.json",
+      "wardrobeRevision": "af3d3bade8782a44e32637537b885789a61bda7511c6ee360e379de6583e7261"
     },
     "lagoon-beachgirl": {
       "file": "lagoon-beachgirl.glb",
@@ -69,9 +81,12 @@
       "textures": {
         "basecolor": "lagoon-heavy-basecolor.webp",
         "normal": "lagoon-heavy-normal.webp",
-        "wardrobeMask": "lagoon-heavy-wardrobe-mask.webp"
+        "wardrobeMask": "lagoon-heavy-wardrobe-mask.webp",
+        "headPaint": "soldier-head-basecolor.webp",
+        "headMask": "soldier-head-mask.webp"
       },
-      "wardrobe": "lagoon-heavy-wardrobe.json"
+      "wardrobe": "lagoon-heavy-wardrobe.json",
+      "wardrobeRevision": "af3d3bade8782a44e32637537b885789a61bda7511c6ee360e379de6583e7261"
     },
     "lagoon-infiltrator": {
       "file": "lagoon-infiltrator.glb",
@@ -79,9 +94,12 @@
       "textures": {
         "basecolor": "lagoon-infiltrator-basecolor.webp",
         "normal": "lagoon-infiltrator-normal.webp",
-        "wardrobeMask": "lagoon-infiltrator-wardrobe-mask.webp"
+        "wardrobeMask": "lagoon-infiltrator-wardrobe-mask.webp",
+        "headPaint": "soldier-head-basecolor.webp",
+        "headMask": "soldier-head-mask.webp"
       },
-      "wardrobe": "lagoon-infiltrator-wardrobe.json"
+      "wardrobe": "lagoon-infiltrator-wardrobe.json",
+      "wardrobeRevision": "af3d3bade8782a44e32637537b885789a61bda7511c6ee360e379de6583e7261"
     },
     "vehicle-biplane": {
       "file": "vehicle-biplane.glb",

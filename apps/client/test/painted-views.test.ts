@@ -48,7 +48,7 @@ function fakeTextures(scene: Scene): PaintedTextures {
     wardrobeTextures: (key: string) => Promise<PaintedTextures | null>;
     loadedWardrobeTexturesOf: (key: string) => PaintedTextures | null;
   };
-  const textures: PaintedTextures = { albedo: new Texture(null, scene), normal: null, wardrobeMask: new Texture(null, scene) };
+  const textures: PaintedTextures = { albedo: new Texture(null, scene), normal: null, wardrobeMask: new Texture(null, scene), head: { albedo: new Texture(null, scene), mask: new Texture(null, scene) } };
   library.textures = async () => textures;
   library.loadedTexturesOf = () => textures;
   library.wardrobeTextures = async () => textures;
@@ -144,6 +144,7 @@ describe('locomotion cadence', () => {
           albedo: new Texture(null, scene),
           normal: null,
           wardrobeMask: new Texture(null, scene),
+          head: { albedo: new Texture(null, scene), mask: new Texture(null, scene) },
         });
         for (let frame = 0; frame < 90; frame += 1) {
           view.update(1 / 60, pose({ velocity: { x: 0, y: 0, z: speed * direction }, ...extra }));
@@ -270,24 +271,27 @@ describe('stand-in swaps after a revive', () => {
 });
 
 describe('dodge roll', () => {
-  const cases: Array<[string, string | null]> = [
+  const cases: Array<[string, string | null, number?]> = [
     ...Object.keys(PAINTED_MODELS).map((key): [string, string | null] => [key, null]),
     ['alpine-heavy', 'head_none'],
     ['lagoon-allrounder', 'head_fondue_pot'],
+    ['lagoon-allrounder', 'head_fondue_pot', 1],
   ];
   for (const fps of [60, 30]) {
     test(`head, hat, chest and hands stay above the ground (${fps} fps)`, async () => {
       const scene = makeScene();
       const library = paintedModelLibrary(scene);
-      for (const [key, headgear] of cases) {
+      for (const [key, headgear, hairStyleIndex] of cases) {
         const asset = await library.load(key);
         if (!asset) throw new Error(`${key} did not load`);
         const profile = profileOf(key);
+        if (hairStyleIndex !== undefined) profile.cosmetics.hairStyleIndex = hairStyleIndex;
         if (headgear) profile.cosmetics = { ...profile.cosmetics, headgear: headgear as typeof profile.cosmetics.headgear };
         const view = new GlbCharacterView(scene, new StandardMaterial('shadow', scene), profile, asset, {
           albedo: new Texture(null, scene),
           normal: null,
           wardrobeMask: new Texture(null, scene),
+          head: { albedo: new Texture(null, scene), mask: new Texture(null, scene) },
         });
         const internals = view as unknown as { bodyMesh: Mesh; root: TransformNode; attachments: Mesh[]; rollLift: number };
         const bind = internals.bodyMesh.getVerticesData('position') ?? new Float32Array();

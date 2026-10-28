@@ -77,3 +77,61 @@ export function sculptedBeard(scene: Scene, headY: number, color: Color4): Mesh 
   }
   return surface(scene, 'sculpted-jaw-beard', positions, indices, color, cavity);
 }
+
+/** A continuous sculpted hair volume with a real forehead opening. A full
+ * sphere reaches in front of the eyes; the hairline must follow the skull. */
+export function sculptedHairCap(scene: Scene, headY: number, color: Color4, style: number): Mesh {
+  const positions: number[] = [], indices: number[] = [], cavity: number[] = [];
+  const sides = 64, rows = 18, afro = style === 1, quiff = style === 5;
+  for (let row = 0; row < rows; row++) {
+    const t = row / rows * Math.PI / 2;
+    for (let col = 0; col < sides; col++) {
+      const angle = col / sides * Math.PI * 2, front = Math.max(0, Math.cos(angle));
+      const hairline = -.065 + .22 * front ** 3;
+      const crown = afro ? .39 : quiff ? .40 : .30;
+      const bulge = afro ? .055 * Math.sin(t * 2) : .012 * Math.sin(t * 2);
+      const curl = afro ? .009 * Math.sin(angle * 18 + row * 1.7) * Math.sin(row * 1.8 + angle * 3) : .0035 * Math.sin(angle * 22 + t * 3);
+      const rx = (afro ? .300 : .220) + bulge + curl;
+      const rz = (.207 + .027 * (1 - front)) + bulge + curl;
+      positions.push(Math.sin(angle) * rx * Math.cos(t),
+        headY + hairline + (crown - hairline) * Math.sin(t) + (quiff ? .045 * front * Math.sin(2 * t) : 0),
+        -.015 + Math.cos(angle) * rz * Math.cos(t));
+      cavity.push(afro ? .025 + .08 * Math.max(0, -curl / .009) : .025);
+      if (row) {
+        const a = (row - 1) * sides + col, b = (row - 1) * sides + (col + 1) % sides;
+        const c = row * sides + col, d = row * sides + (col + 1) % sides;
+        indices.push(a, b, c, b, d, c);
+      }
+    }
+  }
+  const pole = positions.length / 3;
+  positions.push(0, headY + (afro ? .39 : quiff ? .40 : .30), -.015); cavity.push(.025);
+  for (let col = 0; col < sides; col++) indices.push((rows - 1) * sides + col, (rows - 1) * sides + (col + 1) % sides, pole);
+  if (afro) for (let curl = 0; curl < 12; curl++) {
+    // Rounded forehead curls fill the area hidden by the source's goggles.
+    const angle = -1.1 + curl / 11 * 2.2;
+    const center = new Vector3(Math.sin(angle) * .22, headY + .19 + .035 * Math.cos(angle), .18 * Math.cos(angle) - .015);
+    const radius = .043, first = positions.length / 3, columns = 8, rings = 4;
+    for (let row = 1; row < rings; row++) {
+      const latitude = -Math.PI / 2 + row / rings * Math.PI;
+      for (let col = 0; col < columns; col++) {
+        const phi = col / columns * Math.PI * 2;
+        positions.push(center.x + Math.sin(phi) * Math.cos(latitude) * radius,
+          center.y + Math.sin(latitude) * radius, center.z + Math.cos(phi) * Math.cos(latitude) * radius);
+        cavity.push(.025);
+        if (row > 1) {
+          const a = first + (row - 2) * columns + col, b = first + (row - 2) * columns + (col + 1) % columns;
+          const c = first + (row - 1) * columns + col, d = first + (row - 1) * columns + (col + 1) % columns;
+          indices.push(a, b, c, b, d, c);
+        }
+      }
+    }
+    const low = positions.length / 3; positions.push(center.x, center.y - radius, center.z); cavity.push(.04);
+    const high = positions.length / 3; positions.push(center.x, center.y + radius, center.z); cavity.push(.025);
+    for (let col = 0; col < columns; col++) {
+      indices.push(low, first + (col + 1) % columns, first + col);
+      const last = first + (rings - 2) * columns; indices.push(last + col, last + (col + 1) % columns, high);
+    }
+  }
+  return surface(scene, 'sculpted-hair-cap', positions, indices, color, cavity);
+}

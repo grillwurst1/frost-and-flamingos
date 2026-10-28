@@ -20,6 +20,7 @@ import {
 import { bakeAnimationGroup, gaitContactPhase, jointName, readRig, stanceSpeed, type BakedClip, type RigInfo } from './clips';
 import { readBakedClips, readGlb, writeGlb } from './glb-binary';
 import type { PaintedTextures } from './material';
+import { parseWardrobeHead, type WardrobeHeadGeometry } from './wardrobe-head';
 import { parseNativeWardrobe, type NativeWardrobeData } from './native-wardrobe';
 
 export { BAKE_FPS, bindWorldTransform, jointName, type BakedClip, type BindPose } from './clips';
@@ -50,6 +51,7 @@ export { BAKE_FPS, bindWorldTransform, jointName, type BakedClip, type BindPose 
 export interface PaintedModelAsset extends RigInfo {
   spec: PaintedModelSpec;
   wardrobe?: NativeWardrobeData;
+  wardrobeHead?: WardrobeHeadGeometry;
   container: AssetContainer;
   /** false for static GLBs (no skeleton, no clips). */
   skinned: boolean;
@@ -114,6 +116,7 @@ export type PaintedModelStatus = 'pending' | 'missing' | 'loading' | 'ready' | '
 interface ManifestEntry {
   file: string;
   wardrobe?: string;
+  wardrobeRevision?: string;
   /** Sidecar texture files by slot ("basecolor", "normal"). */
   textures: Readonly<Record<string, string>>;
 }
@@ -137,7 +140,7 @@ async function fetchManifest(): Promise<ReadonlyMap<string, ManifestEntry>> {
     if (!models || typeof models !== 'object') return result;
     for (const [key, value] of Object.entries(models as Record<string, unknown>)) {
       if (!value || typeof value !== 'object') continue;
-      const entry = value as { file?: unknown; textures?: unknown; wardrobe?: unknown };
+      const entry = value as { file?: unknown; textures?: unknown; wardrobe?: unknown; wardrobeRevision?: unknown };
       if (typeof entry.file !== 'string' || !FILE_PATTERN.test(entry.file)) continue;
       const textures: Record<string, string> = {};
       if (entry.textures && typeof entry.textures === 'object') {
@@ -145,7 +148,7 @@ async function fetchManifest(): Promise<ReadonlyMap<string, ManifestEntry>> {
           if (typeof file === 'string' && FILE_PATTERN.test(file)) textures[slot] = file;
         }
       }
-      result.set(key, { file: entry.file, textures, wardrobe: typeof entry.wardrobe === 'string' && /^[a-z0-9-]+-wardrobe\.json$/.test(entry.wardrobe) ? entry.wardrobe : undefined });
+      result.set(key, { file: entry.file, textures, wardrobeRevision: typeof entry.wardrobeRevision === 'string' && /^[a-f0-9]{64}$/.test(entry.wardrobeRevision) ? entry.wardrobeRevision : undefined, wardrobe: typeof entry.wardrobe === 'string' && /^[a-z0-9-]+-wardrobe\.json$/.test(entry.wardrobe) ? entry.wardrobe : undefined });
     }
   } catch {
     // Offline or malformed manifest: every class keeps the procedural rig.
@@ -213,9 +216,9 @@ function splitHat(mesh: Mesh, cutY: number): { bodyCount: number; hatCount: numb
 }
 
 /** Loads one painted texture with trilinear mipmaps and anisotropy. */
-function loadTexture(scene: Scene, file: string): Promise<Texture | null> {
+function loadTexture(scene: Scene, file: string, revision?: string): Promise<Texture | null> {
   return new Promise((resolve) => {
-    const texture: Texture = new Texture(`${MODELS_BASE}${file}`, scene, {
+    const texture: Texture = new Texture(`${MODELS_BASE}${file}${revision ? `?v=${revision}` : ''}`, scene, {
       noMipmap: false,
       invertY: false,
       samplingMode: Texture.TRILINEAR_SAMPLINGMODE,
@@ -242,8 +245,24 @@ function isClipRole(role: string): role is ClipRole {
   return KNOWN_ROLES.has(role);
 }
 
+const sharedHeads = new WeakMap<Scene, Map<string, Promise<WardrobeHeadGeometry | null>>>();
+async function loadSharedHead(scene: Scene, hash: string): Promise<WardrobeHeadGeometry | null> {
+  let cache = sharedHeads.get(scene); if (!cache) { cache = new Map(); sharedHeads.set(scene, cache); }
+  const found = cache.get(hash); if (found) return found;
+  const pending = (async () => {
+    try {
+      const response = await fetch(`${MODELS_BASE}soldier-head.json`, { cache: 'no-cache' }); if (!response.ok) return null;
+      const bytes = await response.arrayBuffer();
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      if ([...new Uint8Array(digest)].map(n => n.toString(16).padStart(2, '0')).join('') !== hash) return null;
+      return parseWardrobeHead(JSON.parse(new TextDecoder().decode(bytes)));
+    } catch { return null; }
+  })();
+  cache.set(hash, pending); return pending;
+}
+
 async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string, wardrobeFile?: string): Promise<PaintedModelAsset | null> {
-  const response = await fetch(`${MODELS_BASE}${file}`);
+  const response = await fetch(`${MODELS_BASE}${file}`, { cache: 'no-cache' });
   if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
   let bytes: Uint8Array = new Uint8Array(await response.arrayBuffer());
   // Clips baked by the pipeline are read straight from the binary; the
@@ -296,12 +315,15 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string, war
   };
   if (wardrobeFile) {
     try {
-      const response = await fetch(`${MODELS_BASE}${wardrobeFile}`);
+      const response = await fetch(`${MODELS_BASE}${wardrobeFile}`, { cache: 'no-cache' });
       const metadata = response.ok ? parseNativeWardrobe(await response.json(), mesh.getTotalVertices(), mesh.getTotalIndices()) : null;
       if (metadata) {
         const digest = await crypto.subtle.digest('SHA-256', originalBytes.slice().buffer);
         const hash = [...new Uint8Array(digest)].map(n => n.toString(16).padStart(2, '0')).join('');
-        if (hash === metadata.sourceHash) asset.wardrobe = metadata;
+        if (hash === metadata.sourceHash) {
+          asset.wardrobe = metadata;
+          if (metadata.headHash) asset.wardrobeHead = await loadSharedHead(scene, metadata.headHash) ?? undefined;
+        }
       }
     } catch { /* Stale/missing optional derived data keeps the complete wardrobe fallback. */ }
   }
@@ -355,6 +377,7 @@ export class PaintedModelLibrary {
   private isSettled = false;
   private readonly textureLoads = new Map<string, Promise<PaintedTextures | null>>();
   private readonly loadedTextures = new Map<string, PaintedTextures>();
+  private headPaintLoad: Promise<PaintedTextures['head']> | null = null;
   private readonly wardrobeLoads = new Map<string, Promise<PaintedTextures | null>>();
   private readonly wardrobeTexturesReady = new Map<string, PaintedTextures>();
   /** Load time per model (ms, request to ready), for the DEV probe. */
@@ -484,11 +507,19 @@ export class PaintedModelLibrary {
   wardrobeTextures(key: string): Promise<PaintedTextures | null> {
     const cached = this.wardrobeLoads.get(key); if (cached) return cached;
     const pending = this.manifest.then(async entries => {
-      const files = entries.get(key)?.textures;
+      const entry = entries.get(key), files = entry?.textures, revision = entry?.wardrobeRevision;
       if (!files?.basecolor || !files.wardrobeMask) return null;
-      const [albedo, wardrobeMask] = await Promise.all([loadTexture(this.scene, files.basecolor), loadTexture(this.scene, files.wardrobeMask)]);
+      const [albedo, wardrobeMask] = await Promise.all([loadTexture(this.scene, files.basecolor, revision), loadTexture(this.scene, files.wardrobeMask, revision)]);
       if (!albedo || !wardrobeMask) { albedo?.dispose(); wardrobeMask?.dispose(); return null; }
-      const textures: PaintedTextures = { albedo, normal: null, wardrobeMask };
+      // All six classes point to the same small head paint pair. Never allocate
+      // it per class/player, and keep the complete head fallback if unavailable.
+      if (!this.headPaintLoad && files.headPaint && files.headMask) {
+        this.headPaintLoad = Promise.all([loadTexture(this.scene, files.headPaint, revision), loadTexture(this.scene, files.headMask, revision)]).then(([paint, mask]) => {
+          if (!paint || !mask) { paint?.dispose(); mask?.dispose(); return undefined; }
+          return { albedo: paint, mask };
+        });
+      }
+      const textures: PaintedTextures = { albedo, normal: null, wardrobeMask, head: this.headPaintLoad ? await this.headPaintLoad : undefined };
       this.wardrobeTexturesReady.set(key, textures); return textures;
     });
     this.wardrobeLoads.set(key, pending); return pending;

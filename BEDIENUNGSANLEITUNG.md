@@ -1063,3 +1063,23 @@ nach Neuladen der Seite aktualisiert; eine Rücksetzung der Garderobe ist unnöt
 Einige Gesichts- und Haarkombinationen verwenden noch vollständige Ersatzteile.
 Diese werden als Nächstes überarbeitet, besonders der glattrasierte Heavy. Die
 Screenshotvorgabe ist damit weiterhin nicht abgeschlossen.
+
+
+### Einheitliche Hautfarbe und Köpfe ohne Kopfbedeckung (28. Oktober 2026)
+
+Die Hautfarbe gehört jetzt zur Grundfigur. Gesicht, Stirn, Kopfhaut, Arme und Hände
+verwenden denselben ausgewählten Farbton. Hemd, Weste, Haare und Zubehör liegen als
+eigene Farbbereiche darüber. Ein Kleidungswechsel verändert die Hautfarbe nicht.
+Natürliche Licht- und Schattenunterschiede bleiben sichtbar.
+
+Auch bei Glatze oder abgenommener Kopfbedeckung bleiben die modellierten Augen,
+Nase, Ohren und Lippen erhalten. Der Kopf ist hinten und oben geschlossen. Der
+Afro nutzt modellierte Locken und folgt der gewählten Haarfarbe. Alle bisherigen
+Auswahlmöglichkeiten und gespeicherten Profile bleiben erhalten. Nach dem Update
+die Seite neu laden. Die vollständige Übereinstimmung mit dem Zielbild bleibt in
+Arbeit; besonders freiliegende Arme und weitere Kleidungsdetails werden verfeinert.
+
+Die aktualisierten Figurenatlanten und Masken werden automatisch mit einer
+Inhaltsversion geladen. Dadurch passen Hautdaten, Kleidung und Kopfgeometrie auch
+nach einem Update zusammen. Die neue Frisur übernimmt zusätzlich das gemalte
+Lockendetail des Originalmodells.

@@ -146,3 +146,11 @@ All other sound (effects, ambience, gibberish voices) is synthesised at runtime.
   Authors), bundled through `@fontsource/luckiest-guy` and `@fontsource/fredoka` and served
   from the app bundle, not a CDN. The full licence texts ship with each package:
   `node_modules/@fontsource/luckiest-guy/LICENSE` and `node_modules/@fontsource/fredoka/LICENSE`.
+
+
+The derived `soldier-head.json`, its `soldier-head-*.webp` paint pair, and reusable
+Afro geometry use the owner's original Alpine Infiltrator and Lagoon Allrounder
+Meshy sculpts under the Meshy attribution/license above. The clean skull, eyebrow
+and hair closure surfaces are procedural additions. `scripts/bake-soldier-head.py`,
+`bake-head-atlas.py` and `bake-soldier-afro.py` document the transformations. Original
+source files are unmodified; no Battlefield/EA artwork or models are included.

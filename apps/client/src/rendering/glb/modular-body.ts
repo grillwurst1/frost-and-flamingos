@@ -16,9 +16,10 @@ interface CachedBody { data: VertexData; boxes: readonly ModularRollBox[] }
 const bodyCache = new WeakMap<Scene, Map<string, CachedBody>>();
 const MAX_CACHED_BODIES = 12;
 
-export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset, native = false): PaintedModelAsset['spec']['head'] {
+export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset, native = false, sharedHead = false): PaintedModelAsset['spec']['head'] {
   const head = asset.spec.head;
   if (native && nativeWardrobeRecipe(profile, asset).head) return head;
+  if (native && sharedHead && asset.wardrobeHead) return { ...head, radius: profile.cosmetics.classId === 'heavy' ? .16 : profile.cosmetics.classId === 'infiltrator' ? .125 : .15 };
   return { ...head, radius: head.radius * (profile.cosmetics.classId === 'heavy' ? .80 : .90) };
 }
 
@@ -26,13 +27,14 @@ export function modularRollBoxes(mesh: Mesh): readonly ModularRollBox[] { return
 
 /** A single skinned draw, with every wardrobe choice represented by geometry/colour. */
 export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: PaintedModelAsset,
-  source: Mesh, material: ShaderMaterial, native = false): Mesh {
+  source: Mesh, material: ShaderMaterial, native = false, sharedHead = false): Mesh {
   const skeleton = source.skeleton;
   if (!skeleton) throw new Error('A modular soldier needs the shared animation skeleton.');
   let cache = bodyCache.get(scene);
   if (!cache) { cache = new Map(); bodyCache.set(scene, cache); }
   const recipe = nativeWardrobeRecipe(profile, native ? asset : { ...asset, wardrobe: undefined });
-  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}`;
+  const cleanHead = Boolean(native && sharedHead && asset.wardrobeHead && !recipe.head);
+  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}`;
   const finish = (cached: CachedBody): Mesh => {
     const mesh = new Mesh('soldier-modular-detail', scene);
     cached.data.applyToMesh(mesh, false);
@@ -52,7 +54,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const size = asset.height / 1.88;
   const shoulder = Math.abs(bind('LeftArm').x - bind('RightArm').x) / 2;
   const bodyScaleX = shoulder / 0.30;
-  const headScale = modularHeadFrame(profile, asset, native).radius / 0.21;
+  const headScale = modularHeadFrame(profile, asset, native, sharedHead).radius / 0.21;
   const anchors = [
     [0.75, bind('Hips').y - 0.12 * size], [0.88, bind('Hips').y],
     [1.03, bind('Spine').y], [1.15, bind('Spine1').y], [1.28, bind('Spine2').y],
@@ -65,11 +67,23 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     return asset.spec.head.y + (y - 1.66) * headScale;
   };
-  const body = (p: Vector3, tag: number) => {
+  const body = (p: Vector3, tag: number, detail = 0) => {
     const y = p.y + 0.88;
     const head = tag === 1;
     const at = new Vector3(-p.x * (head ? headScale : bodyScaleX), head ? asset.spec.head.y + (y - 1.66) * headScale : bodyY(y),
       p.z * (head ? headScale : size) + (head ? asset.spec.head.z : bind('Spine2').z));
+    if (head && cleanHead && detail === 3 && profile.cosmetics.hairStyleIndex === 1 && asset.wardrobeHead?.afro) {
+      // A small inner cap closes any area hidden by the donor's goggles. The
+      // visible silhouette and curls come from the actual artist geometry.
+      at.x *= .82; at.y = asset.spec.head.y + (at.y - asset.spec.head.y) * .82;
+      at.z = asset.spec.head.z + (at.z - asset.spec.head.z) * .82;
+    }
+    if (head && cleanHead && detail === 2) {
+      // The sculpted scout face has a shorter eye-to-mouth span than the old
+      // replacement head. Fit selected glasses/pipes/beards to that anatomy.
+      at.y = asset.spec.head.y + (y - 1.66) * headScale * .62 + .005 * headScale;
+      at.z = asset.spec.head.z + p.z * headScale * .86;
+    }
     if (head) return { at, ...weight(['Head'], 0) };
     if (tag === 2) {
       at.y = bind('Spine2').y + (y - 1.28) * size;
@@ -190,7 +204,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const a = faces[f]!, detail = tags[a * 2 + 1] ?? 0, tag = tags[a * 2] ?? 0;
         let replaced = false;
         if (name === 'character-body-mesh') {
-          if (tag === 1) replaced = detail === 4 ? recipe.hat : recipe.head;
+          if (tag === 1) replaced = detail === 4 ? recipe.hat : detail === 0 ? recipe.head || cleanHead : recipe.head;
           else if (tag === 0) replaced = detail === 6 ? recipe.head : detail === 7 ? recipe.legs : recipe.torso;
         } else if (name.includes('arm')) {
           const distance = -(points[a * 3 + 1]! + points[faces[f + 1]! * 3 + 1]! + points[faces[f + 2]! * 3 + 1]!) / 3;
@@ -204,7 +218,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       for (const vertex of new Set(visible)) {
         const i = vertex * 3, target = positions.length / 3; remap.set(vertex, target);
         const p = new Vector3(points[i]!, points[i + 1]!, points[i + 2]!);
-        const mapped = name === 'character-body-mesh' ? body(p, tags[vertex * 2] ?? 0)
+        const mapped = name === 'character-body-mesh' ? body(p, tags[vertex * 2] ?? 0, tags[vertex * 2 + 1] ?? 0)
           : limb(p, name.startsWith('left') ? 'Left' : 'Right', name.includes('arm'));
         positions.push(mapped.at.x, mapped.at.y, mapped.at.z);
         if (name === 'character-body-mesh' && tags[vertex * 2] === 1)
@@ -281,10 +295,13 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     const srcJ = source.getVerticesData('matricesIndices')!, srcW = source.getVerticesData('matricesWeights')!, srcI = source.getIndices()!;
     const hair = HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
     const hairRGB = [1, 3, 5].map(i => Number.parseInt(hair.slice(i, i + 2), 16) / 255);
-    const remap = new Map<number, number>(), width = 1 + (.15 - profile.cosmetics.bodyType) * .18;
+    const remap = new Map<string, number>(), width = 1 + (.15 - profile.cosmetics.bodyType) * .18;
     const add = (old: number, region: number): number => {
-      const found = remap.get(old); if (found !== undefined) return found;
-      const index = positions.length / 3; remap.set(old, index);
+      // Material-region identifiers are categorical: a vertex shared across
+      // skin and clothing must split here instead of interpolating its label.
+      const key = `${old}:${region}`;
+      const found = remap.get(key); if (found !== undefined) return found;
+      const index = positions.length / 3; remap.set(key, index);
       const scaleX = region === 3 || region === 6 ? width : 1;
       positions.push(srcP[old * 3]! * scaleX, srcP[old * 3 + 1]!, srcP[old * 3 + 2]!);
       const n = new Vector3(srcN[old * 3]! / scaleX, srcN[old * 3 + 1]!, srcN[old * 3 + 2]!).normalize();
@@ -300,6 +317,39 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       // Imported glTF meshes override Babylon's front-face convention. The new
       // mixed mesh uses the procedural convention, so native faces must flip.
       if (usesNativeRegion(recipe, region)) indices.push(add(srcI[f]!, region), add(srcI[f + 2]!, region), add(srcI[f + 1]!, region));
+    }
+  }
+  if (cleanHead && asset.wardrobeHead) {
+    const h = asset.wardrobeHead, frame = modularHeadFrame(profile, asset, native, sharedHead);
+    const scale = frame.radius / h.frame.radius;
+    const broad = profile.cosmetics.classId === 'heavy' ? 1.10 : 1;
+    const first = positions.length / 3;
+    const hair = HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
+    const hairRGB = [1, 3, 5].map(i => Number.parseInt(hair.slice(i, i + 2), 16) / 255);
+    for (let v = 0; v < h.positions.length / 3; v++) {
+      positions.push(h.positions[v * 3]! * scale * broad,
+        frame.y + (h.positions[v * 3 + 1]! - h.frame.y) * scale,
+        frame.z + (h.positions[v * 3 + 2]! - h.frame.z) * scale);
+      const normal = new Vector3(h.normals[v * 3]! / broad, h.normals[v * 3 + 1]!, h.normals[v * 3 + 2]!).normalize();
+      headNormals.push(first + v, normal.x, normal.y, normal.z);
+      const pigment = h.painted[v] === 2 ? hairRGB : skinRGB;
+      colors.push(pigment[0]! * h.tints[v * 3]!, pigment[1]! * h.tints[v * 3 + 1]!, pigment[2]! * h.tints[v * 3 + 2]!, h.painted[v] === 2 ? 0 : 1);
+      cavities.push(h.uvs[v * 2]!, h.uvs[v * 2 + 1]!);
+      nativeFlags.push(h.painted[v] === 1 ? 2 : 0, h.painted[v] === 1 ? 2 : 0);
+      const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
+    }
+    for (let f = 0; f < h.indices.length; f += 3) indices.push(first + h.indices[f]!, first + h.indices[f + 2]!, first + h.indices[f + 1]!);
+    if (profile.cosmetics.hairStyleIndex === 1 && h.afro) {
+      const hair = h.afro, base = positions.length / 3;
+      for (let v = 0; v < hair.positions.length / 3; v++) {
+        positions.push(hair.positions[v * 3]! * scale, frame.y + (hair.positions[v * 3 + 1]! - h.frame.y) * scale,
+          frame.z + (hair.positions[v * 3 + 2]! - h.frame.z) * scale);
+        headNormals.push(base + v, hair.normals[v * 3]!, hair.normals[v * 3 + 1]!, hair.normals[v * 3 + 2]!);
+        const shade = hair.shades[v]!; colors.push(hairRGB[0]! * shade, hairRGB[1]! * shade, hairRGB[2]! * shade, 0);
+        cavities.push(hair.uvs[v * 2]!, hair.uvs[v * 2 + 1]!); nativeFlags.push(2, 8);
+        const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
+      }
+      for (let f = 0; f < hair.indices.length; f += 3) indices.push(base + hair.indices[f]!, base + hair.indices[f + 2]!, base + hair.indices[f + 1]!);
     }
   }
   const normals = new Float32Array(positions.length);

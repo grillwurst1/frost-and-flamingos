@@ -2055,3 +2055,104 @@ peers, loaded painted crawler and actual local native-wardrobe body, with no
 browser errors. The saved field image is `docs/qa/native-wardrobe-field-2026-10-28.png`;
 model/colour comparisons sit beside it. This remains a progress capture, not
 screenshot acceptance; remote custom heads and other art differences remain.
+
+### Anatomical skin base and detailed configurable heads (28 October 2026)
+
+The owner explicitly requires one body skin colour before clothing, with outfits
+layered over it, and reported a forehead colour discontinuity. Every configurable
+soldier now has one `uSkinColor` from the saved profile, including the complete
+unpainted fallback. Exposed anatomical surfaces and the scalp use that same base;
+outfit paint contributes only a small neutral crease shade, never its original
+skin hue. Skin-mask gutters retain coverage. Hair, eyes and clothing keep their
+own pigment layers. Selecting a shirt/vest does not change the head anatomy or
+skin base. This adds no render pass, draw call or per-player texture.
+
+Custom bald/clean-face/headgear combinations now reuse the scout's sculpted eyes,
+nose, ears and lips, a closed smooth skull and rounded 3D eyebrows. This avoids
+exposing hidden hat cuts or retaining a flesh-coloured hat cuff. The clean head is
+baked offline, including UV repacking and pigment transfer in Blender. Skin/hair
+selections remain independent. The original sculpted afro also supplies reusable
+curls for other face choices; its shade data multiplies the selected hair colour.
+A smaller inner hair surface covers areas originally hidden by goggles. Masks
+separate actual black hair from facial creases and goggle paint.
+
+The shared head geometry and 1024×2048 colour / 512×1024 mask atlas are cached once per scene
+(about 13.3 MiB for RGBA textures with mipmaps), rather than per outfit/player. Normal
+maps remain disabled for this soldier path. The original default hero retains its
+25,364-triangle single body draw; alternate heads/curls remain under the existing
+60k outfit ceiling. Body recipe cache 12, 45-FPS/pixel limits and protocol 13 remain.
+The Alpine Heavy's old fur coat hem is no longer imported as selected olive pants.
+
+`bun run wardrobe-assets` now also requires Blender (verified with 4.3.2), Python 3,
+NumPy and Pillow. It derives the closed head and curls from the unchanged owner
+GLBs, updates all six metadata hashes, and emits the shared paint pair. Runtime
+validates topology and SHA-256; incomplete/stale data keeps a complete fallback.
+Original artwork, GLBs and animation clips remain unchanged. See CREDITS for the
+Meshy attribution. Further exposed-arm/garment refinement and world art still need
+visual work; the owner's full screenshot target has not been accepted as complete.
+
+The forehead correction also repairs skin triangles crossing the original GLB
+hat split. Eligibility is clipped to the actual 3D forehead on Alpine models;
+the mask can identify skin inside a hat-labelled triangle while retaining the
+hat's own paint. The shader applies the anatomical skin layer there as well.
+
+Release checks: **296 automated tests pass** (12 derived-asset/script, 198 server,
+86 client), strict TypeScript/Svelte reports zero errors/warnings, and all production
+bundles build. The full suite passed after the final forehead-mask bake. WebGL2
+GPU readback verifies the actual fragment's unlit base output: face, closed scalp
+and an original-model forehead skin UV inside a hat-labelled triangle all equal
+the selected RGB value exactly for every one of the twelve palette entries.
+`docs/qa/skin-base-probe-2026-10-28.json` records the values and fixture scope. This
+is a base-colour check before lighting/post, not a visual screenshot acceptance.
+
+The real wardrobe UI check passes in WebGL2 with no browser errors: bald Heavy,
+skin tone 9 and hair colour 3, field vest → tracht → Hawaii shirt while keeping
+skin selection, profile persistence after reload, then actual gameplay with that
+saved appearance. `docs/qa/skin-base-wardrobe-2026-10-28.png` and the corresponding
+gameplay capture show the result; remaining garment/anatomy art is still visible.
+All eight shader variants, including the shared head and skin base, reach WebGPU
+compilation. The cloud's strict queue completion still raises the existing
+external-instance OperationError, so native GPU gameplay and Mac M4 thermal/FPS
+behaviour remain unverified. Do not describe the compile check as a native playtest.
+
+The last Afro mask correction includes true zero-black source pixels (strict
+colour-ratio comparisons had excluded them). After that derived-data rebuild,
+all 12 asset/script and all 86 client tests passed again, and the production build
+passed; server sources are unchanged from the passing 198-test run. The shared
+curl mesh contains 4,605 triangles. Native shader code is unchanged from the eight
+compiled WebGPU variants. Skin base/readback and wardrobe persistence checks remain
+as recorded above.
+
+Final skin/material refinements: imported vertices split at categorical material
+region boundaries, preventing interpolated skin/outfit identifiers. A regression
+fails on the old mixed triangles and passes after the split. Brown facial creases
+are retained as anatomy rather than discarded as red cloth. Curl paint and face
+paint share the same padded atlas, preserving the artist's curl detail with the
+selected hair colour. The larger atlas costs about 13.3 MiB once per scene; no
+new sampler pair, render pass or body draw is added.
+
+The generated manifest records a stable content revision for the whole wardrobe
+set. Body paint, masks and the shared atlas use versioned texture URLs; model and
+metadata JSON are revalidated. This prevents a deployment from mixing cached old
+skin textures with updated geometry/UVs while retaining caching for unchanged
+assets. All six classes share the same revision.
+
+Latest validation: **297 tests pass** (12 asset/script, 198 server, 87 client),
+including the material-region regression. The full suite passed after the face
+surface/region corrections; after adding stable cache versions, the 12 scripts
+and all 87 clients passed again, with clean strict types and a successful build.
+The current packed atlas also passes GPU base-colour readback for all twelve skin
+tones, including the native forehead. The browser confirms all six requested
+wardrobe textures carry the same generated content revision. Updated values and
+request URLs are recorded in the skin-base QA JSON. Shader sources remain the
+same eight compiled WebGPU variants; the previously recorded cloud queue limitation
+and absence of native M4 measurements still apply.
+
+The final versioned-asset wardrobe/gameplay flow was repeated successfully after
+atlas packing and cache-key changes, with zero browser errors. Current wardrobe
+and gameplay captures replace the earlier files; the four-figure comparison is
+`docs/qa/skin-base-four-figures-2026-10-28.png`. It shows clean bald heads and two
+Afro/face combinations under normal scene lighting, in single body draws of
+28,461 / 21,080 / 32,501 / 27,047 triangles. These are progress images; primitive
+exposed arms and some garments still require the next art pass. Continue that
+work after saving this increment rather than declaring screenshot acceptance.

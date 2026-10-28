@@ -32,7 +32,7 @@ import {
 } from './materials';
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
-import { sculptedBeard, tailoredStrip } from './character-surfaces';
+import { sculptedBeard, sculptedHairCap, tailoredStrip } from './character-surfaces';
 
 const MODEL_HEIGHT = 1.88;
 const SPINE_Y = 0.88;
@@ -956,23 +956,8 @@ export class CharacterView {
     const hair = hexToColor4(hairHex);
     const dark = new Color4(hair.r * 0.7, hair.g * 0.7, hair.b * 0.7, 0);
 
-    if (styleIndex === 0) {
-      sphere(scene, body, 'hair-buzz', 0.43, 0, headY + 0.1, -0.01, hair, {
-        scaleY: 0.48,
-        segments: 10,
-      });
-    } else if (styleIndex === 1) {
-      sphere(scene, body, 'hair-afro', 0.56, 0, headY + 0.16, -0.02, hair, {
-        segments: 10,
-        scaleY: 0.9,
-      });
-      sphere(scene, body, 'hair-afro-side-left', 0.2, -0.2, headY + 0.02, 0, hair, { segments: 6 });
-      sphere(scene, body, 'hair-afro-side-right', 0.2, 0.2, headY + 0.02, 0, hair, { segments: 6 });
-    } else if (styleIndex === 2) {
-      sphere(scene, body, 'hair-cap', 0.44, 0, headY + 0.1, -0.01, hair, {
-        scaleY: 0.55,
-        segments: 10,
-      });
+    body.push(sculptedHairCap(scene, headY, hair, styleIndex));
+    if (styleIndex === 2) {
       for (let lock = 0; lock < 5; lock += 1) {
         const offset = -0.16 + lock * 0.08;
         box(scene, body, 'hair-wave', 0.07, 0.42 + (lock % 2) * 0.1, 0.06, offset, headY - 0.18, -0.14, hair, {
@@ -986,43 +971,23 @@ export class CharacterView {
         rotationZ: -0.12,
       });
     } else if (styleIndex === 3) {
-      sphere(scene, body, 'hair-cap', 0.44, 0, headY + 0.1, -0.01, hair, {
-        scaleY: 0.55,
-        segments: 10,
-      });
       for (let braid = 0; braid < 2; braid += 1) {
         const x = braid === 0 ? -0.17 : 0.17;
         for (let knot = 0; knot < 4; knot += 1) {
           sphere(scene, body, 'braid-knot', 0.09, x + Math.sin(knot) * 0.02, headY - 0.02 - knot * 0.1, -0.08, knot % 2 === 0 ? hair : dark, {
-            segments: 6,
+            segments: 16,
           });
         }
-        sphere(scene, body, 'braid-tie', 0.06, x, headY - 0.4, -0.08, GOLD, { segments: 5 });
+        sphere(scene, body, 'braid-tie', 0.06, x, headY - 0.4, -0.08, GOLD, { segments: 12 });
       }
     } else if (styleIndex === 4) {
-      sphere(scene, body, 'hair-cap', 0.44, 0, headY + 0.1, -0.01, hair, {
-        scaleY: 0.55,
-        segments: 10,
-      });
-      sphere(scene, body, 'ponytail-base', 0.14, 0, headY + 0.14, -0.19, hair, { segments: 6 });
+      sphere(scene, body, 'ponytail-base', 0.14, 0, headY + 0.14, -0.19, hair, { segments: 16 });
       cylinder(scene, body, 'ponytail', 0.34, 0.08, 0.13, 0, headY - 0.02, -0.23, hair, {
         rotationX: -0.4,
-        segments: 6,
+        segments: 16,
       });
-      sphere(scene, body, 'ponytail-tip', 0.1, 0, headY - 0.19, -0.28, dark, { segments: 6 });
-    } else if (styleIndex === 5) {
-      sphere(scene, body, 'hair-cap', 0.44, 0, headY + 0.1, -0.01, hair, {
-        scaleY: 0.55,
-        segments: 10,
-      });
-      box(scene, body, 'pompadour', 0.3, 0.16, 0.2, 0, headY + 0.24, 0.05, hair, {
-        rotationX: -0.18,
-        rotationZ: 0.04,
-      });
-      sphere(scene, body, 'pompadour-curl', 0.18, 0.02, headY + 0.3, 0.12, dark, {
-        segments: 6,
-        scaleY: 0.7,
-      });
+      sphere(scene, body, 'ponytail-tip', 0.1, 0, headY - 0.19, -0.28, dark, { segments: 16 });
+
     }
   }
 
