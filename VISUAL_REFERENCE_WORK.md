@@ -167,3 +167,36 @@ strict TypeScript/Svelte checks report zero errors/warnings, and production buil
 complete. WebGL2 model/field browser checks pass without console errors. Six native
 WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
 external-instance error. Visual-reference acceptance and native hardware QA remain open.
+
+
+### Soldier detail priority, 28 October 2026
+
+Owner again rejects player quality. This increment sculpts face planes/orbits, a
+continuous carved beard, tailored vest folds/seams/harness, pinched oval felt hat,
+more restrained leather stitching and proportionally smaller heads/boots/hardware.
+Actual finger joints now skin visible phalanges/palms, replacing the rigid hand
+paddles. Preserve alternate hand choices and rigs without full finger chains.
+A single-part bare arm must bake its local offset before its transform is reset;
+the new forearm test guards the detached-arm failure seen during this work.
+Roll envelopes include digit geometry under Hand, retaining coarse fixed work.
+
+UV cavity shade is interpolated through rig refinement/cache and leaves selected
+RGB/skin masks intact. Only the soft modular material reads it. No texture, extra
+post pass or body draw; cache 12 and existing render budgets remain. Original
+fixed-look characters and all wardrobe options persist. Native Mac thermals/FPS
+remain unmeasured. Do not mark exact screenshot quality complete.
+
+Validation: **283 tests pass** (10 scripts, 198 server, 75 client). After the final
+strap-fit adjustment, all 75 client tests pass again; final strict typecheck has
+zero errors/warnings and all production builds succeed. WebGL2 connected menu,
+deployment and field capture pass without console errors after a fresh dev-server
+start (a stale Vite error overlay blocked the earlier attempt). Six isolated native
+WGSL variants reach compilation; GPU queue completion still fails with Cloud
+SwiftShader's external-instance error. Full native/Mac thermal QA remains open.
+
+Final default body counts: Allrounder **46,236** / Heavy **25,756** triangles, one
+skinned body draw each (previously 50,214 / 28,308). No measured M4 FPS/heat claim.
+See [model views](docs/qa/player-sculpt-2026-10-28.png) and
+[actual 1280×714 game](docs/qa/player-field-2026-10-28.png). The field uses actual
+binary-connected profiles; positions are staged. Earlier model captures use
+different poses. These record progress, not acceptance of the screenshot target.

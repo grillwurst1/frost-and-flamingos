@@ -3,13 +3,15 @@ import { resolve } from 'node:path';
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine';
 import { Scene } from '@babylonjs/core/scene';
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera';
-import { Vector3 } from '@babylonjs/core/Maths/math';
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import {
   createDefaultProfile, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS,
   SKIN_TONES, HAIR_COLORS, HAIR_STYLE_IDS, type Cosmetics,
 } from '@frost-and-flamingos/shared';
+import { modularHeadFrame } from '../src/rendering/glb/modular-body';
+import { jointName } from '../src/rendering/glb/library';
 import { GlbCharacterView, createPaintedAvatarView } from '../src/rendering/glb-character';
 import { paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
 import type { GlbRig } from '../src/rendering/glb/rig';
@@ -28,6 +30,47 @@ beforeAll(async () => {
   if (!loaded) throw new Error('Missing committed animation rig'); asset = loaded;
 });
 afterAll(() => { scene.dispose(); scene.getEngine().dispose(); });
+
+test('visible finger surfaces follow the articulated phalanges, not just the wrist', () => {
+  const { view, mesh } = build();
+  try {
+    const skeleton = mesh.skeleton!;
+    const bone = skeleton.bones.find(b => jointName(b.name) === 'RightHandMiddle2')!;
+    const node = bone.getTransformNode()!;
+    expect(node).toBeDefined();
+    const joints = mesh.getVerticesData('matricesIndices')!, weights = mesh.getVerticesData('matricesWeights')!;
+    const visible = new Set(Array.from(mesh.getIndices()!));
+    const finger = [...visible].filter(v => [0, 1, 2, 3].some(i => joints[v * 4 + i] === bone.getIndex() && weights[v * 4 + i]! > .5));
+    expect(finger.length).toBeGreaterThan(20);
+    const skin = (): Float32Array => {
+      for (const child of view.root.getChildTransformNodes(false)) child.computeWorldMatrix(true);
+      mesh.computeWorldMatrix(true); skeleton.prepare(true);
+      return Float32Array.from(mesh.getPositionData(true, false)!);
+    };
+    const before = skin();
+    node.rotationQuaternion = node.rotationQuaternion!.multiply(Quaternion.RotationAxis(new Vector3(1, 0, 0), .7));
+    const after = skin();
+    const moved = finger.filter(v => Math.hypot(after[v * 3]! - before[v * 3]!, after[v * 3 + 1]! - before[v * 3 + 1]!, after[v * 3 + 2]! - before[v * 3 + 2]!) > .002);
+    expect(moved.length).toBeGreaterThan(10);
+  } finally { view.dispose(); }
+});
+
+test('local cavity shading survives rig binding and cached rebuilds without changing profile paint', () => {
+  const a = build(), b = build();
+  try {
+    const tone = a.mesh.getVerticesData('uv')!;
+    expect(tone.length).toBe(a.mesh.getTotalVertices() * 2);
+    let cavities = 0;
+    for (let i = 0; i < tone.length; i += 2) {
+      expect(Number.isFinite(tone[i])).toBe(true);
+      expect(tone[i]!).toBeGreaterThanOrEqual(0); expect(tone[i]!).toBeLessThanOrEqual(.5);
+      if (tone[i]! > .08) cavities++;
+    }
+    expect(cavities).toBeGreaterThan(100);
+    expect(Array.from(b.mesh.getVerticesData('uv')!)).toEqual(Array.from(tone));
+    expect(Array.from(b.mesh.getVerticesData('color')!)).toEqual(Array.from(a.mesh.getVerticesData('color')!));
+  } finally { a.view.dispose(); b.view.dispose(); }
+});
 
 test('vehicle pose bends the detailed legs, plants footrests, tilts the body and equips a repair tool', () => {
   const { view } = build();
@@ -199,6 +242,15 @@ test('the reference Heavy outfit uses a real configurable field vest on the Heav
     }
     expect(vest).toBeGreaterThan(100);
     expect(skin).toBeGreaterThan(1000);
+    // A one-part bare arm must retain its offset when template transforms are
+    // baked; otherwise it ends at the elbow and floats above the shoulder.
+    const joints = mesh.getVerticesData('matricesIndices')!, weights = mesh.getVerticesData('matricesWeights')!;
+    for (const side of ['Left', 'Right']) {
+      const elbow = mesh.skeleton!.bones.find(b => jointName(b.name) === `${side}ForeArm`)!.getIndex();
+      let forearm = 0;
+      for (let v = 0; v < mesh.getTotalVertices(); v++) if (joints[v * 4] === elbow && weights[v * 4]! > .9 && colors[v * 4 + 3]! > .9) forearm++;
+      expect(forearm).toBeGreaterThan(30);
+    }
   } finally { view.dispose(); }
 });
 
@@ -222,7 +274,7 @@ test('the fused face has continuous outward normals across its front wrap seam',
   const { view, mesh } = build({ headgear: 'head_none', face: 'face_none', hairStyleIndex: 6 });
   try {
     const p = mesh.getVerticesData('position')!, n = mesh.getVerticesData('normal')!, c = mesh.getVerticesData('color')!;
-    const headScale = asset.spec.head.radius / .21;
+    const headScale = modularHeadFrame(createDefaultProfile('Normals'), asset).radius / .21;
     const groups = new Map<string, number[]>();
     for (let v = 0; v < p.length / 3; v++) {
       if (Math.abs(p[v * 3]!) > 1e-5 || Math.abs(p[v * 3 + 1]! - asset.spec.head.y) > .09 * headScale || p[v * 3 + 2]! < asset.spec.head.z + .18 * headScale || c[v * 4 + 3]! < .9) continue;

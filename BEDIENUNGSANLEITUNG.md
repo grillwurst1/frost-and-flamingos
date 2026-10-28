@@ -1014,3 +1014,36 @@ WebGL2-Figurenansicht und Spielszene laufen ohne Browserfehler. Unter WebGPU
 kompilieren sechs isolierte Shader-Varianten; beim Abschluss der GPU-Aufträge
 scheitert die Cloud-Umgebung weiterhin am Treiberfehler „external Instance“.
 Ein vollständiger WebGPU-Spieltest und die Messung auf deinem Mac bleiben offen.
+
+
+### Detailliertere Spielfiguren (28. Oktober 2026)
+
+Gesichter erhalten ausgeprägtere Nasen-, Wangen- und Kieferformen sowie vertiefte
+Augenpartien. Der Bart folgt als zusammenhängende Form dem Kiefer. Westen haben
+räumliche Stofffalten, Nähte und anliegende Lederriemen. Der Tirolerhut hat eine
+geformte Krone und eine geschwungene ovale Krempe. Köpfe, Stiefel und Schnallen
+sind proportional kleiner; Lederhosen zeigen dezentere Ziernähte.
+
+Die sichtbaren Finger bewegen sich jetzt mit den tatsächlichen Fingergelenken beim
+Waffenhalten und Nachladen. Die Handflächen passen zum jeweiligen Skelett. Der
+Fehler mit abstehenden nackten Armen wurde beim Zusammenführen der Modellteile
+korrigiert. Handschuhe, Hakenhand, Uhr, Haar- und Hautfarben bleiben auswählbar.
+
+Eine lokale Oberflächenschattierung betont Vertiefungen, ohne die gewählte Hautfarbe
+zu ändern. Es gibt keinen zusätzlichen Vollbildfilter und kein höheres FPS-Limit.
+Die Übereinstimmung mit der Grafikvorlage bleibt weiterhin in Arbeit.
+
+Nach Neuladen der Spielseite erscheinen die überarbeiteten Modellformen auch bei
+bereits gespeicherten Figuren; eine Rücksetzung der Garderobe ist dafür nicht nötig.
+[Modellansichten](docs/qa/player-sculpt-2026-10-28.png) und
+[echte Spielszene in 1280×714](docs/qa/player-field-2026-10-28.png) zeigen den Stand.
+Die Testspieler sind verbunden, ihre Positionen für das Bild gestellt.
+
+Geprüft: **283 Tests bestanden** (10 Skript-, 198 Server-, 75 Clienttests); nach
+der letzten Riemenanpassung nochmals alle 75 Clienttests. Typprüfung ohne Fehler
+oder Warnungen, Produktionsbuilds und frischer WebGL2-Spieleinstieg erfolgreich.
+Sechs isolierte WebGPU-Shader kompilieren; der Abschluss der GPU-Aufträge scheitert
+in Cloud weiterhin am Fehler „external Instance“. Der native Spieltest und echte
+Mac-Messwerte bleiben offen. Die Körpermodelle haben nun 46.236 beziehungsweise
+25.756 Dreiecke, jeweils in einem animierten Körpermesh. Die vollständige
+Übereinstimmung mit der Grafikvorlage ist weiterhin nicht bestätigt.

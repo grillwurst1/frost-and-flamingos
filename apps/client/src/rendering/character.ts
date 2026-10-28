@@ -1,4 +1,4 @@
-import { Color4 } from '@babylonjs/core/Maths/math';
+import { Color4, Vector3 } from '@babylonjs/core/Maths/math';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder';
 import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder';
@@ -32,6 +32,7 @@ import {
 } from './materials';
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
+import { sculptedBeard, tailoredStrip } from './character-surfaces';
 
 const MODEL_HEIGHT = 1.88;
 const SPINE_Y = 0.88;
@@ -69,10 +70,26 @@ function tagParts(parts: readonly Mesh[], tag: number): void {
 function shapedPart(scene: Scene, name: string, width: number, height: number, depth: number): Mesh {
   const batch = new GeometryBatch();
   batch.jitter = 0;
-  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock)$/.test(name);
-  if (name === 'sculpted-head') {
+  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock|hand-palm)$/.test(name);
+  if (name === 'tirol-felt-crown' || name === 'tirol-curled-brim') {
+    const crown = name === 'tirol-felt-crown';
+    batch.lathe(crown ? [
+      [.175, -.09], [.18, -.065], [.172, -.015], [.151, .05], [.13, .088], [.08, .075], [.001, .065],
+    ] : [
+      [.155, -.012], [.225, -.018], [.29, -.01], [.31, .004], [.302, .016], [.23, .008], [.155, .009],
+    ], 48, [1, 1, 1], 'plain', { capBottom: crown });
+    for (let v = 0; v < batch.positions.length; v += 3) {
+      const x = batch.positions[v]!, y = batch.positions[v + 1]!, z = batch.positions[v + 2]!;
+      const angle = Math.atan2(x, z);
+      batch.positions[v] = x * (crown ? 1.05 : 1);
+      batch.positions[v + 2] = z * .85;
+      if (crown) batch.positions[v + 2] -= .018 * Math.exp(-((x / .065) ** 2)) * Math.max(0, y / .09);
+      else batch.positions[v + 1] += .024 * Math.sin(angle) ** 4 - .008 * Math.cos(angle);
+    }
+    VertexData.ComputeNormals(batch.positions, batch.indices, batch.normals);
+  } else if (name === 'sculpted-head') {
     const controls: Array<[number, number]> = [
-      [0.09, -0.215], [0.14, -0.195], [0.17, -0.14], [0.19, -0.075],
+      [0.10, -0.215], [0.155, -0.195], [0.185, -0.14], [0.194, -0.075],
       [0.198, 0], [0.20, 0.075], [0.185, 0.14], [0.145, 0.195], [0.06, 0.22], [0.001, 0.225],
     ];
     const profile: Array<[number, number]> = [];
@@ -89,11 +106,15 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
     // of intersecting separate balls with a featureless oval head.
     for (let v = 0; v < batch.positions.length; v += 3) {
       const x = batch.positions[v]!, y = batch.positions[v + 1]!, z = batch.positions[v + 2]!;
-      const front = Math.max(0, z / (depth / 2)) ** 4;
+      const front = Math.max(0, z / (depth / 2)) ** 3;
+      // Strong brow/orbit, nasal bridge, cheek plane and chin make an adult
+      // face in silhouette too. Eyes sit in the orbit instead of on the oval.
       batch.positions[v + 2] = z + front * (
-        .032 * bump(x / .04, (y + .025) / .058) + .009 * bump(x / .035, (y - .045) / .07)
-        + .006 * bump((Math.abs(x) - .10) / .055, (y + .045) / .06)
-        + .008 * bump((Math.abs(x) - .075) / .06, (y - .08) / .03));
+        .073 * bump(x / .040, (y + .025) / .042) + .026 * bump(x / .029, (y - .042) / .065)
+        + .015 * bump((Math.abs(x) - .115) / .043, (y + .04) / .055)
+        + .014 * bump((Math.abs(x) - .075) / .06, (y - .087) / .025)
+        - .015 * bump((Math.abs(x) - .078) / .034, (y - .033) / .026)
+        + .014 * bump(x / .09, (y + .16) / .04));
     }
     VertexData.ComputeNormals(batch.positions, batch.indices, batch.normals);
     for (let ring = 0; ring < profile.length; ring++) {
@@ -108,33 +129,61 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
     }
   } else if (organic) {
     const torso = /^(chest|waist|hip|ranger-waistcoat|field-waistcoat)$/.test(name);
-    const profile: Array<[number, number]> = name.endsWith('-arm-sculpt') ? [
+    const profile: Array<[number, number]> = /^(ranger|field)-waistcoat$/.test(name) ? [
+      [.38 * width, -height / 2], [.40 * width, -height * .35], [.46 * width, -height * .05],
+      [.5 * width, height * .20], [.47 * width, height * .4], [.37 * width, height / 2],
+    ] : name.endsWith('-arm-sculpt') ? [
       [.23 * width, -height / 2], [.245 * width, -height * .45], [.315 * width, -height * .32],
       [.385 * width, -height * .15], [.365 * width, 0], [.4 * width, height * .12],
-      [.44 * width, height * .27], [.5 * width, height * .42], [.36 * width, height * .48], [.06 * width, height / 2],
+      [.44 * width, height * .27], [.5 * width, height * .42], [.44 * width, height / 2], [.27 * width, height / 2 + .035], [.03 * width, height / 2 + .065],
     ] : name.endsWith('-forearm-sculpt') ? [
       [.30 * width, -height / 2], [.31 * width, -height * .4], [.4 * width, -height * .12],
       [.49 * width, height * .25], [.44 * width, height / 2],
     ] : name.endsWith('-sleeve-sculpt') ? [
       [.4 * width, -height / 2], [.47 * width, -height * .25], [.5 * width, height * .1],
-      [.48 * width, height * .32], [.30 * width, height * .44], [.06 * width, height / 2],
+      [.48 * width, height * .32], [.43 * width, height / 2], [.28 * width, height / 2 + .025], [.03 * width, height / 2 + .045],
     ] : [
       [width * (torso ? 0.43 : 0.34), -height / 2],
       [width * 0.49, -height * 0.35], [width * 0.5, height * 0.12],
       [width * 0.47, height * 0.4], [width * 0.42, height / 2],
     ];
+    const garment = /waistcoat$|-sleeve-sculpt$|-lederhosen$|-boardshort$/.test(name);
     batch.with(Affine.scaling(1, 1, depth / width), () =>
-      batch.lathe(profile, 20, [1, 1, 1], 'plain', { capTop: true, capBottom: true }));
+      batch.lathe(profile, garment ? 32 : 20, [1, 1, 1], 'plain', { capTop: true, capBottom: true }));
+    if (garment) {
+      // Broad, modelled cloth compression rather than noise or a painted grid.
+      for (let v = 0; v < batch.positions.length; v += 3) {
+        const x = batch.positions[v]!, y = batch.positions[v + 1]!, z = batch.positions[v + 2]!;
+        const angle = Math.atan2(x, z * width / depth);
+        const edge = Math.max(0, 1 - Math.abs(y / height * 2));
+        const fold = Math.sin(angle * 7 + y / height * 4) * .009 * edge;
+        batch.positions[v] = x + Math.sin(angle) * fold;
+        batch.positions[v + 2] = z + Math.cos(angle) * fold;
+      }
+      VertexData.ComputeNormals(batch.positions, batch.indices, batch.normals);
+    }
   } else batch.box(0, 0, 0, width, height, depth, [1, 1, 1], 'plain', Math.min(0.026, width * 0.2, height * 0.2, depth * 0.2));
   const mesh = new Mesh(name, scene);
   const data = new VertexData();
   data.positions = new Float32Array(batch.positions); data.normals = new Float32Array(batch.normals); data.indices = new Uint32Array(batch.indices);
-  data.uvs = new Float32Array(batch.vertexCount * 2);
+  const cavity = new Float32Array(batch.vertexCount * 2);
+  for (let v = 0; v < batch.vertexCount; v++) {
+    const x = batch.positions[v * 3]!, y = batch.positions[v * 3 + 1]!, z = batch.positions[v * 3 + 2]!;
+    if (name === 'sculpted-head') {
+      const gaussian = (a: number, b: number): number => Math.exp(-a * a - b * b);
+      const front = Math.max(0, z / .2) ** 2;
+      cavity[v * 2] = Math.min(.35, front * (.19 * gaussian((Math.abs(x) - .078) / .045, (y - .04) / .038)
+        + .15 * gaussian(x / .055, (y + .065) / .025)) + .13 * Math.max(0, (-y - .12) / .10));
+    } else if (organic) {
+      cavity[v * 2] = .025 + .10 * Math.max(0, -batch.normals[v * 3 + 1]!);
+    }
+  }
+  data.uvs = cavity;
   data.applyToMesh(mesh, false);
   return mesh;
 }
 
-function paint(mesh: Mesh, color: Color4, skin: boolean): Mesh {
+function paint(mesh: Mesh, color: Color4, skin: boolean, sculpted = false): Mesh {
   const tinted = skin ? new Color4(color.r, color.g, color.b, 1) : new Color4(color.r, color.g, color.b, 0);
   const vertexCount = mesh.getTotalVertices();
   const colors = new Float32Array(vertexCount * 4);
@@ -145,6 +194,7 @@ function paint(mesh: Mesh, color: Color4, skin: boolean): Mesh {
     colors[index * 4 + 3] = tinted.a;
   }
   mesh.setVerticesData('color', colors, false, 4);
+  if (!sculpted) mesh.setVerticesData('uv', new Float32Array(vertexCount * 2));
   mesh.isPickable = false;
   return mesh;
 }
@@ -170,7 +220,7 @@ function box(
   if (options.scaleX || options.scaleY || options.scaleZ) {
     mesh.scaling.set(options.scaleX ?? 1, options.scaleY ?? 1, options.scaleZ ?? 1);
   }
-  paint(mesh, color, options.skin ?? false);
+  paint(mesh, color, options.skin ?? false, true);
   parts.push(mesh);
   return mesh;
 }
@@ -341,6 +391,7 @@ export class CharacterView {
     scene: Scene,
     shadowMaterial: StandardMaterial,
     profile: PlayerProfile,
+    private readonly articulatedHands: readonly ('left' | 'right')[] = [],
   ) {
     this.scene = scene;
     this.shadowMaterial = shadowMaterial;
@@ -406,7 +457,7 @@ export class CharacterView {
     box(scene, body, 'brow-right', 0.085, 0.024, 0.028, 0.08, HEAD_Y + 0.082, 0.185, hexToColor4(hairHex), {
       rotationZ: 0.18,
     });
-    box(scene, body, 'mouth', 0.085, 0.012, 0.012, 0, HEAD_Y - 0.105, 0.174, EYE);
+    box(scene, body, 'mouth', 0.085, 0.012, 0.012, 0, HEAD_Y - 0.105, 0.192, EYE);
     const shadowSkin = new Color4(skinColor.r * 0.7, skinColor.g * 0.65, skinColor.b * 0.63, 1);
     for (const side of [-1, 1]) {
       sphere(scene, body, 'ear-inner', 0.045, side * 0.224, HEAD_Y - 0.005, 0.012, shadowSkin,
@@ -415,9 +466,9 @@ export class CharacterView {
         { skin: true, scaleY: .2, scaleZ: .2, segments: 12 });
       sphere(scene, body, 'iris', 0.026, side * 0.078, HEAD_Y + 0.035, 0.194, hexToColor4('#476d68'), { scaleZ: 0.25, segments: 12 });
       sphere(scene, body, 'pupil-detail', 0.013, side * 0.078, HEAD_Y + 0.035, 0.198, EYE, { scaleZ: 0.25, segments: 12 });
-      sphere(scene, body, 'nostril', 0.012, side * 0.016, HEAD_Y - 0.031, 0.220, shadowSkin, { scaleY: 0.65, scaleZ: 0.5 });
+      sphere(scene, body, 'nostril', 0.012, side * 0.016, HEAD_Y - 0.031, 0.258, shadowSkin, { scaleY: 0.65, scaleZ: 0.5 });
     }
-    sphere(scene, body, 'lower-lip', 0.064, 0, HEAD_Y - 0.123, 0.171, shadowSkin, { scaleY: 0.3, scaleZ: 0.5, segments: 12 });
+    sphere(scene, body, 'lower-lip', 0.064, 0, HEAD_Y - 0.123, 0.190, shadowSkin, { scaleY: 0.3, scaleZ: 0.5, segments: 12 });
     tagParts(body.slice(headStart), 1);
 
     this.buildTorsoDetails(scene, body, cosmetics.torso, {
@@ -681,6 +732,34 @@ export class CharacterView {
         segments: 14,
       });
     }
+    if (torso === 'torso_tracht_shirt' || torso === 'torso_field_vest') {
+      const leather = hexToColor4('#60452f'), thread = hexToColor4('#a88a5e');
+      const vestWidth = shoulderWidth * (torso === 'torso_field_vest' ? .93 : .91);
+      const vestDepth = chestDepth + (torso === 'torso_field_vest' ? .04 : .03);
+      const vestHeight = torso === 'torso_field_vest' ? .49 : .47;
+      const section = [[-.5, .38], [-.35, .40], [-.05, .46], [.20, .50], [.40, .47], [.50, .37]] as const;
+      for (const side of [-1, 1]) {
+        // Back seams remain visible when the selected backpack is absent.
+        for (const back of [-1, 1]) {
+          const path: Vector3[] = [];
+          for (let step = 0; step <= 10; step++) {
+            const y = .08 + step / 10 * .44;
+            const x = side * shoulderWidth * (.22 + .035 * Math.sin(step / 10 * Math.PI));
+            const u = Math.max(-.5, Math.min(.5, (y - .27) / vestHeight));
+            let radius = .37;
+            for (let i = 0; i + 1 < section.length; i++) {
+              const a = section[i]!, b = section[i + 1]!;
+              if (u <= b[0]) { radius = a[1] + (b[1] - a[1]) * (u - a[0]) / (b[0] - a[0]); break; }
+            }
+            const z = back * (vestDepth * radius * Math.sqrt(Math.max(0, 1 - (x / (vestWidth * radius)) ** 2)) + .010);
+            path.push(new Vector3(x, y, z));
+          }
+          const strap = torso === 'torso_tracht_shirt';
+          body.push(tailoredStrip(scene, strap ? 'fitted-leather-harness' : 'vest-tailored-seam', path, strap ? .038 : .008, .009, strap ? leather : torsoSecondary));
+          if (strap) body.push(tailoredStrip(scene, 'harness-edge-stitch', path.map(p => p.add(new Vector3(side * .013, 0, back * .006))), .003, .003, thread));
+        }
+      }
+    }
   }
 
   private buildBackItem(scene: Scene, body: PartList, back: PlayerProfile['cosmetics']['back']): void {
@@ -790,11 +869,7 @@ export class CharacterView {
     const hairColor = hexToColor4(hair);
 
     if (face === 'face_full_beard') {
-      for (let tuft = -3; tuft <= 3; tuft++) {
-        sphere(scene, body, 'beard-lock', 0.095, tuft * 0.043,
-          headY - 0.20 + Math.abs(tuft) * 0.028, 0.16 - Math.abs(tuft) * 0.012, hairColor,
-          { scaleY: 1.6, scaleZ: 0.8, rotationZ: -tuft * 0.06, segments: 12 });
-      }
+      body.push(sculptedBeard(scene, headY, hairColor));
       for (const side of [-1, 1]) sphere(scene, body, 'beard-mustache', 0.10,
         side * 0.047, headY - 0.055, 0.215, hairColor, { scaleX: 1.2, scaleY: 0.38, scaleZ: 0.45, rotationZ: side * 0.16 });
     } else if (face === 'face_mustache') {
@@ -960,14 +1035,10 @@ export class CharacterView {
     const accent = hexToColor4(palette.accent);
 
     if (headgear === 'head_tirol') {
-      cylinder(scene, body, 'tirol-brim', 0.05, 0.62, 0.62, 0, headY + 0.18, 0, primary, {
-        segments: 32,
-      });
-      cylinder(scene, body, 'tirol-crown', 0.18, 0.28, 0.36, 0, headY + 0.29, 0, primary, {
-        segments: 24,
-      });
-      cylinder(scene, body, 'tirol-band', 0.06, 0.37, 0.37, 0, headY + 0.22, 0, secondary, {
-        segments: 24,
+      box(scene, body, 'tirol-curled-brim', .62, .05, .53, 0, headY + .18, 0, primary);
+      box(scene, body, 'tirol-felt-crown', .36, .18, .31, 0, headY + .29, 0, primary);
+      cylinder(scene, body, 'tirol-band', 0.045, 0.368, 0.368, 0, headY + 0.22, 0, secondary, {
+        segments: 32, scaleZ: .85,
       });
       box(scene, body, 'tirol-feather', 0.05, 0.24, 0.02, 0.2, headY + 0.33, 0.05, accent, {
         rotationZ: -0.5,
@@ -1110,12 +1181,8 @@ export class CharacterView {
         segments: 7,
       });
     } else {
-      sphere(scene, parts, `${side}-hand`, 0.13, 0, -0.65, 0.01, skin, {
-        skin: true,
-        segments: 12,
-        scaleY: 1.1,
-        scaleZ: 0.65,
-      });
+      if (!this.articulatedHands.includes(side)) {
+      box(scene, parts, `${side}-hand-palm`, .105, .105, .065, 0, -.650, .008, skin, { skin: true });
       for (let finger = 0; finger < 4; finger++) {
         const x = -0.043 + finger * 0.029;
         sphere(scene, parts, `${side}-finger`, 0.036, x, -0.721 + Math.abs(finger - 1.5) * 0.007, 0.018, skin,
@@ -1123,6 +1190,7 @@ export class CharacterView {
       }
       sphere(scene, parts, `${side}-thumb`, 0.043, side === 'left' ? 0.069 : -0.069, -0.655, 0.035, skin,
         { skin: true, scaleY: 1.55, rotationZ: side === 'left' ? -0.4 : 0.4, segments: 10 });
+      }
       if (hands === 'hands_gold_watch') {
         torus(scene, parts, `${side}-watch`, 0.13, 0.022, 0, -0.6, 0, handPrimary, {
           rotationX: Math.PI / 2,
@@ -1135,6 +1203,10 @@ export class CharacterView {
     }
 
     for (const part of parts) { part.position.x *= bulk; part.position.z *= bulk; part.scaling.x *= bulk; part.scaling.z *= bulk; }
+    // MergeMeshes bakes part transforms; mergeParts' single-mesh fast path does
+    // not. A bare articulated arm has no separate hand/cuff, so preserve its
+    // shoulder-to-wrist offset before the caller resets the merged transform.
+    if (parts.length === 1) parts[0]!.bakeCurrentTransformIntoVertices();
     const merged = mergeParts(scene, `${side}-arm-mesh`, parts, this.material);
     if (!merged) throw new Error('Failed to build character arm.');
     merged.parent = side === 'left' ? this.leftShoulder : this.rightShoulder;
@@ -1227,14 +1299,14 @@ export class CharacterView {
       box(scene, parts, `${side}-ski-boot`, 0.2, 0.22, 0.3, 0, -0.77, 0.05, footPrimary);
       box(scene, parts, `${side}-ski-sole`, 0.22, 0.04, 0.34, 0, -0.89, 0.055, footSecondary);
       box(scene, parts, `${side}-ski-tongue`, 0.115, 0.25, 0.025, 0, -0.635, 0.092, footSecondary);
-      torus(scene, parts, `${side}-ski-cuff`, 0.178, 0.023, 0, -0.474, 0, footAccent, { segments: 16 });
+      torus(scene, parts, `${side}-ski-cuff`, 0.178, 0.023, 0, -0.474, 0, footSecondary, { segments: 16 });
       for (const y of [-0.55, -0.665]) {
         torus(scene, parts, `${side}-ski-strap`, 0.177, 0.018, 0, y, 0, footSecondary, { segments: 16 });
-        box(scene, parts, `${side}-ski-buckle`, 0.085, 0.028, 0.022, 0.035, y, 0.107, footAccent);
-        box(scene, parts, `${side}-ski-side-clasp`, 0.022, 0.04, 0.055, side === 'left' ? -0.105 : 0.105, y, 0.02, footAccent);
+        box(scene, parts, `${side}-ski-buckle`, 0.060, 0.028, 0.022, 0.035, y, 0.107, footAccent);
+        box(scene, parts, `${side}-ski-side-clasp`, 0.014, 0.035, 0.04, side === 'left' ? -0.105 : 0.105, y, 0.02, footAccent);
       }
       // Front hardware sits beyond the toe shell, rather than disappearing inside it.
-      box(scene, parts, `${side}-ski-ankle-buckle`, 0.19, 0.028, 0.025, 0, -0.75, 0.212, footAccent);
+      box(scene, parts, `${side}-ski-ankle-buckle`, 0.09, 0.028, 0.025, .035, -0.75, 0.212, footAccent);
       box(scene, parts, `${side}-ski-toe-guard`, 0.20, 0.045, 0.03, 0, -0.84, 0.212, footSecondary);
     } else if (feet === 'feet_sandals_socks') {
       box(scene, parts, `${side}-sock`, 0.17, 0.16, 0.22, 0, -0.77, 0.03, WHITE);
@@ -1251,6 +1323,7 @@ export class CharacterView {
     }
 
     for (const part of parts) { part.position.x *= bulk; part.position.z *= bulk; part.scaling.x *= bulk; part.scaling.z *= bulk; }
+    for (const part of parts) if (/-(ski-|boot|flipper|sandal)/.test(part.name)) { part.position.x *= .84; part.scaling.x *= .84; }
     const merged = mergeParts(scene, `${side}-leg-mesh`, parts, this.material);
     if (!merged) throw new Error('Failed to build character leg.');
     merged.parent = side === 'left' ? this.leftHip : this.rightHip;

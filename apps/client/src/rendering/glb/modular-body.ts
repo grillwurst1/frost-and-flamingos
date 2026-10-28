@@ -4,7 +4,7 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
-import { profileAppearanceKey, type PlayerProfile } from '@frost-and-flamingos/shared';
+import { profileAppearanceKey, SKIN_TONES, type PlayerProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../character';
 import { bindWorldTransform, jointName, type PaintedModelAsset } from './library';
 import { RIG_JOINTS, type RigJoint } from './rig';
@@ -14,6 +14,11 @@ const rollBoxes = new WeakMap<Mesh, readonly ModularRollBox[]>();
 interface CachedBody { data: VertexData; boxes: readonly ModularRollBox[] }
 const bodyCache = new WeakMap<Scene, Map<string, CachedBody>>();
 const MAX_CACHED_BODIES = 12;
+
+export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset): PaintedModelAsset['spec']['head'] {
+  const head = asset.spec.head;
+  return { ...head, radius: head.radius * (profile.cosmetics.classId === 'heavy' ? .80 : .90) };
+}
 
 export function modularRollBoxes(mesh: Mesh): readonly ModularRollBox[] { return rollBoxes.get(mesh) ?? []; }
 
@@ -44,7 +49,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const size = asset.height / 1.88;
   const shoulder = Math.abs(bind('LeftArm').x - bind('RightArm').x) / 2;
   const bodyScaleX = shoulder / 0.30;
-  const headScale = asset.spec.head.radius / 0.21;
+  const headScale = modularHeadFrame(profile, asset).radius / 0.21;
   const anchors = [
     [0.75, bind('Hips').y - 0.12 * size], [0.88, bind('Hips').y],
     [1.03, bind('Spine').y], [1.15, bind('Spine1').y], [1.28, bind('Spine2').y],
@@ -121,9 +126,16 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
 
   // Reuse the complete wardrobe's authored parts, then bind them to the
   // existing Mixamo joints. The temporary rigid preview is disposed at once.
-  const template = new CharacterView(scene, new StandardMaterial('wardrobe-build-shadow', scene), profile);
+  const digits = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'] as const;
+  const articulated = (['Left', 'Right'] as const).filter(side =>
+    !['hands_mittens', 'hands_boxing'].includes(profile.cosmetics.hands)
+    && !(side === 'Right' && profile.cosmetics.hands === 'hands_pirate_hook')
+    && digits.every(digit => [1, 2, 3].every(n => bones.has(`${side}Hand${digit}${n}`)
+      && asset.bindPositions.has(`${side}Hand${digit}${n}`))));
+  const template = new CharacterView(scene, new StandardMaterial('wardrobe-build-shadow', scene), profile,
+    articulated.map(side => side === 'Left' ? 'left' : 'right'));
   const positions: number[] = [], colors: number[] = [], indices: number[] = [];
-  const joints: number[] = [], weights: number[] = [];
+  const joints: number[] = [], weights: number[] = [], cavities: number[] = [];
   const headNormals: number[] = [];
   try {
     for (const mesh of template.root.getChildMeshes(false)) {
@@ -132,6 +144,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const points = Array.from(mesh.getVerticesData('position')!), paint = Array.from(mesh.getVerticesData('color')!);
       const tags = Array.from(mesh.getVerticesData('uv2') ?? new Float32Array(points.length / 3 * 2));
       const authoredNormals = mesh.getVerticesData('normal')!;
+      const tone = Array.from(mesh.getVerticesData('uv') ?? new Float32Array(points.length / 3 * 2));
       let faces = Array.from(mesh.getIndices()!);
       {
         // Bend surfaces, not just their endpoints. Long triangles crossing a knee,
@@ -146,6 +159,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           for (let c = 0; c < 3; c++) points.push((points[a * 3 + c]! + points[b * 3 + c]!) / 2);
           for (let c = 0; c < 4; c++) paint.push((paint[a * 4 + c]! + paint[b * 4 + c]!) / 2);
           tags.push(tags[a * 2] ?? 0, tags[a * 2 + 1] ?? 0);
+          for (let c = 0; c < 2; c++) tone.push((tone[a * 2 + c]! + tone[b * 2 + c]!) / 2);
           middle.set(key, index);
           return index;
         };
@@ -179,12 +193,73 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           headNormals.push(first + i / 3, -authoredNormals[i]!, authoredNormals[i + 1]!, authoredNormals[i + 2]!);
         }
         joints.push(...mapped.indices); weights.push(...mapped.weights);
+        cavities.push(tone[i / 3 * 2]!, tone[i / 3 * 2 + 1]!);
         const c = i / 3 * 4;
         colors.push(paint[c]!, paint[c + 1]!, paint[c + 2]!, paint[c + 3]!);
       }
       for (let i = 0; i < faces.length; i += 3) indices.push(first + faces[i]!, first + faces[i + 2]!, first + faces[i + 1]!);
     }
   } finally { template.dispose(); }
+  // Bind genuine phalanges to the rig's existing finger joints. Previously the
+  // fist solver animated empty bones while the visible fingers stayed a paddle
+  // rigidly attached to Hand. Shared rings bend with the real grip/reload pose.
+  const skinHex = SKIN_TONES[profile.cosmetics.skinToneIndex] ?? SKIN_TONES[0];
+  const skinRGB = [1, 3, 5].map(i => Number.parseInt(skinHex.slice(i, i + 2), 16) / 255);
+  for (const side of articulated) {
+    const wrist = bind(`${side}Hand`), index = bind(`${side}HandIndex1`), pinky = bind(`${side}HandPinky1`);
+    const knuckles = ['Index', 'Middle', 'Ring', 'Pinky'].map(d => bind(`${side}Hand${d}1`))
+      .reduce((sum, p) => sum.add(p), Vector3.Zero()).scale(.25);
+    const direction = knuckles.subtract(wrist).normalize();
+    const across = pinky.subtract(index).normalize(), front = Vector3.Cross(across, direction).normalize();
+    const halfWidth = Vector3.Distance(index, pinky) * .62;
+    const first = positions.length / 3, sides = 16;
+    for (let ring = 0; ring <= 5; ring++) {
+      const t = ring / 5, center = Vector3.Lerp(wrist, knuckles, t);
+      const width = halfWidth * (.62 + .38 * Math.sin(t * Math.PI / 2));
+      for (let col = 0; col <= sides; col++) {
+        const angle = col / sides * Math.PI * 2;
+        const at = center.add(across.scale(Math.sin(angle) * width)).add(front.scale(Math.cos(angle) * .023 * size));
+        positions.push(at.x, at.y, at.z); colors.push(...skinRGB, 1); cavities.push(.04, 0);
+        const influence = weight([`${side}Hand`], 0); joints.push(...influence.indices); weights.push(...influence.weights);
+        if (ring && col) {
+          const a = first + (ring - 1) * (sides + 1) + col - 1, b = a + 1, c = first + ring * (sides + 1) + col, d = c - 1;
+          indices.push(a, c, b, a, d, c);
+        }
+      }
+    }
+  }
+  for (const side of articulated) for (const digit of digits) {
+    const names = [1, 2, 3].map(n => `${side}Hand${digit}${n}`);
+    const centers = names.map(name => bind(name));
+    centers.push(centers[2]!.add(centers[2]!.subtract(centers[1]!).scale(.8)));
+    const radius = Math.min(.014 * size, Math.max(.007 * size, Vector3.Distance(centers[0]!, centers[1]!) * .30));
+    const first = positions.length / 3, sides = 10, rings = 8;
+    for (let ring = 0; ring <= rings; ring++) {
+      const along = ring / rings * 3, segment = Math.min(2, Math.floor(along)), t = along - segment;
+      const a = centers[segment]!, b = centers[segment + 1]!;
+      const direction = b.subtract(a).normalize();
+      let across = Vector3.Cross(direction, new Vector3(0, 0, 1));
+      if (across.lengthSquared() < .01) across = Vector3.Cross(direction, new Vector3(0, 1, 0));
+      across.normalize(); const front = Vector3.Cross(across, direction).normalize();
+      const r = radius * (ring === rings ? .22 : 1 - ring / rings * .26);
+      for (let col = 0; col <= sides; col++) {
+        const angle = col / sides * Math.PI * 2;
+        const at = Vector3.Lerp(a, b, t).add(across.scale(Math.sin(angle) * r)).add(front.scale(Math.cos(angle) * r));
+        positions.push(at.x, at.y, at.z); colors.push(...skinRGB, 1);
+        const influence = weight([names[segment]!, names[Math.min(2, segment + 1)]!], Math.min(1, t));
+        joints.push(...influence.indices); weights.push(...influence.weights);
+        cavities.push(.04 + .06 * Math.sin(along * Math.PI) ** 2, 0);
+        if (ring && col) {
+          const aa = first + (ring - 1) * (sides + 1) + col - 1, bb = aa + 1;
+          const cc = first + ring * (sides + 1) + col, dd = cc - 1;
+          // Armature reflection is already accounted for, unlike template parts.
+          indices.push(aa, cc, bb, aa, dd, cc);
+        }
+      }
+    }
+    const last = first + rings * (sides + 1);
+    for (let n = 1; n < sides - 1; n++) indices.push(last, last + n + 1, last + n);
+  }
   const normals = new Float32Array(positions.length);
   VertexData.ComputeNormals(positions, indices, normals);
   for (let i = 0; i < headNormals.length; i += 4) {
@@ -193,6 +268,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   }
   const data = new VertexData();
   data.positions = new Float32Array(positions); data.normals = normals;
+  data.uvs = new Float32Array(cavities);
   data.colors = new Float32Array(colors); data.indices = new Uint32Array(indices);
   data.matricesIndices = new Float32Array(joints); data.matricesWeights = new Float32Array(weights);
   // Conservative per-joint envelopes protect the *selected* headgear, hands
@@ -209,12 +285,16 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     const p = new Vector3(positions[vertex * 3]!, positions[vertex * 3 + 1]!, positions[vertex * 3 + 2]!);
     for (let influence = 0; influence < 4; influence++) {
       if (weights[vertex * 4 + influence]! < 0.001) continue;
-      const name = jointNames.get(joints[vertex * 4 + influence]!)!;
-      const b = inverseBinds.get(name);
+      const influenced = jointNames.get(joints[vertex * 4 + influence]!)!;
+      // Fine finger joints are outside the coarse roll solver. Their entire
+      // rest envelope belongs to Hand, so articulated tips cannot be omitted.
+      const name = influenced.match(/^(Left|Right)Hand(?:Thumb|Index|Middle|Ring|Pinky)/)?.[1];
+      const envelopeJoint = name ? `${name}Hand` : influenced;
+      const b = inverseBinds.get(envelopeJoint);
       if (!b) continue;
       const point = p.subtract(b.position).rotateByQuaternionToRef(b.inverse, new Vector3());
-      let box = bounds.get(name);
-      if (!box) { box = { min: point.clone(), max: point.clone() }; bounds.set(name, box); }
+      let box = bounds.get(envelopeJoint);
+      if (!box) { box = { min: point.clone(), max: point.clone() }; bounds.set(envelopeJoint, box); }
       box.min.minimizeInPlace(point); box.max.maximizeInPlace(point);
     }
   }

@@ -19,7 +19,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
-import { buildModularBody, modularRollBoxes } from './glb/modular-body';
+import { buildModularBody, modularHeadFrame, modularRollBoxes } from './glb/modular-body';
 import { createShadowMaterial, type CharacterMaterialState } from './materials';
 import {
   PAINTED_MODELS,
@@ -501,7 +501,7 @@ export class GlbCharacterView implements AvatarView {
       this.bodyMesh.setBoundingInfo(new BoundingInfo(box.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), box.maximum.add(new Vector3(1.2, 0.5, 1.2))));
       this.hatHidden = profile.cosmetics.headgear === 'head_none';
     }
-    this.head = headFrame(asset, this.bodyMesh, spec.head);
+    this.head = headFrame(asset, this.bodyMesh, spec.cosmetics === false ? spec.head : modularHeadFrame(profile, asset));
     const fist = (side: HandSide): Array<{ node: TransformNode; fist: Quaternion; trigger: boolean }> =>
       fistTargets(asset, side).flatMap((target) => {
         const node = nodes.get(target.joint);

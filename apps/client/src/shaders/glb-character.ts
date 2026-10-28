@@ -41,9 +41,10 @@ precision highp float;
 
 attribute vec3 position;
 attribute vec3 normal;
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
 attribute vec2 uv;
-#else
+#endif
+#ifndef FF_TEXTURED
 attribute vec4 color;
 #endif
 #include<bonesDeclaration>
@@ -67,6 +68,9 @@ void main(void) {
   vColor = vec4(1.0);
 #else
   vUV = vec2(0.0);
+#ifdef FF_SOFT_CHARACTER
+  vUV = uv;
+#endif
   vColor = color;
 #endif
   gl_Position = viewProjection * worldPosition;
@@ -216,6 +220,10 @@ void main(void) {
   lit += vec3(0.55, 0.85, 1.0) * uFrozenState * (0.22 + iceShimmer * 0.18);
   lit += vec3(1.0, 0.42, 0.12) * uCharredState * (0.04 + sootMask * 0.05);
 
+  // Rest-pose cavity stays attached during animation. Never changes profile paint.
+#ifdef FF_SOFT_CHARACTER
+  lit *= 1.0 - clamp(vUV.x, 0.0, 0.5);
+#endif
   lit = ffHaze(lit, vWorldPosition);
   // Pass-through shimmer (last, after every derivative).
   if (uDither > 0.001) {
@@ -230,9 +238,10 @@ void main(void) {
 export const glbCharacterVertexWGSL = /* wgsl */ `
 attribute position : vec3f;
 attribute normal : vec3f;
-#ifdef FF_TEXTURED
+#if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
 attribute uv : vec2f;
-#else
+#endif
+#ifndef FF_TEXTURED
 attribute color : vec4f;
 #endif
 #include<bonesDeclaration>
@@ -258,6 +267,9 @@ fn main(input : VertexInputs) -> FragmentInputs {
   vertexOutputs.vColor = vec4f(1.0);
 #else
   vertexOutputs.vUV = vec2f(0.0);
+#ifdef FF_SOFT_CHARACTER
+  vertexOutputs.vUV = input.uv;
+#endif
   vertexOutputs.vColor = input.color;
 #endif
   vertexOutputs.position = uniforms.viewProjection * worldPosition;
@@ -394,6 +406,10 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   lit += vec3f(0.55, 0.85, 1.0) * uniforms.uFrozenState * (0.22 + iceShimmer * 0.18);
   lit += vec3f(1.0, 0.42, 0.12) * uniforms.uCharredState * (0.04 + sootMask * 0.05);
 
+  // Match GLSL: local cavity, independent of selected skin/cloth colour.
+#ifdef FF_SOFT_CHARACTER
+  lit *= 1.0 - clamp(input.vUV.x, 0.0, 0.5);
+#endif
   lit = ffHaze(lit, input.vWorldPosition);
   // Pass-through shimmer (last, after every derivative).
   if (uniforms.uDither > 0.001) {

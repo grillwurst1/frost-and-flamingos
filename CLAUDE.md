@@ -20,6 +20,8 @@ markers. The tracked base reference is `Gemini_Generated_Image_qyqgueqyqgueqyqg.
 the latest chat revision adds player names. This visual work takes priority over
 new milestone features. Preserve all existing mechanics, wardrobe choices and
 laptop rendering budgets. Work serially and compare the running game visually.
+On 28 October the owner again rejected soldier quality. Prioritise actual player
+sculpting, proportions and articulated hands before broader world art or M5 additions.
 `VISUAL_REFERENCE_WORK.md` records this task. Finish validation of the already
 implemented cable car alongside the graphics; M6/M7 remain gated.
 
@@ -568,3 +570,43 @@ strict TypeScript/Svelte checks report zero errors/warnings, and production buil
 complete. WebGL2 model/field browser checks pass without console errors. Six native
 WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
 external-instance error. Visual-reference acceptance and native hardware QA remain open.
+
+
+### Owner-priority soldier sculpt (28 October 2026)
+
+Actual geometry, not sharper post-processing: stronger fused face anatomy and eye
+sockets, one jaw-following carved beard, tailored cloth folds/seams, fitted bevelled
+leather harnesses, pinched felt crown/curled oval brim, quieter leather stitching.
+Modular head radius is 0.80 of catalogue Heavy / 0.90 for other soldiers; the shared
+`modularHeadFrame` also updates mouth/hold measurements. Footwear is narrower with
+smaller ski buckles. Heights, physics, movement, wardrobe IDs and protocol 13 stay.
+
+Native finger joints now carry real phalange surfaces plus a rig-fitted palm. The
+existing fist/trigger solver previously moved empty finger joints while visible
+fingers were rigid to Hand. Keep mittens/boxing/hook/watch choices and incomplete-rig
+fallbacks. Roll envelopes collect articulated digits under Hand; coarse roll checks
+remain bounded instead of adding per-frame CPU skinning. Bare articulated arms can
+have only one source part: bake its transform before mergeParts' single-part path
+and reset, otherwise the whole arm loses its offset. Both forearms are regression-tested.
+
+UV.x carries local authored cavity shade through subdivision/cache/skinning; profile
+RGB and the skin mask remain exact. Only the modular material reads it; spheres'
+ordinary UVs are cleared, painted/fixed characters and weapon materials retain their
+existing paths. GLSL/WGSL match. No new texture, target or post pass, one body draw,
+cache 12 and existing FPS/pixel budgets. Check images rather than treating tests as
+visual sign-off. The owner's screenshot quality remains active work.
+
+Validation: **283 tests pass** (10 scripts, 198 server, 75 client). After the final
+strap-fit adjustment, all 75 client tests pass again; final strict typecheck has
+zero errors/warnings and all production builds succeed. WebGL2 connected menu,
+deployment and field capture pass without console errors after a fresh dev-server
+start (a stale Vite error overlay blocked the earlier attempt). Six isolated native
+WGSL variants reach compilation; GPU queue completion still fails with Cloud
+SwiftShader's external-instance error. Full native/Mac thermal QA remains open.
+
+Final default body counts: Allrounder **46,236** / Heavy **25,756** triangles, one
+skinned body draw each (previously 50,214 / 28,308). No measured M4 FPS/heat claim.
+See [model views](docs/qa/player-sculpt-2026-10-28.png) and
+[actual 1280×714 game](docs/qa/player-field-2026-10-28.png). The field uses actual
+binary-connected profiles; positions are staged. Earlier model captures use
+different poses. These record progress, not acceptance of the screenshot target.

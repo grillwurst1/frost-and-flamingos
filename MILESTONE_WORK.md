@@ -148,3 +148,26 @@ strict TypeScript/Svelte checks report zero errors/warnings, and production buil
 complete. WebGL2 model/field browser checks pass without console errors. Six native
 WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
 external-instance error. Visual-reference acceptance and native hardware QA remain open.
+
+
+28 October: the owner again prioritises player detail. Figure sculpt work adds face
+planes/orbits, connected beard, tailored garments/harness/hat, adjusted head/boot
+proportions and genuinely articulated fingers/palms. Fix the single-part bare-arm
+offset and include finger bounds in roll clearance. Cavity shading keeps selected
+profile paint exact, with no added body draw or screen pass. Protocol stays 13.
+Reference acceptance and further model art remain open; no new M5/M6/M7 features.
+
+Validation: **283 tests pass** (10 scripts, 198 server, 75 client). After the final
+strap-fit adjustment, all 75 client tests pass again; final strict typecheck has
+zero errors/warnings and all production builds succeed. WebGL2 connected menu,
+deployment and field capture pass without console errors after a fresh dev-server
+start (a stale Vite error overlay blocked the earlier attempt). Six isolated native
+WGSL variants reach compilation; GPU queue completion still fails with Cloud
+SwiftShader's external-instance error. Full native/Mac thermal QA remains open.
+
+Final default body counts: Allrounder **46,236** / Heavy **25,756** triangles, one
+skinned body draw each (previously 50,214 / 28,308). No measured M4 FPS/heat claim.
+See [model views](docs/qa/player-sculpt-2026-10-28.png) and
+[actual 1280×714 game](docs/qa/player-field-2026-10-28.png). The field uses actual
+binary-connected profiles; positions are staged. Earlier model captures use
+different poses. These record progress, not acceptance of the screenshot target.

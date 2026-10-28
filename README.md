@@ -530,3 +530,38 @@ strict TypeScript/Svelte checks report zero errors/warnings, and production buil
 complete. WebGL2 model/field browser checks pass without console errors. Six native
 WGSL variants reach compilation; strict GPU queue completion fails with the Cloud
 external-instance error. Visual-reference acceptance and native hardware QA remain open.
+
+
+### Player form and equipment pass (28 October 2026)
+
+Figures now have a stronger nasal bridge, cheek/chin planes, recessed eye sockets
+and a continuous jaw beard. Tailored waistcoats have modelled compression folds,
+fitted seams and bevelled leather harnesses. The Tyrolean hat has a pinched felt
+crown and curled oval brim. Boot width/hardware and head proportions are reduced
+toward the owner's reference; leather stitching replaces the white trouser stripes.
+
+Visible fingers now bind to the existing phalange joints, so the original grip/reload
+solver moves real geometry. The palm follows the rig's knuckles. Mittens, boxing
+gloves, pirate hook and watch remain selectable, with fallback fingers for incomplete
+rigs. Finger envelopes stay inside the roll-clearance solver. A one-part bare-arm
+merge now bakes its offset correctly instead of leaving the arm above its shoulder.
+
+Local vertex cavity shading separates eye sockets, cloth and beard without changing
+selected skin/hair paint. No extra texture, screen target or body draw is needed.
+The model cache stays at 12 and existing frame/pixel budgets remain.
+This is further player-art work; the owner's reference has not been accepted.
+
+Validation: **283 tests pass** (10 scripts, 198 server, 75 client). After the final
+strap-fit adjustment, all 75 client tests pass again; final strict typecheck has
+zero errors/warnings and all production builds succeed. WebGL2 connected menu,
+deployment and field capture pass without console errors after a fresh dev-server
+start (a stale Vite error overlay blocked the earlier attempt). Six isolated native
+WGSL variants reach compilation; GPU queue completion still fails with Cloud
+SwiftShader's external-instance error. Full native/Mac thermal QA remains open.
+
+Final default body counts: Allrounder **46,236** / Heavy **25,756** triangles, one
+skinned body draw each (previously 50,214 / 28,308). No measured M4 FPS/heat claim.
+See [model views](docs/qa/player-sculpt-2026-10-28.png) and
+[actual 1280×714 game](docs/qa/player-field-2026-10-28.png). The field uses actual
+binary-connected profiles; positions are staged. Earlier model captures use
+different poses. These record progress, not acceptance of the screenshot target.

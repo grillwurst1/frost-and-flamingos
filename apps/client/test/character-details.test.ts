@@ -4,6 +4,25 @@ import { Scene } from '@babylonjs/core/scene';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { createDefaultProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../src/rendering/character';
+import { sculptedBeard, tailoredStrip } from '../src/rendering/character-surfaces';
+import { Color4, Vector3 } from '@babylonjs/core/Maths/math';
+
+test('the beard and fitted shoulder ribbon have outward front surfaces with back-face culling', () => {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  const beard = sculptedBeard(scene, .78, new Color4(.3, .2, .1, 0));
+  const strap = tailoredStrip(scene, 'strap', [new Vector3(0, .1, .2), new Vector3(0, .3, .2), new Vector3(0, .5, .2)], .04, .01, new Color4(.3, .2, .1, 0));
+  try {
+    for (const mesh of [beard, strap]) {
+      const p = mesh.getVerticesData('position')!, n = mesh.getVerticesData('normal')!;
+      let front = 0;
+      // Sample the front face, not the strap's bevel or its end cap.
+      for (let v = 0; v < p.length / 3; v++) if (p[v * 3 + 2]! > (mesh === strap ? .204 : .202) && Math.abs(p[v * 3]!) < .025 && (mesh === strap || p[v * 3 + 1]! > .66)) {
+        expect(n[v * 3 + 2]!).toBeGreaterThan(.4); front++;
+      }
+      expect(front).toBeGreaterThan(2);
+    }
+  } finally { scene.dispose(); engine.dispose(); }
+});
 
 test('a bare arm is a connected surface from shoulder to wrist rather than separate joint primitives', () => {
   const engine = new NullEngine(), scene = new Scene(engine);

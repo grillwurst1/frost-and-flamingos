@@ -189,7 +189,7 @@ export const HANDS_PALETTES: Record<HandsId, CosmeticPalette> = {
 };
 
 export const LEGS_PALETTES: Record<LegsId, CosmeticPalette> = {
-  legs_lederhosen: { primary: '#6b4a2f', secondary: '#3f2d1d', accent: '#f3f6f8' },
+  legs_lederhosen: { primary: '#6b4a2f', secondary: '#3f2d1d', accent: '#a88a5e' },
   legs_striped_trousers: { primary: '#d9c7a3', secondary: '#8a6d4a', accent: '#3f5d3a' },
   legs_olive_pants: { primary: '#4f5f3a', secondary: '#36432a', accent: '#c9a227' },
   legs_boardshorts: { primary: '#12b8a6', secondary: '#ff6b5e', accent: '#ffd166' },

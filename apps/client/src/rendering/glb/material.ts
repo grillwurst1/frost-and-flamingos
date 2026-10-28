@@ -85,7 +85,7 @@ export function createGlbMaterial(
       fragmentSource: webgpu ? glbCharacterFragmentWGSL : glbCharacterFragmentGLSL,
     },
     {
-      attributes: textured ? ['position', 'normal', 'uv'] : ['position', 'normal', 'color'],
+      attributes: textured ? ['position', 'normal', 'uv'] : ['position', 'normal', 'color', ...(options.soft ? ['uv'] : [])],
       uniforms: [
         'world',
         'viewProjection',
@@ -115,7 +115,7 @@ export function createGlbMaterial(
   material.setFloat('uCharredState', 0);
   material.setFloat('uFrozenState', 0);
   material.setFloat('uTime', 0);
-  material.setVector4('uPaintParams', textured ? PAINT_PARAMS : PROP_PARAMS);
+  material.setVector4('uPaintParams', textured ? PAINT_PARAMS : options.soft ? new Vector4(0, 1, 1, 0) : PROP_PARAMS);
   material.setFloat('uLookMask', options.lookMask ?? LOOK_MASK_CHARACTER);
   material.setFloat('uDither', 0);
   if (textures) {
