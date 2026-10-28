@@ -60,7 +60,9 @@ export function sculptedBeard(scene: Scene, headY: number, color: Color4): Mesh 
     for (let col = 0; col <= segments; col++) {
       const angle = -1.85 + col / segments * 3.7;
       const side = Math.abs(Math.sin(angle));
-      const upper = -.085 + side ** 2 * .095;
+      // Leave the central lip opening below the moustache, while sideburns
+      // continue to the cheeks. A solid upper edge obscures the sculpted mouth.
+      const upper = -.13 + side ** 2 * .14;
       const lower = -.272 + side ** 1.5 * .09;
       const y = lower + (upper - lower) * t;
       const radius = .055 + .143 * Math.sin(t * Math.PI / 2);
@@ -134,4 +136,44 @@ export function sculptedHairCap(scene: Scene, headY: number, color: Color4, styl
     }
   }
   return surface(scene, 'sculpted-hair-cap', positions, indices, color, cavity);
+}
+
+/** Continuous cargo-trouser fabric. Broad knee and cuff compression is actual
+ * geometry; local cavity shade adds depth without another texture or pass. */
+export function sculptedTrouserLeg(scene: Scene, side: 'left' | 'right', bottom: number, color: Color4): Mesh {
+  const positions: number[] = [], indices: number[] = [], cavity: number[] = [];
+  const sides = 28, rows = Math.ceil(-bottom / .022);
+  const sections = [[0, .084], [.08, .096], [.20, .092], [.31, .083], [.40, .079], [.48, .082], [.57, .075], [.67, .068], [.75, .065]] as const;
+  const ridge = (d: number, centre: number, width: number) => Math.exp(-(((d - centre) / width) ** 2));
+  for (let row = 0; row <= rows; row++) {
+    const distance = -bottom * row / rows;
+    let radius = sections[sections.length - 1]![1] as number;
+    for (let k = 0; k + 1 < sections.length; k++) {
+      const a = sections[k]!, b = sections[k + 1]!;
+      if (distance <= b[0]) { radius = a[1] + (b[1] - a[1]) * (distance - a[0]) / (b[0] - a[0]); break; }
+    }
+    for (let col = 0; col < sides; col++) {
+      const angle = col / sides * Math.PI * 2, front = Math.max(0, Math.cos(angle));
+      const slant = .018 * Math.sin(angle), knee = .55 + .45 * front;
+      const fold = knee * (.008 * ridge(distance, .355 + slant, .020) - .004 * ridge(distance, .385 + slant, .014)
+        + .006 * ridge(distance, .438 - slant, .024))
+        + .004 * Math.cos(angle * 3) * ridge(distance, .07, .08)
+        + .004 * ridge(distance, -bottom - .035 + slant * .3, .016);
+      const r = radius + fold;
+      positions.push(Math.sin(angle) * r, -distance, Math.cos(angle) * r * 1.13);
+      cavity.push(.025 + .10 * knee * ridge(distance, .385 + slant, .014)
+        + .035 * (1 - Math.cos(angle * 2)) * ridge(distance, .1, .13));
+      if (row) {
+        const a = (row - 1) * sides + col, b = (row - 1) * sides + (col + 1) % sides;
+        const c = row * sides + col, d = row * sides + (col + 1) % sides;
+        indices.push(a, c, b, b, c, d);
+      }
+    }
+  }
+  const top = positions.length / 3; positions.push(0, 0, 0, 0, bottom, 0); cavity.push(.06, .06);
+  for (let col = 0; col < sides; col++) {
+    const next = (col + 1) % sides;
+    indices.push(top, col, next, top + 1, rows * sides + next, rows * sides + col);
+  }
+  return surface(scene, `${side}-trouser-fabric`, positions, indices, color, cavity);
 }

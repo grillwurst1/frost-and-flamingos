@@ -8,7 +8,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
-import { createDefaultProfile, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
+import { createDefaultProfile, LEGS_PALETTES, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
 import { GlbCharacterView } from '../src/rendering/glb-character';
 import { paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
 import { bodySurfaceRetarget } from '../src/rendering/glb/body-surfaces';
@@ -298,6 +298,49 @@ test('bald Heavy uses sculpted bare arms without adding another body draw', asyn
       if (flags[v * 2 + 1] === 4) { arms++; expect(colors[v * 4 + 3]).toBe(1); }
     }
     expect(arms).toBeGreaterThan(2000);
+    expect(mesh.subMeshes).toHaveLength(1); expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
+  } finally { view.dispose(); }
+});
+
+
+test('eyepatch beards follow selected hair colour and extend around the actual sculpted chin', () => {
+  for (const hairColorIndex of [0, 2, 5]) {
+    const { view, mesh } = build({ face: 'face_eyepatch_beard', hairStyleIndex: 6, headgear: 'head_none', hairColorIndex }, true);
+    try {
+      const c = mesh.getVerticesData('color')!, p = mesh.getVerticesData('position')!, flags = mesh.getVerticesData('uv2')!;
+      const rgb = [1, 3, 5].map(i => Number.parseInt(HAIR_COLORS[hairColorIndex]!.slice(i, i + 2), 16) / 255);
+      let beard = 0, bottom = Infinity;
+      for (let v = 0; v < mesh.getTotalVertices(); v++) {
+        if (flags[v * 2] !== 0 || c[v * 4 + 3] !== 0 || p[v * 3 + 1]! >= asset.spec.head.y) continue;
+        if (rgb.every((channel, i) => Math.abs(c[v * 4 + i]! - channel) < .00001)) {
+          beard++; bottom = Math.min(bottom, p[v * 3 + 1]!);
+        }
+      }
+      expect(beard).toBeGreaterThan(500);
+      const frame = asset.wardrobeHead!.frame, radius = .15;
+      const actualChin = asset.spec.head.y + (1.285 - frame.y) * radius / frame.radius;
+      expect(bottom).toBeLessThan(actualChin - .025);
+      expect(mesh.subMeshes).toHaveLength(1); expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
+    } finally { view.dispose(); }
+  }
+});
+
+
+test('mixed olive trousers keep the waist closed and calf fabric visible with native mountain boots', () => {
+  const { view, mesh } = build({ legs: 'legs_olive_pants', feet: 'feet_mountain_boots' }, true);
+  try {
+    const rgb = [1, 3, 5].map(i => Number.parseInt(LEGS_PALETTES.legs_olive_pants.primary.slice(i, i + 2), 16) / 255);
+    const p = mesh.getVerticesData('position')!, c = mesh.getVerticesData('color')!, flags = mesh.getVerticesData('uv2')!;
+    let fabric = 0, waist = 0;
+    for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2] === 0 && c[v * 4 + 3] === 0
+      && p[v * 3 + 1]! > .25 && p[v * 3 + 1]! < .40
+      && rgb.every((channel, k) => Math.abs(c[v * 4 + k]! - channel) < .00001)) fabric++;
+    for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2] === 0 && c[v * 4 + 3] === 0
+      && p[v * 3 + 1]! > asset.bindPositions.get('Spine')!.y
+      && p[v * 3 + 1]! < asset.bindPositions.get('Spine1')!.y
+      && rgb.every((channel, k) => Math.abs(c[v * 4 + k]! - channel) < .00001)) waist++;
+    expect(waist).toBeGreaterThan(10);
+    expect(fabric).toBeGreaterThan(100);
     expect(mesh.subMeshes).toHaveLength(1); expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
   } finally { view.dispose(); }
 });

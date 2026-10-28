@@ -32,7 +32,7 @@ import {
 } from './materials';
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
-import { sculptedBeard, sculptedHairCap, tailoredStrip } from './character-surfaces';
+import { sculptedBeard, sculptedHairCap, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
 
 const MODEL_HEIGHT = 1.88;
 const SPINE_Y = 0.88;
@@ -434,6 +434,10 @@ export class CharacterView {
       box(scene, body, 'waist', waistWidth, 0.24, chestDepth * 0.9, 0, 0.1, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
     }
     box(scene, body, 'hip', hipWidth + 0.05, 0.18, chestDepth * 0.92, 0, -0.04, 0, hexToColor4(LEGS_PALETTES[cosmetics.legs].primary));
+    // A closed waist facing sits under the shirt. Native shirts can end above
+    // their own original trouser mesh; mixed outfits must not expose a hole.
+    box(scene, body, 'hip-facing', waistWidth * 1.04, .22, chestDepth * .7, 0, .12, 0,
+      hexToColor4(LEGS_PALETTES[cosmetics.legs].primary));
     cylinder(scene, body, 'neck', 0.14, 0.16, 0.18, 0, 0.6, 0, skinColor, { skin: true });
 
     // Head, face and ears.
@@ -872,10 +876,15 @@ export class CharacterView {
     const accent = hexToColor4(palette.accent);
     const hairColor = hexToColor4(hair);
 
-    if (face === 'face_full_beard') {
+    if (face === 'face_full_beard' || face === 'face_eyepatch_beard') {
       body.push(sculptedBeard(scene, headY, hairColor));
       for (const side of [-1, 1]) sphere(scene, body, 'beard-mustache', 0.10,
         side * 0.047, headY - 0.055, 0.215, hairColor, { scaleX: 1.2, scaleY: 0.38, scaleZ: 0.45, rotationZ: side * 0.16 });
+      if (face === 'face_eyepatch_beard') {
+        box(scene, body, 'eyepatch', 0.1, 0.075, 0.02, -0.078, headY + 0.035, 0.235, primary);
+        torus(scene, body, 'eyepatch-leather-strap', 0.46, 0.014, 0, headY + 0.06, -.01, primary,
+          { segments: 16, scaleX: .83 });
+      }
     } else if (face === 'face_mustache') {
       cylinder(scene, body, 'mustache-left', 0.16, 0.025, 0.035, -0.07, headY - 0.045, 0.205, hairColor, {
         rotationZ: Math.PI / 2.4,
@@ -926,11 +935,6 @@ export class CharacterView {
         segments: 6,
         rotationX: Math.PI / 2,
       });
-    } else if (face === 'face_eyepatch_beard') {
-      box(scene, body, 'eyepatch', 0.1, 0.075, 0.02, -0.078, headY + 0.035, 0.235, primary);
-      box(scene, body, 'eyepatch-strap', 0.42, 0.022, 0.02, 0, headY + 0.06, 0.1, primary);
-      box(scene, body, 'eyepatch-beard', 0.26, 0.2, 0.12, 0, headY - 0.16, 0.13, secondary);
-      box(scene, body, 'eyepatch-mustache', 0.15, 0.04, 0.04, 0, headY - 0.06, 0.21, secondary);
     } else if (face === 'face_flamingo_shades') {
       box(scene, body, 'shades-frame', 0.28, 0.065, 0.025, 0, headY + 0.035, 0.225, secondary);
       box(scene, body, 'shades-lens-left', 0.11, 0.055, 0.02, -0.075, headY + 0.035, 0.24, primary);
@@ -1200,22 +1204,21 @@ export class CharacterView {
     const thighColor = thighSkin ? skin : primary;
     const shinColor = thighSkin ? skin : primary;
 
-    box(scene, parts, `${side}-thigh`, 0.16, 0.4, 0.18, 0, -0.2, 0, thighColor, {
-      skin: thighSkin,
-    });
-    sphere(scene, parts, `${side}-knee`, 0.14, 0, -0.4, 0, shinColor, {
-      skin: thighSkin,
-      segments: 6,
-    });
     const peg = feet === 'feet_peg_leg' && side === 'right';
     const ankleBoot = feet === 'feet_mountain_boots' || (feet === 'feet_peg_leg' && !peg);
     const coveredCuffs = feet === 'feet_ski_boots' || ankleBoot;
-    // Tall boots cover the shin completely. An enclosed second surface can bend
-    // through the shell and expose skin/cloth as triangular spikes at the ankle.
     const shinBottom = ankleBoot ? -.695 : -.75;
-    if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-shin`, 0.145, -.41 - shinBottom, 0.16, 0, (-.41 + shinBottom) / 2, 0, shinColor, {
-      skin: thighSkin,
-    });
+    if (legs === 'legs_olive_pants') {
+      const bottom = peg ? -.4 : feet === 'feet_ski_boots' ? -.415 : shinBottom;
+      parts.push(sculptedTrouserLeg(scene, side, bottom, primary));
+    } else {
+      box(scene, parts, `${side}-thigh`, 0.16, 0.4, 0.18, 0, -0.2, 0, thighColor, { skin: thighSkin });
+      sphere(scene, parts, `${side}-knee`, 0.14, 0, -0.4, 0, shinColor, { skin: thighSkin, segments: 6 });
+      // Tall boots cover the shin completely. Enclosed skin can otherwise bend
+      // through the boot shell and expose triangular spikes at the ankle.
+      if (!peg && feet !== 'feet_ski_boots') box(scene, parts, `${side}-shin`, 0.145, -.41 - shinBottom, 0.16,
+        0, (-.41 + shinBottom) / 2, 0, shinColor, { skin: thighSkin });
+    }
 
     if (legs === 'legs_striped_trousers') {
       for (let stripe = 0; stripe < 4; stripe += 1) {
@@ -1224,6 +1227,10 @@ export class CharacterView {
       }
     } else if (legs === 'legs_olive_pants') {
       box(scene, parts, `${side}-cargo-pocket`, 0.05, 0.12, 0.13, side === 'left' ? -0.1 : 0.1, -0.28, 0.02, secondary);
+      const outside = side === 'left' ? -1 : 1;
+      box(scene, parts, `${side}-cargo-flap`, .057, .03, .14, outside * .105, -.227, .02, primary);
+      box(scene, parts, `${side}-cargo-flap-stitch`, .004, .004, .116, outside * .135, -.235, .02, accent);
+      sphere(scene, parts, `${side}-cargo-fastener`, .014, outside * .139, -.23, .02, accent, { segments: 6 });
       if (!peg && !coveredCuffs) box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
     } else if (legs === 'legs_lederhosen') {
       box(scene, parts, `${side}-lederhosen`, 0.18, 0.30, 0.20, 0, -0.15, 0, primary);

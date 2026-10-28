@@ -15,8 +15,9 @@ test('the beard and fitted shoulder ribbon have outward front surfaces with back
     for (const mesh of [beard, strap]) {
       const p = mesh.getVerticesData('position')!, n = mesh.getVerticesData('normal')!;
       let front = 0;
-      // Sample the front face, not the strap's bevel or its end cap.
-      for (let v = 0; v < p.length / 3; v++) if (p[v * 3 + 2]! > (mesh === strap ? .204 : .202) && Math.abs(p[v * 3]!) < .025 && (mesh === strap || p[v * 3 + 1]! > .66)) {
+      // Sample the front surface, not strap bevels/caps. The beard's lip
+      // opening changes its upper edge, so do not assume an old mouth height.
+      for (let v = 0; v < p.length / 3; v++) if (p[v * 3 + 2]! > (mesh === strap ? .204 : .202) && Math.abs(p[v * 3]!) < .025) {
         expect(n[v * 3 + 2]!).toBeGreaterThan(.4); front++;
       }
       expect(front).toBeGreaterThan(2);

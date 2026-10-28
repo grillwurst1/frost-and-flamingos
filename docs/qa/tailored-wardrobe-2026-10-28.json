@@ -1,0 +1,108 @@
+{
+  "date": "2026-10-28",
+  "renderer": "WebGL2 (cloud SwiftShader; no native Mac GPU measurements)",
+  "faceCaptureScope": "Four actual configurable avatars: full beard, eyepatch beard, shades and moustache. Captured after the landmark/colour fix; later trouser/waist work does not change their face surfaces.",
+  "wardrobe": {
+    "skinToneDisplayed": 9,
+    "hairColourDisplayed": 3,
+    "face": "face_eyepatch_beard",
+    "torso": "torso_field_vest",
+    "classId": "heavy",
+    "reloadPersisted": true,
+    "enteredActualGameplay": true,
+    "browserErrors": []
+  },
+  "faceViews": [
+    {
+      "triangles": 31149,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.15822859108448029,
+        0,
+        1.0469340085983276
+      ]
+    },
+    {
+      "triangles": 25978,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.2837868928909302,
+        0,
+        1.111399531364441
+      ]
+    },
+    {
+      "triangles": 25140,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.15822862088680267,
+        0,
+        1.0469341278076172
+      ]
+    },
+    {
+      "triangles": 17936,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.2546805143356323,
+        0,
+        0.9974096417427063
+      ]
+    }
+  ],
+  "finalTrouserViews": [
+    {
+      "triangles": 26814,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.3129037320613861,
+        0,
+        1.0115326642990112
+      ]
+    },
+    {
+      "triangles": 24616,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.3389790654182434,
+        0,
+        1.0958272218704224
+      ]
+    },
+    {
+      "triangles": 32501,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.3129037618637085,
+        0,
+        1.0115327835083008
+      ]
+    },
+    {
+      "triangles": 27047,
+      "submeshes": 1,
+      "backFaceCulling": true,
+      "renderer": "native-wardrobe",
+      "forward": [
+        -0.3129037618637085,
+        0,
+        1.0115327835083008
+      ]
+    }
+  ],
+  "finalTrouserScope": "Actual four-avatar WebGL2 capture after the waist facing fix. First avatar mixes original tracht shirt, olive trousers and native mountain boots; second is bald Heavy with field vest and olive trousers. All use one body submesh."
+}

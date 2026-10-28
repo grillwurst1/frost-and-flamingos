@@ -81,9 +81,13 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       at.z = asset.spec.head.z + (at.z - asset.spec.head.z) * .82;
     }
     if (head && cleanHead && detail === 2) {
-      // The sculpted scout face has a shorter eye-to-mouth span than the old
-      // replacement head. Fit selected glasses/pipes/beards to that anatomy.
-      at.y = asset.spec.head.y + (y - 1.66) * headScale * .62 + .005 * headScale;
+      // Map the old eye (+.035) and mouth (-.105) landmarks onto the
+      // shared sculpt's eyes (+.017) and lips (-.073), in donor model units.
+      // Compressing the whole face left beards and pipes above the real mouth.
+      const faceScale = headScale * .21 / asset.wardrobeHead!.frame.radius;
+      const eyeToMouth = (y - 1.66 + .105) / .14;
+      at.y = asset.spec.head.y + (-.073 + .09 * eyeToMouth) * faceScale;
+      if (profile.cosmetics.classId === 'heavy') at.x *= 1.10;
       at.z = asset.spec.head.z + p.z * headScale * .86;
     }
     if (head) return { at, ...weight(['Head'], 0) };

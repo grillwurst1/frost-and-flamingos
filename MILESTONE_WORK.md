@@ -345,3 +345,42 @@ the `sculpted-arms-` prefix. Shader sources are unchanged from the previously
 compiled GLSL/WGSL variants; the existing cloud WebGPU queue limitation and lack
 of native Mac M4 measurements still apply. This remains a visual work increment,
 not acceptance of the full screenshot target.
+
+
+The current player-art pass also fixes selected beard colour/fit and olive-trouser
+calves disappearing with native boots. Continuous cloth folds and cargo-flap
+details remain within the existing body draw and texture budget. These are
+visual-reference increments; the larger artwork gate remains open.
+
+The same pass adds a closed, trouser-coloured waist facing beneath mixed shirts
+and pants. It prevents the original shirt's shorter mesh from leaving an open
+abdomen when its matching trousers are replaced; matching native trousers still
+remove the extra facing. The mixed-outfit regression checks both the waist and
+calf coverage. The front-normal regression samples the actual beard surface
+rather than assuming the old, higher lip boundary.
+
+The real WebGL2 wardrobe flow passes with selected skin 9, hair colour 3 and the
+eyepatch beard, followed by profile reload and actual field-vest gameplay,
+without browser errors. Close face and wardrobe/gameplay captures are in
+`docs/qa/fitted-face-accessories-2026-10-28.png` and `docs/qa/tailored-*.png`.
+These prove this increment's displayed choices, not full screenshot acceptance.
+
+
+Release verification for this increment: **302 tests pass** (13 derived-asset,
+198 server, 91 client), including the 15-minute simulated bot soak, selected
+beard colour/chin fit, mixed-outfit waist/calf coverage, articulated fingers,
+vehicle poses and roll clearance. Strict types report zero errors and warnings;
+all production bundles build. GLSL/WGSL shader sources and the versioned painted
+assets are unchanged; this geometry pass adds no texture allocation or render
+pass. The previous native-WebGPU cloud limitation and absent M4 thermal/FPS
+measurements remain. Continue figure/weapon/world refinement; the complete
+reference-image target has not been accepted.
+
+
+The final WebGL2 comparison after the waist closure also passes without browser
+errors: mixed original shirt + olive trousers + native mountain boots and a
+bald Heavy in field vest/olive trousers. The first two bodies use 26,814 and
+24,616 triangles respectively, each in one submesh. The capture and exact scope
+are `docs/qa/tailored-trousers-four-2026-10-28.png` and the tailored-wardrobe JSON.
+Remaining source garment edges, hand silhouettes and weapon scale still need
+work; no complete visual-target acceptance is claimed.

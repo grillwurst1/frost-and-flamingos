@@ -1090,3 +1090,13 @@ modellierten Muskeln statt der einfachen Ersatzform angezeigt. Sie verwenden
 immer deine gewählte Hautfarbe. Die Hände bleiben beweglich und die bisherigen
 Kleidungsoptionen erhalten. Weitere Kleidungsdetails und der vollständige
 Vergleich mit dem Zielbild bleiben in Arbeit.
+
+
+Auch der Bart mit Augenklappe folgt jetzt deiner gewählten Haarfarbe. Die Bärte
+umschließen den Kiefer und lassen den Mund frei; Gesichtszubehör sitzt an den
+Augen- und Lippenpositionen des detaillierten Kopfes. Olivhosen zeigen geformte
+Knie- und Saumfalten sowie Taschenklappen. Die Hosenbeine bleiben beim Kombinieren
+mit den Original-Bergstiefeln erhalten.
+
+Ein geschlossener Hosenbund liegt jetzt unter gemischten Hemd-/Hosenkombinationen.
+Damit bleibt beim Wechsel der Originalhose keine offene Stelle am Bauch zurück.
