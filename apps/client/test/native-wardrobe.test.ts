@@ -14,6 +14,8 @@ import { paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/gl
 import { bodySurfaceRetarget } from '../src/rendering/glb/body-surfaces';
 import { parseWardrobeHead } from '../src/rendering/glb/wardrobe-head';
 import { nativeWardrobeRecipe, parseNativeWardrobe } from '../src/rendering/glb/native-wardrobe';
+import { wristHandSurface } from '../src/rendering/glb/hand-surface';
+import type { GlbRig } from '../src/rendering/glb/rig';
 
 const directory = resolve(import.meta.dir, '../public/models');
 let scene: Scene, asset: PaintedModelAsset, textures: { albedo: RawTexture; normal: null; wardrobeMask: RawTexture };
@@ -38,6 +40,34 @@ function build(changes: Partial<Cosmetics> = {}, detailedHead = false): { view: 
   const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
   return { view, mesh };
 }
+
+test('Heavy wrist without finger bones has a closed grip and follows the requested hand frame', async () => {
+  const heavy = (await paintedModelLibrary(scene).load('lagoon-heavy'))!;
+  expect(heavy.bindPositions.has('LeftHandMiddle1')).toBe(false);
+  const surface = wristHandSurface(heavy, 'Left')!;
+  expect(surface.points.size).toBe(5);
+  const profile = createDefaultProfile('Heavy grip', 'heavy');
+  profile.cosmetics.hands = 'hands_gold_watch';
+  const view = new GlbCharacterView(scene, new StandardMaterial('grip-shadow', scene), profile, heavy, textures);
+  try {
+    const rig = (view as unknown as { rig: GlbRig }).rig;
+    const direction = new Vector3(.3, -.25, .9).normalize(), thumb = new Vector3(0, 1, .2).normalize();
+    rig.refresh();
+    rig.orientHand('LeftHand', 'LeftHandMiddle1', 'LeftHandThumb1', direction, thumb, 1, 'LeftForeArm', surface.localFrame);
+    rig.refresh();
+    const actual = surface.localFrame.fingers.rotateByQuaternionToRef(rig.rotation('LeftHand')!, new Vector3()).normalize();
+    expect(Vector3.Dot(actual, direction)).toBeGreaterThan(.999);
+    const wrist = heavy.bindPositions.get('LeftHand')!;
+    for (const [digit, points] of surface.points) {
+      expect(points).toHaveLength(4);
+      for (const p of points) expect(Vector3.Distance(p, wrist)).toBeLessThan(.14);
+      // The fingertip folds back towards the wrist rather than forming a prong.
+      if (digit !== 'Thumb') expect(Vector3.Distance(points[3]!, wrist)).toBeLessThan(Vector3.Distance(points[1]!, wrist));
+    }
+    const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail')!;
+    expect(mesh.subMeshes).toHaveLength(1);
+  } finally { view.dispose(); }
+});
 
 test('the detailed reference body preserves native surfaces in one compact skinned draw', () => {
   const { view, mesh } = build();

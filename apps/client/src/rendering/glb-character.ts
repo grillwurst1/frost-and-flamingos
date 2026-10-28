@@ -23,6 +23,7 @@ import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
 import { buildModularBody, modularHeadFrame, modularRollBoxes } from './glb/modular-body';
 import { bodySurfaceRecipe } from './glb/body-surfaces';
+import { wristHandSurface } from './glb/hand-surface';
 import { nativeWardrobeRecipe } from './glb/native-wardrobe';
 import { createShadowMaterial, type CharacterMaterialState } from './materials';
 import {
@@ -43,7 +44,7 @@ import {
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { buildCanopyProp, buildWeaponProp, buildWrenchProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
 import { closestOnSegment, fistTargets, groundLift, headFrame, keepOutZ, segmentReach, supportPoints, type HandSide, type HeadFrame } from './glb/hold';
-import { GlbRig, type RigJoint } from './glb/rig';
+import { GlbRig, type RigJoint, type HandLocalFrame } from './glb/rig';
 import { registerHeroWeaponProps } from './weapons/glb-adapter';
 
 /**
@@ -334,6 +335,7 @@ export class GlbCharacterView implements AvatarView {
   /** Support hand: eased slide along the foregrip (0..1) and IK weight. */
   private supportSlide = 0;
   private supportReach = 1;
+  private readonly wristHands: Partial<Record<HandSide, HandLocalFrame>> = {};
   /** The next hold frame snaps the eased hold state (just equipped). */
   private holdSnap = true;
   private holdDt = 0;
@@ -512,6 +514,12 @@ export class GlbCharacterView implements AvatarView {
     const hipsNode = nodes.get('Hips');
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
+    for (const side of ['Left', 'Right'] as const) {
+      if (!this.rig.has(`${side}HandMiddle1`) || !this.rig.has(`${side}HandThumb1`)) {
+        const hand = wristHandSurface(asset, side);
+        if (hand) this.wristHands[side] = hand.localFrame;
+      }
+    }
     if (spec.cosmetics !== false) {
       this.bodyMesh = buildModularBody(scene, profile, asset, mesh, this.material, this.nativeWardrobe, this.sharedWardrobeHead, this.sharedWardrobeBody);
       mesh.isVisible = false;
@@ -1564,7 +1572,7 @@ export class GlbCharacterView implements AvatarView {
     rig.refresh();
     const fingers = toArmature(-0.35, -0.45, 0.82).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
     const thumb = toArmature(-0.2, 0.65, 0.73).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
-    rig.orientHand('RightHand', 'RightHandMiddle1', 'RightHandThumb1', fingers, thumb, armed, 'RightForeArm');
+    rig.orientHand('RightHand', 'RightHandMiddle1', 'RightHandThumb1', fingers, thumb, armed, 'RightForeArm', this.wristHands.Right);
     // The fist closes on the grip (the trigger finger stays half open on guns).
     const trigger = !mouthpiece && (style === 'rifle' || style === 'pistol' || style === 'launcher');
     this.closeHand('Right', armed, trigger);
@@ -1576,7 +1584,7 @@ export class GlbCharacterView implements AvatarView {
       rig.refresh();
       const leftFingers = toArmature(0.45, -0.35, 0.82).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
       const leftThumb = toArmature(0.15, 0.6, 0.78).normalize().rotateByQuaternionToRef(weaponRotation, new Vector3());
-      rig.orientHand('LeftHand', 'LeftHandMiddle1', 'LeftHandThumb1', leftFingers, leftThumb, leftWeight, 'LeftForeArm');
+      rig.orientHand('LeftHand', 'LeftHandMiddle1', 'LeftHandThumb1', leftFingers, leftThumb, leftWeight, 'LeftForeArm', this.wristHands.Left);
       this.closeHand('Left', leftWeight, false);
     }
   }

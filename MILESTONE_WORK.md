@@ -420,3 +420,36 @@ skin colours still match in the five GPU base-colour fixtures. Evidence:
 `docs/qa/clean-wrist-*.png` and `clean-wrist-skin-probe-2026-10-28.json`.
 The configured palms and arm-to-hand seams still need refinement; screenshot
 quality and native M4 performance are not accepted by these checks.
+
+
+### Closed configurable hands and complete wrists — 28 October 2026
+
+Palms overlap the forearm by 18 mm and now close at both the wrist and knuckles.
+Nine finger strips resolve the phalange boundaries and give the fingertips a
+rounded taper. Fully jointed hands retain the existing finger/reload animation.
+For a source wrist without finger bones (the Lagoon Heavy left hand), a compact
+curved grip replaces the old outstretched paddle when a configurable hand is
+needed; it rotates with the wrist as one grip, not as individually animated digits.
+Its local finger/thumb frame now participates in the existing hold solver.
+
+The shared-arm bake includes hand-weighted faces behind the true wrist plane
+before clipping, then closes the cut. This removes the jagged semantic-region
+edge rather than leaving a hole behind the new palm. Shared anatomy is now
+2,259 vertices / 3,400 triangles (77 more triangles than the clipped checkpoint).
+Selected skin is still the independent anatomical base. No new texture, material
+pass, skeleton bone, packet field or per-frame geometry rebuild was introduced;
+the single body draw and bounded outfit cache remain. Wider face/outfit/reference
+quality remains open.
+
+
+Validation: all 305 checks pass (13 script, 198 server, 94 client); the client
+suite passes without the dev server after one 5-second fixture timeout in the
+combined run. Types have zero errors/warnings and production builds pass.
+Additional wrist-cap geometry and forced wrist-only/watch checks pass.
+Serial WebGL2 Alpine/Lagoon close-ups, four configured figures and all 12 skin
+colours at five base-colour fixtures pass with zero browser errors. Evidence:
+`docs/qa/closed-hands-2026-10-28.json` and `closed-hands-*.png`. Body draws stay
+at one per figure; the four captures have 25,880 / 24,904 / 32,501 / 23,201
+triangles. Face sculpting and wrist blending still need artwork refinement.
+The Lagoon Heavy also exposes fragments of its fused original ring/vest when
+changing to a field vest with native trousers; fix that outfit combination next.

@@ -70,6 +70,23 @@ test('shared authored arms retain valid skinning and one content hash across all
     const projection = at.reduce((sum, n, k) => sum + (n - wrist[k]!) * axis[k]! / length, 0);
     expect(projection).toBeLessThanOrEqual(.004001);
   }
+  for (const side of ['Left', 'Right']) {
+    const wrist = body!.bones.find(b => b.name === side + 'Hand')!.position;
+    const forearm = body!.bones.find(b => b.name === side + 'ForeArm')!.position;
+    const axis = wrist.map((n, k) => n - forearm[k]!), length = Math.hypot(...axis);
+    let caps = 0;
+    for (let f = 0; f < body!.indices.length; f += 3) {
+      const points = body!.indices.slice(f, f + 3).map(v => body!.positions.slice(v * 3, v * 3 + 3));
+      if (!points.every(at => (at[0]! > 0) === (side === 'Left') && Math.abs(
+        at.reduce((sum, n, k) => sum + (n - wrist[k]!) * axis[k]! / length, 0) - .004) < 1e-6)) continue;
+      const ab = points[1]!.map((n, k) => n - points[0]![k]!), ac = points[2]!.map((n, k) => n - points[0]![k]!);
+      const normal = [ab[1]! * ac[2]! - ab[2]! * ac[1]!, ab[2]! * ac[0]! - ab[0]! * ac[2]!, ab[0]! * ac[1]! - ab[1]! * ac[0]!];
+      if (Math.hypot(...normal) < 1e-10) continue;
+      expect(normal.reduce((sum, n, k) => sum + n * axis[k]!, 0)).toBeGreaterThan(0);
+      caps++;
+    }
+    expect(caps).toBeGreaterThan(6);
+  }
   expect(bytes.byteLength).toBeLessThan(1500000);
   const manifest = await Bun.file(resolve(directory, 'manifest.json')).json();
   for (const faction of ['alpine', 'lagoon']) for (const role of ['allrounder', 'heavy', 'infiltrator']) {

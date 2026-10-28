@@ -56,6 +56,30 @@ test('visible finger surfaces follow the articulated phalanges, not just the wri
   } finally { view.dispose(); }
 });
 
+test('configurable palms close both ends with outward surfaces behind the wrist and at the knuckles', () => {
+  const { view, mesh } = build();
+  try {
+    const p = mesh.getVerticesData('position')!, n = mesh.getVerticesData('normal')!;
+    for (const side of ['Left', 'Right']) {
+      const wrist = asset.bindPositions.get(`${side}Hand`)!;
+      const knuckles = ['Index', 'Middle', 'Ring', 'Pinky'].map(d => asset.bindPositions.get(`${side}Hand${d}1`)!)
+        .reduce((sum, at) => sum.add(at), Vector3.Zero()).scale(.25);
+      const direction = knuckles.subtract(wrist).normalize();
+      for (const [center, outward] of [
+        [wrist.subtract(direction.scale(.018 * asset.height / 1.88)), direction.negate()],
+        [knuckles, direction],
+      ]) {
+        let closed = false;
+        for (let v = 0; v < p.length / 3; v++) {
+          if (Vector3.DistanceSquared(Vector3.FromArray(p, v * 3), center!) > 1e-10) continue;
+          if (Vector3.Dot(Vector3.FromArray(n, v * 3), outward!) > .95) closed = true;
+        }
+        expect(closed).toBe(true);
+      }
+    }
+  } finally { view.dispose(); }
+});
+
 test('local cavity shading survives rig binding and cached rebuilds without changing profile paint', () => {
   const a = build(), b = build();
   try {

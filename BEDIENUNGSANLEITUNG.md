@@ -1112,3 +1112,10 @@ zusammen mit den Bergstiefeln eingeblendet. Nach dem Update die Seite neu laden.
 Bei ärmellosen Figuren wurden überstehende Reste der alten Modellhand aus den
 Armen entfernt. Die ausgewählte Hand ersetzt dadurch die alte Handgeometrie. Die Übergänge
 zur Hand werden noch verfeinert. Deine Hautfarbe und Hand-Auswahl bleiben erhalten.
+
+
+Konfigurierbare Handflächen sind nun auch am Handgelenk und an den Knöcheln
+geschlossen. Beim Lagoon-Heavy erhält die linke Hand bei einer abweichenden
+Hand-Auswahl einen kompakten Griff statt ausgestreckter Finger. Diese Hand
+folgt als Ganzes dem Handgelenk; andere Figuren behalten ihre beweglichen
+Finger. Hautfarbe, Uhr und übrige Hand-Auswahl bleiben wählbar.

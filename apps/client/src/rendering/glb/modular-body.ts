@@ -8,6 +8,7 @@ import { profileAppearanceKey, SKIN_TONES, HAIR_COLORS, type PlayerProfile } fro
 import { CharacterView } from '../character';
 import { bindWorldTransform, jointName, type PaintedModelAsset } from './library';
 import { bodySurfaceRecipe, bodySurfaceRetarget } from './body-surfaces';
+import { wristHandSurface } from './hand-surface';
 import { nativeWardrobeRecipe, usesNativeRegion } from './native-wardrobe';
 import { RIG_JOINTS, type RigJoint } from './rig';
 
@@ -155,8 +156,15 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     && !(side === 'Right' && profile.cosmetics.hands === 'hands_pirate_hook')
     && digits.every(digit => [1, 2, 3].every(n => bones.has(`${side}Hand${digit}${n}`)
       && asset.bindPositions.has(`${side}Hand${digit}${n}`))));
+  const wristHands = new Map((['Left', 'Right'] as const).flatMap(side => {
+    if (articulated.includes(side) || ['hands_mittens', 'hands_boxing'].includes(profile.cosmetics.hands)
+      || (side === 'Right' && profile.cosmetics.hands === 'hands_pirate_hook')) return [];
+    const hand = wristHandSurface(asset, side);
+    return hand ? [[side, hand] as const] : [];
+  }));
+  const handSides = (['Left', 'Right'] as const).filter(side => articulated.includes(side) || wristHands.has(side));
   const template = new CharacterView(scene, new StandardMaterial('wardrobe-build-shadow', scene), profile,
-    articulated.map(side => side === 'Left' ? 'left' : 'right'));
+    handSides.map(side => side === 'Left' ? 'left' : 'right'));
   const positions: number[] = [], colors: number[] = [], indices: number[] = [];
   const joints: number[] = [], weights: number[] = [], cavities: number[] = [];
   const headNormals: number[] = [];
@@ -241,16 +249,21 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   // rigidly attached to Hand. Shared rings bend with the real grip/reload pose.
   const skinHex = SKIN_TONES[profile.cosmetics.skinToneIndex] ?? SKIN_TONES[0];
   const skinRGB = [1, 3, 5].map(i => Number.parseInt(skinHex.slice(i, i + 2), 16) / 255);
-  for (const side of recipe.hands ? [] : articulated) {
-    const wrist = bind(`${side}Hand`), index = bind(`${side}HandIndex1`), pinky = bind(`${side}HandPinky1`);
-    const knuckles = ['Index', 'Middle', 'Ring', 'Pinky'].map(d => bind(`${side}Hand${d}1`))
+  const knuckle = (side: 'Left' | 'Right', digit: string): Vector3 =>
+    wristHands.get(side)?.points.get(digit)?.[0] ?? bind(`${side}Hand${digit}1`);
+  for (const side of recipe.hands ? [] : handSides) {
+    const wrist = bind(`${side}Hand`), index = knuckle(side, 'Index'), pinky = knuckle(side, 'Pinky');
+    const knuckles = ['Index', 'Middle', 'Ring', 'Pinky'].map(d => knuckle(side, d))
       .reduce((sum, p) => sum.add(p), Vector3.Zero()).scale(.25);
     const direction = knuckles.subtract(wrist).normalize();
     const across = pinky.subtract(index).normalize(), front = Vector3.Cross(across, direction).normalize();
     const halfWidth = Vector3.Distance(index, pinky) * .62;
     const first = positions.length / 3, sides = 16;
+    // Overlap the anatomical forearm instead of meeting two open tubes at a
+    // single plane. The rounded palm stays closed when the wrist bends.
+    const heel = wrist.subtract(direction.scale(.018 * size));
     for (let ring = 0; ring <= 5; ring++) {
-      const t = ring / 5, center = Vector3.Lerp(wrist, knuckles, t);
+      const t = ring / 5, center = Vector3.Lerp(heel, knuckles, t);
       const width = halfWidth * (.62 + .38 * Math.sin(t * Math.PI / 2));
       for (let col = 0; col <= sides; col++) {
         const angle = col / sides * Math.PI * 2;
@@ -263,13 +276,26 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         }
       }
     }
+    for (const end of [0, 5]) {
+      const center = end === 0 ? heel : knuckles, at = positions.length / 3;
+      positions.push(center.x, center.y, center.z); colors.push(...skinRGB, 1);
+      cavities.push(.04, 0); nativeFlags.push(0, 0);
+      const influence = weight([`${side}Hand`], 0);
+      joints.push(...influence.indices); weights.push(...influence.weights);
+      for (let col = 0; col < sides; col++) {
+        const a = first + end * (sides + 1) + col;
+        if (end === 0) indices.push(at, a, a + 1);
+        else indices.push(at, a + 1, a);
+      }
+    }
   }
-  for (const side of recipe.hands ? [] : articulated) for (const digit of digits) {
-    const names = [1, 2, 3].map(n => `${side}Hand${digit}${n}`);
-    const centers = names.map(name => bind(name));
-    centers.push(centers[2]!.add(centers[2]!.subtract(centers[1]!).scale(.8)));
+  for (const side of recipe.hands ? [] : handSides) for (const digit of digits) {
+    const fixed = wristHands.get(side)?.points.get(digit);
+    const names = [1, 2, 3].map(n => fixed ? `${side}Hand` : `${side}Hand${digit}${n}`);
+    const centers = fixed ?? names.map(name => bind(name));
+    if (!fixed) centers.push(centers[2]!.add(centers[2]!.subtract(centers[1]!).scale(.8)));
     const radius = Math.min(.014 * size, Math.max(.007 * size, Vector3.Distance(centers[0]!, centers[1]!) * .30));
-    const first = positions.length / 3, sides = 10, rings = 8;
+    const first = positions.length / 3, sides = 10, rings = 9;
     for (let ring = 0; ring <= rings; ring++) {
       const along = ring / rings * 3, segment = Math.min(2, Math.floor(along)), t = along - segment;
       const a = centers[segment]!, b = centers[segment + 1]!;
@@ -277,7 +303,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       let across = Vector3.Cross(direction, new Vector3(0, 0, 1));
       if (across.lengthSquared() < .01) across = Vector3.Cross(direction, new Vector3(0, 1, 0));
       across.normalize(); const front = Vector3.Cross(across, direction).normalize();
-      const r = radius * (ring === rings ? .22 : 1 - ring / rings * .26);
+      const tip = Math.max(0, (ring / rings - .75) / .25);
+      const r = radius * (1 - ring / rings * .20) * Math.sqrt(Math.max(.0064, 1 - tip * tip));
       for (let col = 0; col <= sides; col++) {
         const angle = col / sides * Math.PI * 2;
         const at = Vector3.Lerp(a, b, t).add(across.scale(Math.sin(angle) * r)).add(front.scale(Math.cos(angle) * r));

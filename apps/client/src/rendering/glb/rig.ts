@@ -46,6 +46,8 @@ interface JointState {
   position: Vector3;
 }
 
+export interface HandLocalFrame { fingers: Vector3; thumb: Vector3 }
+
 const tmpA = new Vector3();
 const tmpB = new Vector3();
 const tmpC = new Vector3();
@@ -211,20 +213,21 @@ export class GlbRig {
     thumb: Vector3,
     blend: number,
     forearm?: RigJoint,
+    fallback?: HandLocalFrame,
   ): void {
     if (blend <= 0.001) return;
     const h = this.joints.get(hand);
     const m = this.joints.get(middle);
     const t = this.joints.get(thumbJoint);
-    if (!h || !m || !t) return;
-    if (forearm) this.shareWristTwist(hand, middle, thumbJoint, forearm, fingers, thumb, blend);
+    if (!h || ((!m || !t) && !fallback)) return;
+    if (forearm && m && t) this.shareWristTwist(hand, middle, thumbJoint, forearm, fingers, thumb, blend);
     const before = h.node.rotationQuaternion?.clone();
     if (!before) return;
     // Current directions from the joints' local offsets (independent of refresh order).
-    const fingerNow = m.node.position.rotateByQuaternionToRef(h.rotation, new Vector3()).normalize();
+    const fingerNow = (m?.node.position ?? fallback!.fingers).rotateByQuaternionToRef(h.rotation, new Vector3()).normalize();
     fromTo(fingerNow, fingers, tmpQ);
     const aligned = tmpQ.multiply(h.rotation);
-    const thumbNow = t.node.position.rotateByQuaternionToRef(aligned, new Vector3());
+    const thumbNow = (t?.node.position ?? fallback!.thumb).rotateByQuaternionToRef(aligned, new Vector3());
     // Twist about the finger axis so the thumb points as close to `thumb` as possible.
     const axis = fingers;
     const thumbFlat = thumbNow.subtract(axis.scale(Vector3.Dot(thumbNow, axis)));

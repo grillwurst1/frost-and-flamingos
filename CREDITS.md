@@ -167,3 +167,9 @@ The reusable arm derivative also clips the original donor hand fragments at the
 wrist, preserving/interpolating the owner's UV paint, normals and skin weights.
 This transformation is implemented in `scripts/bake-soldier-body.py`; the owner's
 original Meshy GLB remains unchanged.
+
+
+The closed wrist/palm caps, rounded procedural fingertips and wrist-only grip
+are original project geometry. The complete wrist cross-section is derived
+from the owner's Lagoon Heavy Meshy sculpt, clipped/capped in the wardrobe
+bake; original source GLBs, paint and animation files remain unchanged.
