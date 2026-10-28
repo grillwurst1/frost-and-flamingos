@@ -875,3 +875,23 @@ crawler load without browser errors. The figure/field captures and measured
 weapon counts are `docs/qa/compact-smg-*.png` / `compact-smg-2026-10-28.json`.
 These are functional/cloud visual checks; native M4 temperatures/FPS and full
 reference-image acceptance remain unverified. Continue hand and world artwork.
+
+
+### Remove donor-hand remnants from reusable arms (28 October 2026)
+
+The arm bake now clips the donor sculpt at the actual Hand/ForeArm wrist plane,
+retaining 4 mm of overlap with the configurable hand. Bone-majority labels had
+included donor hand fragments, producing extra finger-like spikes on sleeveless
+Heavies. New cut vertices interpolate original UVs, normals and four normalised
+skin weights offline. Shared arms drop from 2,293 vertices / 3,376 triangles to
+2,256 / 3,323. The regression forbids arm vertices beyond the wrist margin.
+No runtime pass, sampler, texture allocation or per-frame work is added.
+
+
+Validation: 303 tests pass, strict types have zero errors/warnings and production
+builds pass. WebGL2 close/four-view captures have zero browser errors; the
+close camera uses a 2 cm near plane to avoid cutting into the hands. All 12
+skin colours still match in the five GPU base-colour fixtures. Evidence:
+`docs/qa/clean-wrist-*.png` and `clean-wrist-skin-probe-2026-10-28.json`.
+The configured palms and arm-to-hand seams still need refinement; screenshot
+quality and native M4 performance are not accepted by these checks.

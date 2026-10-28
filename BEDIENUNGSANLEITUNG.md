@@ -1107,3 +1107,8 @@ Die linke Hand sitzt am Vordergriff; Schusswerte, Munition und Nachladen bleiben
 gleich. Beim Alpen-Allrounder folgen auch die freiliegenden Waden deiner
 Hautfarbe. Alte Strumpfteile werden beim Wechsel auf lange Hosen nicht mehr
 zusammen mit den Bergstiefeln eingeblendet. Nach dem Update die Seite neu laden.
+
+
+Bei ärmellosen Figuren wurden überstehende Reste der alten Modellhand aus den
+Armen entfernt. Die ausgewählte Hand ersetzt dadurch die alte Handgeometrie. Die Übergänge
+zur Hand werden noch verfeinert. Deine Hautfarbe und Hand-Auswahl bleiben erhalten.

@@ -15,6 +15,40 @@ meta=json.loads((output/'lagoon-heavy-wardrobe.json').read_text())
 p=np.array(m['positions']).reshape(-1,3);n=np.array(m['normals']).reshape(-1,3);uv=np.array(m['uv']).reshape(-1,2)
 j=np.array(m['joints'],dtype=int).reshape(-1,4);w=np.array(m['weights']).reshape(-1,4);f=np.array(m['indices'],dtype=int).reshape(-1,3)
 faces=f[np.array(meta['regions'])==4]
+# Bone-majority regions include a few donor hand triangles. Clip at each
+# actual wrist so the configurable hand is the only hand on that forearm.
+# Interpolate paint, normals and skin weights at the cut, not whole faces.
+points=p.tolist();normal_values=n.tolist();tex_values=uv.tolist();joint_values=j.tolist();weight_values=w.tolist()
+clipped=[];crossings={};wrist_margin=.004
+for face in faces:
+    side='Left' if p[face,0].mean()>0 else 'Right'
+    wrist=np.array(m['bind'][side+'Hand']);forearm=np.array(m['bind'][side+'ForeArm'])
+    axis=wrist-forearm;axis/=np.linalg.norm(axis)
+    distances=(p[face]-wrist)@axis-wrist_margin
+    poly=[]
+    for k in range(3):
+        a=int(face[k]);b=int(face[(k+1)%3]);da=float(distances[k]);db=float(distances[(k+1)%3])
+        if da<=0:poly.append(a)
+        if (da<=0)!=(db<=0):
+            key=(side,min(a,b),max(a,b))
+            if key not in crossings:
+                t=da/(da-db);at=len(points);crossings[key]=at
+                points.append((p[a]*(1-t)+p[b]*t).tolist())
+                normal=n[a]*(1-t)+n[b]*t;length=np.linalg.norm(normal)
+                normal_values.append((normal/length if length>1e-8 else n[a]).tolist())
+                tex_values.append((uv[a]*(1-t)+uv[b]*t).tolist())
+                influences={}
+                for v,factor in [(a,1-t),(b,t)]:
+                    for bone,weight in zip(j[v],w[v]):
+                        if weight>0:influences[int(bone)]=influences.get(int(bone),0.)+float(weight)*factor
+                strongest=sorted(influences.items(),key=lambda item:item[1],reverse=True)[:4]
+                total=sum(weight for _,weight in strongest)
+                joint_values.append([bone for bone,_ in strongest]+[0]*(4-len(strongest)))
+                weight_values.append([weight/total for _,weight in strongest]+[0.]*(4-len(strongest)))
+            poly.append(crossings[key])
+    for k in range(1,len(poly)-1):clipped.append([poly[0],poly[k],poly[k+1]])
+p=np.array(points);n=np.array(normal_values);uv=np.array(tex_values)
+j=np.array(joint_values,dtype=int);w=np.array(weight_values);faces=np.array(clipped,dtype=int)
 used=np.unique(faces);remap=np.full(len(p),-1,dtype=int);remap[used]=np.arange(len(used))
 paint=Image.open(output/'lagoon-heavy-basecolor.webp').convert('RGB')
 mask=Image.new('RGB',paint.size);draw=ImageDraw.Draw(mask)

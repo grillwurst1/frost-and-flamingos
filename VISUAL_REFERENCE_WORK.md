@@ -455,3 +455,22 @@ crawler load without browser errors. The figure/field captures and measured
 weapon counts are `docs/qa/compact-smg-*.png` / `compact-smg-2026-10-28.json`.
 These are functional/cloud visual checks; native M4 temperatures/FPS and full
 reference-image acceptance remain unverified. Continue hand and world artwork.
+
+
+### Clean shared-arm wrist boundary — 28 October 2026
+
+The copied arm region extended up to 6.8 cm past the donor wrist and contained
+parts of the old hand. Clip against the true Hand/ForeArm plane with a 4 mm
+overlap, interpolating original paint/normal/skin data. The existing configurable
+hand remains the only hand. Shared anatomy falls from 2,293 / 3,376 vertices/
+triangles to 2,256 / 3,323. The asset regression now checks every arm vertex's
+wrist-plane projection. Original GLBs and runtime shader code remain untouched.
+
+
+Validation: 303 tests pass, strict types have zero errors/warnings and production
+builds pass. WebGL2 close/four-view captures have zero browser errors; the
+close camera uses a 2 cm near plane to avoid cutting into the hands. All 12
+skin colours still match in the five GPU base-colour fixtures. Evidence:
+`docs/qa/clean-wrist-*.png` and `clean-wrist-skin-probe-2026-10-28.json`.
+The configured palms and arm-to-hand seams still need refinement; screenshot
+quality and native M4 performance are not accepted by these checks.

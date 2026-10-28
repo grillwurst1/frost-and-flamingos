@@ -801,3 +801,17 @@ crawler load without browser errors. The figure/field captures and measured
 weapon counts are `docs/qa/compact-smg-*.png` / `compact-smg-2026-10-28.json`.
 These are functional/cloud visual checks; native M4 temperatures/FPS and full
 reference-image acceptance remain unverified. Continue hand and world artwork.
+
+
+Reusable bare arms are now cut at the actual wrist, removing old donor-hand
+fragments beside the configurable hand. Skinning and paint are preserved at
+the cut, with slightly fewer vertices/triangles and unchanged shared textures.
+
+
+Validation: 303 tests pass, strict types have zero errors/warnings and production
+builds pass. WebGL2 close/four-view captures have zero browser errors; the
+close camera uses a 2 cm near plane to avoid cutting into the hands. All 12
+skin colours still match in the five GPU base-colour fixtures. Evidence:
+`docs/qa/clean-wrist-*.png` and `clean-wrist-skin-probe-2026-10-28.json`.
+The configured palms and arm-to-hand seams still need refinement; screenshot
+quality and native M4 performance are not accepted by these checks.

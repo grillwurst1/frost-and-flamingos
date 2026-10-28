@@ -60,6 +60,16 @@ test('shared authored arms retain valid skinning and one content hash across all
   expect(body!.sourceHash).toBe(new Bun.CryptoHasher('sha256').update(donor).digest('hex'));
   expect(body!.regions.filter(r => r === 4).length).toBeGreaterThan(3000);
   expect(body!.regions.every(r => r === 4)).toBe(true);
+  // The source's bone-majority arm region also contained part of the hand.
+  // No copied donor finger may remain beyond the actual wrist plane.
+  for (let v = 0; v < body!.positions.length / 3; v++) {
+    const at = body!.positions.slice(v * 3, v * 3 + 3), side = at[0]! > 0 ? 'Left' : 'Right';
+    const wrist = body!.bones.find(b => b.name === side + 'Hand')!.position;
+    const forearm = body!.bones.find(b => b.name === side + 'ForeArm')!.position;
+    const axis = wrist.map((n, k) => n - forearm[k]!), length = Math.hypot(...axis);
+    const projection = at.reduce((sum, n, k) => sum + (n - wrist[k]!) * axis[k]! / length, 0);
+    expect(projection).toBeLessThanOrEqual(.004001);
+  }
   expect(bytes.byteLength).toBeLessThan(1500000);
   const manifest = await Bun.file(resolve(directory, 'manifest.json')).json();
   for (const faction of ['alpine', 'lagoon']) for (const role of ['allrounder', 'heavy', 'infiltrator']) {

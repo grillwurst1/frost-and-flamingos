@@ -161,3 +161,9 @@ the owner's Lagoon Heavy Meshy model under the same attribution/license above.
 `scripts/bake-soldier-body.py` extracts the sculpt and repacks its original paint;
 the runtime only retargets it to the existing soldier rigs. Original source files
 are unmodified.
+
+
+The reusable arm derivative also clips the original donor hand fragments at the
+wrist, preserving/interpolating the owner's UV paint, normals and skin weights.
+This transformation is implemented in `scripts/bake-soldier-body.py`; the owner's
+original Meshy GLB remains unchanged.
