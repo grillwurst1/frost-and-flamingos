@@ -6,6 +6,7 @@ export interface NativeWardrobeData {
   sourceHash: string;
   /** Optional hash of the separately baked, scene-shared clean head. */
   headHash?: string;
+  bodyHash?: string;
   afroFaces?: number[];
   vertexCount: number;
   indexCount: number;
@@ -59,6 +60,7 @@ export function parseNativeWardrobe(value: unknown, vertices: number, indices: n
     || !d.regions.every(n => Number.isInteger(n) && n >= 1 && n <= 7)
     || !Array.isArray(d.pigment) || d.pigment.length !== vertices || !d.pigment.every(n => n === 0 || n === 1 || n === 2)) return null;
   if (d.afroFaces !== undefined && (!Array.isArray(d.afroFaces) || !d.afroFaces.every(n => Number.isInteger(n) && n >= 0 && n < indices / 3))) return null;
+  if (d.bodyHash !== undefined && (typeof d.bodyHash !== 'string' || !/^[a-f0-9]{64}$/.test(d.bodyHash))) return null;
   if (d.headHash !== undefined && (typeof d.headHash !== 'string' || !/^[a-f0-9]{64}$/.test(d.headHash))) return null;
   for (const reference of [d.skinReference, d.hairReference]) if (!Array.isArray(reference) || reference.length !== 3 || !reference.every(n => Number.isFinite(n) && n > .01 && n <= 1)) return null;
   return d as NativeWardrobeData;

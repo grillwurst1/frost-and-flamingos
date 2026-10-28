@@ -102,7 +102,7 @@ for face_index, (face, region) in enumerate(zip(faces, regions)):
     side = 'Left' if at[0] > 0 else 'Right'
     knee = bind.get(side + 'Leg', [0, .45, 0])[1]
     forearm = sum(w[v, k] for v in face for k in range(4) if 'ForeArm' in names.get(int(j[v, k]), '')) / 3
-    arm_skin = region == 4 and (key == 'alpine-allrounder' or forearm > .35)
+    arm_skin = region == 4 and (key in ('alpine-allrounder','lagoon-heavy') or forearm > .35)
     if region == 1 and key.startswith('alpine-'):
         forehead=clipped_forehead(face)
         if len(forehead)>=3:draws[0].polygon(forehead,fill=255)

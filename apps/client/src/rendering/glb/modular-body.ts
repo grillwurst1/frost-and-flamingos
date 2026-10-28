@@ -7,6 +7,7 @@ import type { Scene } from '@babylonjs/core/scene';
 import { profileAppearanceKey, SKIN_TONES, HAIR_COLORS, type PlayerProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../character';
 import { bindWorldTransform, jointName, type PaintedModelAsset } from './library';
+import { bodySurfaceRecipe, bodySurfaceRetarget } from './body-surfaces';
 import { nativeWardrobeRecipe, usesNativeRegion } from './native-wardrobe';
 import { RIG_JOINTS, type RigJoint } from './rig';
 
@@ -27,14 +28,15 @@ export function modularRollBoxes(mesh: Mesh): readonly ModularRollBox[] { return
 
 /** A single skinned draw, with every wardrobe choice represented by geometry/colour. */
 export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: PaintedModelAsset,
-  source: Mesh, material: ShaderMaterial, native = false, sharedHead = false): Mesh {
+  source: Mesh, material: ShaderMaterial, native = false, sharedHead = false, sharedBody = false): Mesh {
   const skeleton = source.skeleton;
   if (!skeleton) throw new Error('A modular soldier needs the shared animation skeleton.');
   let cache = bodyCache.get(scene);
   if (!cache) { cache = new Map(); bodyCache.set(scene, cache); }
   const recipe = nativeWardrobeRecipe(profile, native ? asset : { ...asset, wardrobe: undefined });
   const cleanHead = Boolean(native && sharedHead && asset.wardrobeHead && !recipe.head);
-  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}`;
+  const surfaces = native && sharedBody ? bodySurfaceRecipe(profile, asset) : { arms: false };
+  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}:${surfaces.arms}`;
   const finish = (cached: CachedBody): Mesh => {
     const mesh = new Mesh('soldier-modular-detail', scene);
     cached.data.applyToMesh(mesh, false);
@@ -208,7 +210,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           else if (tag === 0) replaced = detail === 6 ? recipe.head : detail === 7 ? recipe.legs : recipe.torso;
         } else if (name.includes('arm')) {
           const distance = -(points[a * 3 + 1]! + points[faces[f + 1]! * 3 + 1]! + points[faces[f + 2]! * 3 + 1]!) / 3;
-          replaced = distance > .60 ? recipe.hands : recipe.arms;
+          replaced = distance > .60 ? recipe.hands : recipe.arms || surfaces.arms;
         } else replaced = detail === 2 ? recipe.feet : recipe.legs;
         if (!replaced) visible.push(faces[f]!, faces[f + 1]!, faces[f + 2]!);
       }
@@ -316,7 +318,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const region = asset.wardrobe.regions[f / 3]!;
       // Imported glTF meshes override Babylon's front-face convention. The new
       // mixed mesh uses the procedural convention, so native faces must flip.
-      if (usesNativeRegion(recipe, region)) indices.push(add(srcI[f]!, region), add(srcI[f + 2]!, region), add(srcI[f + 1]!, region));
+      if (usesNativeRegion(recipe, region) && !(region === 4 && surfaces.arms)) indices.push(add(srcI[f]!, region), add(srcI[f + 2]!, region), add(srcI[f + 1]!, region));
     }
   }
   if (cleanHead && asset.wardrobeHead) {
@@ -350,6 +352,25 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
       }
       for (let f = 0; f < hair.indices.length; f += 3) indices.push(base + hair.indices[f]!, base + hair.indices[f + 2]!, base + hair.indices[f + 1]!);
+    }
+  }
+  if (sharedBody && asset.wardrobeBody && surfaces.arms) {
+    const data = asset.wardrobeBody, retarget = bodySurfaceRetarget(profile, asset, data, bones);
+    const remap = new Map<string, number>();
+    const add = (old: number, region: number): number => {
+      const key = `${old}:${region}`, cached = remap.get(key); if (cached !== undefined) return cached;
+      const index = positions.length / 3, vertex = retarget.vertex(old); remap.set(key, index);
+      positions.push(vertex.position.x, vertex.position.y, vertex.position.z);
+      headNormals.push(index, vertex.normal.x, vertex.normal.y, vertex.normal.z);
+      colors.push(...(region === 4 ? skinRGB : [1, 1, 1]), region === 4 ? 1 : 0);
+      cavities.push(data.uvs[old * 2]!, data.uvs[old * 2 + 1]!); nativeFlags.push(2, region);
+      joints.push(...vertex.indices); weights.push(...vertex.weights);
+      return index;
+    };
+    for (let f = 0; f < data.indices.length; f += 3) {
+      const region = data.regions[f / 3]!;
+      if (region === 4 && surfaces.arms)
+        indices.push(add(data.indices[f]!, region), add(data.indices[f + 2]!, region), add(data.indices[f + 1]!, region));
     }
   }
   const normals = new Float32Array(positions.length);

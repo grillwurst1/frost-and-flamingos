@@ -154,3 +154,10 @@ Meshy sculpts under the Meshy attribution/license above. The clean skull, eyebro
 and hair closure surfaces are procedural additions. `scripts/bake-soldier-head.py`,
 `bake-head-atlas.py` and `bake-soldier-afro.py` document the transformations. Original
 source files are unmodified; no Battlefield/EA artwork or models are included.
+
+
+`soldier-body.json` and the arm tile inside the shared soldier atlas derive from
+the owner's Lagoon Heavy Meshy model under the same attribution/license above.
+`scripts/bake-soldier-body.py` extracts the sculpt and repacks its original paint;
+the runtime only retargets it to the existing soldier rigs. Original source files
+are unmodified.

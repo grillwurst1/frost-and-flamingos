@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
+import { parseBodySurfaces } from '../../apps/client/src/rendering/glb/body-surfaces';
 import { parseWardrobeHead } from '../../apps/client/src/rendering/glb/wardrobe-head';
 import { parseNativeWardrobe } from '../../apps/client/src/rendering/glb/native-wardrobe';
 
@@ -47,4 +48,23 @@ test('the shared closed head and curls match their original sources and every cl
   expect(new TextDecoder().decode(mask.subarray(12, 16))).toBe('VP8L');
   const dimensions = new DataView(mask.buffer).getUint32(21, true);
   expect((dimensions & 0x3fff) + 1).toBe(512); expect(((dimensions >>> 14) & 0x3fff) + 1).toBe(1024);
+});
+
+
+test('shared authored arms retain valid skinning and one content hash across all six classes', async () => {
+  const directory = resolve(import.meta.dir, '../../apps/client/public/models');
+  const bytes = await Bun.file(resolve(directory, 'soldier-body.json')).arrayBuffer();
+  const body = parseBodySurfaces(JSON.parse(new TextDecoder().decode(bytes))); expect(body).not.toBeNull();
+  const hash = new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
+  const donor = await Bun.file(resolve(directory, 'lagoon-heavy.glb')).arrayBuffer();
+  expect(body!.sourceHash).toBe(new Bun.CryptoHasher('sha256').update(donor).digest('hex'));
+  expect(body!.regions.filter(r => r === 4).length).toBeGreaterThan(3000);
+  expect(body!.regions.every(r => r === 4)).toBe(true);
+  expect(bytes.byteLength).toBeLessThan(1500000);
+  const manifest = await Bun.file(resolve(directory, 'manifest.json')).json();
+  for (const faction of ['alpine', 'lagoon']) for (const role of ['allrounder', 'heavy', 'infiltrator']) {
+    const entry = manifest.models[`${faction}-${role}`];
+    expect((await Bun.file(resolve(directory, entry.wardrobe)).json()).bodyHash).toBe(hash);
+  }
+  expect(parseBodySurfaces({ ...body, weights: body!.weights.map(() => 0) })).toBeNull();
 });

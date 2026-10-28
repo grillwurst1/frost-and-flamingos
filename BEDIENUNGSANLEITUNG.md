@@ -1083,3 +1083,10 @@ Die aktualisierten Figurenatlanten und Masken werden automatisch mit einer
 Inhaltsversion geladen. Dadurch passen Hautdaten, Kleidung und Kopfgeometrie auch
 nach einem Update zusammen. Die neue Frisur übernimmt zusätzlich das gemalte
 Lockendetail des Originalmodells.
+
+
+Bei ärmellosen Westen und passenden freien Oberkörpern werden Arme mit
+modellierten Muskeln statt der einfachen Ersatzform angezeigt. Sie verwenden
+immer deine gewählte Hautfarbe. Die Hände bleiben beweglich und die bisherigen
+Kleidungsoptionen erhalten. Weitere Kleidungsdetails und der vollständige
+Vergleich mit dem Zielbild bleiben in Arbeit.

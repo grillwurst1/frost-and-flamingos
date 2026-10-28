@@ -767,3 +767,32 @@ Afro/face combinations under normal scene lighting, in single body draws of
 28,461 / 21,080 / 32,501 / 27,047 triangles. These are progress images; primitive
 exposed arms and some garments still require the next art pass. Continue that
 work after saving this increment rather than declaring screenshot acceptance.
+
+
+### Authored bare-arm surfaces (28 October 2026)
+
+Configurable sleeveless outfits now reuse the owner's sculpted Lagoon Heavy
+arms, retargeted once into each existing bind rig. Every exposed arm uses the
+selected anatomical skin uniform; no donor complexion is imported as clothing.
+The existing native sleeves and articulated configurable hands remain available.
+The arms join the single skinned body draw and its animation/culling envelopes.
+Their paint shares the head/curl atlas, still 1024×2048 plus a 512×1024 mask
+(about 13.3 MiB RGBA with mipmaps once per scene). Curls use a narrower atlas
+tile; face resolution is retained. No new sampler, render pass or per-frame CPU
+skinning is introduced. Source GLBs remain unchanged. Shirt, trouser and
+accessory refinement remains open; this is not screenshot-target acceptance.
+
+
+Validation of the arm increment: strict types report zero errors/warnings and
+production builds pass. The full test command passed (13 scripts, 198 server,
+89 client); after the final arms-only atlas rebuild, the 13 scripts and 89 clients
+passed again. WebGL2 base-colour readback matches all twelve selected palette
+values exactly at the tested face, scalp, native forehead and authored-arm UV
+fixtures. `docs/qa/sculpted-arms-probe-2026-10-28.json` records their scope and
+content revision. The actual wardrobe flow also passes: select skin 9/hair 3,
+change field vest → tracht → Hawaii, reload the saved profile and enter gameplay,
+with zero browser errors. The wardrobe/gameplay captures are in `docs/qa/` with
+the `sculpted-arms-` prefix. Shader sources are unchanged from the previously
+compiled GLSL/WGSL variants; the existing cloud WebGPU queue limitation and lack
+of native Mac M4 measurements still apply. This remains a visual work increment,
+not acceptance of the full screenshot target.

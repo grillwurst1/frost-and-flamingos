@@ -20,6 +20,7 @@ import {
 import { bakeAnimationGroup, gaitContactPhase, jointName, readRig, stanceSpeed, type BakedClip, type RigInfo } from './clips';
 import { readBakedClips, readGlb, writeGlb } from './glb-binary';
 import type { PaintedTextures } from './material';
+import { parseBodySurfaces, type BodySurfaceGeometry } from './body-surfaces';
 import { parseWardrobeHead, type WardrobeHeadGeometry } from './wardrobe-head';
 import { parseNativeWardrobe, type NativeWardrobeData } from './native-wardrobe';
 
@@ -52,6 +53,7 @@ export interface PaintedModelAsset extends RigInfo {
   spec: PaintedModelSpec;
   wardrobe?: NativeWardrobeData;
   wardrobeHead?: WardrobeHeadGeometry;
+  wardrobeBody?: BodySurfaceGeometry;
   container: AssetContainer;
   /** false for static GLBs (no skeleton, no clips). */
   skinned: boolean;
@@ -261,6 +263,21 @@ async function loadSharedHead(scene: Scene, hash: string): Promise<WardrobeHeadG
   cache.set(hash, pending); return pending;
 }
 
+const sharedBodies = new WeakMap<Scene, Map<string, Promise<BodySurfaceGeometry | null>>>();
+async function loadSharedBody(scene: Scene, hash: string): Promise<BodySurfaceGeometry | null> {
+  let cache = sharedBodies.get(scene); if (!cache) { cache = new Map(); sharedBodies.set(scene, cache); }
+  const found = cache.get(hash); if (found) return found;
+  const pending = (async () => {
+    try {
+      const response = await fetch(`${MODELS_BASE}soldier-body.json`, { cache: 'no-cache' }); if (!response.ok) return null;
+      const bytes = await response.arrayBuffer(), digest = await crypto.subtle.digest('SHA-256', bytes);
+      if ([...new Uint8Array(digest)].map(n => n.toString(16).padStart(2, '0')).join('') !== hash) return null;
+      return parseBodySurfaces(JSON.parse(new TextDecoder().decode(bytes)));
+    } catch { return null; }
+  })();
+  cache.set(hash, pending); return pending;
+}
+
 async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string, wardrobeFile?: string): Promise<PaintedModelAsset | null> {
   const response = await fetch(`${MODELS_BASE}${file}`, { cache: 'no-cache' });
   if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
@@ -323,6 +340,7 @@ async function loadModel(scene: Scene, spec: PaintedModelSpec, file: string, war
         if (hash === metadata.sourceHash) {
           asset.wardrobe = metadata;
           if (metadata.headHash) asset.wardrobeHead = await loadSharedHead(scene, metadata.headHash) ?? undefined;
+          if (metadata.bodyHash) asset.wardrobeBody = await loadSharedBody(scene, metadata.bodyHash) ?? undefined;
         }
       }
     } catch { /* Stale/missing optional derived data keeps the complete wardrobe fallback. */ }

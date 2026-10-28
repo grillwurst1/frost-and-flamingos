@@ -11,6 +11,7 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { createDefaultProfile, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
 import { GlbCharacterView } from '../src/rendering/glb-character';
 import { paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
+import { bodySurfaceRetarget } from '../src/rendering/glb/body-surfaces';
 import { parseWardrobeHead } from '../src/rendering/glb/wardrobe-head';
 import { nativeWardrobeRecipe, parseNativeWardrobe } from '../src/rendering/glb/native-wardrobe';
 
@@ -212,7 +213,7 @@ test('the anatomical skin base stays independent of shirt/vest selection and opt
         expect(uniforms.colors3.uSkinColor).toEqual(rgb);
         const flags = mesh.getVerticesData('uv2')!, p = mesh.getVerticesData('position')!, paint = mesh.getVerticesData('color')!;
         const face: number[] = [];
-        for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2] === 2) {
+        for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2] === 2 && flags[v * 2 + 1] === 2) {
           face.push(p[v * 3]!, p[v * 3 + 1]!, p[v * 3 + 2]!);
           for (let channel = 0; channel < 3; channel++) expect(paint[v * 4 + channel]).toBeCloseTo(rgb[channel]!, 5);
         }
@@ -256,5 +257,47 @@ test('native triangles keep one material region across skin/outfit boundaries', 
       expect(flags[b * 2 + 1]).toBe(region); expect(flags[c * 2 + 1]).toBe(region);
     }
     expect(native).toBeGreaterThan(10000);
+  } finally { view.dispose(); }
+});
+
+
+test('authored body surfaces preserve their donor bind pose and map limb anchors across different rigs', async () => {
+  const donor = await paintedModelLibrary(scene).load('lagoon-heavy');
+  const target = await paintedModelLibrary(scene).load('alpine-heavy');
+  expect(donor?.wardrobeBody).toBeDefined(); expect(target?.wardrobeBody).toBe(donor!.wardrobeBody);
+  const data = donor!.wardrobeBody!, profile = createDefaultProfile('Surface anchors', 'heavy');
+  profile.cosmetics.bodyType = .15;
+  const indices = (a: PaintedModelAsset) => new Map(data.bones.filter(b => a.bindPositions.has(b.name)).map(b => [b.name, b.index]));
+  const identity = bodySurfaceRetarget(profile, donor!, data, indices(donor!));
+  for (let v = 0; v < data.positions.length / 3; v += 17) {
+    const mapped = identity.vertex(v), original = Vector3.FromArray(data.positions, v * 3);
+    expect(Vector3.Distance(mapped.position, original)).toBeLessThan(.00001);
+    expect(mapped.normal.length()).toBeCloseTo(1, 5);
+  }
+  const retarget = bodySurfaceRetarget(profile, target!, data, indices(target!));
+  for (const side of ['Left', 'Right']) for (const [start, end] of [['Arm', 'ForeArm'], ['ForeArm', 'Hand'], ['UpLeg', 'Leg'], ['Leg', 'Foot']]) {
+    const bone = data.bones.find(b => b.name === side + start)!;
+    const child = data.bones.find(b => b.name === side + end)!;
+    const at = retarget.point(bone.index, Vector3.FromArray(child.position), new Vector3(0, 0, 1));
+    expect(Vector3.Distance(at.position, target!.bindPositions.get(child.name)!)).toBeLessThan(.00001);
+  }
+});
+
+test('bald Heavy uses sculpted bare arms without adding another body draw', async () => {
+  const heavy = await paintedModelLibrary(scene).load('alpine-heavy');
+  const profile = createDefaultProfile('Sculpted Heavy', 'heavy');
+  Object.assign(profile.cosmetics, { headgear: 'head_none', face: 'face_none', hairStyleIndex: 6, skinToneIndex: 9,
+    torso: 'torso_field_vest', legs: 'legs_olive_pants' });
+  const view = new GlbCharacterView(scene, new StandardMaterial('surfaces-shadow', scene), profile, heavy!,
+    { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } });
+  try {
+    const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
+    const flags = mesh.getVerticesData('uv2')!, colors = mesh.getVerticesData('color')!;
+    let arms = 0;
+    for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2] === 2) {
+      if (flags[v * 2 + 1] === 4) { arms++; expect(colors[v * 4 + 3]).toBe(1); }
+    }
+    expect(arms).toBeGreaterThan(2000);
+    expect(mesh.subMeshes).toHaveLength(1); expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
   } finally { view.dispose(); }
 });

@@ -718,3 +718,25 @@ Afro/face combinations under normal scene lighting, in single body draws of
 28,461 / 21,080 / 32,501 / 27,047 triangles. These are progress images; primitive
 exposed arms and some garments still require the next art pass. Continue that
 work after saving this increment rather than declaring screenshot acceptance.
+
+
+The next soldier-art increment reuses sculpted bare arms for sleeveless
+wardrobe choices, with the selected skin tone applied independently of outfit
+paint. Bind-pose retargeting happens once per outfit and keeps one skinned body
+draw. Face, curls and arms share the existing bounded atlas allocation. The
+full reference-image target, including remaining garments, is still in progress.
+
+
+Validation of the arm increment: strict types report zero errors/warnings and
+production builds pass. The full test command passed (13 scripts, 198 server,
+89 client); after the final arms-only atlas rebuild, the 13 scripts and 89 clients
+passed again. WebGL2 base-colour readback matches all twelve selected palette
+values exactly at the tested face, scalp, native forehead and authored-arm UV
+fixtures. `docs/qa/sculpted-arms-probe-2026-10-28.json` records their scope and
+content revision. The actual wardrobe flow also passes: select skin 9/hair 3,
+change field vest → tracht → Hawaii, reload the saved profile and enter gameplay,
+with zero browser errors. The wardrobe/gameplay captures are in `docs/qa/` with
+the `sculpted-arms-` prefix. Shader sources are unchanged from the previously
+compiled GLSL/WGSL variants; the existing cloud WebGPU queue limitation and lack
+of native Mac M4 measurements still apply. This remains a visual work increment,
+not acceptance of the full screenshot target.

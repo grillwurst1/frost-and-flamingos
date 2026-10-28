@@ -22,6 +22,7 @@ import {
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
 import { buildModularBody, modularHeadFrame, modularRollBoxes } from './glb/modular-body';
+import { bodySurfaceRecipe } from './glb/body-surfaces';
 import { nativeWardrobeRecipe } from './glb/native-wardrobe';
 import { createShadowMaterial, type CharacterMaterialState } from './materials';
 import {
@@ -372,6 +373,7 @@ export class GlbCharacterView implements AvatarView {
   private readonly gait: PaintedModelSpec['gait'] | null;
   private readonly nativeWardrobe: boolean;
   private readonly sharedWardrobeHead: boolean;
+  private readonly sharedWardrobeBody: boolean;
   private readonly hover: PaintedModelSpec['hover'] | null;
   private hoverPhase = Math.random() * Math.PI * 2;
   private emoteTime = -1;
@@ -438,6 +440,8 @@ export class GlbCharacterView implements AvatarView {
     // has no out-of-band exemption yet (see shaders/post.ts).
     this.nativeWardrobe = spec.cosmetics !== false && Boolean(asset.wardrobe && textures?.wardrobeMask);
     this.sharedWardrobeHead = this.nativeWardrobe && !nativeWardrobeRecipe(profile, asset).head && Boolean(asset.wardrobeHead && textures?.head);
+    const bodySurfaces = bodySurfaceRecipe(profile, asset);
+    this.sharedWardrobeBody = this.nativeWardrobe && Boolean(asset.wardrobeHead && asset.wardrobeBody && textures?.head) && bodySurfaces.arms;
     this.material = createGlbMaterial(
       scene,
       `glb-${spec.key}-${profile.displayName}`,
@@ -446,7 +450,7 @@ export class GlbCharacterView implements AvatarView {
         wardrobe: this.nativeWardrobe && asset.wardrobe ? {
           hair: HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0],
           skinReference: asset.wardrobe.skinReference, hairReference: asset.wardrobe.hairReference,
-          head: this.sharedWardrobeHead && asset.wardrobeHead ? { skinReference: asset.wardrobeHead.skinReference, hairReference: asset.wardrobeHead.hairReference } : undefined,
+          head: (this.sharedWardrobeHead || this.sharedWardrobeBody) && asset.wardrobeHead ? { skinReference: asset.wardrobeHead.skinReference, hairReference: asset.wardrobeHead.hairReference } : undefined,
           greenVest: profile.cosmetics.torso === 'torso_tracht_shirt' && nativeWardrobeRecipe(profile, asset).torso,
           torso: [Math.abs(leftArm?.x ?? .2), asset.bindPositions.get('Hips')?.y ?? .85, (asset.bindPositions.get('Neck')?.y ?? 1.25) + .10, asset.bindPositions.get('Spine2')?.z ?? 0],
         } : undefined },
@@ -509,7 +513,7 @@ export class GlbCharacterView implements AvatarView {
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
     if (spec.cosmetics !== false) {
-      this.bodyMesh = buildModularBody(scene, profile, asset, mesh, this.material, this.nativeWardrobe, this.sharedWardrobeHead);
+      this.bodyMesh = buildModularBody(scene, profile, asset, mesh, this.material, this.nativeWardrobe, this.sharedWardrobeHead, this.sharedWardrobeBody);
       mesh.isVisible = false;
       const box = this.bodyMesh.getBoundingInfo();
       this.bodyMesh.setBoundingInfo(new BoundingInfo(box.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), box.maximum.add(new Vector3(1.2, 0.5, 1.2))));

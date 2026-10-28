@@ -353,3 +353,30 @@ Afro/face combinations under normal scene lighting, in single body draws of
 28,461 / 21,080 / 32,501 / 27,047 triangles. These are progress images; primitive
 exposed arms and some garments still require the next art pass. Continue that
 work after saving this increment rather than declaring screenshot acceptance.
+
+
+### Sculpted configurable arms — 28 October 2026
+
+Reused the owner's bare-arm sculpt for sleeveless wardrobe choices, retaining
+selected skin colour and detailed native sleeves for matching shirts. Retarget
+geometry/normals to the target bind skeleton once; preserve animation weights,
+one body draw and articulated hands. Added donor-identity and cross-rig joint
+anchor regressions. The atlas keeps its existing 1024×2048 / 512×1024 allocation;
+face resolution remains unchanged, curls and arms share its lower half.
+Remaining garments, facial accessories and overall screenshot acceptance are
+still open.
+
+
+Validation of the arm increment: strict types report zero errors/warnings and
+production builds pass. The full test command passed (13 scripts, 198 server,
+89 client); after the final arms-only atlas rebuild, the 13 scripts and 89 clients
+passed again. WebGL2 base-colour readback matches all twelve selected palette
+values exactly at the tested face, scalp, native forehead and authored-arm UV
+fixtures. `docs/qa/sculpted-arms-probe-2026-10-28.json` records their scope and
+content revision. The actual wardrobe flow also passes: select skin 9/hair 3,
+change field vest → tracht → Hawaii, reload the saved profile and enter gameplay,
+with zero browser errors. The wardrobe/gameplay captures are in `docs/qa/` with
+the `sculpted-arms-` prefix. Shader sources are unchanged from the previously
+compiled GLSL/WGSL variants; the existing cloud WebGPU queue limitation and lack
+of native Mac M4 measurements still apply. This remains a visual work increment,
+not acceptance of the full screenshot target.
