@@ -1181,3 +1181,12 @@ Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
 pass in the browser; both kinds of ram pass in the real server simulation.
 Browser ram contact under the very low cloud software frame rate remains
 unconfirmed. Continue shoulder/garment fragments and native-face art next.
+
+
+Die freien Arme haben jetzt geschlossene Schulter- und Handgelenkflächen sowie
+weichere Übergänge beim Halten einer Waffe. Fehlerhafte Gewichte aus Hüfte,
+Beinen und Kopf ziehen keine Armreste mehr auseinander. Die gewählte Hautfarbe
+bleibt unabhängig von der Kleidung; alle zwölf Farben wurden im Renderer
+geprüft. Die Armgeometrie enthält weniger Dreiecke, und die gemeinsamen
+Zusatztexturen benötigen geschätzt nur noch halb so viel Grafikspeicher.
+Die vollständige optische Anpassung an das Zielbild ist weiterhin in Arbeit.

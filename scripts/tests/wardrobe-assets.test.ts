@@ -53,7 +53,7 @@ test('the shared closed head and curls match their original sources and every cl
   const mask = new Uint8Array(await Bun.file(resolve(directory, 'soldier-head-mask.webp')).arrayBuffer());
   expect(new TextDecoder().decode(mask.subarray(12, 16))).toBe('VP8L');
   const dimensions = new DataView(mask.buffer).getUint32(21, true);
-  expect((dimensions & 0x3fff) + 1).toBe(512); expect(((dimensions >>> 14) & 0x3fff) + 1).toBe(512);
+  expect((dimensions & 0x3fff) + 1).toBe(256); expect(((dimensions >>> 14) & 0x3fff) + 1).toBe(512);
 });
 
 
@@ -64,14 +64,35 @@ test('shared authored arms retain valid skinning and one content hash across all
   const hash = new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
   const donor = await Bun.file(resolve(directory, 'lagoon-heavy.glb')).arrayBuffer();
   expect(body!.sourceHash).toBe(new Bun.CryptoHasher('sha256').update(donor).digest('hex'));
-  expect(body!.regions.filter(r => r === 4).length).toBeGreaterThan(3000);
+  expect(body!.regions.filter(r => r === 4).length).toBeGreaterThan(2000);
+  expect(body!.indices.length / 3).toBeLessThan(3400);
+  expect(body!.solidAnatomy).toBe(true);
   expect(body!.regions.every(r => r === 4)).toBe(true);
+  // Bare skin must be watertight and cannot inherit garment weights from the
+  // hips, legs or head: those pull shoulder scraps apart in weapon poses.
+  const edges = new Map<string, number>();
+  for (let f = 0; f < body!.indices.length; f += 3) {
+    const face = body!.indices.slice(f, f + 3);
+    for (let k = 0; k < 3; k++) {
+      const a = face[k]!, b = face[(k + 1) % 3]!, key = a < b ? `${a}:${b}` : `${b}:${a}`;
+      edges.set(key, (edges.get(key) ?? 0) + 1);
+    }
+  }
+  expect([...edges.values()].every(count => count === 2)).toBe(true);
+  const armJoints = new Set(body!.bones.filter(b => /^(Left|Right)(Arm|ForeArm|Hand)$/.test(b.name)).map(b => b.index));
+  expect(body!.joints.every((joint, i) => body!.weights[i]! === 0 || armJoints.has(joint))).toBe(true);
+
   // The source's bone-majority arm region also contained part of the hand.
   // No copied donor finger may remain beyond the actual wrist plane.
   for (let v = 0; v < body!.positions.length / 3; v++) {
     const at = body!.positions.slice(v * 3, v * 3 + 3), side = at[0]! > 0 ? 'Left' : 'Right';
     const wrist = body!.bones.find(b => b.name === side + 'Hand')!.position;
     const forearm = body!.bones.find(b => b.name === side + 'ForeArm')!.position;
+    const shoulder = body!.bones.find(b => b.name === side + 'Arm')!.position;
+    expect(Math.abs(at[0]!)).toBeGreaterThanOrEqual(Math.abs(shoulder[0]!) - .04);
+    expect(body!.uvs[v * 2]).toBeGreaterThanOrEqual(0);
+    expect(body!.uvs[v * 2]).toBeLessThanOrEqual(.09);
+    expect(body!.uvs[v * 2 + 1]).toBe(0);
     const axis = wrist.map((n, k) => n - forearm[k]!), length = Math.hypot(...axis);
     const projection = at.reduce((sum, n, k) => sum + (n - wrist[k]!) * axis[k]! / length, 0);
     expect(projection).toBeLessThanOrEqual(.004001);

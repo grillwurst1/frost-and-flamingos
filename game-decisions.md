@@ -2417,3 +2417,19 @@ over short-arm compensation: adapt the right clavicle and wrist pose rather
 than moving the mouthpiece away from the lips. Ground clearance pivots around
 the mouth. A restrained breath pulse/sonic ring group reuses geometry; weapon
 damage, range and cooldown remain unchanged.
+
+
+### Closed arm surfaces and outfit-independent skin (29 October 2026)
+
+Derived bare-arm anatomy must be closed at wrist/shoulder cuts, without
+floating garment fragments. Offline smoothing/decimation has a firm triangle
+budget; the current shared pair uses 2,578 triangles and one existing body draw.
+Only same-side Arm/ForeArm/Hand influences may drive it: source garment labels
+contained unrelated hip, leg, spine and head weights that distorted the pose.
+Smooth elbow/wrist blending preserves the current animation rig.
+
+Arm skin reads the selected base colour and neutral cavity shading, without
+painted source skin. Hands do not depend on the arm paint atlas. Only the curl
+tile retains paint at unchanged pixel density; the smaller shared texture pair
+is estimated at 3.33 MiB RGBA8 with mips. Preserve legacy asset compatibility,
+all existing wardrobe choices, source GLBs, source paint and animation clips.

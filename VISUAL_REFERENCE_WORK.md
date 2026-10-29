@@ -674,3 +674,24 @@ Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
 pass in the browser; both kinds of ram pass in the real server simulation.
 Browser ram contact under the very low cloud software frame rate remains
 unconfirmed. Continue shoulder/garment fragments and native-face art next.
+
+
+### Closed arm cleanup verified (29 October 2026)
+
+Closed the true wrist/medial shoulder boundaries by following mesh edge loops;
+removed connected donor garment overhangs, smoothed and bounded the source.
+Analytical smooth arm/elbow/wrist weights replace donor hips/legs/head/spine
+contamination. Source sculpt 3,400→2,578 triangles; settled bare Heavy body
+25,108→24,286, one submesh. No new runtime mesh generation/draws.
+
+Solid selected skin replaces painted arms. Curl atlas compaction preserves the
+curl tile's pixel density while reducing the shared pair from estimated
+6.67 to 3.33 MiB RGBA8+mips. All 12 rendered skin RGB probes pass; four real
+wardrobe variants and two settled weapon holds have no browser/shader errors.
+Evidence: docs/qa/closed-arms-2026-10-29.json and close/wardrobe captures.
+Remaining: old native face paint, detailed garments/weapons, complete screenshot
+acceptance, native Chrome/M4 freeze/thermal acceptance. Do not mark art complete.
+
+Validation: full 14 script / 201 server / 125 client tests pass (340 total),
+including the 15-minute simulated round soak. Strict types report zero errors
+and warnings; production builds pass. No test timeout was increased.

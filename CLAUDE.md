@@ -262,8 +262,8 @@ parameters; it is harmless and originates inside `@dimforge/rapier3d-compat`.
 - The server binds `127.0.0.1` by default. It is a local playtest server, not a public service.
 - If ports are stuck after a crash, run `bun run stop`.
 - Vite's dependency optimizer may re-run after dependency changes; that is expected.
-- WebGPU is preferred when `navigator.gpu` exists; any initialization failure falls back to
-  WebGL2. Do not make WebGL2 a second-class path.
+- WebGL2 is the compatibility default. WebGPU requires `?renderer=webgpu` and
+  falls back to WebGL2 if initialization fails; full dynamic WebGPU acceptance remains open.
 - Server env flags for local tooling: `FF_NO_BOTS=1` starts without the four AI bots,
   `FF_DEV_TOOLS=1` enables the `/api/dev/*` endpoints (teleport, vehicle, critters, conquest
   staging). `FF_SERVER_PORT` / `FF_CLIENT_PORT` move the dev stack to other ports.
@@ -1118,3 +1118,30 @@ Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
 pass in the browser; both kinds of ram pass in the real server simulation.
 Browser ram contact under the very low cloud software frame rate remains
 unconfirmed. Continue shoulder/garment fragments and native-face art next.
+
+
+### Closed solid arm anatomy and smaller shared atlas — 29 October 2026
+
+The replacement arms are now closed offline sculpts (2,578 triangles instead
+of 3,400). Wrist and medial shoulder cuts follow their actual boundary loops,
+with no open/non-manifold edges. Clamp donor garment overhangs to the limb
+before smoothing. Source labels contained hips, leg, head and spine weights;
+replace these with smooth same-side Arm/ForeArm/Hand transitions so weapon
+poses cannot pull the shoulder into scraps. Keep the owner's sources intact.
+
+Solid arms use the selected skin and neutral cavity shade, without painted
+arm skin. Shared replacement hands are independent of the optional arm atlas.
+The remaining curl tile keeps its previous pixel density in a 512×1024 colour
+map and 256×512 mask: estimated RGBA8+mip storage 6.67→3.33 MiB for this shared
+pair. This is a resource reduction, not a measured native-Mac FPS/thermal claim.
+No extra body draw or frame-time geometry generation; bare Heavy body
+25,108→24,286 triangles. Legacy painted-body fallback remains supported.
+
+WebGL2 close/settled weapon poses, four wardrobe combinations and actual RGB
+probes across all 12 selectable skins pass. See docs/qa/closed-arms-2026-10-29.json
+and captures. Continue native-face paint and detailed garment/weapon art;
+complete owner reference acceptance and native M4 freeze acceptance stay open.
+
+Validation: full 14 script / 201 server / 125 client tests pass (340 total),
+including the 15-minute simulated round soak. Strict types report zero errors
+and warnings; production builds pass. No test timeout was increased.

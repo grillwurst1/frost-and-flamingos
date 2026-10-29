@@ -942,3 +942,18 @@ Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
 pass in the browser; both kinds of ram pass in the real server simulation.
 Browser ram contact under the very low cloud software frame rate remains
 unconfirmed. Continue shoulder/garment fragments and native-face art next.
+
+
+Bare-arm figures now use closed, smoother anatomy with corrected shoulder and
+elbow skinning. Donor garment scraps and unrelated hip/head weights are removed.
+The arm sculpt drops from 3,400 to 2,578 triangles, retaining one body draw.
+Skin remains independent of clothing. Removing arm paint halves the shared
+curl/skin atlas pair's estimated GPU storage (6.67→3.33 MiB including mipmaps),
+while preserving curl pixel density. Close pose, four outfit combinations and
+all 12 skin tones are checked in the actual WebGL2 character renderer.
+Evidence: `docs/qa/closed-arms-2026-10-29.json`. Full target artwork and native
+Mac freeze/thermal acceptance remain open; this is a verified art increment.
+
+Validation: full 14 script / 201 server / 125 client tests pass (340 total),
+including the 15-minute simulated round soak. Strict types report zero errors
+and warnings; production builds pass. No test timeout was increased.

@@ -13,6 +13,8 @@ export interface BodySurfaceGeometry {
   positions: number[]; normals: number[]; uvs: number[];
   joints: number[]; weights: number[]; indices: number[]; regions: number[];
   bones: BodySurfaceBone[];
+  /** Texture-free selected skin; UV.x stores bounded neutral crease shade. */
+  solidAnatomy?: true;
   /** Optional connected bare hands, with UV.x storing neutral cavity shade. */
   hands?: BodySurfaceGeometry;
 }
@@ -20,6 +22,7 @@ export interface BodySurfaceGeometry {
 function parseSurface(value: unknown, region: 4 | 5): BodySurfaceGeometry | null {
   if (!value || typeof value !== 'object') return null;
   const d = value as Partial<BodySurfaceGeometry>;
+  if (d.solidAnatomy !== undefined && d.solidAnatomy !== true) return null;
   if (d.version !== 1 || typeof d.sourceHash !== 'string' || !/^[a-f0-9]{64}$/.test(d.sourceHash)
     || !Array.isArray(d.positions) || d.positions.length % 3 || d.positions.length < 300 || d.positions.length > 90000) return null;
   const count = d.positions.length / 3;

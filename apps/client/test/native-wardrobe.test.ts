@@ -483,11 +483,13 @@ test('bald Heavy uses sculpted bare arms without adding another body draw', asyn
   try {
     const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
     const flags = mesh.getVerticesData('uv2')!, colors = mesh.getVerticesData('color')!;
+    const joints = mesh.getVerticesData('matricesIndices')!, weights = mesh.getVerticesData('matricesWeights')!;
+    const armBones = new Set(mesh.skeleton!.bones.filter(b => /^(Left|Right)(Arm|ForeArm)$/.test(jointName(b.name))).map(b => b.getIndex()));
     let arms = 0;
-    for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2] === 2) {
-      if (flags[v * 2 + 1] === 4) { arms++; expect(colors[v * 4 + 3]).toBe(1); }
+    for (let v = 0; v < mesh.getTotalVertices(); v++) if ([0,1,2,3].some(k => armBones.has(joints[v * 4 + k]!) && weights[v * 4 + k]! > .1)) {
+      arms++; expect(colors[v * 4 + 3]).toBe(1); expect(flags[v * 2]).toBe(0);
     }
-    expect(arms).toBeGreaterThan(2000);
+    expect(arms).toBeGreaterThan(1000);
     expect(mesh.subMeshes).toHaveLength(1); expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
   } finally { view.dispose(); }
 });

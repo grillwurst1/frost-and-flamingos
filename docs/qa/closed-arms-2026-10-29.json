@@ -1,0 +1,65 @@
+{
+  "scope": "Closed solid arm anatomy and corrected arm skinning; compact shared curl atlas. Actual game character renderer in Chromium WebGL2; no native Mac performance measurement.",
+  "geometry": {
+    "source": "Owner Lagoon Heavy rig and derived surface; original GLBs, paint and clips unchanged",
+    "armTrianglesBefore": 3400,
+    "armTrianglesAfter": 2578,
+    "armVertices": 1289,
+    "openBoundaryEdges": 0,
+    "nonManifoldEdges": 0,
+    "influences": "Only same-side Arm, ForeArm and Hand; smooth elbow/wrist transitions exclude donor hips, legs, torso and head weights",
+    "runtime": "One skinned body draw per figure; generated offline, no frame-time remeshing",
+    "bareHeavyBodyTrianglesBefore": 25108,
+    "bareHeavyBodyTrianglesAfter": 24286
+  },
+  "paint": {
+    "colorSizeBefore": [
+      1024,
+      1024
+    ],
+    "colorSizeAfter": [
+      512,
+      1024
+    ],
+    "maskSizeBefore": [
+      512,
+      512
+    ],
+    "maskSizeAfter": [
+      256,
+      512
+    ],
+    "estimatedRGBA8MiBWithMipsBefore": 6.67,
+    "estimatedRGBA8MiBWithMipsAfter": 3.33,
+    "detail": "Only curl tile retained at its previous pixel density. Skin uses selected vertex color and bounded neutral cavity shading; no painted arm skin."
+  },
+  "browser": {
+    "renderer": "WebGL2",
+    "uncaughtErrors": [],
+    "shaderErrors": [],
+    "closePose": "Two settled Heavy variants, bare hands and gold watch",
+    "wardrobe": "Tirol ranger, bald Heavy, Lagoon Hawaii/curls, Tirol ranger with olive trousers/native boots; one body submesh in all four",
+    "skinProbe": "All 12 selectable tones match rendered face, scalp, original forehead, arm, calf and socket RGB; lip shading remains relative to selected skin",
+    "captures": [
+      "closed-arms-close-2026-10-29.png",
+      "closed-arms-wardrobe-2026-10-29.png"
+    ]
+  },
+  "validation": {
+    "scriptPassed": 14,
+    "serverPassed": 201,
+    "clientPassed": 125,
+    "totalPassed": 340,
+    "types": "0 errors / 0 warnings",
+    "productionBuild": "passed",
+    "pythonSyntax": "passed",
+    "testTimeouts": "unchanged",
+    "soak": "15 simulated minutes, 2 ticket round endings and 2 resets"
+  },
+  "remaining": [
+    "Original native face paint and more detailed garment/weapon art",
+    "Full owner screenshot quality acceptance",
+    "Native Chrome 156 arm64/M4 freeze and thermal/FPS acceptance",
+    "Full browser autonomous cow ram contact at normal native cadence"
+  ]
+}

@@ -198,3 +198,11 @@ The extended alphorn tube/bell, smooth mouthpiece and restrained breath pose
 are original project geometry/animation. The cow's input director and replicated
 graze pose reuse the original cow rig and existing project locomotion/ram rules.
 No source GLB, owner paint or external game asset has been modified/imported.
+
+
+The closed solid arm sculpt derives only from the owner's Lagoon Heavy rig
+and arm surfaces. Offline limb-envelope cleanup, boundary closure, smoothing,
+retopology and anatomical weights are project work. Solid selected skin and
+neutral crease shading replace source arm paint; curl paint remains the owner's
+original tile at its existing pixel density. Source GLBs, images and clips are
+unchanged. Blender performs offline processing only; no external game assets.

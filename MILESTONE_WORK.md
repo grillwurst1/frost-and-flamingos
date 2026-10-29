@@ -548,3 +548,17 @@ Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
 pass in the browser; both kinds of ram pass in the real server simulation.
 Browser ram contact under the very low cloud software frame rate remains
 unconfirmed. Continue shoulder/garment fragments and native-face art next.
+
+
+29 October — closed arm anatomy increment: removed donor garment overhangs,
+closed wrist/shoulder boundaries, corrected unrelated hip/head/leg weights,
+and reduced shared arm triangles 3,400→2,578. One body draw remains. All skin
+colours are independent of clothing; the compact curl pair halves estimated
+GPU texture storage while preserving curl density. WebGL2 settled holds,
+four outfit combinations and 12 actual skin-colour probes pass. Evidence:
+docs/qa/closed-arms-2026-10-29.json. Native-face/garment/weapon art and owner
+reference acceptance remain active; later milestones remain gated.
+
+Validation: full 14 script / 201 server / 125 client tests pass (340 total),
+including the 15-minute simulated round soak. Strict types report zero errors
+and warnings; production builds pass. No test timeout was increased.

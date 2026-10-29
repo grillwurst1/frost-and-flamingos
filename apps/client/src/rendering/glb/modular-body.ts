@@ -40,7 +40,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const recipe = nativeWardrobeRecipe(profile, native ? asset : { ...asset, wardrobe: undefined });
   const cleanHead = Boolean(native && sharedHead && asset.wardrobeHead && !recipe.head);
   const surfaces = native && sharedBody ? bodySurfaceRecipe(profile, asset) : { arms: false };
-  const handSource = native && sharedBody && !recipe.hands ? asset.wardrobeBody?.hands : undefined;
+  const handSource = native && !recipe.hands ? asset.wardrobeBody?.hands : undefined;
   const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}:${surfaces.arms}:${Boolean(handSource)}`;
   const finish = (cached: CachedBody): Mesh => {
     const mesh = new Mesh('soldier-modular-detail', scene);
@@ -446,7 +446,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       positions.push(vertex.position.x, vertex.position.y, vertex.position.z);
       headNormals.push(index, vertex.normal.x, vertex.normal.y, vertex.normal.z);
       colors.push(...(region === 4 ? skinRGB : [1, 1, 1]), region === 4 ? 1 : 0);
-      cavities.push(data.uvs[old * 2]!, data.uvs[old * 2 + 1]!); nativeFlags.push(2, region);
+      cavities.push(data.uvs[old * 2]!, data.uvs[old * 2 + 1]!);
+      nativeFlags.push(data.solidAnatomy ? 0 : 2, data.solidAnatomy ? 0 : region);
       joints.push(...vertex.indices); weights.push(...vertex.weights);
       return index;
     };

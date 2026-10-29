@@ -449,7 +449,8 @@ export class GlbCharacterView implements AvatarView {
     this.nativeWardrobe = spec.cosmetics !== false && Boolean(asset.wardrobe && textures?.wardrobeMask);
     this.sharedWardrobeHead = this.nativeWardrobe && !nativeWardrobeRecipe(profile, asset).head && Boolean(asset.wardrobeHead && textures?.head);
     const bodySurfaces = bodySurfaceRecipe(profile, asset);
-    this.sharedWardrobeBody = this.nativeWardrobe && Boolean(asset.wardrobeHead && asset.wardrobeBody && textures?.head) && bodySurfaces.arms;
+    this.sharedWardrobeBody = this.nativeWardrobe && Boolean(asset.wardrobeBody
+      && (asset.wardrobeBody.solidAnatomy || (asset.wardrobeHead && textures?.head))) && bodySurfaces.arms;
     this.material = createGlbMaterial(
       scene,
       `glb-${spec.key}-${profile.displayName}`,
