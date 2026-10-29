@@ -4,10 +4,9 @@
  * cloud billboards are loaded) and an optional painted horizon panorama band
  * (art/sky/horizon-panorama.jpg) that fades into the shader sky at its top.
  *
- * Clouds are evaluated analytically: every cloud is a smooth union of six
- * circles in the local (azimuth, elevation) plane with a flat base. Each pixel
- * is shaded from the dominant puff's sphere normal, so neighbouring puffs
- * meet in crisp shaded creases like the inked clouds of the reference art.
+ * Eight analytical groups each join six puffs and one elliptical shelf.
+ * Smoothly blended normals keep each cloud coherent; arithmetic angle wrap
+ * avoids repeated trigonometry for every group. No texture or extra pass.
  *
  * Panorama mapping: u = azimuth / 360° with u = 0 at +Z (north), increasing
  * clockwise towards +X (east); v = horizonV - elevation / (PI / 2).
@@ -58,46 +57,42 @@ float ffHash(float n) {
 }
 
 float ffWrap(float a) {
-  return atan(sin(a), cos(a));
+  return (fract(a / TAU + 0.5) - 0.5) * TAU;
 }
 
 vec4 ffClouds(vec3 dir, float aa, float sunAz, float sunEl) {
   float az = atan(dir.x, dir.z);
   float el = asin(clamp(dir.y, -1.0, 1.0));
   vec4 result = vec4(0.0);
-  for (int i = 0; i < 12; i++) {
+  for (int i = 0; i < 8; i++) {
     float fi = float(i);
     float h1 = ffHash(fi + 1.31);
     float h2 = ffHash(fi * 1.73 + 4.11);
     float h3 = ffHash(fi * 2.37 + 7.73);
-    float cloudAz = fi / 12.0 * TAU + (h1 - 0.5) * 0.4 + time * uCloudParams.y * (0.7 + 0.6 * h2);
+    float cloudAz = fi / 8.0 * TAU + (h1 - 0.5) * 0.4 + time * uCloudParams.y * (0.7 + 0.6 * h2);
     float cloudEl = uCloudParams.z + h2 * 0.24;
     float size = (0.075 + 0.085 * h3) * uCloudParams.x * (1.0 - cloudEl * 0.9);
     float du = ffWrap(az - cloudAz);
     vec2 p = vec2(du * cos(el), el - cloudEl) / size;
     if (abs(p.x) > 2.6 || p.y < -0.3 || p.y > 2.2) continue;
 
-    float field = 100.0;
-    float best = 100.0;
+    float field = (length(vec2(p.x / 1.3, (p.y - 0.25) / 0.3)) - 1.0) * 0.3;
     vec2 bestNormal = vec2(0.0, 1.0);
-    for (int j = 0; j < 9; j++) {
+    for (int j = 0; j < 6; j++) {
       float fj = float(j);
       float r1 = ffHash(fi * 7.13 + fj * 1.91);
       float r2 = ffHash(fi * 3.37 + fj * 5.29);
-      float top = step(4.5, fj);
-      float spread = mix(fj / 4.0 - 0.5, (fj - 5.0) / 3.0 - 0.5, top);
+      float top = step(3.5, fj);
+      float spread = mix(fj / 3.0 - 0.5, (fj - 4.0) - 0.5, top);
       float middle = 1.0 - abs(spread) * 2.0;
-      float radius = mix(0.34 + 0.2 * middle, 0.34 + 0.26 * middle, top) * (0.8 + 0.4 * r2);
+      float radius = mix(0.34 + 0.2 * middle, 0.52 + 0.08 * middle, top) * (0.8 + 0.4 * r2);
       float lift = mix(radius * (0.55 + 0.3 * r1), 0.5 + 0.35 * middle + radius * 0.4 + h1 * 0.25, top);
-      vec2 center = vec2(spread * mix(2.0 + h3 * 0.7, 1.3 + h3 * 0.4, top) + (r1 - 0.5) * 0.25, lift);
+      vec2 center = vec2(spread * mix(2.0 + h3 * 0.7, 0.8 + h3 * 0.25, top) + (r1 - 0.5) * 0.25, lift);
       float d = length(p - center) - radius;
       float k = 0.12;
       float blend = clamp(0.5 + 0.5 * (field - d) / k, 0.0, 1.0);
       field = mix(field, d, blend) - k * blend * (1.0 - blend);
-      if (d < best) {
-        best = d;
-        bestNormal = (p - center) / radius;
-      }
+      bestNormal = mix(bestNormal, (p - center) / radius, blend);
     }
     float sd = max(field, -p.y);
     float aaLocal = aa / size;
@@ -110,14 +105,14 @@ vec4 ffClouds(vec3 dir, float aa, float sunAz, float sunEl) {
     vec3 n = normalize(vec3(bestNormal, nz));
     float ndl = dot(n, lightDir);
     float bottom = smoothstep(0.02, 0.62, p.y);
-    float light = smoothstep(-0.42, -0.18, ndl) * mix(0.3, 1.0, bottom);
-    float band = smoothstep(0.38, 0.5, light);
+    float light = smoothstep(-0.45, 0.8, ndl) * mix(0.55, 1.0, bottom);
+    float band = smoothstep(0.1, 0.9, light);
     vec3 col = mix(uCloudShade, uCloudLit, band);
     col = mix(col, uCloudShade * 0.9, (1.0 - smoothstep(0.0, 0.18, p.y)) * 0.55);
     float rimBand = smoothstep(-aaLocal * 4.0, -aaLocal * 1.2, sd);
     col = mix(col, uCloudShade * 0.82, rimBand * 0.55);
     float sunNear = pow(max(dot(dir, normalize(sunDirection)), 0.0), 24.0);
-    col += uGlowColor * sunNear * rimBand * 0.8;
+    col += uGlowColor * sunNear * rimBand * 0.35;
 
     result.rgb += (1.0 - result.a) * col * alpha;
     result.a += (1.0 - result.a) * alpha;
@@ -222,46 +217,42 @@ fn ffHash(n : f32) -> f32 {
 }
 
 fn ffWrap(a : f32) -> f32 {
-  return atan2(sin(a), cos(a));
+  return (fract(a / TAU + 0.5) - 0.5) * TAU;
 }
 
 fn ffClouds(dir : vec3f, aa : f32, sunAz : f32, sunEl : f32) -> vec4f {
   let az = atan2(dir.x, dir.z);
   let el = asin(clamp(dir.y, -1.0, 1.0));
   var result = vec4f(0.0);
-  for (var i = 0; i < 12; i++) {
+  for (var i = 0; i < 8; i++) {
     let fi = f32(i);
     let h1 = ffHash(fi + 1.31);
     let h2 = ffHash(fi * 1.73 + 4.11);
     let h3 = ffHash(fi * 2.37 + 7.73);
-    let cloudAz = fi / 12.0 * TAU + (h1 - 0.5) * 0.4 + uniforms.time * uniforms.uCloudParams.y * (0.7 + 0.6 * h2);
+    let cloudAz = fi / 8.0 * TAU + (h1 - 0.5) * 0.4 + uniforms.time * uniforms.uCloudParams.y * (0.7 + 0.6 * h2);
     let cloudEl = uniforms.uCloudParams.z + h2 * 0.24;
     let size = (0.075 + 0.085 * h3) * uniforms.uCloudParams.x * (1.0 - cloudEl * 0.9);
     let du = ffWrap(az - cloudAz);
     let p = vec2f(du * cos(el), el - cloudEl) / size;
     if (abs(p.x) > 2.6 || p.y < -0.3 || p.y > 2.2) { continue; }
 
-    var field = 100.0;
-    var best = 100.0;
+    var field = (length(vec2f(p.x / 1.3, (p.y - 0.25) / 0.3)) - 1.0) * 0.3;
     var bestNormal = vec2f(0.0, 1.0);
-    for (var j = 0; j < 9; j++) {
+    for (var j = 0; j < 6; j++) {
       let fj = f32(j);
       let r1 = ffHash(fi * 7.13 + fj * 1.91);
       let r2 = ffHash(fi * 3.37 + fj * 5.29);
-      let top = step(4.5, fj);
-      let spread = mix(fj / 4.0 - 0.5, (fj - 5.0) / 3.0 - 0.5, top);
+      let top = step(3.5, fj);
+      let spread = mix(fj / 3.0 - 0.5, (fj - 4.0) - 0.5, top);
       let middle = 1.0 - abs(spread) * 2.0;
-      let radius = mix(0.34 + 0.2 * middle, 0.34 + 0.26 * middle, top) * (0.8 + 0.4 * r2);
+      let radius = mix(0.34 + 0.2 * middle, 0.52 + 0.08 * middle, top) * (0.8 + 0.4 * r2);
       let lift = mix(radius * (0.55 + 0.3 * r1), 0.5 + 0.35 * middle + radius * 0.4 + h1 * 0.25, top);
-      let center = vec2f(spread * mix(2.0 + h3 * 0.7, 1.3 + h3 * 0.4, top) + (r1 - 0.5) * 0.25, lift);
+      let center = vec2f(spread * mix(2.0 + h3 * 0.7, 0.8 + h3 * 0.25, top) + (r1 - 0.5) * 0.25, lift);
       let d = length(p - center) - radius;
       let k = 0.12;
       let blend = clamp(0.5 + 0.5 * (field - d) / k, 0.0, 1.0);
       field = mix(field, d, blend) - k * blend * (1.0 - blend);
-      if (d < best) {
-        best = d;
-        bestNormal = (p - center) / radius;
-      }
+      bestNormal = mix(bestNormal, (p - center) / radius, blend);
     }
     let sd = max(field, -p.y);
     let aaLocal = aa / size;
@@ -274,14 +265,14 @@ fn ffClouds(dir : vec3f, aa : f32, sunAz : f32, sunEl : f32) -> vec4f {
     let n = normalize(vec3f(bestNormal, nz));
     let ndl = dot(n, lightDir);
     let bottom = smoothstep(0.02, 0.62, p.y);
-    let light = smoothstep(-0.42, -0.18, ndl) * mix(0.3, 1.0, bottom);
-    let band = smoothstep(0.38, 0.5, light);
+    let light = smoothstep(-0.45, 0.8, ndl) * mix(0.55, 1.0, bottom);
+    let band = smoothstep(0.1, 0.9, light);
     var col = mix(uniforms.uCloudShade, uniforms.uCloudLit, band);
     col = mix(col, uniforms.uCloudShade * 0.9, (1.0 - smoothstep(0.0, 0.18, p.y)) * 0.55);
     let rimBand = smoothstep(-aaLocal * 4.0, -aaLocal * 1.2, sd);
     col = mix(col, uniforms.uCloudShade * 0.82, rimBand * 0.55);
     let sunNear = pow(max(dot(dir, normalize(uniforms.sunDirection)), 0.0), 24.0);
-    col += uniforms.uGlowColor * sunNear * rimBand * 0.8;
+    col += uniforms.uGlowColor * sunNear * rimBand * 0.35;
 
     result = vec4f(result.rgb + (1.0 - result.a) * col * alpha, result.a + (1.0 - result.a) * alpha);
   }

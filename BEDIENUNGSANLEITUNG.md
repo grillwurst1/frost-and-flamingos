@@ -1210,3 +1210,18 @@ den Hebel; ein Treffer auf den sichtbaren roten Griff funktioniert ebenfalls.
 Der Hebel bewegt sich, beide Gondeln stoppen für zwei Sekunden und du erhältst
 eine Meldung. Danach fahren sie weiter. Auf dem Dach hältst du dich mit
 **C/Strg** fest; stehende Dachpassagiere werden beim Bremsen weiterhin abgeworfen.
+
+
+### Überarbeitete Gesamtgrafik (29. Oktober 2026)
+
+Licht, Schatten und Konturen sind weicher aufeinander abgestimmt. Wiesen und
+Bäume haben natürlichere Farben; Schnee, Felsen und entfernte Landschaften
+heben sich räumlicher voneinander ab. Die Wolken haben zusammenhängende Formen.
+Das Lagunenwasser ist türkis, mit ruhigeren und besser gefilterten Reflexen.
+Figuren- und Fahrzeugtexturen verwenden eine ruhigere Filterung ohne zusätzliche Nachschärfung.
+Deine Haut- und Kleidungswahl bleibt erhalten. Die mittige Spielerkamera bleibt;
+bei der Gondel liegt das Zugseil weiter vom Kamerablickpunkt entfernt.
+
+Die Bildqualitätsstufen und das FPS-Limit bleiben bestehen. Zusätzliche teure
+Vollbildeffekte wurden nicht ergänzt; Wolken und matte Oberflächen brauchen
+weniger Shader-Rechenoperationen.

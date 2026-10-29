@@ -209,19 +209,19 @@ void main(void) {
   if (!gl_FrontFacing) normal = -normal;
 
 #ifdef FF_TEXTURED
-  // Explicit mip level: never blurrier than natural, at most a quarter level
-  // sharper, and never below 1.5 where box mips start mixing UV islands.
+  // Natural texture footprint: preserve close detail without negative mip
+  // bias turning distant cloth, hair and skin into sparkling pixels.
   vec2 texSize = vec2(textureSize(albedoSampler, 0));
   vec2 gx = dFdx(vUV) * texSize;
   vec2 gy = dFdy(vUV) * texSize;
   float lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
-  float lod = clamp(min(lodNatural, max(1.5, lodNatural - 0.25)), 0.0, 12.0);
+  float lod = clamp(lodNatural, 0.0, 12.0);
   vec3 base = texture2DLodEXT(albedoSampler, vUV, lod).rgb;
   // The normal map is smaller (1024 vs 2048, or the 1×1 flat fallback):
-  // same UV footprint as the albedo, so the level and the 1.5 island floor
-  // both shift by the size ratio.
+  // same UV footprint, corrected for texel size. A quarter mip softens
+  // high-frequency normal-map detail without blurring the colour texture.
   float normalShift = log2(max(texSize.x / max(float(textureSize(normalSampler, 0).x), 1.0), 1.0));
-  float lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 0.25)), 0.0, 12.0);
+  float lodNormal = clamp(lodNatural - normalShift + 0.25, 0.0, 12.0);
   vec3 mapNormal = texture2DLodEXT(normalSampler, vUV, lodNormal).xyz * 2.0 - 1.0;
   mapNormal.xy *= uPaintParams.x * (1.0 - smoothstep(8.0, 30.0, length(cameraPosition - vWorldPosition)));
   normal = ffPerturbNormal(normal, vWorldPosition, vUV, normalize(mapNormal));
@@ -243,7 +243,7 @@ void main(void) {
   vec2 footprint = vec2(textureSize(albedoSampler, 0));
   vec2 dx = dFdx(vUV) * footprint, dy = dFdy(vUV) * footprint;
   float naturalLod = 0.5 * log2(max(max(dot(dx, dx), dot(dy, dy)), 1e-8));
-  float nativeLod = clamp(min(naturalLod, max(1.5, naturalLod - 0.25)), 0.0, 12.0);
+  float nativeLod = clamp(naturalLod, 0.0, 12.0);
   if (vWardrobe.x > 0.5 && vWardrobe.x < 1.5) {
     vec3 original = texture2DLodEXT(albedoSampler, vUV, nativeLod).rgb;
     float maskShift = log2(max(footprint.x / float(textureSize(wardrobeMaskSampler, 0).x), 1.0));
@@ -270,7 +270,7 @@ void main(void) {
   vec2 headFootprint = vec2(textureSize(headPaintSampler, 0));
   vec2 headDx = dFdx(vUV) * headFootprint, headDy = dFdy(vUV) * headFootprint;
   float headNaturalLod = 0.5 * log2(max(max(dot(headDx, headDx), dot(headDy, headDy)), 1e-8));
-  float headLod = clamp(min(headNaturalLod, max(1.0, headNaturalLod - 0.25)), 0.0, 12.0);
+  float headLod = clamp(headNaturalLod, 0.0, 12.0);
   if (vWardrobe.x > 1.5) {
     vec3 original = texture2DLodEXT(headPaintSampler, vUV, headLod).rgb;
     float maskShift = log2(max(headFootprint.x / float(textureSize(headMaskSampler, 0).x), 1.0));
@@ -503,11 +503,11 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let gx = dpdx(input.vUV) * texSize;
   let gy = dpdy(input.vUV) * texSize;
   let lodNatural = 0.5 * log2(max(max(dot(gx, gx), dot(gy, gy)), 1e-8));
-  let lod = clamp(min(lodNatural, max(1.5, lodNatural - 0.25)), 0.0, 12.0);
+  let lod = clamp(lodNatural, 0.0, 12.0);
   var base = textureSampleLevel(albedoSampler, albedoSamplerSampler, input.vUV, lod).rgb;
   let normalSize = vec2f(textureDimensions(normalSampler, 0));
   let normalShift = log2(max(texSize.x / max(normalSize.x, 1.0), 1.0));
-  let lodNormal = clamp(min(lodNatural - normalShift, max(1.5 - normalShift, lodNatural - normalShift - 0.25)), 0.0, 12.0);
+  let lodNormal = clamp(lodNatural - normalShift + 0.25, 0.0, 12.0);
   var mapNormal = textureSampleLevel(normalSampler, normalSamplerSampler, input.vUV, lodNormal).xyz * 2.0 - 1.0;
   mapNormal = vec3f(mapNormal.xy * uniforms.uPaintParams.x * (1.0 - smoothstep(8.0, 30.0, length(uniforms.cameraPosition - input.vWorldPosition))), mapNormal.z);
   normal = ffPerturbNormal(normal, input.vWorldPosition, input.vUV, normalize(mapNormal));
@@ -527,7 +527,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let footprint = vec2f(textureDimensions(albedoSampler, 0));
   let nativeDx = dpdx(input.vUV) * footprint; let nativeDy = dpdy(input.vUV) * footprint;
   let naturalLod = 0.5 * log2(max(max(dot(nativeDx, nativeDx), dot(nativeDy, nativeDy)), 1e-8));
-  let nativeLod = clamp(min(naturalLod, max(1.5, naturalLod - 0.25)), 0.0, 12.0);
+  let nativeLod = clamp(naturalLod, 0.0, 12.0);
   if (input.vWardrobe.x > 0.5 && input.vWardrobe.x < 1.5) {
     let original = textureSampleLevel(albedoSampler, albedoSamplerSampler, input.vUV, nativeLod).rgb;
     let maskShift = log2(max(footprint.x / f32(textureDimensions(wardrobeMaskSampler, 0).x), 1.0));
@@ -554,7 +554,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   let headFootprint = vec2f(textureDimensions(headPaintSampler, 0));
   let headDx = dpdx(input.vUV) * headFootprint; let headDy = dpdy(input.vUV) * headFootprint;
   let headNaturalLod = 0.5 * log2(max(max(dot(headDx, headDx), dot(headDy, headDy)), 1e-8));
-  let headLod = clamp(min(headNaturalLod, max(1.0, headNaturalLod - 0.25)), 0.0, 12.0);
+  let headLod = clamp(headNaturalLod, 0.0, 12.0);
   if (input.vWardrobe.x > 1.5) {
     let original = textureSampleLevel(headPaintSampler, headPaintSamplerSampler, input.vUV, headLod).rgb;
     let maskShift = log2(max(headFootprint.x / f32(textureDimensions(headMaskSampler, 0).x), 1.0));

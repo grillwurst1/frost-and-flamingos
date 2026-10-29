@@ -96,25 +96,25 @@ interface WeatherPreset {
 const hex = hexToColor3;
 
 const WEATHER_NEUTRAL: WeatherPreset = {
-  zenith: hex('#81CDEA'),
-  horizon: hex('#8DD0E6'),
+  zenith: hex('#63BCE5'),
+  horizon: hex('#C4E5ED'),
   sunDisc: new Color3(1, 0.99, 0.9),
   glow: new Color3(1, 0.93, 0.7),
   // Warm key light against cool blue-violet shade (paintings).
-  sunColor: new Color3(1.08, 1.0, 0.88),
-  skyFill: new Color3(0.98, 1.0, 1.04),
-  groundFill: new Color3(1.04, 0.98, 0.93),
+  sunColor: new Color3(1.04, 1.01, 0.94),
+  skyFill: new Color3(0.90, 0.97, 1.04),
+  groundFill: new Color3(0.86, 0.89, 0.85),
   shadeCool: new Color3(0.74, 0.83, 1.0),
-  shadeWarm: new Color3(0.97, 0.91, 0.93),
-  haze: new Color4(0.7, 0.85, 0.97, 0.62),
-  hazeStart: 200,
+  shadeWarm: new Color3(0.86, 0.90, 0.96),
+  haze: new Color4(0.71, 0.84, 0.91, 0.55),
+  hazeStart: 90,
   groundHaze: new Color3(0.72, 0.86, 0.95),
   cloudShade: hex('#C9DDF0'),
-  cloudScale: 0.32,
-  waterShallow: hex('#8DC9D4'),
-  waterMid: hex('#68AFCB'),
-  waterDeep: hex('#4B91B1'),
-  grade: new Vector4(1.0, 1.03, 0.97, 0.03),
+  cloudScale: 0.85,
+  waterShallow: hex('#75CFC9'),
+  waterMid: hex('#36A8BC'),
+  waterDeep: hex('#216D97'),
+  grade: new Vector4(1.0, 1.06, 0.96, 0.06),
   shadowTone: new Color3(-0.015, 0.0, 0.04),
   highlightTone: new Color3(0.012, 0.004, -0.006),
   tint: new Color3(1, 1, 1),
@@ -131,10 +131,10 @@ const WEATHER_ICY: WeatherPreset = {
   shadeCool: new Color3(0.78, 0.87, 1.0),
   shadeWarm: new Color3(0.88, 0.9, 0.98),
   haze: new Color4(0.74, 0.83, 0.92, 0.64),
-  hazeStart: 170,
+  hazeStart: 65,
   groundHaze: new Color3(0.78, 0.85, 0.92),
   cloudShade: new Color3(0.7, 0.77, 0.86),
-  cloudScale: 1.25,
+  cloudScale: 1.1,
   waterShallow: hex('#5FCFD6'),
   waterMid: hex('#2E9DB8'),
   waterDeep: hex('#1B5E8C'),
@@ -155,14 +155,14 @@ const WEATHER_GOLDEN: WeatherPreset = {
   shadeCool: new Color3(0.86, 0.88, 0.98),
   shadeWarm: new Color3(1.0, 0.87, 0.84),
   haze: new Color4(0.98, 0.9, 0.72, 0.46),
-  hazeStart: 300,
+  hazeStart: 140,
   groundHaze: new Color3(0.98, 0.9, 0.74),
   cloudShade: new Color3(0.98, 0.85, 0.7),
   cloudScale: 0.75,
   waterShallow: hex('#4AE8CC'),
   waterMid: hex('#1EB8BE'),
   waterDeep: hex('#0E6F9E'),
-  grade: new Vector4(1.03, 1.2, 1.14, 0.3),
+  grade: new Vector4(1.02, 1.1, 1.02, 0.1),
   shadowTone: new Color3(0.0, -0.01, 0.03),
   highlightTone: new Color3(0.07, 0.035, -0.04),
   tint: new Color3(1.06, 1.0, 0.9),
@@ -223,7 +223,7 @@ export class SceneLook {
   private readonly gradeExtra = new Vector4(0.04, 0, 1, 1);
   private readonly shadowTone = new Color3(0, 0, 0);
   private readonly highlightTone = new Color3(0, 0, 0);
-  private readonly inkParams = new Vector4(0.85, 0.075, 0.72, 0);
+  private readonly inkParams = new Vector4(0.76, 0.075, 0.76, 0);
   private readonly inkFade = new Vector4(28, 145, 0.6, 0.3);
   private readonly gbufferList: AbstractMesh[] = [];
   private cloudRoot: TransformNode | null = null;

@@ -211,3 +211,9 @@ unchanged. Blender performs offline processing only; no external game assets.
 The closed timber stair risers, open cable-cabin portals and brake-handle
 animation are original project geometry/code derived from the existing Fjord
 Fiesta blueprint. No external game assets or additional source textures are used.
+
+
+The overall lighting, meadow palette, arithmetic cloud field and filtered water
+highlights are original project shader/art-direction work. Owner-generated
+models, original images and animation clips remain unchanged; no external
+commercial game assets or additional source textures are imported.

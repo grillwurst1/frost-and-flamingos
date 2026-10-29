@@ -721,3 +721,44 @@ visible brake feedback, cabin-follow framing and centred player projection
 pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
 map-cabin-ride/map-centered-player captures.
 Production builds also pass; the existing large-client-chunk advisory remains.
+
+
+### Overall graphics pass — 29 October 2026
+
+Owner requests optimizing the whole game presentation while retaining the
+M4/laptop budgets, centred camera and verified map repairs. Global lighting
+now blends restrained cel steps with continuous shape shading; cooler bounce,
+reduced rim/specular glare and quieter ink separate cloth, skin, timber and
+terrain. Meadow/fir/palm colours are less fluorescent and meadow variations
+are continuous, without the old thresholded vertex patches. Distance haze
+separates background planes; cold/golden weather retains its own grading.
+Neutral lagoon water is turquoise with derivative-filtered highlights and
+slower sparkles, reducing subpixel flicker. Native/painted character textures
+use their natural mip footprint, without the extra negative sharpening bias.
+Skin selection, outfits, source assets and geometry are unchanged.
+
+Sky clouds form a connected shelf and six smoothly blended puffs per group.
+Eight groups replace twelve: maximum circle evaluations 108→48. Periodic
+angle wrapping uses fract arithmetic instead of sin/cos/atan for every group.
+World shading removes three albedo power evaluations; matte surfaces skip
+the two specular powers. These are shader-cost reductions, not measured native
+M4 FPS/temperature claims. Texture sizes, scene geometry, shadow/MSAA/pixel
+budgets, 45 FPS default and the two comic/FXAA passes stay unchanged.
+Cabin follow pivot is 2 m so the overhead rope clears the lens; the controlled
+player remains horizontally centred and the previous map interactions stay.
+
+Real WebGL2 bridge/harbour/summit captures, four native wardrobe/weapon variants
+and all 12 selected skin RGB probes pass without browser errors. Nine WGSL
+material configurations compile (sky, water, world, paving, terrain, textured,
+soft/native wardrobe and contour); cloud WebGPU reports a context-loss/restore
+warning, so this is compilation coverage, not complete WebGPU gameplay/native
+acceptance. WebGL2 remains the compatibility default. Evidence is recorded in
+docs/qa/graphics-overall-2026-10-29.json. Full target-model/art acceptance stays
+open; do not call this exact screenshot parity or finished later milestones.
+
+Validation: 14 script, 211 server and 128 client cases verified (353 total).
+Two unchanged server cases hit their existing limits in the full run, then
+passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
+All browser captures and skin probes pass; 9 WGSL variants compile. Shader
+cost reductions are not a native-Mac FPS/temperature benchmark.
+Strict types report zero errors/warnings and production builds pass.

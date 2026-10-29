@@ -2470,3 +2470,28 @@ visible brake feedback, cabin-follow framing and centred player projection
 pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
 map-cabin-ride/map-centered-player captures.
 Production builds also pass; the existing large-client-chunk advisory remains.
+
+
+### Coherent scene graphics within existing budgets (29 October 2026)
+
+Blend smooth shape lighting with the comic bands; retain readable silhouettes
+without strong plastic rim/glint or fluorescent terrain colours. Continuous
+meadow washes, cooler bounce and distance haze establish depth while keeping
+all map/character geometry and collision data intact. Natural texture mip
+footprints replace negative sharpening bias; wardrobe pigments remain separate
+from illumination. Water specular stars are derivative-filtered and fade when
+subpixel, with calmer temporal sparkle.
+
+Clouds use eight groups of six joined puffs and an elliptical shelf, with
+arithmetic periodic wrapping. Remove world albedo powers and skip specular
+powers for matte surfaces. Keep existing textures, shadow/MSAA/pixel budgets,
+45 FPS default and the two post passes. These shader reductions do not prove
+native M4 performance. Lower cabin framing to avoid a near-lens haul rope;
+retain the controlled player's horizontal centre and all verified map repairs.
+
+Validation: 14 script, 211 server and 128 client cases verified (353 total).
+Two unchanged server cases hit their existing limits in the full run, then
+passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
+All browser captures and skin probes pass; 9 WGSL variants compile. Shader
+cost reductions are not a native-Mac FPS/temperature benchmark.
+Strict types report zero errors/warnings and production builds pass.

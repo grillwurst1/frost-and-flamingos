@@ -103,8 +103,9 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
   const layers = new TerrainLayers();
   let wetShore = 0;
 
-  // Meadow base with saturated patches.
-  const grass = mix(mix(P.grassShade, P.grass, 0.55 + patch * 0.45), P.grassLight, fine > 0.82 ? 0.45 : 0);
+  // Continuous broad meadow tones; no thresholded vertex speckles.
+  const meadow = softNoise(x, z, .025, 247);
+  const grass = mix(mix(P.grassShade, P.grass, .55 + meadow * .45), P.grassLight, smooth((patch - .35) / .6) * .24);
   bare = grass;
   // Grass/mud transition band just below the snowline and on worn slopes.
   const band = smooth((height - (SNOWLINE_Y - 6)) / 4) * (1 - smooth((height - SNOWLINE_Y - 2) / 3));

@@ -134,7 +134,7 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   // derivative so dense meshes and normal maps do not alias into speckles.
   float bandAA = max(0.055, fwidth(ndl) * 1.5);
 #else
-  float bandAA = 0.12;
+  float bandAA = max(0.10, fwidth(ndl) * 1.25);
 #endif
   float terminator = smoothstep(-0.02 - bandAA, 0.05 + bandAA, ndl + uFFToonParams.z);
   float full = smoothstep(0.32 - bandAA, 0.39 + bandAA, ndl + uFFToonParams.z);
@@ -143,9 +143,9 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   float lightLevel = mix(terminator * 0.7 + full * 0.3, smoothstep(-0.65, 0.9, ndl), 0.65) * shadow;
 #elif defined(FF_TEXTURED)
   // Two broad light bands keep the sculpted forms readable in the new cel reference.
-  float lightLevel = (terminator * 0.7 + full * 0.3) * shadow;
+  float lightLevel = mix(terminator * 0.7 + full * 0.3, smoothstep(-0.55, 0.95, ndl), 0.4) * shadow;
 #else
-  float lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
+  float lightLevel = mix(terminator * 0.58 + full * 0.42, smoothstep(-0.55, 0.95, ndl), 0.55) * shadow;
 #endif
 
   float skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
@@ -154,8 +154,8 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   // Painted albedo already carries its own soft shading: no extra deepening.
   vec3 shade = base * ffShadeTint(base) * fill;
 #else
-  vec3 deep = pow(max(base, vec3(0.001)), vec3(1.35));
-  vec3 shade = mix(base, deep, 0.3) * ffShadeTint(base) * fill;
+  // Hemispheric bounce models form without three extra albedo pow calls.
+  vec3 shade = base * ffShadeTint(base) * fill * mix(0.88, 1.0, skyMix);
 #endif
   // Lit snow and ice stay blue-white like the paintings (sky bounce).
   vec3 lit = base * uFFSunColor * mix(vec3(1.0), vec3(0.86, 0.95, 1.07), ffCoolMask(base) * 0.85);
@@ -168,12 +168,15 @@ vec3 ffToon(vec3 base, vec3 normal, vec3 worldPos, float gloss, float rimAmount,
   float hatchMask = max(hatchMain, hatchCross * 0.6) * smoothstep(0.7, 0.98, shadeAmount) * (1.0 - smoothstep(0.32, 0.62, shadeLuma));
   color *= 1.0 - hatchMask * uFFToonParams.w;
 
-  vec3 halfVector = normalize(light + viewDirection);
-  float ndh = max(dot(normal, halfVector), 0.0);
-  float sheen = pow(ndh, mix(10.0, 28.0, gloss));
-  float glint = pow(ndh, mix(48.0, 180.0, gloss));
-  color += base * uFFSunColor * smoothstep(0.35, 0.6, sheen) * gloss * 0.18 * shadow;
-  color += uFFSunColor * smoothstep(0.42, 0.52, glint) * gloss * uFFToonParams.y * shadow;
+  // Matte terrain/wood/foliage need neither of these specular powers.
+  if (gloss > 0.001) {
+    vec3 halfVector = normalize(light + viewDirection);
+    float ndh = max(dot(normal, halfVector), 0.0);
+    float sheen = pow(ndh, mix(10.0, 28.0, gloss));
+    float glint = pow(ndh, mix(48.0, 180.0, gloss));
+    color += base * uFFSunColor * smoothstep(0.35, 0.6, sheen) * gloss * 0.18 * shadow;
+    color += uFFSunColor * smoothstep(0.42, 0.52, glint) * gloss * uFFToonParams.y * shadow;
+  }
 
   float fresnel = 1.0 - clamp(dot(normal, viewDirection), 0.0, 1.0);
   float rim = smoothstep(0.64, 0.8, fresnel) * rimAmount * uFFToonParams.x;
@@ -279,7 +282,7 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let ndl = dot(normal, light);
   let shadow = ffShadow(worldPos, normal, ndl);
 
-  var bandAA = 0.12;
+  var bandAA = max(0.10, fwidth(ndl) * 1.25);
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   bandAA = max(0.055, fwidth(ndl) * 1.5);
 #endif
@@ -288,9 +291,9 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
 #if defined(FF_SOFT_CHARACTER)
   let lightLevel = mix(terminator * 0.7 + full * 0.3, smoothstep(-0.65, 0.9, ndl), 0.65) * shadow;
 #elif defined(FF_TEXTURED)
-  let lightLevel = (terminator * 0.7 + full * 0.3) * shadow;
+  let lightLevel = mix(terminator * 0.7 + full * 0.3, smoothstep(-0.55, 0.95, ndl), 0.4) * shadow;
 #else
-  let lightLevel = (terminator * 0.58 + full * 0.42) * shadow;
+  let lightLevel = mix(terminator * 0.58 + full * 0.42, smoothstep(-0.55, 0.95, ndl), 0.55) * shadow;
 #endif
 
   let skyMix = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
@@ -298,8 +301,7 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
   let shade = base * ffShadeTint(base) * fill;
 #else
-  let deep = pow(max(base, vec3f(0.001)), vec3f(1.35));
-  let shade = mix(base, deep, 0.3) * ffShadeTint(base) * fill;
+  let shade = base * ffShadeTint(base) * fill * mix(0.88, 1.0, skyMix);
 #endif
   let lit = base * uniforms.uFFSunColor * mix(vec3f(1.0), vec3f(0.86, 0.95, 1.07), ffCoolMask(base) * 0.85);
   var color = mix(shade, lit, lightLevel);
@@ -311,12 +313,15 @@ fn ffToon(base : vec3f, normal : vec3f, worldPos : vec3f, gloss : f32, rimAmount
   let hatchMask = max(hatchMain, hatchCross * 0.6) * smoothstep(0.7, 0.98, shadeAmount) * (1.0 - smoothstep(0.32, 0.62, shadeLuma));
   color *= 1.0 - hatchMask * uniforms.uFFToonParams.w;
 
-  let halfVector = normalize(light + viewDirection);
-  let ndh = max(dot(normal, halfVector), 0.0);
-  let sheen = pow(ndh, mix(10.0, 28.0, gloss));
-  let glint = pow(ndh, mix(48.0, 180.0, gloss));
-  color += base * uniforms.uFFSunColor * smoothstep(0.35, 0.6, sheen) * gloss * 0.18 * shadow;
-  color += uniforms.uFFSunColor * smoothstep(0.42, 0.52, glint) * gloss * uniforms.uFFToonParams.y * shadow;
+  // Matte terrain/wood/foliage need neither of these specular powers.
+  if (gloss > 0.001) {
+    let halfVector = normalize(light + viewDirection);
+    let ndh = max(dot(normal, halfVector), 0.0);
+    let sheen = pow(ndh, mix(10.0, 28.0, gloss));
+    let glint = pow(ndh, mix(48.0, 180.0, gloss));
+    color += base * uniforms.uFFSunColor * smoothstep(0.35, 0.6, sheen) * gloss * 0.18 * shadow;
+    color += uniforms.uFFSunColor * smoothstep(0.42, 0.52, glint) * gloss * uniforms.uFFToonParams.y * shadow;
+  }
 
   let fresnel = 1.0 - clamp(dot(normal, viewDirection), 0.0, 1.0);
   var rim = smoothstep(0.64, 0.8, fresnel) * rimAmount * uniforms.uFFToonParams.x;

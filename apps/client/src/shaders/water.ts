@@ -144,15 +144,19 @@ void main(void) {
 
   vec3 halfVector = normalize(light + viewDirection);
   float glint = pow(max(dot(normal, halfVector), 0.0), 220.0);
-  base += uFFSunColor * smoothstep(0.3, 0.5, glint) * 0.9;
+  float glintAA = max(0.03, fwidth(glint));
+  base += uFFSunColor * smoothstep(0.3 - glintAA, 0.5 + glintAA, glint) * 0.55;
 
   vec2 cellCoord = vWorldPosition.xz * 0.8;
   vec2 cell = floor(cellCoord);
   float cellHash = ffHash12(cell);
   vec2 local = fract(cellCoord) - 0.5 - (vec2(ffHash12(cell + 7.1), ffHash12(cell + 3.3)) - 0.5) * 0.5;
-  float star = (1.0 - smoothstep(0.0, 0.035, abs(local.x))) * (1.0 - smoothstep(0.0, 0.22, abs(local.y)));
-  star = max(star, (1.0 - smoothstep(0.0, 0.035, abs(local.y))) * (1.0 - smoothstep(0.0, 0.22, abs(local.x))));
-  float twinkle = step(0.9, cellHash) * (0.5 + 0.5 * sin(time * 5.0 + cellHash * 40.0));
+  vec2 starAA = max(fwidth(cellCoord), vec2(0.001));
+  vec2 thin = vec2(1.0) - smoothstep(max(vec2(0.0), vec2(0.035) - starAA), vec2(0.035) + starAA, abs(local));
+  vec2 arm = vec2(1.0) - smoothstep(max(vec2(0.0), vec2(0.22) - starAA), vec2(0.22) + starAA, abs(local));
+  float star = max(thin.x * arm.y, thin.y * arm.x);
+  star *= 1.0 - smoothstep(0.12, 0.65, max(starAA.x, starAA.y));
+  float twinkle = step(0.9, cellHash) * (0.5 + 0.5 * sin(time * 2.0 + cellHash * 40.0));
   float sunPath = pow(max(dot(reflect(-viewDirection, normal), light), 0.0), 5.0);
   float sparkle = star * twinkle * sunPath * uWaterParams.z * (1.0 - smoothstep(30.0, 120.0, distanceToCamera));
 
@@ -304,15 +308,18 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
 
   let halfVector = normalize(light + viewDirection);
   let glint = pow(max(dot(normal, halfVector), 0.0), 220.0);
-  base += uniforms.uFFSunColor * smoothstep(0.3, 0.5, glint) * 0.9;
+  let glintAA = max(0.03, fwidth(glint));
+  base += uniforms.uFFSunColor * smoothstep(0.3 - glintAA, 0.5 + glintAA, glint) * 0.55;
 
   let cellCoord = worldPos.xz * 0.8;
   let cell = floor(cellCoord);
   let cellHash = ffHash12(cell);
   let local = fract(cellCoord) - 0.5 - (vec2f(ffHash12(cell + 7.1), ffHash12(cell + 3.3)) - 0.5) * 0.5;
-  var star = (1.0 - smoothstep(0.0, 0.035, abs(local.x))) * (1.0 - smoothstep(0.0, 0.22, abs(local.y)));
-  star = max(star, (1.0 - smoothstep(0.0, 0.035, abs(local.y))) * (1.0 - smoothstep(0.0, 0.22, abs(local.x))));
-  let twinkle = step(0.9, cellHash) * (0.5 + 0.5 * sin(time * 5.0 + cellHash * 40.0));
+  let starAA = max(fwidth(cellCoord), vec2f(0.001));
+  let thin = vec2f(1.0) - smoothstep(max(vec2f(0.0), vec2f(0.035) - starAA), vec2f(0.035) + starAA, abs(local));
+  let arm = vec2f(1.0) - smoothstep(max(vec2f(0.0), vec2f(0.22) - starAA), vec2f(0.22) + starAA, abs(local));
+  let star = max(thin.x * arm.y, thin.y * arm.x) * (1.0 - smoothstep(0.12, 0.65, max(starAA.x, starAA.y)));
+  let twinkle = step(0.9, cellHash) * (0.5 + 0.5 * sin(uniforms.time * 2.0 + cellHash * 40.0));
   let sunPath = pow(max(dot(reflect(-viewDirection, normal), light), 0.0), 5.0);
   let sparkle = star * twinkle * sunPath * uniforms.uWaterParams.z * (1.0 - smoothstep(30.0, 120.0, distanceToCamera));
 

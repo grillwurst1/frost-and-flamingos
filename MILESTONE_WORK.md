@@ -584,3 +584,22 @@ visible brake feedback, cabin-follow framing and centred player projection
 pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
 map-cabin-ride/map-centered-player captures.
 Production builds also pass; the existing large-client-chunk advisory remains.
+
+
+### Overall graphics pass — 29 October 2026
+
+Global shape lighting, cooler bounce/softer ink, natural meadow/vegetation
+colours, layered haze, connected cheaper clouds, filtered water highlights and
+natural character texture mips. Retain geometry, textures, quality/FPS budgets,
+centred control and map repairs. Cabin framing clears the haul rope.
+WebGL2 world/wardrobe captures and all 12 skin probes pass; 9 WGSL variants
+compile, with cloud WebGPU context loss/restore noted as a runtime limitation.
+Evidence: docs/qa/graphics-overall-2026-10-29.json. Full reference-model/art and
+native Mac acceptance remain open; no future-milestone systems are added.
+
+Validation: 14 script, 211 server and 128 client cases verified (353 total).
+Two unchanged server cases hit their existing limits in the full run, then
+passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
+All browser captures and skin probes pass; 9 WGSL variants compile. Shader
+cost reductions are not a native-Mac FPS/temperature benchmark.
+Strict types report zero errors/warnings and production builds pass.

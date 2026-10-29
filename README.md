@@ -981,3 +981,22 @@ visible brake feedback, cabin-follow framing and centred player projection
 pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
 map-cabin-ride/map-centered-player captures.
 Production builds also pass; the existing large-client-chunk advisory remains.
+
+
+Overall graphics update (29 October): softer 3D lighting, cooler shadows, quieter
+outlines and more natural meadows/trees; layered distance haze, coherent cloud
+shapes and turquoise water with filtered highlights. Characters and vehicles
+share the light treatment, and painted textures use natural mip filtering to
+reduce shimmer. All skin/clothing choices and the centred camera remain.
+The cloud shader uses at most 48 rather than 108 puff evaluations, avoids
+repeated angular trigonometry, and matte materials skip specular powers.
+No additional textures, geometry or full-screen passes; existing laptop
+quality/FPS budgets remain. See docs/qa/graphics-overall-2026-10-29.json for
+captures and acceptance scope. Native Mac FPS/thermals are not measured here.
+
+Validation: 14 script, 211 server and 128 client cases verified (353 total).
+Two unchanged server cases hit their existing limits in the full run, then
+passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
+All browser captures and skin probes pass; 9 WGSL variants compile. Shader
+cost reductions are not a native-Mac FPS/temperature benchmark.
+Strict types report zero errors/warnings and production builds pass.

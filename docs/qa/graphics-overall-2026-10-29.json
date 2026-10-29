@@ -1,0 +1,222 @@
+{
+  "scope": "Overall scene lighting, terrain/vegetation palette, sky, water, painted figure/vehicle mip filtering and rope-safe cabin framing. Real rendering, no image overlays substituted for the game.",
+  "artDirection": [
+    "Soft form lighting blended with comic bands, cooler ground/sky bounce and quieter rim/specular/ink",
+    "Continuous meadow colour washes and less fluorescent meadow, fir and palm colours",
+    "Distance haze separates landscape planes, with cold/golden weather grading retained",
+    "Connected cloud shelf/puffs instead of separated small balls",
+    "Turquoise lagoon colours with derivative-filtered glints/stars and slower sparkle",
+    "Natural texture mip footprints; softer normal-map mip, preserving close colour detail and skin/outfit separation"
+  ],
+  "resourceScope": {
+    "staticMapVerticesBefore": 1715331,
+    "staticMapVerticesAfter": 1715331,
+    "newTextures": 0,
+    "newFullScreenPasses": 0,
+    "postPasses": [
+      "ff-comic",
+      "ff-fxaa"
+    ],
+    "shadowMapMedium": 1024,
+    "sceneSamplesMedium": 2,
+    "cloudGroupsBefore": 12,
+    "cloudGroupsAfter": 8,
+    "puffCirclesPerGroupBefore": 9,
+    "puffCirclesPerGroupAfter": 6,
+    "maximumPuffEvaluationsBefore": 108,
+    "maximumPuffEvaluationsAfter": 48,
+    "addedSimpleShelfEvaluations": 8,
+    "wrapping": "fract arithmetic replaces repeated sin/cos/atan angle wrapping",
+    "worldShade": "Three component albedo power evaluations removed; two specular powers skipped on matte fragments",
+    "unchanged": "45 FPS default; texture/model/shadow/pixel budgets, quality controls, collisions, abilities and net protocol",
+    "caveat": "Shader arithmetic is reduced; actual cloud coverage also changes. Cloud software rendering is not a native M4 FPS/thermal measurement."
+  },
+  "webgl2World": {
+    "status": "passed",
+    "result": {
+      "frame": 44,
+      "stats": {
+        "drawCalls": 152,
+        "activeMeshes": 69,
+        "meshes": 514,
+        "materials": 77,
+        "mapVertices": 1715331,
+        "destructibleMeshes": 102,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_facadeAtlas": 91,
+        "boot_spriteAtlas": 5040,
+        "boot_map": 7096,
+        "boot_world": 12136
+      },
+      "look": {
+        "quality": "medium",
+        "weather": 0,
+        "booting": false,
+        "webgpu": false,
+        "frameId": 44,
+        "drawCalls": 8396,
+        "activeMeshes": 69,
+        "shadowCasters": 43,
+        "shadowMapSize": 1024,
+        "gbuffer": true,
+        "sceneSamples": 2,
+        "postProcesses": [
+          "ff-comic",
+          "ff-fxaa"
+        ],
+        "painterlyClouds": false,
+        "panorama": false
+      }
+    },
+    "errors": []
+  },
+  "webgl2Figures": {
+    "native": false,
+    "result": [
+      {
+        "triangles": 25880,
+        "submeshes": 1,
+        "backFaceCulling": true,
+        "renderer": "native-wardrobe",
+        "muzzle": [
+          -1.5626099109649658,
+          1.1723802089691162,
+          0.6073728203773499
+        ],
+        "weapon": {
+          "vertices": 664,
+          "triangles": 1052
+        },
+        "forward": [
+          -0.3129037320613861,
+          0,
+          1.0115326642990112
+        ]
+      },
+      {
+        "triangles": 24286,
+        "submeshes": 1,
+        "backFaceCulling": true,
+        "renderer": "native-wardrobe",
+        "muzzle": [
+          -0.6056790351867676,
+          1.218011736869812,
+          0.7365790009498596
+        ],
+        "weapon": {
+          "vertices": 664,
+          "triangles": 1052
+        },
+        "forward": [
+          -0.3389790654182434,
+          0,
+          1.0958272218704224
+        ]
+      },
+      {
+        "triangles": 31045,
+        "submeshes": 1,
+        "backFaceCulling": true,
+        "renderer": "native-wardrobe",
+        "muzzle": [
+          0.11077868193387985,
+          1.1223772764205933,
+          0.6133908629417419
+        ],
+        "weapon": {
+          "vertices": 664,
+          "triangles": 1052
+        },
+        "forward": [
+          -0.3129037618637085,
+          0,
+          1.0115327835083008
+        ]
+      },
+      {
+        "triangles": 23201,
+        "submeshes": 1,
+        "backFaceCulling": true,
+        "renderer": "native-wardrobe",
+        "muzzle": [
+          0.9273900985717773,
+          1.1723802089691162,
+          0.6073728203773499
+        ],
+        "weapon": {
+          "vertices": 664,
+          "triangles": 1052
+        },
+        "forward": [
+          -0.3129037320613861,
+          0,
+          1.0115326642990112
+        ]
+      }
+    ]
+  },
+  "skinProbe": {
+    "tones": 12,
+    "surfaces": "Face, scalp, native forehead, arm, calf, socket, skin-relative lip",
+    "result": "all matched selected RGB within <=2 channel levels",
+    "errors": []
+  },
+  "cabinFraming": {
+    "status": "passed",
+    "result": {
+      "pivot": 2,
+      "camera": [
+        0,
+        152.67927489873796,
+        -8.472814503572264
+      ],
+      "ropeClearance": 1.4807251012620384,
+      "triangles": 1580
+    },
+    "errors": []
+  },
+  "wgslCompilation": {
+    "result": {
+      "compiled": [
+        "qa-sky",
+        "qa-water",
+        "qa-world",
+        "qa-paving",
+        "qa-terrain",
+        "qa-character",
+        "qa-modular",
+        "qa-native",
+        "qa-contour"
+      ],
+      "failures": []
+    },
+    "errors": [],
+    "scope": "Compilation only; not full dynamic WebGPU gameplay acceptance",
+    "environmentWarning": "Cloud WebGPU logged external Instance reference/context lost, then restored. No shader validation failures. WebGL2 remains default."
+  },
+  "validation": {
+    "scriptPassed": 14,
+    "serverVerified": 211,
+    "clientPassed": 128,
+    "totalVerified": 353,
+    "detail": "Full script/server run: 209 server passes and 2 pre-existing timing limits; both timed cases passed alone at 3209 ms / 7587 ms with their unchanged 5000 ms / 15000 ms limits. Complete 128-client suite passed. No tests or timeouts were changed.",
+    "types": "0 errors / 0 warnings",
+    "productionBuild": "passed; existing client bundle size advisory remains",
+    "browser": "WebGL2 bridge, harbour and summit; four wardrobes/weapons, all 12 skin RGB probes, cabin/rope clearance; zero browser errors.",
+    "wgsl": "9 material variants compile, runtime acceptance remains scoped as noted above",
+    "soak": "15 simulated minutes; 2 ticket round endings and 2 resets"
+  },
+  "captures": [
+    "graphics-bridge-low-2026-10-29.png",
+    "graphics-harbor-medium-2026-10-29.png",
+    "graphics-summit-medium-2026-10-29.png",
+    "graphics-figures-webgl2-2026-10-29.png",
+    "graphics-cabin-2026-10-29.png"
+  ],
+  "remaining": [
+    "Complete reference figure/model/art acceptance",
+    "Native Chrome/M4 performance/thermals",
+    "Full dynamic WebGPU runtime acceptance"
+  ]
+}
