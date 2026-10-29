@@ -206,3 +206,8 @@ retopology and anatomical weights are project work. Solid selected skin and
 neutral crease shading replace source arm paint; curl paint remains the owner's
 original tile at its existing pixel density. Source GLBs, images and clips are
 unchanged. Blender performs offline processing only; no external game assets.
+
+
+The closed timber stair risers, open cable-cabin portals and brake-handle
+animation are original project geometry/code derived from the existing Fjord
+Fiesta blueprint. No external game assets or additional source textures are used.

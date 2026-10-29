@@ -695,3 +695,29 @@ acceptance, native Chrome/M4 freeze/thermal acceptance. Do not mark art complete
 Validation: full 14 script / 201 server / 125 client tests pass (340 total),
 including the 15-minute simulated round soak. Strict types report zero errors
 and warnings; production builds pass. No test timeout was increased.
+
+
+29 October — owner map-access override: centred human follow camera replaces
+the old lower-left offset. Closed building/harbour/station/coaster risers and
+thick building walking slabs; valley platform/route alignment; open cabin end
+portals, floor-clear interior feet and eight-second station dwell. Docked
+inside exits require clear platform support. Actual brake grips match hitscan,
+controls avoid docking hulls and get matching solid pedestals. Authoritative
+events animate the existing handle meshes with translated two-second-stop
+feedback. No extra texture pass or per-frame geometry, protocol stays 13.
+Browser evidence and full checks are recorded with this increment; broader
+character/reference acceptance and native Mac thermal acceptance remain open.
+
+Camera follow also carries both spring origins with the controlled body and
+updates interpolated vehicle poses before camera/occupants, preventing cabins
+from moving off-screen after a long frame. Orbit/zoom/collision springs remain.
+A brake pull delayed past its two-second timer is still shown for one render
+before returning to rest, rather than disappearing without feedback.
+
+Validation for this map/camera increment: 14 script, 211 server and 128 client
+checks pass (353 total), including the 15-minute simulated conquest soak.
+Strict types report zero errors/warnings. Real WebGL2 browser F boarding,
+visible brake feedback, cabin-follow framing and centred player projection
+pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
+map-cabin-ride/map-centered-player captures.
+Production builds also pass; the existing large-client-chunk advisory remains.

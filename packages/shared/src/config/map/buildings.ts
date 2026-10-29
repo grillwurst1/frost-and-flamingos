@@ -306,7 +306,7 @@ export function buildingColliders(layout: BuildingLayout, pieceId?: string): Pro
   });
 
   for (const flight of layout.stairs) {
-    colliders.push(rampCollider(flight.from, flight.to, flight.width, 0.35, { surface: 'wood', ...options }));
+    colliders.push(stairCollider(flight.from, flight.to, flight.width, { surface: 'wood', ...options }));
   }
 
   // Railings around stairwell holes on upper floors (open on the stair's arrival side).

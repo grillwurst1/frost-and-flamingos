@@ -130,7 +130,7 @@ export interface MapVisuals {
   /**
    * Cable-car emergency brake handles by station id (`valley`, `mid`,
    * `mountain`), meshes named `cable-brake-lever-<id>`. Each sits at its hinge
-   * (blueprint `brakeLever` minus the handle height) facing the station yaw;
+   * (blueprint `brakeBase` plus the hinge height) facing the station yaw;
    * pull it by rotating around local X (world matrix is frozen — unfreeze first).
    */
   brakeLevers: Map<string, Mesh>;
@@ -552,7 +552,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   const brakeHandles: { id: string; batch: GeometryBatch; x: number; y: number; z: number; yaw: number }[] = [];
   for (const station of FJORD_MAP.routes.cableCar.stations) {
     const yaw = FJORD_MAP.props.find((prop) => prop.id === `cable_station_${station.id}`)?.rotationY ?? 0;
-    const lever = station.brakeLever;
+    const lever = station.brakeBase;
     const chunk = chunks.at(lever.x, lever.z);
     chunk.at(lever.x, station.platform.y, lever.z, yaw, () => drawBrakeLeverBase(chunk));
     const handle = new GeometryBatch();

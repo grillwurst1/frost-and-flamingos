@@ -382,7 +382,7 @@ remains free through 360 degrees; the riveted tub, driver, wardrobe-coloured
 forearms, individual fingers/gloves and current hero weapon remain visible.
 Holding X replaces the weapon with a steel wrench; repairing still blocks fire.
 The vehicle card moves above the hands. The view resets on seat changes or exit
-and hides its hands behind the menu/wardrobe. Other seats retain shoulder swapping.
+and hides its hands behind the menu/wardrobe. Other seats use the centred follow view.
 
 The existing animated skeleton now bends knees at seated footrests, puts drivers'
 hands on the controls, rows and braces wing riders. Aircraft pitch/bank carries
@@ -435,8 +435,8 @@ and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeas
 
 ### Reference foreground camera and reticle (27 October 2026)
 
-The human shoulder camera puts the full hero further left and closer to the reference.
-A sideways world ray retracts the shoulder beside walls; snaps clear spring momentum.
+The human follow camera now centres the hero horizontally (owner update, 29 October).
+Obstruction rays retain wall clearance; follow movement keeps vehicles in frame.
 Personal shots converge on the centre-ray target from the server eye instead of running
 parallel past the reticle. Only a finite normalized aim is accepted; origin, cover,
 range, ammo, cadence and damage remain authoritative. Aim stays independent of movement
@@ -957,3 +957,27 @@ Mac freeze/thermal acceptance remain open; this is a verified art increment.
 Validation: full 14 script / 201 server / 125 client tests pass (340 total),
 including the 15-minute simulated round soak. Strict types report zero errors
 and warnings; production builds pass. No test timeout was increased.
+
+
+Map access update (29 October): human follow view now centres the controlled
+player horizontally. Closed timber risers fill the stair gaps, with thick
+shared walking ramps at building toes. Cable-car platforms meet the cabin
+route, end doors are open, seats clear the floor, and station stops last eight
+seconds. Use F to board/exit and H to change seats. Inside riders exit onto a
+clear platform spot when docked. Brake levers have reachable grip targets,
+solid pedestals, an actual pull animation and a two-second-stop notification.
+The emergency-brake/roof-rider rules and existing rendering budgets remain.
+
+Camera follow also carries both spring origins with the controlled body and
+updates interpolated vehicle poses before camera/occupants, preventing cabins
+from moving off-screen after a long frame. Orbit/zoom/collision springs remain.
+A brake pull delayed past its two-second timer is still shown for one render
+before returning to rest, rather than disappearing without feedback.
+
+Validation for this map/camera increment: 14 script, 211 server and 128 client
+checks pass (353 total), including the 15-minute simulated conquest soak.
+Strict types report zero errors/warnings. Real WebGL2 browser F boarding,
+visible brake feedback, cabin-follow framing and centred player projection
+pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
+map-cabin-ride/map-centered-player captures.
+Production builds also pass; the existing large-client-chunk advisory remains.

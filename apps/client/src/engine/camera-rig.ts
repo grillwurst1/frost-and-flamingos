@@ -8,13 +8,9 @@ const MIN_PITCH = -1.15;
 const MAX_PITCH = 1.1;
 const MIN_DISTANCE = 2.7;
 const MAX_DISTANCE = 8.2;
-/**
- * Painting-style framing (owner reference art): close, low and wide. The
- * pivot sits near eye height and to the side, so the hero
- * stands in the lower-left like the painted foreground figures and the scene
- * (busy foreground, horizon) keeps the centre of the frame.
- */
-const SHOULDER_OFFSET = 1.9;
+/** Centred follow view: the owner now wants the controlled player on the
+ * horizontal centre line, rather than the old 1.9 m painting-style offset. */
+const SHOULDER_OFFSET = 0;
 const PLAYER_PIVOT_HEIGHT = 1.64;
 const PLAYER_DISTANCE = 3.25;
 /** Vertical FOV while playing (62 deg); menu, wardrobe and killer cam keep the tele framing. */
@@ -24,7 +20,7 @@ const SHOWCASE_FOV = 0.88;
 export type PreviewCameraMode = 'menu' | 'wardrobe';
 
 /**
- * Per-body framing. Humans use the over-the-shoulder default; the cow sits
+ * Per-body framing. Humans use the centred follow default; the cow sits
  * further back and lower, the coconut slightly higher, both centred.
  */
 export interface CameraProfile {
@@ -64,7 +60,7 @@ function springStep(state: SpringState, target: Vector3, stiffness: number, damp
 }
 
 /**
- * Spring-loaded over-the-shoulder camera with terrain-aware collision.
+ * Spring-loaded centred follow camera with terrain-aware collision.
  * Input yaw is authoritative for movement; the camera itself is smoothed.
  */
 export class CameraRig {
@@ -77,6 +73,7 @@ export class CameraRig {
     value: new Vector3(0, 0, 0),
     velocity: new Vector3(0, 0, 0),
   };
+  private readonly followPivot = new Vector3();
   private yaw = 0;
   private pitch = -0.08;
   private targetYaw = 0;
@@ -223,7 +220,16 @@ export class CameraRig {
       this.positionSpring.value.copyFrom(desiredCamera);
       this.pivotSpring.velocity.setAll(0);
       this.positionSpring.velocity.setAll(0);
+      this.followPivot.copyFrom(pivot);
       this.initialized = true;
+    } else {
+      // Carry the camera with the controlled body. Integrating only 50 ms of
+      // spring time after a long frame left moving cabins metres off-screen.
+      // Springs still ease orbit, zoom and obstruction changes.
+      const movement = pivot.subtract(this.followPivot);
+      this.pivotSpring.value.addInPlace(movement);
+      this.positionSpring.value.addInPlace(movement);
+      this.followPivot.copyFrom(pivot);
     }
 
     springStep(this.pivotSpring, pivot, 190, 27, clampedDt);
@@ -245,7 +251,10 @@ export class CameraRig {
     springStep(this.positionSpring, collisionAdjusted, 150, 24, clampedDt);
 
     this.camera.position.copyFrom(this.positionSpring.value);
-    const lookAt = this.pivotSpring.value.add(forward.scale(24));
+    // Look through the actual followed pivot even while the orbit spring
+    // catches up with a fast turn; movement must not push the hero sideways.
+    const lookAt = this.pivotSpring.value.add(
+      this.pivotSpring.value.subtract(this.camera.position).normalize().scale(24));
     if (this.wobble > 0) {
       this.wobbleTime += clampedDt;
       lookAt.addInPlace(right.scale(Math.sin(this.wobbleTime * 5.3) * 1.6 * this.wobble));

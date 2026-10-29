@@ -1,3 +1,4 @@
+import { drawClosedStairs } from './stairs';
 /**
  * Landmark generators: Tower A lighthouse and harbour, Tower B clock pavilion,
  * Tower C clock house, the suspension bridge, stone arch, cable car, T-bar,
@@ -275,11 +276,7 @@ export function drawStairs(batch: GeometryBatch, prop: MapProp): void {
   const drop = prop.dimensions?.y ?? 3.6;
   const run = prop.dimensions?.z ?? 5;
   const width = prop.dimensions?.x ?? 2.2;
-  const steps = Math.round(drop / 0.28);
-  for (let step = 0; step < steps; step += 1) {
-    const t = (step + 0.5) / steps;
-    batch.box(0, -t * drop, t * run, width, 0.12, run / steps + 0.05, step % 2 === 0 ? P.plankLight : P.plank, 'wood', 0.02);
-  }
+  drawClosedStairs(batch, { x: 0, y: -drop, z: run }, { x: 0, y: 0, z: 0 }, width);
   for (const side of [-1, 1]) {
     batch.log([side * (width / 2 + 0.05), 0, 0], [side * (width / 2 + 0.05), -drop, run], 0.09, P.logDark, 'wood', { segments: 5 });
     batch.log([side * (width / 2 + 0.05), -drop - 0.5, run], [side * (width / 2 + 0.05), 1.0, 0.1], 0.07, P.logDark, 'wood', { segments: 4 });
@@ -1029,11 +1026,7 @@ function drawMidSupport(batch: GeometryBatch, rise: number): void {
     [lower.z, lower.fromX, lower.toX, 0, half, 1],
     [upper.z, upper.fromX, upper.toX, half, rise, -1],
   ] as const) {
-    const steps = Math.round((y1 - y0) / 0.28);
-    for (let step = 0; step < steps; step += 1) {
-      const t = (step + 0.5) / steps;
-      batch.box(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z, Math.abs(x1 - x0) / steps + 0.05, 0.12, width, P.plankLight, 'wood', 0.02);
-    }
+    drawClosedStairs(batch, { x: x0, y: y0, z }, { x: x1, y: y1, z }, width);
     for (const side of [-1, 1]) batch.log([x0, y0 - 0.2, z + side * (width / 2 + 0.02)], [x1, y1 - 0.2, z + side * (width / 2 + 0.02)], 0.08, P.metalDark, 'metal', { segments: 4 });
     batch.log([x0, y0 + 1.0, z + railSide * (width / 2 + 0.05)], [x1, y1 + 1.0, z + railSide * (width / 2 + 0.05)], 0.05, P.alpineRed, 'metal', { segments: 4 });
   }
@@ -1102,11 +1095,7 @@ function drawMountainStation(batch: GeometryBatch, w: number, d: number, rise: n
   const count = Math.round(w / 0.45);
   for (let index = 0; index < count; index += 1) plank(batch, -halfW + (index + 0.5) * (w / count), rise - 0.08, 0, d, w / count, index, false);
   // Stairs on the +X side (collider ramp from z −6.4 to −0.6) and the landing.
-  const steps = Math.round(rise / 0.28);
-  for (let step = 0; step < steps; step += 1) {
-    const t = (step + 0.5) / steps;
-    batch.box(5.6, rise * t, -6.4 + 5.8 * t, 1.8, 0.12, 5.8 / steps + 0.05, P.plankLight, 'wood', 0.02);
-  }
+  drawClosedStairs(batch, { x: 5.6, y: 0, z: -6.4 }, { x: 5.6, y: rise, z: -.6 }, 1.8);
   batch.box(5.2, rise - 0.15, 0.6, 2.8, 0.3, 2.8, P.plank, 'wood', 0.04);
   for (const [x, z] of [
     [6.5, -0.7],
@@ -1470,11 +1459,7 @@ export function drawCoasterPlatform(batch: GeometryBatch, prop: MapProp): void {
   balusters([-6.85, 0, -3.95], [0, 0, -3.95], 12);
   // Stairs off the back edge (collider ramp from x −6.9 − rise/0.68 up to −6.9 at z −1).
   const run = rise / 0.68;
-  const steps = Math.max(2, Math.round(rise / 0.22));
-  for (let step = 0; step < steps; step += 1) {
-    const t = (step + 0.5) / steps;
-    batch.box(-6.9 - run + run * t, rise * t, -1, run / steps + 0.05, 0.12, 2.2, P.plankLight, 'wood', 0.02);
-  }
+  drawClosedStairs(batch, { x: -6.9 - run, y: 0, z: -1 }, { x: -6.9, y: rise, z: -1 }, 2.2);
   for (const side of [-1, 1]) {
     batch.log([-6.9 - run, -0.2, -1 + side * 1.15], [-6.9, rise - 0.2, -1 + side * 1.15], 0.1, P.logDark, 'wood', { segments: 4 });
     batch.log([-6.9 - run, 1.0, -1 + side * 1.2], [-6.9, rise + 1.0, -1 + side * 1.2], 0.05, P.log, 'wood', { segments: 4 });

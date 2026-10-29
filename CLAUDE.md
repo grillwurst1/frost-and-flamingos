@@ -431,8 +431,8 @@ still need work. Do not claim a native Mac performance or temperature measuremen
 
 ### Cable car (M5 continuation, protocol 11)
 
-Two rounded red cabins counter-run on the authored valley/mid/summit route, with three-second
-station stops, protected interior seats and two exposed roof seats. F boards/exits; H
+Two rounded red cabins counter-run on the authored valley/mid/summit route, with eight-second
+station stops (updated 29 October), protected interior seats and two exposed roof seats. F boards/exits; H
 cycles seats; C/Ctrl crouches on the roof. F near a station lever or a real hitscan shot
 pulls the emergency brake: both cabins stop/rock for two seconds. Standing roof riders
 are thrown off; crouched and interior crew stay aboard. Cabins have no empty tow timeout.
@@ -451,7 +451,7 @@ and oar rotation. Cloud rendering is software; native Mac heat/FPS remain unmeas
 
 ### Reference framing and actual reticle aim (27 October 2026)
 
-Human camera defaults: 1.9 m shoulder, 1.64 m pivot, 3.25 m distance, same 62-degree FOV.
+Human camera defaults (updated 29 October): zero shoulder offset, 1.64 m pivot, 3.25 m distance, same 62-degree FOV.
 Lateral collision retracts the shoulder near walls; snaps clear both spring velocities.
 `shared/aim.ts` validates finite unit-direction input and converges a camera centre ray
 on a target from the actual eye. Do not validate against movement yaw: the camera spring
@@ -1145,3 +1145,44 @@ complete owner reference acceptance and native M4 freeze acceptance stay open.
 Validation: full 14 script / 201 server / 125 client tests pass (340 total),
 including the 15-minute simulated round soak. Strict types report zero errors
 and warnings; production builds pass. No test timeout was increased.
+
+
+### Owner map-access and centred-camera fixes — 29 October 2026
+
+The owner now explicitly prioritises map gaps, usable cable-car boarding and
+brake controls, and a horizontally centred controlled player. This supersedes
+the old lower-left reference-camera offset. Human follow shoulder offset is
+zero; mouse look, collision, zoom, 62° FOV and the existing distances remain.
+V now describes the sidecar passenger view; menu/wardrobe framing stays intact.
+
+Building ramps use the thick shared stair collider with an underground toe.
+Closed overlapping timber risers replace thin floating treads in buildings,
+harbour steps, mid/mountain stations and coaster access. Keep one smooth
+collision slab per flight rather than many individual stair colliders.
+
+The valley platform now meets its route floor exactly (previously +0.279 m).
+Cabins have open end doorways and interior feet above the floor. Station dwell
+is eight seconds. F boards/exits; H changes interior/roof seats. At a station,
+inside exits validate a clear platform spot instead of dropping a rider off
+the outer edge. In-flight/roof exits preserve their existing jump behavior.
+
+The brake interaction/hitscan target now follows the actual red grip. Valley
+and summit controls are clear of the docking hulls; pedestal colliders match
+their rendered bases. F prompts use the real eye height and unobstructed reach.
+Authoritative brake events animate the affected station lever for the existing
+two-second stop and show translated operator feedback, once for the cabin pair.
+No packet layout/protocol changes, new texture passes or per-frame geometry.
+
+Camera follow also carries both spring origins with the controlled body and
+updates interpolated vehicle poses before camera/occupants, preventing cabins
+from moving off-screen after a long frame. Orbit/zoom/collision springs remain.
+A brake pull delayed past its two-second timer is still shown for one render
+before returning to rest, rather than disappearing without feedback.
+
+Validation for this map/camera increment: 14 script, 211 server and 128 client
+checks pass (353 total), including the 15-minute simulated conquest soak.
+Strict types report zero errors/warnings. Real WebGL2 browser F boarding,
+visible brake feedback, cabin-follow framing and centred player projection
+pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
+map-cabin-ride/map-centered-player captures.
+Production builds also pass; the existing large-client-chunk advisory remains.

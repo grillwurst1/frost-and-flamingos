@@ -1,3 +1,4 @@
+import { CableBrakeLevers } from '../rendering/cable-brake-levers';
 import { frameLimit } from '../state/graphics';
 import { renderFrameLimit, type FrameLimit } from '../rendering/render-profile';
 import { QualityGovernor } from '../rendering/quality-governor';
@@ -324,6 +325,7 @@ export class GameClient {
   private input: InputController | null = null;
   private network: NetworkClient | null = null;
   private visuals: MapVisuals | null = null;
+  private cableBrakeLevers: CableBrakeLevers | null = null;
   /** Faction stage of the menu / wardrobe preview (replaces the map podium while shown). */
   private wardrobeStage: WardrobeStage | null = null;
   private devCamera: DevCameraOverride | null = null;
@@ -632,6 +634,7 @@ export class GameClient {
       if (this.disposed) return;
       const buildStart = performance.now();
       this.visuals = buildFjordFiesta(scene, this.toonMaterial, { sprites, facades });
+      this.cableBrakeLevers = new CableBrakeLevers(this.visuals.brakeLevers);
       this.bootTimings.map = Math.round(performance.now() - buildStart);
       this.bootTimings.world = Math.round(performance.now() - artStart);
       this.wardrobeStage = new WardrobeStage(scene, this.toonMaterial, this.visuals.previewStage.position);
@@ -1254,6 +1257,10 @@ export class GameClient {
       return;
     }
 
+    if (event.eventType === 'GONDOLA_BRAKE' && event.targetId === 100) {
+      if (actor) this.cableBrakeLevers?.pullNearest(actor.position, now);
+      if (event.actorId === this.localId) notify('world.cableCar.braked');
+    }
     if (this.vehicles?.handleEvent(event, this.profiles)) {
       if (event.eventType === 'PINBALL_BOING_HIT' || event.eventType === 'VEHICLE_DESTROYED') this.lastCombatAt = now;
       return;
@@ -1608,19 +1615,21 @@ export class GameClient {
       if (steps === 5) this.accumulator = 0;
     }
 
-    this.updateCamera(delta);
-    this.updateLocalView(delta);
-    this.updatePreviewView(delta);
-    this.updateRemoteViews(delta, now);
+    // Interpolate moving hulls before their camera and occupants. Otherwise a
+    // slow frame draws the new cabin while the view follows its previous pose.
     if (this.vehicles && this.cameraRig) {
       const character = this.localCharacter;
       const onFoot =
         this.currentPhase === 'playing' && character && !this.vehicles.localSeat
-          ? { position: character.position, faction: this.localFaction, alive: this.latestLocalState?.alive ?? true, classId: character.stats.id }
+          ? { position: character.position, faction: this.localFaction, alive: this.latestLocalState?.alive ?? true, classId: character.stats.id, eyeHeight: character.eyeHeight }
           : null;
       const audible = this.currentPhase === 'playing' || this.currentPhase === 'deploying' || this.currentPhase === 'paused';
       this.vehicles.update(delta, now, this.snapshotHistory, this.cameraRig.camera.position, onFoot, audible);
     }
+    this.updateCamera(delta);
+    this.updateLocalView(delta);
+    this.updatePreviewView(delta);
+    this.updateRemoteViews(delta, now);
     const listener = this.cameraRig?.camera.position;
     this.critters?.update(delta, now, listener ? { x: listener.x, y: listener.y, z: listener.z } : null);
     this.updateDrifters(delta);
@@ -2320,6 +2329,7 @@ export class GameClient {
     const camera = this.cameraRig?.camera;
     if (!camera || !this.visuals || !this.toonMaterial) return;
     const time = now / 1000;
+    this.cableBrakeLevers?.update(now);
     this.look?.update(time);
     updateToonMaterial(this.toonMaterial, camera.position);
     updateWaterMaterial(this.visuals.waterMaterial, camera.position, time);

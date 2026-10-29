@@ -32,6 +32,8 @@ import {
   BRIDGE_PYLON_TOP,
   BRIDGE_ANCHOR_HEIGHT,
   CABLE_CAR_STATIONS,
+  CABLE_BRAKE_LEVERS_LOCAL,
+  CABLE_BRAKE_HANDLE,
   CABLE_STATION_YAWS,
   GLACIER_RUNWAY,
   GORGE,
@@ -919,6 +921,12 @@ function bridgeSeeds(): PropSeed[] {
   return seeds;
 }
 
+/** Solid controls use the same platform-local origin as the rendered pedestal. */
+function cableBrakePedestal(station: keyof typeof CABLE_BRAKE_LEVERS_LOCAL, platform: number): PropCollider {
+  const base = CABLE_BRAKE_LEVERS_LOCAL[station], height = CABLE_BRAKE_HANDLE.hinge;
+  return boxCollider(.21, height / 2, .21, base.x, platform + height / 2, base.z);
+}
+
 /**
  * Mid-support switchback stairs (station-local; the gondola runs along local X,
  * so they climb along the +Z side). The lower flight rises to a landing at half
@@ -945,6 +953,7 @@ function midSupportSeeds(): PropSeed[] {
   const slab = (minX: number, maxX: number, minZ: number, maxZ: number, top: number): PropCollider =>
     boxCollider((maxX - minX) / 2, 0.15, (maxZ - minZ) / 2, (minX + maxX) / 2, top - 0.15, (minZ + maxZ) / 2, { surface: 'wood' });
   const colliders: PropCollider[] = [
+    cableBrakePedestal('mid', rise),
     boxCollider(3.6, 0.2, 3, 0, rise - 0.2, 0, { surface: 'wood' }),
     ...[-1, 1].flatMap((sx) => [-1, 1].map((sz) => cylinderCollider(0.35, rise / 2, sx * 3.2, rise / 2, sz * 2.6))),
     stairCollider(vec3(lower.fromX, 0, lower.z), vec3(lower.toX, half, lower.z), width, { surface: 'wood' }),
@@ -1048,6 +1057,7 @@ function summitSeeds(): PropSeed[] {
     surface: 'wood',
     colliders: [
       boxCollider(4, 0.25, 4.5, 0, rise - 0.25, 0, { surface: 'wood' }),
+      cableBrakePedestal('mountain', rise),
       stairCollider(vec3(5.6, 0, -6.4), vec3(5.6, rise, -0.6), 1.8, { surface: 'wood' }),
       boxCollider(1.4, 0.15, 1.4, 5.2, rise - 0.15, 0.6, { surface: 'wood' }),
       // Carved station chalet at the back of the covered docking balcony.
@@ -1240,7 +1250,7 @@ function transportSeeds(): PropSeed[] {
   const cable = FJORD_ROUTES.cableCar;
   // Valley station on the beach cliff.
   const valley = CABLE_CAR_STATIONS.valley;
-  const valleyFoot = ground(valley.x, valley.z);
+  const valleyFoot = Math.min(ground(valley.x, valley.z), valley.y - 0.3);
   const valleyYaw = CABLE_STATION_YAWS.valley;
   const deck = Math.max(0.3, valley.y - valleyFoot);
   seeds.push({
@@ -1255,6 +1265,7 @@ function transportSeeds(): PropSeed[] {
     surface: 'wood',
     colliders: [
       boxCollider(4.5, deck / 2, 5, 0, deck / 2, 0, { surface: 'wood' }),
+      cableBrakePedestal('valley', deck),
       boxCollider(4.5, 2.8, 1.5, 0, deck + 2.8, -3.5, { surface: 'wood' }),
       ...[-1, 1].map((side) => cylinderCollider(0.3, 2.6, side * 4.1, deck + 2.6, 4.4)),
     ],

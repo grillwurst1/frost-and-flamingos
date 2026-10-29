@@ -4,7 +4,7 @@ import { sampleRoute } from '../config/map/math.js';
 import type { Vec3 } from '../types/index.js';
 
 /** One shared route and clock; no Rapier dynamic joints or per-frame route construction. */
-export const CABLE_CAR_RULES = { stopSeconds: 3, brakeSeconds: 2, laneOffset: 2.2, leverRange: 2.4, leverRadius: 0.32 } as const;
+export const CABLE_CAR_RULES = { stopSeconds: 8, brakeSeconds: 2, laneOffset: 2.2, leverRange: 2.4, leverRadius: 0.32 } as const;
 const route = FJORD_ROUTES.cableCar;
 const legTicks = Math.round(route.legSeconds * PHYSICS_TICK_RATE);
 const stopTicks = CABLE_CAR_RULES.stopSeconds * PHYSICS_TICK_RATE;

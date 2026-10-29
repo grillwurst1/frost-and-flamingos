@@ -396,7 +396,7 @@ export const de: TranslationDictionary = {
     roll: 'Ausweichrolle',
     look: 'Umsehen',
     mouse: 'Maus',
-    shoulder: 'Schulter wechseln',
+    shoulder: 'Beifahreransicht im Seitenwagen',
     zoom: 'Kameraabstand',
     zoomIn: 'Kamera zoomen',
     wheel: 'Mausrad',
@@ -477,7 +477,7 @@ export const de: TranslationDictionary = {
     debugTitle: 'Telemetrie',
     debugHint: 'F1 schaltet die Telemetrie um',
     menuHint: 'Esc für die Pause',
-    controlsHint: 'WASD bewegen · Leertaste springen · Shift sprinten · C ducken/Rollen · LMB feuern · R nachladen · Q E T Fähigkeiten · V Schulter · F1 Debug',
+    controlsHint: 'WASD bewegen · Leertaste springen · Shift sprinten · C ducken/Rollen · LMB feuern · R nachladen · Q E T Fähigkeiten · V Beifahreransicht · F1 Debug',
     noCombat: 'Live-Kampf-Build — Waffen, Fähigkeiten und Bots sind aktiv.',
     waitingForServer: 'Warte auf den Resort-Server…',
     spawnHint: 'Zu Fuß unterwegs. Erkunde den Fjord.',
@@ -624,7 +624,7 @@ export const de: TranslationDictionary = {
     teamBalanced: 'Du spielst jetzt für die {faction}, damit die Teams ausgeglichen bleiben.',
   },
   world: {
-    cableCar: { brake: 'Notbremshebel ziehen', screech: 'QUIIIETSCH!' },
+    cableCar: { braked: 'Seilbahn für 2 Sekunden gestoppt', brake: 'Notbremshebel ziehen', screech: 'QUIIIETSCH!' },
     mapName: 'Fjord-Fiesta',
     mapSubtitle: 'Alpengipfel trifft türkise Lagune',
     zones: {

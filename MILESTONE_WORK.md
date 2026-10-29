@@ -562,3 +562,25 @@ reference acceptance remain active; later milestones remain gated.
 Validation: full 14 script / 201 server / 125 client tests pass (340 total),
 including the 15-minute simulated round soak. Strict types report zero errors
 and warnings; production builds pass. No test timeout was increased.
+
+
+29 October — owner requested map-access fixes before further art: centred human
+camera, closed stair risers/thick building toe ramps, aligned valley deck,
+open cable-car portals, floor-clear seats, eight-second station dwell and safe
+docked inside exits. Brake grip targets/solid pedestals are clear of cabins;
+F reach/occlusion agrees with the server, brake events animate real handles and
+show translated stop feedback. Current M5 repairs only; no M6/M7 systems.
+
+Camera follow also carries both spring origins with the controlled body and
+updates interpolated vehicle poses before camera/occupants, preventing cabins
+from moving off-screen after a long frame. Orbit/zoom/collision springs remain.
+A brake pull delayed past its two-second timer is still shown for one render
+before returning to rest, rather than disappearing without feedback.
+
+Validation for this map/camera increment: 14 script, 211 server and 128 client
+checks pass (353 total), including the 15-minute simulated conquest soak.
+Strict types report zero errors/warnings. Real WebGL2 browser F boarding,
+visible brake feedback, cabin-follow framing and centred player projection
+pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
+map-cabin-ride/map-centered-player captures.
+Production builds also pass; the existing large-client-chunk advisory remains.

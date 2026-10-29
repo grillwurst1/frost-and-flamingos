@@ -5,7 +5,7 @@
  * bullwheels, lattice pylons, hangar door, runway pennants). Signs stay blank
  * — names are rendered in-engine from i18n later.
  */
-import { CHALET_TERRACES, type BuildingLayout, type MapProp } from '@frost-and-flamingos/shared';
+import { FjordLayout, CHALET_TERRACES, type BuildingLayout, type MapProp } from '@frost-and-flamingos/shared';
 import { Affine, GeometryBatch, hash3, mix, shade, type RGB, type V3 } from './geometry';
 import { P } from './palette';
 
@@ -257,7 +257,7 @@ export function drawBuildingExtras(batch: GeometryBatch, prop: MapProp, painted 
 }
 
 /** Height of the brake lever's hinge above the station platform. */
-export const BRAKE_LEVER_HINGE = 0.9;
+export const BRAKE_LEVER_HINGE = FjordLayout.CABLE_BRAKE_HANDLE.hinge;
 
 /** Static pedestal of the emergency brake (drawn into the station chunk, platform-local). */
 export function drawBrakeLeverBase(batch: GeometryBatch): void {
@@ -273,8 +273,8 @@ export function drawBrakeLeverBase(batch: GeometryBatch): void {
  * rotating around local X.
  */
 export function drawBrakeLeverHandle(batch: GeometryBatch): void {
-  batch.with(Affine.rotationX(-0.45), () => {
+  batch.with(Affine.rotationX(FjordLayout.CABLE_BRAKE_HANDLE.angle), () => {
     batch.lathe([[0.05, 0], [0.04, 0.85]], 6, P.alpineRed, 'metal', { capTop: true });
-    batch.blob(0, 0.9, 0, 0.11, 0.11, 0.11, P.alpineRed, 'plain', { segments: 6, rings: 4 });
+    batch.blob(0, FjordLayout.CABLE_BRAKE_HANDLE.length, 0, 0.11, 0.11, 0.11, P.alpineRed, 'plain', { segments: 6, rings: 4 });
   });
 }

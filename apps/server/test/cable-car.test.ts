@@ -36,7 +36,7 @@ test('inside and roof crews ride full cabin poses; F and H board/change/exit wit
     for (let i = 0; i < 3 && room.vehicles.seatFor(player.id)!.seat < 2; i++) tap(room, player, InputButton.Heal);
     expect(room.vehicles.seatFor(player.id)!.seat).toBeGreaterThanOrEqual(2);
     expect(room.vehicles.isShielded(player.id)).toBe(false);
-    run(room, 240, () => sendInput(room, player, 0));
+    run(room, CABLE_CAR_RULES.stopSeconds * 60 + 240, () => sendInput(room, player, 0));
     const seat = room.vehicles.seatFor(player.id)!.seat, feet = playerOf(room, player.id).character.position;
     const anchor = vehicleLocalToWorld(body.position, body.yaw, body.definition.seats[seat]!.anchor, body.pitch, body.roll);
     expect(Math.hypot(feet.x-anchor.x, feet.y-anchor.y, feet.z-anchor.z)).toBeLessThan(0.001);
@@ -60,7 +60,7 @@ test('station F brake freezes both cabins; crouched roof crew and cabin crew rem
   try {
     const inside=joinPlayer(room,'alpine'), standing=joinPlayer(room,'alpine'), crouched=joinPlayer(room,'alpine'), lever=joinPlayer(room,'lagoon');
     for (const [seat,p] of [[0,inside],[2,standing],[3,crouched]] as const) expect(room.vehicles.devEnter(playerOf(room,p.id) as never,100,seat)).toBe(true);
-    run(room,300,()=>{sendInput(room,inside,0);sendInput(room,standing,0);sendInput(room,crouched,InputButton.Crouch)});
+    run(room,CABLE_CAR_RULES.stopSeconds * 60 + 120,()=>{sendInput(room,inside,0);sendInput(room,standing,0);sendInput(room,crouched,InputButton.Crouch)});
     const stop=FJORD_MAP.routes.cableCar.stations[0]!.brakeLever;
     const operator=playerOf(room,lever.id);placePlayer(room,lever.id,{x:stop.x,y:stop.y-1.3,z:stop.z+0.5});
     const before=room.vehicles.vehicleBody(100)!.position;
@@ -97,5 +97,56 @@ test('a real hitscan shot can brake the station lever; rearward or short rays ca
     room.handleFire(player.socket,{clientTick:room.getServerTick(),origin,direction,weaponId:WEAPON_TABLE.code[weapon]});
     run(room,1);
     expect(player.socket.eventsOf('GONDOLA_BRAKE')).toHaveLength(2);
+  } finally { room.stop(); }
+});
+
+for (const station of FJORD_MAP.routes.cableCar.stations) test(`ordinary F boards at ${station.id} and both inside seats exit onto the platform`, async () => {
+  const room = await createRoom();
+  try {
+    const player = joinPlayer(room, 'alpine');
+    // Wait for the ordinary route clock, without devEnter or a moved cabin.
+    for (let tick = 0; tick < 2000; tick++) {
+      const found = [100, 101].find(id => {
+        const body = room.vehicles.vehicleBody(id)!;
+        return Math.hypot(body.position.x - station.platform.x, body.position.z - station.platform.z) < 2.3
+          && Math.abs(body.position.y - station.platform.y) < .2 && body.speed < .05;
+      });
+      if (found) break;
+      run(room, 1);
+    }
+    for (const insideSeat of [0, 1]) {
+      placePlayer(room, player.id, { ...station.platform, y: station.platform.y + .05 });
+      tap(room, player, InputButton.Interact);
+      expect([100, 101].includes(room.vehicles.seatFor(player.id)?.vehicleId ?? 0), station.id).toBe(true);
+      for (let change = 0; change < 4 && room.vehicles.seatFor(player.id)!.seat !== insideSeat; change++) tap(room, player, InputButton.Heal);
+      expect(room.vehicles.seatFor(player.id)!.seat).toBe(insideSeat);
+      tap(room, player, InputButton.Interact);
+      expect(room.vehicles.seatFor(player.id)).toBeNull();
+      const feet = playerOf(room, player.id).character.position;
+      expect(Math.abs(feet.y - station.platform.y), station.id).toBeLessThan(.15);
+      run(room, 12, () => sendInput(room, player, 0));
+      expect(Math.abs(playerOf(room, player.id).character.position.y - station.platform.y), `${station.id} exit must not fall`).toBeLessThan(.15);
+    }
+  } finally { room.stop(); }
+});
+
+for (const station of FJORD_MAP.routes.cableCar.stations) test(`the visible ${station.id} lever responds to F from its platform and stops both moving cabins`, async () => {
+  const room = await createRoom();
+  try {
+    const player = joinPlayer(room, 'alpine');
+    run(room, CABLE_CAR_RULES.stopSeconds * 60 + 180);
+    const lever = station.brakeLever;
+    const dx = station.platform.x - lever.x, dz = station.platform.z - lever.z, length = Math.hypot(dx, dz);
+    placePlayer(room, player.id, { x: lever.x + dx / length * .8, y: station.platform.y + .05, z: lever.z + dz / length * .8 });
+    tap(room, player, InputButton.Interact);
+    expect(player.socket.eventsOf('GONDOLA_BRAKE')).toHaveLength(2);
+    const before = [100, 101].map(id => ({ ...room.vehicles.vehicleBody(id)!.position }));
+    run(room, 20);
+    for (const [index, id] of [100, 101].entries()) {
+      expect(room.vehicles.vehicleBody(id)!.state.handbrake).toBe(true);
+      expect(room.vehicles.vehicleBody(id)!.position).toEqual(before[index]!);
+    }
+    run(room, 150);
+    expect(room.vehicles.vehicleBody(100)!.position).not.toEqual(before[0]!);
   } finally { room.stop(); }
 });

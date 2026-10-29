@@ -18,6 +18,7 @@ import type {
 } from '../../types/map.js';
 import {
   CABLE_BRAKE_LEVERS_LOCAL,
+  CABLE_BRAKE_HANDLE,
   CABLE_CAR_STATIONS,
   CABLE_STATION_YAWS,
   COASTAL_RAMP_POINTS,
@@ -145,26 +146,32 @@ function buildCableCar(): CableCarRoute {
   );
   const stationDistance = (station: Vec3): number =>
     projectOnPolyline(station.x, station.z, gondolaPath.points, gondolaPath.distances).along;
+  const brake = (platform: Vec3, yaw: number, base: Vec3) => ({
+    brakeBase: localToWorld(platform, yaw, base),
+    brakeLever: localToWorld(platform, yaw, { x: base.x,
+      y: CABLE_BRAKE_HANDLE.hinge + CABLE_BRAKE_HANDLE.length * Math.cos(CABLE_BRAKE_HANDLE.angle),
+      z: base.z + CABLE_BRAKE_HANDLE.length * Math.sin(CABLE_BRAKE_HANDLE.angle) }),
+  });
   const stations: CableCarStation[] = [
     {
       id: 'valley',
       labelKey: 'world.stations.valley',
       platform: { ...CABLE_CAR_STATIONS.valley },
-      brakeLever: localToWorld(CABLE_CAR_STATIONS.valley, CABLE_STATION_YAWS.valley, CABLE_BRAKE_LEVERS_LOCAL.valley),
+      ...brake(CABLE_CAR_STATIONS.valley, CABLE_STATION_YAWS.valley, CABLE_BRAKE_LEVERS_LOCAL.valley),
       pathDistance: 0,
     },
     {
       id: 'mid',
       labelKey: 'world.stations.mid',
       platform: { ...CABLE_CAR_STATIONS.mid },
-      brakeLever: localToWorld(CABLE_CAR_STATIONS.mid, CABLE_STATION_YAWS.mid, CABLE_BRAKE_LEVERS_LOCAL.mid),
+      ...brake(CABLE_CAR_STATIONS.mid, CABLE_STATION_YAWS.mid, CABLE_BRAKE_LEVERS_LOCAL.mid),
       pathDistance: stationDistance(CABLE_CAR_STATIONS.mid),
     },
     {
       id: 'mountain',
       labelKey: 'world.stations.mountain',
       platform: { ...CABLE_CAR_STATIONS.mountain },
-      brakeLever: localToWorld(CABLE_CAR_STATIONS.mountain, CABLE_STATION_YAWS.mountain, CABLE_BRAKE_LEVERS_LOCAL.mountain),
+      ...brake(CABLE_CAR_STATIONS.mountain, CABLE_STATION_YAWS.mountain, CABLE_BRAKE_LEVERS_LOCAL.mountain),
       pathDistance: gondolaPath.length,
     },
   ];

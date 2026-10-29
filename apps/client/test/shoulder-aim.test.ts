@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 import { convergedShotDirection, validatedShotDirection } from '@frost-and-flamingos/shared';
 
-test('both shoulder views converge on the centre-ray target instead of firing parallel past it', () => {
+test('centred and offset cameras converge on the centre-ray target instead of firing parallel past it', () => {
   const eye={x:0,y:1.6,z:0};
-  for (const shoulder of [-1.9,1.9]) {
+  for (const shoulder of [-1.9,0,1.9]) {
     const camera={x:shoulder,y:1.36,z:-3.25},forward={x:0,y:0,z:1};
     for(const distance of [8,20,100]) {
       const direction=convergedShotDirection(eye,camera,forward,distance);
@@ -31,7 +31,7 @@ test('invalid, zero and oversized shot vectors are rejected; fast camera turns r
   expect(validatedShotDirection({x:0,y:0,z:-1})).toEqual({x:0,y:0,z:-1});
 });
 
-test('reference camera keeps the full hero in the left foreground and retracts beside a wall', async () => {
+test('centred follow camera keeps the full hero visible and retracts in front of a wall', async () => {
   const {NullEngine}=await import('@babylonjs/core/Engines/nullEngine');
   const {Scene}=await import('@babylonjs/core/scene');
   const {Vector3,Matrix}=await import('@babylonjs/core/Maths/math');
@@ -46,12 +46,15 @@ test('reference camera keeps the full hero in the left foreground and retracts b
     const viewport=rig.camera.viewport.toGlobal(1280,714);
     const feet=Vector3.Project(Vector3.Zero(),Matrix.Identity(),scene.getTransformMatrix(),viewport);
     const head=Vector3.Project(new Vector3(0,2,0),Matrix.Identity(),scene.getTransformMatrix(),viewport);
-    expect(feet.x/1280).toBeGreaterThan(.15);expect(feet.x/1280).toBeLessThan(.28);
+    expect(feet.x/1280).toBeCloseTo(.5, 6);
     expect(feet.y/714).toBeGreaterThan(.85);expect(feet.y/714).toBeLessThan(.96);
     expect(head.y/714).toBeGreaterThan(.25);expect(head.y/714).toBeLessThan(.55);
-    const wall={raycast:(_origin:unknown,direction:{x:number})=>Math.abs(direction.x)>.9?{distance:.7}:null};
-    rig.resetAngles(0,-.08);rig.updatePlayer(1/60,Vector3.Zero(),wall as never);
-    expect(rig.camera.position.x).toBeLessThan(.5);
+    const wall={raycast:(_origin:unknown,direction:{z:number})=>direction.z<-.9?{distance:2.2}:null};
+    rig.resetAngles(0,-.08);
+    for(let frame=0;frame<120;frame++)rig.updatePlayer(1/60,Vector3.Zero(),wall as never);
+    expect(Math.abs(rig.camera.position.x)).toBeLessThan(.001);
+    expect(Math.abs(rig.camera.position.z)).toBeLessThan(2.1);
+    expect(Math.abs(rig.camera.position.z)).toBeGreaterThan(1.5);
     expect(rig.camera.position.asArray().every(Number.isFinite)).toBe(true);
   }finally{scene.dispose();engine.dispose()}
 });

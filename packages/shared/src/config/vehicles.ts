@@ -204,8 +204,8 @@ export const VEHICLES: Readonly<Record<DrivableVehicleKind, VehicleDefinition>> 
     maxSlope: 0, stepHeight: 0, fordDepth: 1000,
     ram: { weaponId: 'vehicle_blast', minSpeed: 100, fullSpeed: 100, minDamage: 0, maxDamage: 0, launchHorizontal: 0, launchVertical: 0 },
     seats: [
-      { driver: false, gunner: false, handWeapons: false, exposed: false, anchor: { x: -0.5, y: 0.05, z: 0 } },
-      { driver: false, gunner: false, handWeapons: false, exposed: false, anchor: { x: 0.5, y: 0.05, z: 0 } },
+      { driver: false, gunner: false, handWeapons: false, exposed: false, anchor: { x: -0.5, y: 0.35, z: 0 } },
+      { driver: false, gunner: false, handWeapons: false, exposed: false, anchor: { x: 0.5, y: 0.35, z: 0 } },
       { driver: false, gunner: false, handWeapons: true, exposed: true, anchor: { x: -0.55, y: 3.02, z: 0 } },
       { driver: false, gunner: false, handWeapons: true, exposed: true, anchor: { x: 0.55, y: 3.02, z: 0 } },
     ],

@@ -9,19 +9,25 @@ export function buildCableCar(scene: Scene, material: Material): Mesh {
   const red: RGB = [0.72, 0.11, 0.15], dark: RGB = [0.19, 0.24, 0.27], white: RGB = [0.97, 0.94, 0.82];
   b.jitter = 0.015;
   b.box(0, 0.15, 0, 3, 0.3, 2.4, dark, 'metal', 0.12);
-  b.box(0, 0.75, 0, 2.94, 1.25, 2.34, red, 'metal', 0.18);
+  // A real open doorway at both ends; never enclose the whole cabin in a box.
+  for (const side of [-1, 1]) {
+    b.box(0, .8, side * 1.13, 2.94, 1.0, .12, red, 'metal', .045);
+    b.box(0, 1.3, side * 1.17, 3, .12, .12, white, 'metal', .025);
+    for (const corner of [-1, 1]) {
+      b.box(side * 1.43, .8, corner * .88, .12, 1.0, .58, red, 'metal', .04);
+      b.box(side * 1.47, 2.04, corner * .88, .06, 1.25, .54, [.4, .66, .73], 'plain', .035);
+      b.box(side * 1.46, 1.48, corner * .58, .10, 2.36, .09, dark, 'metal', .015);
+    }
+    b.box(side * 1.46, 2.68, 0, .12, .13, 2.34, dark, 'metal', .025);
+    b.box(side * 1.48, .32, 0, .18, .04, 1.05, white, 'metal', .015);
+  }
   b.box(0, 2.83, 0, 3.1, 0.24, 2.5, red, 'metal', 0.12);
-  b.box(0, 1.3, 0, 3, 0.12, 2.42, white, 'metal', 0.03);
   for (const side of [-1, 1]) {
     // Recessed windows and continuous steel frames: no alpha-sorting or extra glass pass.
     b.box(0, 2.04, side * 1.17, 2.77, 1.25, 0.06, [0.35, 0.62, 0.7], 'plain', 0.06);
     b.box(0, 2.38, side * 1.207, 2.6, 0.08, 0.012, [0.69, 0.86, 0.88], 'plain', 0.01);
     b.box(0, 2.02, side * 1.22, 0.07, 1.34, 0.06, dark, 'metal', 0.015);
-    b.box(side * 1.47, 2.04, 0, 0.06, 1.25, 2.18, [0.4, 0.66, 0.73], 'plain', 0.04);
     for (const corner of [-1, 1]) b.box(side * 1.43, 2.02, corner * 1.13, 0.11, 1.5, 0.11, white, 'metal', 0.02);
-    b.box(side * 1.49, 2.02, 0, 0.08, 1.4, 0.08, dark, 'metal', 0.01);
-    b.box(side * 1.49, 0.7, 0.65, 0.035, 1.12, 0.025, dark, 'metal', 0.005);
-    b.box(side * 1.515, 1.13, 0.44, 0.05, 0.04, 0.25, white, 'metal', 0.015);
     const star: Array<[number, number]> = Array.from({ length: 10 }, (_, index) => {
       const angle = Math.PI / 2 + index * Math.PI / 5, radius = index % 2 ? 0.17 : 0.36;
       return [Math.cos(angle) * radius, Math.sin(angle) * radius];

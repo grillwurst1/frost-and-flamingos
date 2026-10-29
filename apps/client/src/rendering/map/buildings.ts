@@ -1,3 +1,4 @@
+import { drawClosedStairs } from './stairs';
 /**
  * Building shells derived from the shared `BuildingLayout`: the same wall
  * spans, door gaps, floors, stairs and roof the server colliders use, dressed
@@ -321,20 +322,7 @@ function drawFloorSlab(batch: GeometryBatch, layout: BuildingLayout, floor: Buil
 
 function drawStairs(batch: GeometryBatch, layout: BuildingLayout): void {
   for (const flight of layout.stairs) {
-    const rise = flight.to.y - flight.from.y;
-    const steps = Math.max(3, Math.round(rise / 0.24));
-    for (let step = 0; step < steps; step += 1) {
-      const t0 = step / steps;
-      const t1 = (step + 1) / steps;
-      const x = flight.from.x + (flight.to.x - flight.from.x) * (t0 + t1) / 2;
-      const z = flight.from.z + (flight.to.z - flight.from.z) * (t0 + t1) / 2;
-      const y = flight.from.y + rise * t1;
-      const depth = Math.hypot(flight.to.x - flight.from.x, flight.to.z - flight.from.z) / steps;
-      const yaw = Math.atan2(flight.to.x - flight.from.x, flight.to.z - flight.from.z);
-      batch.at(x, y - 0.08, z, yaw, () => {
-        batch.box(0, 0, 0, flight.width, 0.16, depth + 0.04, step % 2 === 0 ? P.plankLight : P.plank, 'wood', 0.02);
-      });
-    }
+    drawClosedStairs(batch, flight.from, flight.to, flight.width);
     // Stringers
     for (const side of [-1, 1]) {
       const yaw = Math.atan2(flight.to.x - flight.from.x, flight.to.z - flight.from.z);

@@ -300,7 +300,7 @@ Fahrzeug erscheint kurz als einfacher Platzhalter, bis sein Modell geladen ist.
 | Interagieren / Fahrzeug betreten | `F` |
 | Spotthymne (Taunt) | `G` |
 | Punktetafel | `Tab` halten |
-| Kamera über die andere Schulter | `V` |
+| Beifahreransicht im Seitenwagen | `V` |
 | Kameraabstand | `Alt` + Mausrad |
 | Maus freigeben / Pause | `Esc` |
 | Telemetrie ein-/ausblenden | `F1` |
@@ -891,7 +891,7 @@ Kleidung, Haut- und Haarwahl bleiben erhalten. Figurenproportionen und Kartenbil
 kein exakter Treffer. Die gemalte Pflastertextur bleibt als echtes niedriges 3D-Relief erhalten.
 
 Zwei rote Gondeln fahren gegeneinander über Tal-, Mittel- und Bergstation. Sie halten
-dort jeweils drei Sekunden. Mit **F** ein-/aussteigen, mit **H** zwischen Innenraum und
+dort jeweils acht Sekunden. Mit **F** ein-/aussteigen, mit **H** zwischen Innenraum und
 Dachplätzen wechseln. Innen bist du geschützt; auf dem Dach kannst du mit deiner Waffe
 schießen. **C/Strg** lässt dich dort hocken und festhalten. Ein Ausstieg in der Luft ist
 ein echter Fall; der normale Notschirm bleibt verfügbar.
@@ -915,9 +915,9 @@ Cloud-Rendering verwendet Software; native Mac-FPS und Temperatur sind nicht gem
 
 ### Schulterperspektive und Zielen (27. Oktober 2026)
 
-Die Figur steht größer und weiter links im Vordergrund wie im Zielbild. An einer Wand
-zieht die Kamera seitlich ein; nach einem Positionssprung bleibt kein alter Kameraschwung
-übrig. Der Schuss läuft jetzt zum Punkt unter dem Fadenkreuz statt parallel daneben.
+Die Kamera folgt deiner Figur horizontal mittig (aktualisiert am 29. Oktober).
+Sie hält Abstand zu Wänden und folgt auch fahrenden Gondeln nach einem längeren Frame.
+Der Schuss läuft zum Punkt unter dem Fadenkreuz statt parallel daneben.
 Der Server berechnet den Treffer weiterhin vom echten Auge aus: Hinter einer Deckung
 kannst du deshalb nicht durch die Wand schießen. Auch die sichtbare Spur vom Waffenlauf
 zeigt zum Zielpunkt. Projektile überspringen keine unmittelbar davor liegende dünne Wand
@@ -1190,3 +1190,23 @@ bleibt unabhängig von der Kleidung; alle zwölf Farben wurden im Renderer
 geprüft. Die Armgeometrie enthält weniger Dreiecke, und die gemeinsamen
 Zusatztexturen benötigen geschätzt nur noch halb so viel Grafikspeicher.
 Die vollständige optische Anpassung an das Zielbild ist weiterhin in Arbeit.
+
+
+### Begehbare Zugänge, Seilbahn und mittige Kamera (29. Oktober 2026)
+
+Deine gesteuerte Figur steht jetzt horizontal mittig im Bild. Mausblick,
+Kamerakollision und Zoom bleiben erhalten. V schaltet die Beifahreransicht im
+Seitenwagen um; die Menüs behalten ihre eigene Bildaufteilung.
+
+Treppen haben geschlossene Stufen und durchgehende Laufkollisionen. Bei der
+Seilbahn stimmen Bahnsteig und Kabinenboden überein, die Kabinentüren sind offen
+und der Halt dauert acht Sekunden. Gehe zur Kabine und drücke **F** zum
+Einsteigen. **H** wechselt zwischen Innen- und Dachplätzen. Mit **F** steigst du
+wieder aus; aus der stehenden Kabine landest du auf einem freien Bahnsteigplatz.
+Während der Fahrt bzw. vom Dach bleibt der bisherige Absprung erhalten.
+
+Die roten Notbremshebel stehen frei zugänglich auf den Bahnsteigen. **F** zieht
+den Hebel; ein Treffer auf den sichtbaren roten Griff funktioniert ebenfalls.
+Der Hebel bewegt sich, beide Gondeln stoppen für zwei Sekunden und du erhältst
+eine Meldung. Danach fahren sie weiter. Auf dem Dach hältst du dich mit
+**C/Strg** fest; stehende Dachpassagiere werden beim Bremsen weiterhin abgeworfen.

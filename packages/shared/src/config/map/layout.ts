@@ -281,11 +281,14 @@ export const CABLE_STATION_YAWS = {
   mountain: yawTowards(CABLE_CAR_STATIONS.mid, CABLE_CAR_STATIONS.mountain),
 } as const;
 
-/** Emergency brake levers in station-local space (x, handle height above the platform, z). */
+/** Geometry and activation target share the actual released red handle grip. */
+export const CABLE_BRAKE_HANDLE = { hinge: 0.9, length: 0.9, angle: -0.45 } as const;
+
+/** Emergency brake pedestal origins in station-local space. */
 export const CABLE_BRAKE_LEVERS_LOCAL = {
-  valley: vec3(-3.6, 1.1, -1.4),
-  mid: vec3(-2.8, 1.1, -2.2),
-  mountain: vec3(-3.0, 1.1, 1.4),
+  valley: vec3(-3.3, 0, 2.7),
+  mid: vec3(-2.8, 0, -2.2),
+  mountain: vec3(-2.8, 0, -3.0),
 } as const;
 
 /** T-bar ski lift from the northeast village edge up to just below Tower C. */

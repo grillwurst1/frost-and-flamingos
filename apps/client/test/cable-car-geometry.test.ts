@@ -3,6 +3,8 @@ import { NullEngine } from '@babylonjs/core/Engines/nullEngine';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import { Scene } from '@babylonjs/core/scene';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
+import { Ray } from '@babylonjs/core/Culling/ray';
+import { Vector3 } from '@babylonjs/core/Maths/math';
 import { buildCableCar } from '../src/rendering/cable-car';
 
 test('rounded cabin, windows, star, rivets and hanger use one bounded mesh', () => {
@@ -13,6 +15,13 @@ test('rounded cabin, windows, star, rivets and hanger use one bounded mesh', () 
     expect(mesh.getTotalIndices()/3).toBeLessThan(6000);
     expect(mesh.getVerticesData('normal')!.every(Number.isFinite)).toBe(true);
     expect(mesh.getBoundingInfo().boundingBox.maximum.y).toBeGreaterThan(4.2);
+    mesh.computeWorldMatrix(true);
+    // The old full lower box and opaque end glazing sealed both doorways.
+    for (const sign of [-1, 1]) {
+      expect(mesh.intersects(new Ray(new Vector3(sign * 2, .8, 0), new Vector3(-sign, 0, 0), .7), false).hit).toBe(false);
+      expect(mesh.intersects(new Ray(new Vector3(sign * 2, 2, 0), new Vector3(-sign, 0, 0), .7), false).hit).toBe(false);
+    }
+
     const root=new TransformNode('moving-cabin',scene);mesh.parent=root;
     root.position.set(52,30,-40);root.rotation.y=0.7;
     mesh.computeWorldMatrix(true);

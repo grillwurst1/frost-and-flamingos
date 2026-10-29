@@ -163,6 +163,7 @@ function soundKind(kind: DrivableVehicleKind): VehicleSoundKind {
 /** What the prompt needs about the local character on foot. */
 export interface OnFootState {
   position: Vec3;
+  eyeHeight: number;
   faction: Faction;
   alive: boolean;
   /** Class of the character: mascots and drifters may not board (classMayUseVehicles, as on the server). */
@@ -650,8 +651,14 @@ export class VehicleClient {
     // Same rule as the server seat gate: alive, on foot, a class that may ride (classMayUseVehicles).
     if (onFoot && onFoot.alive && classMayUseVehicles(onFoot.classId) && !this.seat) {
       const lever = FJORD_MAP.routes.cableCar.stations.find(station => Math.hypot(onFoot.position.x - station.brakeLever.x,
-        onFoot.position.y + 1.3 - station.brakeLever.y, onFoot.position.z - station.brakeLever.z) <= CABLE_CAR_RULES.leverRange);
-      if (lever) {
+        onFoot.position.y + onFoot.eyeHeight - station.brakeLever.y, onFoot.position.z - station.brakeLever.z) <= CABLE_CAR_RULES.leverRange);
+      const eyes = { ...onFoot.position, y: onFoot.position.y + onFoot.eyeHeight };
+      const reach = lever ? Math.hypot(eyes.x - lever.brakeLever.x, eyes.y - lever.brakeLever.y, eyes.z - lever.brakeLever.z) : 0;
+      const obstruction = lever && reach > 0 ? this.physics.raycast(eyes, {
+        x: (lever.brakeLever.x - eyes.x) / reach, y: (lever.brakeLever.y - eyes.y) / reach,
+        z: (lever.brakeLever.z - eyes.z) / reach,
+      }, reach) : null;
+      if (lever && (!obstruction || obstruction.distance >= reach - CABLE_CAR_RULES.leverRadius)) {
         setInteractionPrompt({ key: 'world.cableCar.brake', keyLabel: 'vehicles.keys.enter' });
         this.promptShown = true;
         return;

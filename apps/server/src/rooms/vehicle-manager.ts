@@ -1027,12 +1027,19 @@ export class VehicleManager<P extends VehicleOccupant> {
     if (record.slot.kind === 'cable_car' && record.body) {
       const body = record.body, anchor = record.definition.seats[seat]?.anchor;
       if (!anchor) return;
-      const at = vehicleLocalToWorld(body.position, body.yaw,
-        { x: (anchor.x < 0 ? -1 : 1) * (record.definition.halfExtents.x + player.character.stats.radius + 0.4), y: anchor.y + 0.12, z: anchor.z }, body.pitch, body.roll);
-      this.releaseCharacter(player, at, body.velocity);
-    } else {
-    if (!this.placeAtExit(player, record, seat, false)) return;
-    }
+      const station = seat < 2 ? FJORD_MAP.routes.cableCar.stations.find(station =>
+        Math.hypot(body.position.x - station.platform.x, body.position.z - station.platform.z) < 3.5
+        && Math.abs(body.position.y - station.platform.y) < .2 && body.speed < .5) : undefined;
+      if (station) {
+        // Leave through a clear doorway onto the actual platform. The old
+        // seat-side exit could drop summit passengers outside the deck.
+        if (!this.placeAtExit(player, record, seat, false, station.platform.y)) return;
+      } else {
+        const at = vehicleLocalToWorld(body.position, body.yaw,
+          { x: (anchor.x < 0 ? -1 : 1) * (record.definition.halfExtents.x + player.character.stats.radius + 0.4), y: anchor.y + 0.12, z: anchor.z }, body.pitch, body.roll);
+        this.releaseCharacter(player, at, body.velocity);
+      }
+    } else if (!this.placeAtExit(player, record, seat, false)) return;
     this.freeSeat(record, seat);
     this.hooks.broadcastEvent({
       eventType: 'VEHICLE_SEAT',
@@ -1050,7 +1057,7 @@ export class VehicleManager<P extends VehicleOccupant> {
    * hull top is used when every side is blocked. Returns false when no spot
    * is free (the player stays seated).
    */
-  private placeAtExit(player: P, record: VehicleRecord, seat: number, force: boolean): boolean {
+  private placeAtExit(player: P, record: VehicleRecord, seat: number, force: boolean, platformHeight?: number): boolean {
     const body = record.body;
     if (!body) {
       player.character.setColliderEnabled(true);
@@ -1067,6 +1074,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     for (const roofs of [false, true]) {
       for (const candidate of candidates) {
         const hit = this.physics.raycast({ x: candidate.x, y: candidate.y + 1.6, z: candidate.z }, { x: 0, y: -1, z: 0 }, 5);
+        if (platformHeight !== undefined && (!hit || Math.abs(hit.point.y - platformHeight) > .15)) continue;
         if (!roofs && hit && onHull(hit.point)) continue;
         // Over deep water the swimmer starts at floating depth, not on the seabed.
         const feetY = hit ? Math.max(hit.point.y + 0.05, Math.min(candidate.y, EXIT_SWIM_FEET_Y)) : candidate.y;

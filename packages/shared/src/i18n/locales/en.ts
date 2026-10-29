@@ -394,7 +394,7 @@ export const en = {
     roll: 'Dodge roll',
     look: 'Look around',
     mouse: 'Mouse',
-    shoulder: 'Swap shoulder',
+    shoulder: 'Sidecar passenger view',
     zoom: 'Camera distance',
     zoomIn: 'Zoom camera',
     wheel: 'Mouse wheel',
@@ -475,7 +475,7 @@ export const en = {
     debugTitle: 'Telemetry',
     debugHint: 'F1 toggles telemetry',
     menuHint: 'Esc for the field break',
-    controlsHint: 'WASD move · Space jump · Shift sprint · C crouch/roll · LMB fire · R reload · Q E T skills · V shoulder · F1 debug',
+    controlsHint: 'WASD move · Space jump · Shift sprint · C crouch/roll · LMB fire · R reload · Q E T skills · V passenger view · F1 debug',
     noCombat: 'Live combat build — weapons, skills and bots are active.',
     waitingForServer: 'Waiting for resort server…',
     spawnHint: 'On foot. Explore the fjord.',
@@ -622,7 +622,7 @@ export const en = {
     teamBalanced: 'You now play for {faction} to keep the teams even.',
   },
   world: {
-    cableCar: { brake: 'Pull the emergency brake', screech: 'SCREEECH!' },
+    cableCar: { braked: 'Cable car stopped for 2 seconds', brake: 'Pull the emergency brake', screech: 'SCREEECH!' },
     mapName: 'Fjord Fiesta',
     mapSubtitle: 'Alpine summit meets turquoise lagoon',
     zones: {

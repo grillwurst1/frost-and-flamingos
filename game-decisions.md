@@ -1816,7 +1816,7 @@ lower bridge/collision posts are implemented. Preserve the painted paving relief
 The current build is not an exact match in composition, proportions or effects.
 
 Two cable cars use a shared fixed-tick route clock, opposite lanes, smooth acceleration
-and three-second station stops. Each has two protected cabin seats and two exposed
+and eight-second station stops (updated 29 October). Each has two protected cabin seats and two exposed
 roof seats. F boards/exits; H changes seats; C/Ctrl holds on in a crouch. Station levers
 (F or unobstructed hitscan) stop/rock both cabins for two seconds, with a 2.5-second
 trigger cooldown. Queue braking until all player inputs for the tick are applied, so
@@ -2433,3 +2433,40 @@ painted source skin. Hands do not depend on the arm paint atlas. Only the curl
 tile retains paint at unchanged pixel density; the smaller shared texture pair
 is estimated at 3.33 MiB RGBA8 with mips. Preserve legacy asset compatibility,
 all existing wardrobe choices, source GLBs, source paint and animation clips.
+
+
+### Map access and centred player framing — 29 October 2026
+
+The latest owner instruction overrides the earlier 1.9 m human shoulder offset:
+horizontal framing is centred, retaining follow springs, obstruction tests,
+zoom and mouse aim. V is presented as the sidecar passenger-view control.
+
+Close staircase risers geometrically while retaining one smooth physics slab
+per flight. Building stairs share the thick, buried-toe ramp used by transport
+stairs. Verify floor transitions through actual forward/backward traversal.
+
+Cable-car station dwell increases to eight seconds. Align the valley floor
+with the route platform (remove its former +0.279 m error). Open both end
+portals and raise interior foot anchors clear of the floor. Docked interior
+exits must select an unobstructed spot at platform height; roof/in-flight exits
+keep their existing behavior. F remains boarding/exiting; H cycles seats.
+
+Brake targets follow the visible released red grip, not a point below it.
+Keep pedestals and operator approaches outside docked cabin colliders. Matching
+solid pedestals, true eye-height/line-of-sight prompts, actual lever animation
+and localised feedback make the existing two-second stop observable. Do not
+change ram/roof-bracing rules, packet layout or protocol 13 for these fixes.
+
+Camera follow also carries both spring origins with the controlled body and
+updates interpolated vehicle poses before camera/occupants, preventing cabins
+from moving off-screen after a long frame. Orbit/zoom/collision springs remain.
+A brake pull delayed past its two-second timer is still shown for one render
+before returning to rest, rather than disappearing without feedback.
+
+Validation for this map/camera increment: 14 script, 211 server and 128 client
+checks pass (353 total), including the 15-minute simulated conquest soak.
+Strict types report zero errors/warnings. Real WebGL2 browser F boarding,
+visible brake feedback, cabin-follow framing and centred player projection
+pass without console errors. Evidence: docs/qa/map-access-2026-10-29.json and
+map-cabin-ride/map-centered-player captures.
+Production builds also pass; the existing large-client-chunk advisory remains.

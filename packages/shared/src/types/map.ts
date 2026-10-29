@@ -341,7 +341,9 @@ export interface CableCarStation {
   readonly labelKey: TranslationKey;
   /** Boarding platform floor. */
   readonly platform: Vec3;
-  /** Emergency brake lever position (`F`). */
+  /** Emergency brake pedestal origin on the platform. */
+  readonly brakeBase: Vec3;
+  /** Released handle grip, used for interaction and hitscan (`F`). */
   readonly brakeLever: Vec3;
   /** Arc length of the gondola path at this station. */
   readonly pathDistance: number;

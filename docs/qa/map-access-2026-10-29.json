@@ -1,0 +1,94 @@
+{
+  "scope": "Owner-requested map stair access, usable cable-car boarding/braking and centred controlled-player camera. Owner source art assets retained.",
+  "fixes": {
+    "stairs": "Closed overlapping timber risers replace floating treads in buildings, harbour, mid/summit stations and coaster access; thick buried-toe building ramps, one walking collider per flight.",
+    "valleyPlatform": "Previous deck top was 8.278866 m while route platform was 8 m. Deck now meets the route at 8 m.",
+    "cabin": "Open end portals, interior foot anchors above the floor, eight-second station stops, F boarding/exiting, H seat changes.",
+    "exit": "Docked inside passengers require an unobstructed supporting platform spot; both inside seats at all three stations tested. Roof/in-flight jump rules retained.",
+    "brake": "Actual visible grip is the F/hitscan target; valley/summit pedestals moved clear of docking hulls, with matching solid colliders. Prompt uses actual eye height and obstruction checks. Real events animate the closest lever and show translated two-second-stop feedback.",
+    "camera": "Human shoulder offset zero. Follow springs carry the controlled body displacement; vehicle interpolation precedes camera/occupants. Actual followed pivot stays in the centre during orbit/translation. No free camera replacement.",
+    "delayedFeedback": "A brake event whose entire timer elapsed during a GPU stall still shows one pulled-handle render, then returns to frozen rest."
+  },
+  "targetedChecks": [
+    "All building stairs ascended/descended through lower/upper landings in the real Rapier world",
+    "All three station approaches walked up/down without jumping",
+    "Normal F boarding and both inside-seat exits at every station",
+    "F on every actual station lever stops both moving cabins and allows resumption",
+    "Real lever hitscan plus rearward/short-ray rejection and existing roof-bracing checks",
+    "Camera centre across yaw/zoom and metre-scale vehicle pose jumps; geometric doorway clearance",
+    "Visible handle timer and delayed-render feedback; closed stair riser geometry"
+  ],
+  "browser": {
+    "status": "passed",
+    "boarded": {
+      "vehicleId": 101,
+      "seat": 1,
+      "kind": "cable_car",
+      "driver": false,
+      "gunner": false,
+      "handWeapons": false,
+      "exposed": false
+    },
+    "centered": {
+      "fraction": 0.4999997194394353,
+      "frame": 39,
+      "renderer": "ThinEngine",
+      "maxLeverAngle": 1.35,
+      "leverPulls": 1,
+      "stats": {
+        "drawCalls": 121,
+        "activeMeshes": 65,
+        "meshes": 528,
+        "materials": 77,
+        "mapVertices": 1715331,
+        "destructibleMeshes": 102,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_facadeAtlas": 70,
+        "boot_spriteAtlas": 5279,
+        "boot_map": 6943,
+        "boot_world": 12221
+      }
+    },
+    "errors": []
+  },
+  "ride": {
+    "cameraDistance": 4.056731984555727,
+    "hull": {
+      "x": -111.5,
+      "y": 8.0625,
+      "z": -93.3875
+    },
+    "camera": [
+      -107.69401264300741,
+      9.924722946134676,
+      -92.72459533275554
+    ],
+    "maxLeverAngle": 1.35
+  },
+  "renderBudget": {
+    "staticMapVerticesBefore": 1696011,
+    "staticMapVerticesAfter": 1715331,
+    "addedTextures": 0,
+    "addedFullScreenPasses": 0,
+    "walkingColliders": "Still one slab per stair flight; three small pedestal boxes added",
+    "perFrameGeometryGeneration": false,
+    "note": "Cloud Chromium software rendering verifies behavior and framing; its FPS is not a native GPU benchmark."
+  },
+  "protocol": 13,
+  "validation": {
+    "scriptPassed": 14,
+    "serverPassed": 211,
+    "clientPassed": 128,
+    "totalPassed": 353,
+    "types": "0 errors / 0 warnings",
+    "productionBuild": "passed",
+    "coverage": "Complete script/server suites and complete client suite; client rerun after updating the obsolete left-foreground camera contract to centre plus real wall retraction. No timeout increases.",
+    "browser": "Ordinary F boarding, real brake events and visible 1.35 rad lever pull, moving cabin kept in frame, horizontal player projection 0.49999972, zero console errors.",
+    "soak": "15 simulated minutes, 2 ticket round endings and 2 resets"
+  },
+  "captures": [
+    "map-cabin-ride-2026-10-29.png",
+    "map-centered-player-2026-10-29.png"
+  ]
+}
