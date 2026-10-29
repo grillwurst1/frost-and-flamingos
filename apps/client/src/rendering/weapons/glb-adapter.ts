@@ -24,7 +24,7 @@ const GLB_STYLE: Readonly<Record<WeaponPose, HoldStyle>> = {
 
 /** Share of the aim pitch long props follow, so they never swing into the ground. */
 const PITCH_SCALE: Partial<Record<WeaponPose, number>> = {
-  horn: 0.3,
+  horn: 0.12,
   polearm: 0.35,
   umbrella: 0.5,
 };

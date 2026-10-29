@@ -525,3 +525,26 @@ driving with eight separate cannon shots passed >90 s / >30 rendered frames
 with no browser errors. Full map, physics and real network remain in the test.
 Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
 Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.
+
+
+Implemented the owner's new full-length alphorn and playable-cow antics request.
+About 3.4 m alphorn, smoother sections, mouth/grip/ground-safe breath hold, bounded
+grass grazing or faction-neutral human charges, player interruption and active
+hazard braking. Existing movement/ram damage rules and protocol size remain;
+a spare mascot flag replicates grazing. Full 14 script / 199 server / 124 client
+checks pass; added braking regression passes (125 client verified in total),
+with clean types/build. Next verify actual network behavior, save this increment
+and continue shoulder/garment fragment and native-face art cleanup.
+
+Authoritative room integration also verifies autonomous friendly and enemy
+rams at the normal motor cadence (2 added server checks; 201 server cases
+verified overall, 340 checks across script/server/client). Friendly HP stays
+150; enemy HP decreases. Browser confirms replicated grazing, stomp override
+and a charge start; low cloud software frame rate prevented a browser ram
+contact, so that is not recorded as a passed full browser ram.
+
+Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
+`alphorn-figures-2026-10-29.png`. Replicated grazing and stomp interruption
+pass in the browser; both kinds of ram pass in the real server simulation.
+Browser ram contact under the very low cloud software frame rate remains
+unconfirmed. Continue shoulder/garment fragments and native-face art next.

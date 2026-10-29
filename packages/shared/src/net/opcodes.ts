@@ -55,6 +55,7 @@ export const PLAYER_STATUS_FLAG = {
 
 /** Mascot block flags; bits 4–5 carry the coconut's used jumps. */
 export const MASCOT_FLAG = {
+  Grazing: 1 << 6,
   Pounding: 1 << 0,
   Skidding: 1 << 1,
   Galloping: 1 << 2,

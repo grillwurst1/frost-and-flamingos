@@ -747,6 +747,10 @@ export const en = {
     unavailable: 'n/a',
   },
   mascot: {
+    mischief: {
+      grazing: 'Your cow has stopped for a snack. Move or use a skill to interrupt.',
+      charging: 'Your cow is bolting! Steer, jump or use a skill to take over.',
+    },
     formsLine: 'Cow (Alps) / Coconut (Beach)',
     classBadge: 'Mascot — Cow (Alps) / Coconut (Beach)',
     forms: {

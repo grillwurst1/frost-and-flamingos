@@ -1163,3 +1163,21 @@ driving with eight separate cannon shots passed >90 s / >30 rendered frames
 with no browser errors. Full map, physics and real network remain in the test.
 Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
 Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.
+
+
+Das Alphorn ist jetzt rund 3,4 Meter lang. Es bleibt beim Blasen am Mund;
+Schallstück und Hände folgen einer ruhigeren Haltung und Atembewegung.
+
+Die spielbare Alpenkuh kann gelegentlich ausbüxen: Sie grast kurz auf einer
+Grasfläche oder galoppiert auf nahe Menschen zu, auch auf Mitspieler des eigenen
+Teams. Freunde bekommen den bisherigen harmlosen Schubs, Gegner den normalen
+Rammstoß. Eine Fähigkeit oder ein Sprung unterbricht sie sofort; Gegenlenken
+oder Rückwärts beendet das Anrennen. Beim Grasen reicht jede Bewegung. Vor
+Hindernissen und Kanten prüft sie den Bremsweg und bremst ab. Mit Strg im Stand
+kannst du die Kuh auch selbst grasen lassen.
+
+Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
+`alphorn-figures-2026-10-29.png`. Replicated grazing and stomp interruption
+pass in the browser; both kinds of ram pass in the real server simulation.
+Browser ram contact under the very low cloud software frame rate remains
+unconfirmed. Continue shoulder/garment fragments and native-face art next.

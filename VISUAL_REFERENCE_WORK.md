@@ -643,3 +643,34 @@ driving with eight separate cannon shots passed >90 s / >30 rendered frames
 with no browser errors. Full map, physics and real network remain in the test.
 Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
 Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.
+
+
+### Long alphorn and autonomous playable cow — 29 October 2026
+
+The owner requests less fragmented/pixelated figures, more detailed weapons and
+ability animation, a substantially longer alphorn and occasional cow grazing or
+ramming people from either faction. The alphorn now spans about 3.4 authored
+metres, with smoother 3D tube/bell sections, mouth anchoring and a gentle breath
+pulse. Its short-arm hold now adapts the clavicle instead of displacing the
+mouthpiece by up to 0.08 model units. Three rigs pass mouth/grip/ground checks.
+
+The playable cow gets bounded ordinary-input antics, grass-only grazing and
+faction-neutral human targeting, with immediate player override and stopping-
+path probes/braking. Replicated grazing uses an existing spare flag bit; no
+new packet bytes, actor, per-frame mesh generation or attack bonus. Full checks
+plus focused braking/motor/codec regressions and types/build pass. Broader art
+acceptance remains open: clean shoulder/garment fragments and old native faces
+next, then detailed weapon/world artwork. Native M4 acceptance remains open.
+
+Authoritative room integration also verifies autonomous friendly and enemy
+rams at the normal motor cadence (2 added server checks; 201 server cases
+verified overall, 340 checks across script/server/client). Friendly HP stays
+150; enemy HP decreases. Browser confirms replicated grazing, stomp override
+and a charge start; low cloud software frame rate prevented a browser ram
+contact, so that is not recorded as a passed full browser ram.
+
+Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
+`alphorn-figures-2026-10-29.png`. Replicated grazing and stomp interruption
+pass in the browser; both kinds of ram pass in the real server simulation.
+Browser ram contact under the very low cloud software frame rate remains
+unconfirmed. Continue shoulder/garment fragments and native-face art next.

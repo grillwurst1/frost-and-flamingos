@@ -116,6 +116,31 @@ test('Heavy wrist without finger bones has a closed grip and follows the request
   } finally { view.dispose(); }
 });
 
+test.each(['alpine-allrounder','alpine-heavy','lagoon-heavy'] as const)('%s keeps the full-length alphorn at its mouth through a breath', async key => {
+  const target = (await paintedModelLibrary(scene).load(key))!;
+  const profile = createDefaultProfile('Alphorn mouth', key.includes('heavy') ? 'heavy' : 'allrounder');
+  profile.faction = key.startsWith('lagoon') ? 'lagoon' : 'alpine';
+  Object.assign(profile.cosmetics, { headgear: 'head_none', face: 'face_none', hairStyleIndex: 6 });
+  const view = new GlbCharacterView(scene, new StandardMaterial('horn-mouth', scene), profile, target,
+    { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } });
+  const internals = view as unknown as { weapon: { fire(): void; hold: { mouthpiece: Vector3 } }; weaponAnchor: TransformNode;
+    head: { mouth: Vector3 }; headPoint(point: Vector3): Vector3; rig: GlbRig };
+  try {
+    for (let i = 0; i < 90; i++) view.updatePreview(1 / 45, -.75, 'horn');
+    internals.weapon.fire();
+    for (let i = 0; i < 45; i++) {
+      view.updatePreview(1 / 45, -.75, 'horn');
+      const mouth = internals.headPoint(internals.head.mouth);
+      const actual = internals.weapon.hold.mouthpiece.rotateByQuaternionToRef(internals.weaponAnchor.rotationQuaternion!, new Vector3())
+        .add(internals.weaponAnchor.position);
+      expect(Vector3.Distance(mouth, actual)).toBeLessThan(.035);
+      internals.rig.refresh();
+      expect(Vector3.Distance(internals.rig.position('RightHand')!, internals.weaponAnchor.position)).toBeLessThan(.035);
+      expect(view.muzzlePosition()!.y).toBeGreaterThan(.02);
+    }
+  } finally { view.dispose(); }
+});
+
 test('Lagoon Heavy clothes have complete calves and never retain the fused donor ring or vest hem', async () => {
   const heavy = (await paintedModelLibrary(scene).load('lagoon-heavy'))!;
   for (const [torso, legs] of [

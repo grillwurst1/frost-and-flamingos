@@ -1,0 +1,120 @@
+{
+  "scope": "Original long alphorn geometry/hold plus bounded antics for the playable cow. Cloud WebGL2 captures, real networked grazing and real authoritative MatchRoom ram tests. Native M4 acceptance remains open.",
+  "validation": {
+    "scriptPassed": 14,
+    "serverVerified": 201,
+    "clientVerified": 125,
+    "detail": "Full 14/199/124 run plus affected braking cases and 2 new authoritative ram tests; no test timeouts increased.",
+    "types": "0 errors / 0 warnings",
+    "productionBuild": "passed"
+  },
+  "alphorn": {
+    "authoredLengthMetres": "about 3.4",
+    "meshTriangleBudget": 2500,
+    "captures": [
+      {
+        "native": false,
+        "result": [
+          {
+            "triangles": 25880,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "forward": [
+              -0.7217351198196411,
+              0,
+              0.774729311466217
+            ]
+          },
+          {
+            "triangles": 25108,
+            "submeshes": 1,
+            "backFaceCulling": true,
+            "renderer": "native-wardrobe",
+            "forward": [
+              -0.7818797826766968,
+              0,
+              0.839290201663971
+            ]
+          }
+        ]
+      },
+      {
+        "status": "passed",
+        "errors": []
+      }
+    ],
+    "mouthGripGround": "Three rigs through 45 breath frames each; mouth and wrist error <0.035, bell above feet."
+  },
+  "cow": {
+    "networkedGrazeProof": {
+      "local": {
+        "heading": -2.965901235638979,
+        "yawRate": 0,
+        "stamina": 1,
+        "boostSeconds": 0,
+        "actionSeconds": 0,
+        "hopSeconds": 0,
+        "coyoteSeconds": 0,
+        "cooldownTicks": [
+          0,
+          0,
+          0
+        ],
+        "pounding": false,
+        "skidding": false,
+        "galloping": false,
+        "exhausted": false,
+        "jumpsUsed": 0,
+        "grazing": true
+      },
+      "server": {
+        "heading": -2.965901235638979,
+        "yawRate": 0,
+        "stamina": 1,
+        "boostSeconds": 0,
+        "actionSeconds": 0,
+        "hopSeconds": 0,
+        "coyoteSeconds": 0,
+        "cooldownTicks": [
+          0,
+          0,
+          0
+        ],
+        "pounding": false,
+        "skidding": false,
+        "galloping": false,
+        "exhausted": false,
+        "grazing": true,
+        "jumpsUsed": 0
+      },
+      "trace": [
+        {
+          "mode": "grazing",
+          "started": true,
+          "buttons": 32
+        }
+      ]
+    },
+    "stompInterrupt": "passed in real game",
+    "chargeStart": "passed in real game",
+    "browserRam": "Contact was not demonstrated within the low software-frame-rate browser run; timeout retained as an open browser limitation. Map rendering was hidden for the behavior-isolation run; full collision world/network remained.",
+    "authoritativeRamTests": {
+      "friendly": "passed; MASCOT_RAM parameter 0 and human HP remains 150",
+      "enemy": "passed; positive damage and HP below 150"
+    },
+    "timing": "Bouts <=2.8 s charging or 7 s grazing, normal gaps 45-90 simulation seconds; abilities/jump/steering interrupt. Whole stopping path is probed, braking uses normal motor."
+  },
+  "protocol": {
+    "version": 13,
+    "addedPacketBytes": 0,
+    "grazingBit": 6,
+    "jumpBits": "4-5 unchanged"
+  },
+  "remaining": [
+    "Native Chrome/M4 freeze and thermal/FPS acceptance",
+    "Complete reference art quality",
+    "Shoulder/garment fragments and old native painted faces",
+    "Full browser ram contact under normal native frame cadence"
+  ]
+}

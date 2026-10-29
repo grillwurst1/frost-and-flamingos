@@ -193,6 +193,7 @@ export class CharacterBody {
   private stamina = 1;
   private exhausted = false;
   private galloping = false;
+  private grazing = false;
   private skidding = false;
   private boostTicks = 0;
   private actionTicks = 0;
@@ -369,6 +370,7 @@ export class CharacterBody {
       galloping: this.galloping,
       exhausted: this.exhausted,
       jumpsUsed: this.jumpsUsed,
+      ...(this.grazing ? { grazing: true } : {}),
     };
   }
 
@@ -398,6 +400,7 @@ export class CharacterBody {
     this.pounding = mascot.pounding;
     this.skidding = mascot.skidding;
     this.galloping = mascot.galloping;
+    this.grazing = mascot.grazing ?? false;
     this.exhausted = mascot.exhausted;
     this.jumpsUsed = mascot.jumpsUsed;
     this.yawRate = mascot.yawRate;
@@ -548,6 +551,7 @@ export class CharacterBody {
   }
 
   private resetMascotState(): void {
+    this.grazing = false;
     this.yawRate = 0;
     this.stamina = 1;
     this.exhausted = false;
@@ -1300,6 +1304,8 @@ export class CharacterBody {
     }
     const boosting = this.boostTicks > 0;
     const stomping = this.actionTicks > 0;
+    this.grazing = (buttons & InputButton.Crouch) !== 0 && throttle === 0 && steer === 0
+      && grounded && !swimming && !boosting && !stomping && Math.hypot(this.linearVelocity.x, this.linearVelocity.z) < .5;
 
     // Gallop meter.
     if (this.exhausted && this.stamina >= tuning.staminaRestart) this.exhausted = false;

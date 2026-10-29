@@ -321,6 +321,8 @@ export interface MascotWireState {
   exhausted: boolean;
   /** Coconut jumps used since the last landing (0–3). */
   jumpsUsed: number;
+  /** Cow head-down graze pose; no collider/speed bonus. Absent when false. */
+  grazing?: boolean;
 }
 
 export interface VehicleSnapshot {

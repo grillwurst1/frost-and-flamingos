@@ -229,6 +229,17 @@ function expectedBytes(value: WorldSnapshot): number {
 }
 
 describe('merged protocol 13 snapshot codec', () => {
+  test('cow grazing uses a spare mascot flag without growing packets or changing jump bits', () => {
+    const state = { heading: 0, yawRate: 0, stamina: 1, boostSeconds: 0, actionSeconds: 0, hopSeconds: 0,
+      coyoteSeconds: 0, cooldownTicks: [0,0,0] as [number,number,number], pounding: false, skidding: false,
+      galloping: false, exhausted: false, jumpsUsed: 3 };
+    const cow = player({ id: 7, faction: 'alpine', classId: 'mascot', mascot: state });
+    const idle = encodeSnapshot({ ...snapshot, players: [cow] });
+    const grazing = encodeSnapshot({ ...snapshot, players: [{ ...cow, mascot: { ...state, grazing: true } }] });
+    expect(grazing.byteLength).toBe(idle.byteLength);
+    expect(decodeSnapshot(grazing)?.players[0]?.mascot).toEqual({ ...state, grazing: true });
+    expect(decodeSnapshot(idle)?.players[0]?.mascot).toEqual(state);
+  });
   test('protocol 10 extends vehicle pose with signed aircraft pitch and bank', () => {
     expect(PROTOCOL_VERSION).toBe(13);
   });

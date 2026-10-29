@@ -187,7 +187,6 @@ const HOLD_EASE = 12;
 /** Held props keep their lowest point this far above the feet (armature units). */
 const GROUND_CLEARANCE = 0.04;
 /** The most a short arm pulls a mouth-held horn off the lips (into a beard). */
-const MOUTH_GIVE = 0.08;
 /** A long fall, not a jump (hops last ~0.66 s): the umbrella may open overhead. */
 const FALL_AIR_TIME = 0.9;
 const FALL_SPEED = 4;
@@ -339,6 +338,7 @@ export class GlbCharacterView implements AvatarView {
   private supportSlide = 0;
   private supportReach = 1;
   private supportShoulder = 0;
+  private mouthShoulder = 0;
   private readonly wristHands: Partial<Record<HandSide, HandLocalFrame>> = {};
   /** The next hold frame snaps the eased hold state (just equipped). */
   private holdSnap = true;
@@ -1466,10 +1466,8 @@ export class GlbCharacterView implements AvatarView {
     let weaponRotation = frame
       .multiply(Quaternion.RotationAxis(AXIS_Y, hold.yaw ?? 0))
       .multiply(Quaternion.RotationAxis(AXIS_X, -hold.tilt));
-    // Alphorn: the mouthpiece sits on the lips (measured per model); the
-    // wrist target follows from it. A short arm pulls it back towards the
-    // right shoulder by a few centimetres at most (into a beard); beyond that
-    // the hands fall short rather than moving the mouthpiece off the mouth.
+    // Alphorn: the mouthpiece stays on the measured lips. Adapt the clavicle
+    // to the wrist target rather than pulling the instrument away from the face.
     const mouth = mouthpiece && this.head ? this.headPoint(this.head.mouth) : null;
     const seatAtMouth = (): void => {
       if (mouth && mouthpiece) grip.copyFrom(mouth.subtract(mouthpiece.rotateByQuaternionToRef(weaponRotation, new Vector3())));
@@ -1518,9 +1516,19 @@ export class GlbCharacterView implements AvatarView {
     const rightHand = rig.position('RightHand');
     if (mouth && rightArm && rightFore && rightHand) {
       const reach = 0.92 * (Vector3.Distance(rightArm, rightFore) + Vector3.Distance(rightFore, rightHand));
-      const toShoulder = rightArm.subtract(grip);
-      const distance = toShoulder.length();
-      if (distance > reach) grip.addInPlace(toShoulder.scaleInPlace(Math.min(distance - reach, MOUTH_GIVE) / distance));
+      const shoulder = rig.position('RightShoulder');
+      if (shoulder) {
+        const ax = rightArm.x - shoulder.x, az = rightArm.z - shoulder.z;
+        const tx = grip.x - shoulder.x, tz = grip.z - shoulder.z;
+        const yaw = Math.atan2(az * tx - ax * tz, ax * tx + az * tz);
+        const excess = Vector3.Distance(rightArm, grip) - reach;
+        const target = Math.max(0, Math.min(.8, yaw)) * smoothstep(.01, .12, excess);
+        this.mouthShoulder += (target - this.mouthShoulder) * ease;
+        if (this.mouthShoulder > .001) {
+          rig.rotateWorld('RightShoulder', Quaternion.RotationAxis(AXIS_Y, this.mouthShoulder * armed));
+          rig.refresh();
+        }
+      }
     } else if (rightArm && rightFore && rightHand && tucked) {
       // Hero holds never put the grip inside the body: in front of the torso
       // across its width (fading out past the shoulder line), and when the

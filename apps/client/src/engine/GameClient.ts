@@ -61,6 +61,7 @@ import { preloadPaintedModels, paintedModelsAvailable } from '../rendering/glb-c
 import { WardrobeStage } from '../rendering/glb/wardrobe-stage';
 import { interpolateRemote } from './remote-interp';
 import { MascotFx } from '../rendering/mascot-fx';
+import { CowMischief } from './cow-mischief';
 import { DrifterFx } from '../rendering/drifter-fx';
 import { TracerFx } from '../rendering/tracer-fx';
 import { installMascotDevHandle } from '../rendering/mascot-dev';
@@ -357,6 +358,7 @@ export class GameClient {
   private previewView: AvatarView | null = null;
   private mascotFx: MascotFx | null = null;
   private mascots: MascotClient | null = null;
+  private readonly cowMischief = new CowMischief();
   /** Drivable vehicles (package 4V). */
   private vehicles: VehicleClient | null = null;
   private critters: CritterClient | null = null;
@@ -839,11 +841,13 @@ export class GameClient {
 
   pause(): void {
     if (this.currentPhase !== 'playing') return;
+    this.cowMischief.reset();
     setPhase('paused');
     this.input?.releasePointerLock();
   }
 
   returnToMenu(): void {
+    this.cowMischief.reset();
     if (this.deploymentTimer) {
       clearTimeout(this.deploymentTimer);
       this.deploymentTimer = null;
@@ -1148,6 +1152,7 @@ export class GameClient {
       return;
     }
     const spawn = this.localCharacter?.position ?? position;
+    this.cowMischief.reset();
     if (this.localCharacter) this.physics.removeCharacter(this.localCharacter);
     this.localCharacter = this.physics.createCharacter({
       position: spawn,
@@ -1366,6 +1371,7 @@ export class GameClient {
       case 'PLAYER_RESPAWNED': {
         this.conquestClient?.onRespawn(event.actorId, event.actorId === this.localId);
         if (event.actorId !== this.localId) return;
+        this.cowMischief.reset();
         this.pendingRespawnYaw = event.paramX === 1 ? wireToSpawnYaw(event.paramValue) : null;
         this.deathKillerId = 0;
         this.deathKillerName = '';
@@ -1631,6 +1637,40 @@ export class GameClient {
     this.lastDrawCallsTotal = drawTotal;
   }
 
+  private cowInput(buttons: number, character: CharacterBody): number {
+    const at = character.position, mascot = character.mascotState;
+    const physics = this.physics;
+    const result = this.cowMischief.update(buttons, {
+      dt: FIXED_DT, enabled: this.latestLocalState?.alive !== false,
+      grounded: character.grounded, swimming: character.swimming,
+      busy: (mascot?.boostSeconds ?? 0) > 0 || (mascot?.actionSeconds ?? 0) > 0
+        || !!this.latestLocalState?.dazed || (this.latestLocalState?.launchSeconds ?? 0) > 0,
+      position: at, heading: mascot?.heading ?? 0, speed: Math.hypot(character.velocity.x, character.velocity.z), stamina: mascot?.stamina ?? 0,
+      selfId: this.localId, players: this.snapshotHistory.at(-1)?.snapshot.players ?? [],
+      canGraze: () => surfaceTagAt(at.x, at.z, at.y) === 'grass_mud',
+      visible: target => {
+        if (!physics) return false;
+        const direction = { x: target.x - at.x, y: target.y - at.y, z: target.z - at.z };
+        const length = Math.hypot(direction.x, direction.y, direction.z);
+        return !physics.raycast({ x: at.x, y: at.y + 1, z: at.z }, direction, Math.max(0, length - .5));
+      },
+      safe: (heading, distance) => {
+        if (!physics) return false;
+        const direction = { x: Math.sin(heading), y: 0, z: Math.cos(heading) };
+        if (physics.raycast({ x: at.x, y: at.y + .8, z: at.z }, direction, distance)) return false;
+        // Cover the full braking path, including narrow gaps before a bridge.
+        for (let d = 1.5; d < distance + 1.5; d += 1.5) {
+          const probe = Math.min(distance, d);
+          if (!physics.raycast({ x: at.x + direction.x * probe, y: at.y + .8, z: at.z + direction.z * probe },
+            { x: 0, y: -1, z: 0 }, 1.6)) return false;
+        }
+        return true;
+      },
+    });
+    if (this.cowMischief.started) notify(this.cowMischief.mode === 'charging' ? 'mascot.mischief.charging' : 'mascot.mischief.grazing');
+    return result;
+  }
+
   private simulateStep(): void {
     const character = this.localCharacter;
     const camera = this.cameraRig;
@@ -1653,6 +1693,7 @@ export class GameClient {
       if (character.form || classCapabilities(this.localClass).armed) audio.playUi('equip');
     }
 
+    if (character.form === 'cow' && !this.vehicles?.localSeat) buttons = this.cowInput(buttons, character);
     const input: PlayerInput = {
       sequence: this.sequence,
       buttons,

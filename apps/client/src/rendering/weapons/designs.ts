@@ -890,20 +890,20 @@ const DESIGNS: Record<string, WeaponDesign> = {
     hold: {
       pose: 'horn',
       shoulder: [0.04, 0.155, 0.28],
-      tilt: -2.15,
+      tilt: -1.88,
       yaw: 0.0,
       support: [0, 0.17, 0],
       supportBack: [0, 0.1, 0],
       mouthpiece: [0, -0.12, 0],
       gripAxis: [0, 1, 0],
       supportAxis: [0, 1, 0],
-      muzzle: [0, 1.47, -0.24],
+      muzzle: [0, 3.326, -0.288],
       muzzleDir: [0, 0.6, -0.8],
       muzzleKind: 'sonic',
     },
     // The mouthpiece sits on the lips (the animator seats it there), so the
     // shoulder offset only matters without a measured head.
-    preview: { shoulder: [0.04, 0.155, 0.28], tilt: -2.05, yaw: 0.55 },
+    preview: { shoulder: [0.04, 0.155, 0.28], tilt: -1.88, yaw: 0.35 },
     // The right fist holds the tube 12 cm below the mouthpiece (chibi arms).
     build: (kit) => kit.frame({ at: [0, HORN_FIST, 0] }, () => {
       // Gun -Z turns into "up" once the hold swings the tube forward-down,
@@ -912,18 +912,18 @@ const DESIGNS: Record<string, WeaponDesign> = {
         (t) => (t > 0.18 && t < 0.22 ? BRASS_DARK : t > 0.62 && t < 0.66 ? BRASS_DARK : ALPHORN),
         [
           [0, -0.14, 0],
-          [0, 0.05, 0],
-          [0, 0.3, 0.005],
-          [0, 0.7, 0.01],
-          [0, 1.05, 0.0],
-          [0, 1.24, -0.06],
-          [0, 1.32, -0.16],
+          [0, 0.20, 0],
+          [0, 0.85, 0.005],
+          [0, 1.60, 0.01],
+          [0, 2.35, 0.0],
+          [0, 2.95, -0.04],
+          [0, 3.15, -0.16],
         ],
         (t) => 0.032 + Math.pow(t, 1.8) * 0.1,
-        { segments: 10, samples: 22 },
+        { segments: 18, samples: 30 },
       );
       // Bell with a brass rim and a dark mouth, along (0, 0.6, -0.8).
-      kit.frame({ at: [0, 1.32, -0.16], rot: [Math.PI + 0.64, 0, 0] }, () => {
+      kit.frame({ at: [0, 3.15, -0.16], rot: [Math.PI + 0.64, 0, 0] }, () => {
         kit.lathe(
           [
             { z: -0.04, r: 0.13, hex: ALPHORN },
@@ -934,7 +934,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
             { z: 0.16, r: 0.215, hard: true, hex: '#3b2414' },
             { z: 0.04, r: 0.0 },
           ],
-          { segments: 14 },
+          { segments: 24 },
         );
       });
       kit.lathe(
@@ -943,7 +943,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
           { z: -0.18, r: 0.034 },
           { z: -0.14, r: 0.022 },
         ],
-        { rot: [-HALF_PI, 0, 0], segments: 8, capStart: true },
+        { rot: [-HALF_PI, 0, 0], segments: 16, capStart: true },
       );
     }),
   },

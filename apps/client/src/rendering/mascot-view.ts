@@ -663,6 +663,7 @@ export class MascotView {
     drive.stomp = stomping ? saturate(1 - (mascot?.actionSeconds ?? 0) / SKILLS.hoof_stomp.durationSeconds) : -1;
     drive.skidding = mascot?.skidding ?? false;
     drive.galloping = mascot?.galloping ?? false;
+    drive.grazing = mascot?.grazing ?? false;
     drive.vitality = pose.vitality ?? 1;
     drive.preview = this.preview;
     // Slope under the legs, only when standing on the terrain itself.

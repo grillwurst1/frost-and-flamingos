@@ -178,7 +178,7 @@ const FLASHES: Record<MuzzleKind, FlashSpec> = {
     },
   },
   sonic: {
-    life: 0.5,
+    life: 0.8,
     build: (kit) => {
       for (const [index, r] of [0.12, 0.2, 0.28].entries()) {
         const z = index * 0.18;
@@ -190,7 +190,7 @@ const FLASHES: Record<MuzzleKind, FlashSpec> = {
             { z, r: r * 0.72 },
             { z: z - 0.015, r: r * 0.86 },
           ],
-          { segments: 14 },
+          { segments: 24 },
         );
       }
     },
@@ -422,6 +422,13 @@ class HeroWeaponProp implements HeroWeapon {
     ];
     pose.tilt = base.tilt + (glide.tilt - base.tilt) * w;
     pose.yaw = base.yaw + (glide.yaw - base.yaw) * w;
+    if (this.id === 'horn' && this.flashAge < this.flashLife) {
+      // A breath moves the long bell subtly; the animator keeps its mouthpiece
+      // seated on the lips instead of treating an alphorn like firearm recoil.
+      const breath = Math.sin(Math.PI * this.flashAge / this.flashLife);
+      pose.tilt += breath * .008;
+      pose.yaw += breath * .006;
+    }
   }
 
   /** Spring the canopy open (preview, gliding, after a pop) or furled. */

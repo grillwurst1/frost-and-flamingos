@@ -2396,3 +2396,24 @@ allows later cues. Transient audio nodes own their lifecycle; shared positional
 destinations remain alive until all overlapping partials finish. Suspended
 contexts must not accumulate playback or automation. Shared buses never belong
 to transient cleanup. Recipe tails release their mixer/reverb destinations.
+
+
+The owner authorizes occasional independent antics for the playable cow. A
+local director generates ordinary movement inputs; existing prediction, server
+movement limits, stamina, collision and ram resolution remain authoritative.
+It does not add NPC entities, hidden speed bonuses or friendly-fire damage.
+Nearby living humans on either faction are equally eligible. The director
+checks line of sight, height and the stopping path, brakes when necessary,
+and yields immediately to abilities, jump and countersteering. Idle grazing
+needs grass and is canceled by movement. Bouts are brief and infrequent.
+
+Grazing is a cosmetic head/neck pose, including a manual standing Ctrl request,
+with no smaller collider or movement benefit. Existing mascot flag bit 6
+replicates it; absent false values retain old snapshot object shapes. Protocol
+13 and packet sizes stay unchanged. Coconut jump bits remain 4–5.
+
+The alphorn's authored length is about 3.4 m. Mouth anchoring must take priority
+over short-arm compensation: adapt the right clavicle and wrist pose rather
+than moving the mouthpiece away from the lips. Ground clearance pivots around
+the mouth. A restrained breath pulse/sonic ring group reuses geometry; weapon
+damage, range and cooldown remain unchanged.

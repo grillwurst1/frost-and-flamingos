@@ -1070,3 +1070,51 @@ driving with eight separate cannon shots passed >90 s / >30 rendered frames
 with no browser errors. Full map, physics and real network remain in the test.
 Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
 Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.
+
+
+### Full-length alphorn and playable cow antics — 29 October 2026
+
+Owner explicitly requests a real-length alphorn, cleaner figures/weapons/skill
+animations and occasional independent grazing/ramming by the playable cow,
+including nearby humans from either team. These are authorized additions.
+
+The alphorn spans about 3.4 authored metres, with smoother tube/bell/mouthpiece
+sections, a flatter carry and reduced aim-pitch following. Its reused sonic
+rings last 0.8 s; a tiny breath pulse keeps the mouthpiece on the lips. The
+short Alpen Heavy previously pulled it 0.08 units off the mouth. A bounded,
+eased right-clavicle protraction now brings its hand forward instead. Three
+rig regressions verify mouth/grip contact and bell clearance during a breath.
+
+CowMischief occasionally substitutes ordinary movement input for up to 2.8 s
+of gallop towards a nearby living human, without faction preference, or 7 s of
+grazing on grass while idle. Typical gaps are 45–90 simulation seconds; failed
+starts retry after 5 s. Targets behind walls/at different heights are excluded.
+Probe the whole stopping path at <=0.15 s intervals, including narrow gaps;
+actively brake after a bout/hazard when no player movement takes over. Skills,
+jump, countersteer/backward, pause/menu and respawn cancel the appropriate
+state. No autonomous action in water, flight, stun or another active ability.
+
+This is client-generated ordinary input, then predicted and server-authoritative
+through the existing cow motor/ram rules; no new AI entity/tick or speed/damage
+bonus. Allies keep their existing harmless bump, enemies their existing ram.
+Ctrl while standing also requests the graze pose. Bit 6 of the existing mascot
+flag byte replicates grazing (false omitted); packet size and protocol 13 stay
+unchanged, with jump-bit and full codec regressions. Original assets unchanged.
+
+Full checks pass: 14 script, 199 server, 124 client; an added braking regression
+and all affected cow/horn cases also pass (125 client cases verified overall).
+Types have zero errors/warnings; production builds pass. Full reference art
+acceptance and native Chrome/M4 freeze/thermal acceptance remain open.
+
+Authoritative room integration also verifies autonomous friendly and enemy
+rams at the normal motor cadence (2 added server checks; 201 server cases
+verified overall, 340 checks across script/server/client). Friendly HP stays
+150; enemy HP decreases. Browser confirms replicated grazing, stomp override
+and a charge start; low cloud software frame rate prevented a browser ram
+contact, so that is not recorded as a passed full browser ram.
+
+Evidence and acceptance scope: `docs/qa/alphorn-cow-2026-10-29.json` and
+`alphorn-figures-2026-10-29.png`. Replicated grazing and stomp interruption
+pass in the browser; both kinds of ram pass in the real server simulation.
+Browser ram contact under the very low cloud software frame rate remains
+unconfirmed. Continue shoulder/garment fragments and native-face art next.

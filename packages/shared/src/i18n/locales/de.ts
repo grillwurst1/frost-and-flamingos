@@ -749,6 +749,10 @@ export const de: TranslationDictionary = {
     unavailable: 'k. A.',
   },
   mascot: {
+    mischief: {
+      grazing: 'Deine Kuh grast. Bewegung oder eine Fähigkeit unterbricht sie.',
+      charging: 'Deine Kuh büxt aus! Lenken, Springen oder eine Fähigkeit beendet den Ausflug.',
+    },
     formsLine: 'Kuh (Alpen) / Kokosnuss (Strand)',
     classBadge: 'Maskottchen — Kuh (Alpen) / Kokosnuss (Strand)',
     forms: {

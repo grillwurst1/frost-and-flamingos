@@ -192,3 +192,9 @@ follows joint landmarks from the owner's Alpine Allrounder rig; its source hash
 records that anatomical reference, not copied source hand surfaces. Blender
 performs an offline union/smoothing/decimation on generated geometry only.
 Owner GLBs, source paint and animations remain unchanged.
+
+
+The extended alphorn tube/bell, smooth mouthpiece and restrained breath pose
+are original project geometry/animation. The cow's input director and replicated
+graze pose reuse the original cow rig and existing project locomotion/ram rules.
+No source GLB, owner paint or external game asset has been modified/imported.

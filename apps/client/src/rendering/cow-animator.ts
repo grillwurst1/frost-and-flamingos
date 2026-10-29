@@ -164,6 +164,8 @@ export interface CowDrive {
   stomp: number;
   skidding: boolean;
   galloping: boolean;
+  /** Explicit networked head-down grazing pose. */
+  grazing?: boolean;
   /** Terrain height difference front minus back over the leg base (m). */
   slope: number;
   /** Vitality 0…1 (low = worried look). */
@@ -513,7 +515,7 @@ export class CowAnimator {
       this.lookPitch = (Math.random() - 0.5) * 0.3;
     }
     const idleWeight = smoothstep(0.6, 1.6, this.idle);
-    const grazing = this.graze.step(!drive.preview && this.idle > 9 && Math.sin(this.idle * 0.35) > -0.6 ? 1 : 0, dt);
+    const grazing = this.graze.step(!drive.preview && (drive.grazing || (this.idle > 9 && Math.sin(this.idle * 0.35) > -0.6)) ? 1 : 0, dt);
     const aim = clamp(drive.aim, -1.3, 1.3);
     const charging = drive.charging && drive.alive ? 1 : 0;
     const yawTarget =

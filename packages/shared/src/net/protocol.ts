@@ -202,6 +202,7 @@ function writeMascotState(writer: BinaryWriter, mascot: MascotWireState): void {
         (mascot.skidding ? MASCOT_FLAG.Skidding : 0) |
         (mascot.galloping ? MASCOT_FLAG.Galloping : 0) |
         (mascot.exhausted ? MASCOT_FLAG.Exhausted : 0) |
+        (mascot.grazing ? MASCOT_FLAG.Grazing : 0) |
         ((Math.max(0, Math.min(3, mascot.jumpsUsed)) & 3) << MASCOT_JUMPS_SHIFT),
     )
     .writeUint16(Math.max(0, Math.min(65535, mascot.cooldownTicks[0])))
@@ -237,6 +238,7 @@ function readMascotState(reader: BinaryReader): MascotWireState {
     skidding: (flags & MASCOT_FLAG.Skidding) !== 0,
     galloping: (flags & MASCOT_FLAG.Galloping) !== 0,
     exhausted: (flags & MASCOT_FLAG.Exhausted) !== 0,
+    ...((flags & MASCOT_FLAG.Grazing) ? { grazing: true } : {}),
     jumpsUsed: (flags >> MASCOT_JUMPS_SHIFT) & 3,
   };
 }
