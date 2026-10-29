@@ -1247,3 +1247,11 @@ Die Cloud-Prüfung ersetzt keine Messung der MacBook-Temperatur oder nativen FPS
 
 Zusätzlich wurden durch die Weste ragende Hemdteile entfernt und die Lücke
 zwischen langen Infiltrator-Hosen und gewechselten Schuhen geschlossen.
+
+
+Die weitere Grafiküberarbeitung ersetzt harte kreisförmige Bodenschatten durch
+weich auslaufende Kontaktschatten. Augenbrauen, Nase und Ohren wirken durch
+dezente räumliche Schattierung plastischer; die gewählte Hautgrundfarbe bleibt
+erhalten. Alte weiße Hemdfransen bleiben beim Kleidungswechsel nicht mehr an
+der Hose hängen. Wolken haben ruhigere weiße Flächen und eine blaue Unterseite.
+Dafür kommen keine neuen Texturen oder Vollbildfilter hinzu.

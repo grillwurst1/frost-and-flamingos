@@ -36,6 +36,8 @@ test('the shared closed head and curls match their original sources and every cl
   expect(h!.painted.filter(kind => kind === 0).length).toBeGreaterThan(3000);
   expect(h!.painted.includes(1)).toBe(false);
   expect(h!.painted.includes(3)).toBe(true);
+  expect(h!.uvs.some((n, i) => i % 2 === 0 && h!.painted[i / 2] === 0 && n > .01)).toBe(true);
+  expect(h!.uvs.every((n, i) => h!.painted[Math.floor(i / 2)] !== 0 || n >= 0 && n <= .18)).toBe(true);
   expect(h!.indices.length / 3).toBeLessThan(8000);
   expect(h!.beard).toBeDefined();
   expect(h!.beard!.indices.length / 3).toBeLessThan(2500);

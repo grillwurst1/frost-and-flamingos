@@ -96,8 +96,8 @@ interface WeatherPreset {
 const hex = hexToColor3;
 
 const WEATHER_NEUTRAL: WeatherPreset = {
-  zenith: hex('#63BCE5'),
-  horizon: hex('#C4E5ED'),
+  zenith: hex('#65C5EF'),
+  horizon: hex('#A4DFF4'),
   sunDisc: new Color3(1, 0.99, 0.9),
   glow: new Color3(1, 0.93, 0.7),
   // Warm key light against cool blue-violet shade (paintings).
@@ -109,8 +109,8 @@ const WEATHER_NEUTRAL: WeatherPreset = {
   haze: new Color4(0.71, 0.84, 0.91, 0.55),
   hazeStart: 90,
   groundHaze: new Color3(0.72, 0.86, 0.95),
-  cloudShade: hex('#C9DDF0'),
-  cloudScale: 0.85,
+  cloudShade: hex('#B7D9ED'),
+  cloudScale: 0.70,
   waterShallow: hex('#75CFC9'),
   waterMid: hex('#36A8BC'),
   waterDeep: hex('#216D97'),

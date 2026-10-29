@@ -1272,3 +1272,29 @@ real network scene and harbour/summit captures. Final six bodies use
 Static map vertex count is 1,743,468 versus 1,715,331 (+28,137), with no new
 textures/post pass. Complete target acceptance remains open; continue original
 garment waist fringes, sculpt proportions, clouds and contact-shadow refinement.
+
+
+### Reference surface finishing — 29 October 2026
+
+Continued after 6806f0d. All avatar/hen contact shadows now fade with vertex
+alpha in their existing draw (61 vertices for a human), without textures or
+extra passes. Sixteen offline near-surface rays bake neutral face cavity into
+the existing UV.x lighting channel: 625 skin vertices exceed 1% shade, maximum
+10.93%; pigment and anatomy stay independent of outfit/skin selection. White
+shirt tails below the waist remain in the torso slot rather than trousers,
+removing the remaining hem scraps when wearing the tailored vest. Rebuilt all
+derived wardrobe assets/hashes; original sources and clips remain unchanged.
+Clouds use a coherent white mass/cool underside, without the radial normal seams
+and dark grey rim; removed per-puff normal blending and per-cloud lighting/glow
+calculations. Neutral sky is clearer blue. GLSL/WGSL remain equivalent.
+Full 14/211/137 checks pass (362 total), clean types/build; native M4 metrics and
+complete screenshot acceptance remain open. Browser/GPU evidence follows.
+
+Evidence: `docs/qa/reference-finishing-2026-10-29.json` plus finished-figures/
+finished-scene captures. All 12 actual unlit skin RGB probes pass. Six held
+poses and real WebGL2 gameplay pass without browser errors. WGSL configurations
+reach compilation, but Cloud device restore raises a Babylon shaderLanguage
+rebuild error / adapter-null failure; do not call this native runtime acceptance.
+The waistcoat additionally overlaps the old waistband while keeping its shoulder
+opening. Final full client recheck passes (137) after this fit change; the full
+14/211/137 run, clean types/build and no-timeout-change scope are retained.

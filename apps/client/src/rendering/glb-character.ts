@@ -3,7 +3,7 @@ import { AnimationGroup } from '@babylonjs/core/Animations/animationGroup';
 import type { InstantiatedEntries } from '@babylonjs/core/assetContainer';
 import { BoundingInfo } from '@babylonjs/core/Culling/boundingInfo';
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
-import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
+import { createContactShadow } from './contact-shadow';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
@@ -596,7 +596,7 @@ export class GlbCharacterView implements AvatarView {
     this.weaponAnchor.parent = this.armature;
     this.weaponAnchor.rotationQuaternion = Quaternion.Identity();
 
-    this.shadow = CreateDisc('glb-character-shadow', { radius: 0.55 * (spec.bulk > 1.1 ? 1.2 : 1), tessellation: 20 }, scene);
+    this.shadow = createContactShadow(scene, 'glb-character-shadow', 0.55 * (spec.bulk > 1.1 ? 1.2 : 1));
     this.shadow.rotation.x = Math.PI / 2;
     this.shadow.position.y = 0.02;
     this.shadow.material = shadowMaterial;

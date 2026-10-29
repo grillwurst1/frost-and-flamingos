@@ -1,4 +1,4 @@
-import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
+import { createContactShadow } from './contact-shadow';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
@@ -44,7 +44,7 @@ export class DrifterView implements AvatarView {
     this.form = drifterFormForFaction(profile.faction);
     this.shadowMaterial = shadowMaterial;
     this.root = new TransformNode(`drifter-root-${profile.displayName}`, scene);
-    this.shadow = CreateDisc('drifter-shadow', { radius: 0.42, tessellation: 20 }, scene);
+    this.shadow = createContactShadow(scene, 'drifter-shadow', 0.42);
     this.shadow.rotation.x = Math.PI / 2;
     this.shadow.position.y = 0.02;
     this.shadow.material = shadowMaterial;

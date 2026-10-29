@@ -1025,3 +1025,11 @@ Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
 a continuous trouser calf. All three new regressions fail before the fix and
 pass afterwards. The final full client suite has 136 passing cases; script/
 server remain the passing 14/211 from the full run, with no timeout changes.
+
+
+Continued screenshot finishing: soft contact shadows replace hard ground discs;
+offline facial cavity gives brows/nose/ears more depth without changing selected
+skin pigment or adding a texture. White shirt tails belong to the torso slot,
+so mixed trousers no longer keep them. Clouds have cleaner white/blue shading
+and a cheaper shader. Full 362 tests, strict types and production builds pass.
+This is further progress toward the reference, not complete art acceptance.

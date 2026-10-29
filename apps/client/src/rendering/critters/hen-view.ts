@@ -5,7 +5,7 @@ import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
-import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
+import { createContactShadow } from '../contact-shadow';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
@@ -240,7 +240,7 @@ export class HenView implements CritterView {
       -(-fit.centreX * sin + fit.centreZ * cos) * fit.scale,
     );
 
-    this.shadow = CreateDisc(`critter-hen-${id}-shadow`, { radius: 0.19, tessellation: 16 }, scene);
+    this.shadow = createContactShadow(scene, `critter-hen-${id}-shadow`, 0.19, 16);
     this.shadow.rotation.x = Math.PI / 2;
     this.shadow.scaling.y = 1.4;
     this.shadow.position.y = 0.02;

@@ -1,5 +1,5 @@
 import { Quaternion, Vector3, Vector4 } from '@babylonjs/core/Maths/math';
-import { CreateDisc } from '@babylonjs/core/Meshes/Builders/discBuilder';
+import { createContactShadow } from './contact-shadow';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
@@ -273,7 +273,7 @@ export class MascotView {
     } else {
       this.setupCoconut();
     }
-    this.shadow = CreateDisc('mascot-shadow', { radius: 0.62, tessellation: 24 }, scene);
+    this.shadow = createContactShadow(scene, 'mascot-shadow', 0.62, 24);
     this.shadow.rotation.x = Math.PI / 2;
     this.shadow.position.y = 0.02;
     if (this.form === 'cow') this.shadow.scaling.set(1, 1.75, 1);

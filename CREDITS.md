@@ -226,3 +226,10 @@ selected hair/skin colours are independent of the original paint. Existing
 owner-painted world textures still supply rock/wood/foliage detail. Cached
 vector minimap contours derive from the original shared Fjord Fiesta heightfield.
 No external commercial game art, texture or animation is imported.
+
+
+The texture-free soft contact-shadow geometry and analytical cloud finishing
+are original project work. Facial cavity shading is derived offline in Blender
+from the owner's existing closed scout sculpt, without changing skin pigment
+or importing external textures. Shirt-tail metadata derives from the original
+owner meshes and paint; source GLBs/images/animation clips remain unchanged.

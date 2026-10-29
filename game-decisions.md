@@ -2527,3 +2527,14 @@ Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
 a continuous trouser calf. All three new regressions fail before the fix and
 pass afterwards. The final full client suite has 136 passing cases; script/
 server remain the passing 14/211 from the full run, with no timeout changes.
+
+
+29 October, continued reference finishing: use vertex-alpha contact shadows in
+the existing avatar/hen draw, not a hard opaque-edged disc or new shadow texture.
+Bake 16 short-range anatomical occlusion rays offline into the existing neutral
+UV.x cavity channel; keep skin RGB unmodified before lighting. Classify pale
+Spine-bound shirt tails as torso even below Hips; they must leave with the old
+shirt when mixing clothes. Clouds retain their analytical silhouette but use
+broad illustrated underside shading, removing radial seams, dark rim and
+per-cloud normal/glow work. No new texture, render pass or protocol change.
+Full 14 script / 211 server / 137 client checks pass (362), clean types/build.

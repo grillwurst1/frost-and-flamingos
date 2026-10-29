@@ -56,13 +56,16 @@ elif key == 'lagoon-infiltrator': hat_candidate = (vr > .45) & (vg > .3) & (vb <
 hat_candidate &= head_vertices & (p[:, 1] > head['y'] + .03)
 hat_cut = float(np.quantile(p[hat_candidate, 1], .03)) if hat_candidate.sum() > 20 else head['y'] + head['radius'] * .85
 vertex_family = np.zeros(len(p), dtype=np.uint8)
+shirt_tail = np.zeros(len(p), dtype=bool)
 for v in range(len(p)):
     totals = np.bincount(families[v], weights=w[v], minlength=8)
     region = int(np.argmax(totals))
     side = 'Left' if p[v, 0] > 0 else 'Right'
     knee = bind.get(side + 'Leg', [0, .45, 0])[1]
     if region == 6 and p[v, 1] < knee - .045: region = 7
-    if region == 3 and p[v, 1] < bind['Hips'][1] + .045: region = 6
+    if region == 3 and p[v, 1] < bind['Hips'][1] + .045:
+        shirt_tail[v] = np.ptp(vertex_rgb[v]) < .16 and vertex_rgb[v].mean() > .38
+        if not shirt_tail[v]: region = 6
     vertex_family[v] = region
 
 regions = []

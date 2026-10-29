@@ -796,3 +796,23 @@ real network scene and harbour/summit captures. Final six bodies use
 Static map vertex count is 1,743,468 versus 1,715,331 (+28,137), with no new
 textures/post pass. Complete target acceptance remains open; continue original
 garment waist fringes, sculpt proportions, clouds and contact-shadow refinement.
+
+
+### Continued surface finishing after 6806f0d
+
+Texture-free vertex-alpha contact shadows replace hard discs across avatars and
+hens. Existing UV.x carries offline short-range anatomical cavity (16 rays/skin
+vertex, <=10.93% actual shade), retaining the exact selected base RGB. White
+Spine-bound shirt tails stay in the torso slot. Removed the clouds' radial
+normal seams/dark rim and their per-puff normal/per-group lighting work; clearer
+neutral blue sky. Full 362 cases pass, clean types/build. Compare real rendering
+and all twelve base-colour probes; screenshot/native-Mac acceptance stays open.
+
+Evidence: `docs/qa/reference-finishing-2026-10-29.json` plus finished-figures/
+finished-scene captures. All 12 actual unlit skin RGB probes pass. Six held
+poses and real WebGL2 gameplay pass without browser errors. WGSL configurations
+reach compilation, but Cloud device restore raises a Babylon shaderLanguage
+rebuild error / adapter-null failure; do not call this native runtime acceptance.
+The waistcoat additionally overlaps the old waistband while keeping its shoulder
+opening. Final full client recheck passes (137) after this fit change; the full
+14/211/137 run, clean types/build and no-timeout-change scope are retained.

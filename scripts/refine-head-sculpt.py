@@ -53,6 +53,20 @@ for face in faces:
   if v not in remap:
    remap[v]=len(flags);positions.extend(p[v]);normals.extend(h['normals'][v*3:v*3+3]);uvs.extend([0,0]);tints.extend([1,1,1]);flags.append(2)
   indices.append(remap[v])
+# Short-range anatomical occlusion in the existing neutral cavity channel.
+# This affects final lighting, never the selected skin's pigment/base colour.
+# Bake once: no extra sampler, per-frame rays or geometry during gameplay.
+for v,kind in enumerate(flags):
+ if kind != 0: continue
+ at=Vector(positions[v*3:v*3+3]);normal=Vector(normals[v*3:v*3+3]).normalized()
+ across=normal.cross(Vector((0,1,0)) if abs(normal.y)<.9 else Vector((1,0,0))).normalized()
+ up=normal.cross(across).normalized();occlusion=0.
+ for ray in range(16):
+  r=math.sqrt((ray+.5)/16);angle=ray*2.3999632297
+  direction=across*(r*math.cos(angle))+up*(r*math.sin(angle))+normal*math.sqrt(1-r*r)
+  hit,_,_,distance=bvh.ray_cast(at+normal*.0015,direction,.035)
+  if hit is not None:occlusion+=(1-distance/.035)**.5
+ uvs[v*2]=min(.18,occlusion/16*.22)
 for k,a in [('positions',positions),('normals',normals),('uvs',uvs),('tints',tints)]:h[k]=[round(v,7) for v in a]
 h['indices']=indices;h['painted']=flags;h['solidAnatomy']=True
 out.write_text(json.dumps(h,separators=(',',':'),allow_nan=False))

@@ -33,6 +33,7 @@ import {
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
 import { sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
+import { createContactShadow } from './contact-shadow';
 
 const MODEL_HEIGHT = 1.88;
 const SPINE_Y = 0.88;
@@ -540,7 +541,7 @@ export class CharacterView {
     const rightLeg = this.buildLeg(scene, cosmetics.legs, cosmetics.feet, skinColor, 'right', limbBulk);
     rightLeg.parent = this.rightHip;
 
-    this.shadow = CreateDisc('character-shadow', { radius: 0.55, tessellation: 20 }, scene);
+    this.shadow = createContactShadow(scene, 'character-shadow', 0.55);
     this.shadow.rotation.x = Math.PI / 2;
     this.shadow.position.y = 0.02;
     this.shadow.material = shadowMaterial;
@@ -637,7 +638,9 @@ export class CharacterView {
     } else if (torso === 'torso_tracht_shirt') {
       const vest = hexToColor4('#465d32');
       // A curved shell follows the chest instead of three flat boards floating on the shirt.
-      box(scene, body, 'ranger-waistcoat', shoulderWidth * 0.91, 0.47, chestDepth + 0.03, 0, 0.27, 0, vest);
+      // Keep the same shoulder opening, but overlap the original trouser
+      // waistband. A short shell left donor shirt-edge pixels below the vest.
+      box(scene, body, 'ranger-waistcoat', shoulderWidth * 0.91, 0.55, chestDepth + 0.03, 0, 0.23, 0, vest);
       for (const side of [-1, 1]) {
         const pocketX = side * 0.14;
         const pocketZ = (chestDepth + 0.03) / 2 * Math.sqrt(1 - (pocketX / (shoulderWidth * 0.455)) ** 2) + 0.012;

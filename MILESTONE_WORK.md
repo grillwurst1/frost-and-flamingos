@@ -619,3 +619,10 @@ Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
 a continuous trouser calf. All three new regressions fail before the fix and
 pass afterwards. The final full client suite has 136 passing cases; script/
 server remain the passing 14/211 from the full run, with no timeout changes.
+
+
+29 October — continued screenshot finishing after 6806f0d: feathered contact
+shadows, offline neutral face cavity, shirt-tail slot cleanup and cleaner/cheaper
+cloud shading. No new gameplay milestone, texture, fullscreen pass or protocol.
+Full 362 cases, strict types and builds pass; reference/native-Mac acceptance
+remains open.

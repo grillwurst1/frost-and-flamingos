@@ -1,0 +1,806 @@
+{
+  "scope": "Continuation after 6806f0d: texture-free soft contact shadows, offline anatomical face cavity, correct shirt-tail ownership and overlapping waistcoat hem, coherent white/cool cloud shading and a clearer neutral sky.",
+  "tests": {
+    "fullRootRun": {
+      "script": 14,
+      "server": 211,
+      "client": 137,
+      "failures": 0,
+      "simulatedSoakMinutes": 15
+    },
+    "finalClientAfterHemOverlap": 137,
+    "totalVerified": 362,
+    "types": "0 errors / 0 warnings",
+    "build": "passed, existing large client chunk advisory",
+    "timeoutsChanged": false
+  },
+  "resources": {
+    "newTextures": 0,
+    "newFullscreenPasses": 0,
+    "newShadowDraws": 0,
+    "humanShadowVertices": 61,
+    "humanShadowTriangles": 100,
+    "bodyDraws": 1,
+    "mapVertices": 1743468,
+    "faceCavityRaysOfflinePerVertex": 16,
+    "faceSkinVertices": 3254,
+    "verticesAboveOnePercentCavity": 625,
+    "maximumActualCavity": 0.1092839,
+    "cloudWorkRemoved": [
+      "48 puff-normal interpolations/divisions",
+      "per-visible-cloud normal reconstruction, directional-light evaluation and glow power",
+      "sun azimuth/elevation evaluation for cloud lighting"
+    ],
+    "unchanged": "45 FPS and all pixel/MSAA/shadow/model budgets, physics, controls and protocol 13"
+  },
+  "webgl2SkinBase": [
+    {
+      "assetRevision": "8bc1f2278f8583726836e8a00d15e1b7f17dcffe36516269167561da5c8b0beb",
+      "textureRequests": [
+        "http://127.0.0.1:5173/models/alpine-infiltrator-basecolor.webp?v=8bc1f2278f8583726836e8a00d15e1b7f17dcffe36516269167561da5c8b0beb",
+        "http://127.0.0.1:5173/models/alpine-infiltrator-wardrobe-mask.webp?v=8bc1f2278f8583726836e8a00d15e1b7f17dcffe36516269167561da5c8b0beb",
+        "http://127.0.0.1:5173/models/soldier-head-basecolor.webp?v=8bc1f2278f8583726836e8a00d15e1b7f17dcffe36516269167561da5c8b0beb",
+        "http://127.0.0.1:5173/models/soldier-head-mask.webp?v=8bc1f2278f8583726836e8a00d15e1b7f17dcffe36516269167561da5c8b0beb",
+        "http://127.0.0.1:5173/models/alpine-allrounder-basecolor.webp?v=8bc1f2278f8583726836e8a00d15e1b7f17dcffe36516269167561da5c8b0beb",
+        "http://127.0.0.1:5173/models/alpine-allrounder-wardrobe-mask.webp?v=8bc1f2278f8583726836e8a00d15e1b7f17dcffe36516269167561da5c8b0beb"
+      ]
+    },
+    {
+      "native": false,
+      "result": [
+        {
+          "skin": "#fad7c0",
+          "face": [
+            250,
+            215,
+            192
+          ],
+          "scalp": [
+            250,
+            215,
+            192
+          ],
+          "originalForehead": [
+            250,
+            215,
+            192
+          ],
+          "authoredArm": [
+            250,
+            215,
+            192
+          ],
+          "originalCalf": [
+            250,
+            215,
+            192
+          ],
+          "eyeSocket": [
+            250,
+            215,
+            192
+          ],
+          "lip": [
+            210,
+            181,
+            161
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#f3c2a2",
+          "face": [
+            243,
+            194,
+            162
+          ],
+          "scalp": [
+            243,
+            194,
+            162
+          ],
+          "originalForehead": [
+            243,
+            194,
+            162
+          ],
+          "authoredArm": [
+            243,
+            194,
+            162
+          ],
+          "originalCalf": [
+            243,
+            194,
+            162
+          ],
+          "eyeSocket": [
+            243,
+            194,
+            162
+          ],
+          "lip": [
+            204,
+            163,
+            136
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#e8ad88",
+          "face": [
+            232,
+            173,
+            136
+          ],
+          "scalp": [
+            232,
+            173,
+            136
+          ],
+          "originalForehead": [
+            232,
+            173,
+            136
+          ],
+          "authoredArm": [
+            232,
+            173,
+            136
+          ],
+          "originalCalf": [
+            232,
+            173,
+            136
+          ],
+          "eyeSocket": [
+            232,
+            173,
+            136
+          ],
+          "lip": [
+            195,
+            145,
+            114
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#d99568",
+          "face": [
+            217,
+            149,
+            104
+          ],
+          "scalp": [
+            217,
+            149,
+            104
+          ],
+          "originalForehead": [
+            217,
+            149,
+            104
+          ],
+          "authoredArm": [
+            217,
+            149,
+            104
+          ],
+          "originalCalf": [
+            217,
+            149,
+            104
+          ],
+          "eyeSocket": [
+            217,
+            149,
+            104
+          ],
+          "lip": [
+            182,
+            125,
+            87
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#c67d4e",
+          "face": [
+            198,
+            125,
+            78
+          ],
+          "scalp": [
+            198,
+            125,
+            78
+          ],
+          "originalForehead": [
+            198,
+            125,
+            78
+          ],
+          "authoredArm": [
+            198,
+            125,
+            78
+          ],
+          "originalCalf": [
+            198,
+            125,
+            78
+          ],
+          "eyeSocket": [
+            198,
+            125,
+            78
+          ],
+          "lip": [
+            166,
+            105,
+            66
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#b06a3b",
+          "face": [
+            176,
+            106,
+            59
+          ],
+          "scalp": [
+            176,
+            106,
+            59
+          ],
+          "originalForehead": [
+            176,
+            106,
+            59
+          ],
+          "authoredArm": [
+            176,
+            106,
+            59
+          ],
+          "originalCalf": [
+            176,
+            106,
+            59
+          ],
+          "eyeSocket": [
+            176,
+            106,
+            59
+          ],
+          "lip": [
+            148,
+            89,
+            50
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#8e5129",
+          "face": [
+            142,
+            81,
+            41
+          ],
+          "scalp": [
+            142,
+            81,
+            41
+          ],
+          "originalForehead": [
+            142,
+            81,
+            41
+          ],
+          "authoredArm": [
+            142,
+            81,
+            41
+          ],
+          "originalCalf": [
+            142,
+            81,
+            41
+          ],
+          "eyeSocket": [
+            142,
+            81,
+            41
+          ],
+          "lip": [
+            119,
+            68,
+            34
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#733e1d",
+          "face": [
+            115,
+            62,
+            29
+          ],
+          "scalp": [
+            115,
+            62,
+            29
+          ],
+          "originalForehead": [
+            115,
+            62,
+            29
+          ],
+          "authoredArm": [
+            115,
+            62,
+            29
+          ],
+          "originalCalf": [
+            115,
+            62,
+            29
+          ],
+          "eyeSocket": [
+            115,
+            62,
+            29
+          ],
+          "lip": [
+            97,
+            52,
+            24
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#5c2e14",
+          "face": [
+            92,
+            46,
+            20
+          ],
+          "scalp": [
+            92,
+            46,
+            20
+          ],
+          "originalForehead": [
+            92,
+            46,
+            20
+          ],
+          "authoredArm": [
+            92,
+            46,
+            20
+          ],
+          "originalCalf": [
+            92,
+            46,
+            20
+          ],
+          "eyeSocket": [
+            92,
+            46,
+            20
+          ],
+          "lip": [
+            77,
+            39,
+            17
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#48220e",
+          "face": [
+            72,
+            34,
+            14
+          ],
+          "scalp": [
+            72,
+            34,
+            14
+          ],
+          "originalForehead": [
+            72,
+            34,
+            14
+          ],
+          "authoredArm": [
+            72,
+            34,
+            14
+          ],
+          "originalCalf": [
+            72,
+            34,
+            14
+          ],
+          "eyeSocket": [
+            72,
+            34,
+            14
+          ],
+          "lip": [
+            60,
+            29,
+            12
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#361809",
+          "face": [
+            54,
+            24,
+            9
+          ],
+          "scalp": [
+            54,
+            24,
+            9
+          ],
+          "originalForehead": [
+            54,
+            24,
+            9
+          ],
+          "authoredArm": [
+            54,
+            24,
+            9
+          ],
+          "originalCalf": [
+            54,
+            24,
+            9
+          ],
+          "eyeSocket": [
+            54,
+            24,
+            9
+          ],
+          "lip": [
+            45,
+            20,
+            8
+          ],
+          "lipShade": 0.84
+        },
+        {
+          "skin": "#261005",
+          "face": [
+            38,
+            16,
+            5
+          ],
+          "scalp": [
+            38,
+            16,
+            5
+          ],
+          "originalForehead": [
+            38,
+            16,
+            5
+          ],
+          "authoredArm": [
+            38,
+            16,
+            5
+          ],
+          "originalCalf": [
+            38,
+            16,
+            5
+          ],
+          "eyeSocket": [
+            38,
+            16,
+            5
+          ],
+          "lip": [
+            32,
+            13,
+            4
+          ],
+          "lipShade": 0.84
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": []
+    }
+  ],
+  "webgl2SettledSixRigs": [
+    {
+      "native": false,
+      "result": [
+        {
+          "triangles": 35505,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -2.4174678325653076,
+            1.173614740371704,
+            0.6826757192611694
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3129037320613861,
+            0,
+            1.0115326642990112
+          ]
+        },
+        {
+          "triangles": 24286,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -1.447841763496399,
+            1.2241874933242798,
+            0.763351321220398
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389790654182434,
+            0,
+            1.0958272218704224
+          ]
+        },
+        {
+          "triangles": 23674,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -0.7553290724754333,
+            1.1408426761627197,
+            0.6012448668479919
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.30421191453933716,
+            0,
+            0.9834344387054443
+          ]
+        },
+        {
+          "triangles": 31927,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            0.10556253045797348,
+            1.1237624883651733,
+            0.6554115414619446
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3129037618637085,
+            0,
+            1.0115327835083008
+          ]
+        },
+        {
+          "triangles": 21744,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            0.8978174924850464,
+            1.355997085571289,
+            0.6911057233810425
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389791250228882,
+            0,
+            1.095827341079712
+          ]
+        },
+        {
+          "triangles": 19997,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            1.7737325429916382,
+            1.1423629522323608,
+            0.5992242097854614
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3042120337486267,
+            0,
+            0.983434796333313
+          ]
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": []
+    }
+  ],
+  "webgl2ActualGame": [
+    {
+      "feet": {
+        "x": 40,
+        "y": 23.02499923706055,
+        "z": 66
+      },
+      "camera": [
+        43.288457286633445,
+        25.240208827922768,
+        64.72151499221691
+      ],
+      "stats": {
+        "drawCalls": 199,
+        "activeMeshes": 103,
+        "meshes": 592,
+        "materials": 92,
+        "mapVertices": 1743468,
+        "destructibleMeshes": 102,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_facadeAtlas": 68,
+        "boot_spriteAtlas": 4718,
+        "boot_map": 9948,
+        "boot_world": 14667
+      },
+      "largestMeshes": [
+        {
+          "name": "plaza-painted-relief",
+          "vertices": 101716,
+          "triangles": 201496
+        },
+        {
+          "name": "tower_c-architecture",
+          "vertices": 68463,
+          "triangles": 40306
+        },
+        {
+          "name": "map-chunk-0_0",
+          "vertices": 66319,
+          "triangles": 34494
+        },
+        {
+          "name": "fjord-terrain",
+          "vertices": 66049,
+          "triangles": 131072
+        },
+        {
+          "name": "map-chunk-3_3",
+          "vertices": 57624,
+          "triangles": 30916
+        },
+        {
+          "name": "destructible-building_chalet_east",
+          "vertices": 45510,
+          "triangles": 24514
+        },
+        {
+          "name": "destructible-building_chalet_west",
+          "vertices": 39922,
+          "triangles": 24450
+        },
+        {
+          "name": "destructible-building_chalet_south",
+          "vertices": 37815,
+          "triangles": 21774
+        },
+        {
+          "name": "map-chunk--1_0",
+          "vertices": 36186,
+          "triangles": 22092
+        },
+        {
+          "name": "destructible-building_chalet_north",
+          "vertices": 36092,
+          "triangles": 19228
+        },
+        {
+          "name": "fjord-water",
+          "vertices": 34969,
+          "triangles": 69192
+        },
+        {
+          "name": "nature-solid--2:1",
+          "vertices": 32249,
+          "triangles": 36606
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": [],
+      "names": [
+        "GipfelRanger",
+        "Wuzzi",
+        "RoofSniper77",
+        "Angry_Cow_Beta"
+      ]
+    }
+  ],
+  "webgpu": {
+    "batch": [
+      {
+        "result": {
+          "compiled": [
+            "qa-sky",
+            "qa-water",
+            "qa-world",
+            "qa-paving",
+            "qa-terrain",
+            "qa-character",
+            "qa-modular",
+            "qa-native",
+            "qa-contact",
+            "qa-contour"
+          ],
+          "failures": []
+        },
+        "errors": [
+          "Cannot read properties of undefined (reading 'shaderLanguage')"
+        ]
+      }
+    ],
+    "focusedChangedMaterials": [
+      {
+        "result": {
+          "compiled": [
+            "qa-sky",
+            "qa-contact"
+          ],
+          "failures": []
+        },
+        "errors": [
+          "Cannot read properties of undefined (reading 'shaderLanguage')",
+          "BJS - [22:13:54]: A fatal error occurred during WebGPU creation/initialization.",
+          "Could not retrieve a WebGPU adapter (adapter is null)."
+        ]
+      }
+    ],
+    "scope": "Ten material configurations reached forceCompilationAsync completion; no WGSL validation messages were captured. Cloud WebGPU device loss/restore causes a Babylon _rebuildEffects shaderLanguage TypeError, external-instance errors and an adapter-null failure in the focused follow-up. This is NOT a passed native runtime/queue test. WebGL2 remains default; native M4 behaviour remains unmeasured."
+  },
+  "captureScope": "Real WebGL2 game and loaded six rig/outfit variants. Held poses settle through 100 CPU pose updates before three software GPU frames. Game uses actual network peers, cow and a loaded crawler; stage positions/camera are dev-tool arrangements, no illustration replaces the game. Skin probe reads unlit base before cavity/lighting; final lit skin intentionally varies with shape.",
+  "remaining": "Full supplied screenshot model/composition acceptance remains open. Some original garment edges and exaggerated anatomy still need further art work; M5/M6/M7 are not completed by this increment. Native M4 FPS/thermal/freeze acceptance is unmeasured."
+}
