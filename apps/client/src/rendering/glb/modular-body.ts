@@ -369,7 +369,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const pigment = h.painted[v] === 2 ? hairRGB : skinRGB;
       const socket = h.painted[v] === 1 && h.positions[v * 3 + 1]! > 1.420 && h.positions[v * 3 + 1]! < 1.453
         && Math.abs(h.positions[v * 3]!) > .018 && Math.abs(h.positions[v * 3]!) < .081 && h.positions[v * 3 + 2]! > .015;
-      colors.push(pigment[0]! * h.tints[v * 3]!, pigment[1]! * h.tints[v * 3 + 1]!, pigment[2]! * h.tints[v * 3 + 2]!, socket ? 2 : h.painted[v] === 2 ? 0 : 1);
+      colors.push(pigment[0]! * h.tints[v * 3]!, pigment[1]! * h.tints[v * 3 + 1]!, pigment[2]! * h.tints[v * 3 + 2]!, socket ? 2 : h.painted[v] === 2 || h.painted[v] === 3 ? 0 : 1);
       // Replace rasterised eye whites/irises with the selected skin underneath
       // the new sculpt. This also removes the old mismatched/pixelated pupils.
       cavities.push(h.uvs[v * 2]!, h.uvs[v * 2 + 1]!);

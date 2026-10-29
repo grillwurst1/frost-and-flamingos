@@ -1,18 +1,16 @@
 """Derive a closed, clean wardrobe head from the owner's scout sculpt.
 
-The sculpted eyes, nose, ears and lips retain their original UV paint. Only the
-painted moustache is shaved; a closed skull replaces the hidden area under the hat.
-No donor rig or animation is needed by the runtime.
+The nose, ears and jaw retain the donor sculpt. A closed surface replaces the
+overlapping scalp/face, and the upper-lip folds are relaxed offline. Skin is a
+solid configurable base; geometric eyes and the lip crease provide detail.
 """
-import hashlib
 import json
 import sys
 import subprocess
-import tempfile
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
 source, output = map(Path, sys.argv[1:3])
 m = json.loads(source.read_text())
@@ -146,68 +144,20 @@ for sign in [-1,1]:
         if sign<0: face.reverse();end.reverse()
         indices.extend(face+end)
 
-# Rasterise donor-space landmarks into its UV atlas. Hair outside the eyebrow
-# band becomes clean skin, including sideburns, instead of a painted bald wig.
-image = Image.open(output/'alpine-infiltrator-basecolor.webp').convert('RGB')
-mask_image = Image.open(output/'alpine-infiltrator-wardrobe-mask.webp').convert('RGB').resize(image.size, Image.Resampling.BILINEAR)
-rgb = np.asarray(image, dtype=np.float32)/255
-mask = np.asarray(mask_image, dtype=np.float32)/255
-shave = Image.new('L', image.size); draw = ImageDraw.Draw(shave)
-brows = Image.new('L', image.size); brow_draw = ImageDraw.Draw(brows)
-unwanted = Image.new('L', image.size); unwanted_draw = ImageDraw.Draw(unwanted)
-coverage = Image.new('L', image.size); cover = ImageDraw.Draw(coverage)
-eye_image = Image.new('L', image.size); eye_draw = ImageDraw.Draw(eye_image)
-for face in f[np.isin(regions, [1, 2])]:
-    at = p[face].mean(0)
-    poly = [(float(uv[v,0])*(image.width-1), float(uv[v,1])*(image.height-1)) for v in face]
-    cover.polygon(poly, fill=255)
-    if at[2] > .01 and ((1.425 < at[1] < 1.451 and .020 < abs(at[0]) < .085) or (1.332 < at[1] < 1.358 and abs(at[0]) < .045)):
-        eye_draw.polygon(poly, fill=255)
-    # Retain eyebrows over the actual sculpted eye sockets.
-    eyebrow = at[2] > .015 and 1.449 < at[1] < 1.478 and .020 < abs(at[0]) < .095
-    if eyebrow: brow_draw.polygon(poly, fill=255); draw.polygon(poly,fill=255)
-    moustache = at[2] > .035 and 1.355 < at[1] < 1.394 and abs(at[0]) < .073
-    if moustache: draw.polygon(poly, fill=255)
-    if at[2] < .015 or at[1] > 1.465: unwanted_draw.polygon(poly, fill=255)
-remove = np.asarray(shave.filter(ImageFilter.MaxFilter(3)), dtype=np.float32)/255 * (rgb.mean(2)<.50)
-# Hat/coat pixels inside the old height-classified head are not a complexion.
-# Only the derived scalp surfaces are cleaned; the original body is untouched.
-cloth = ((rgb[:,:,0] > rgb[:,:,1]*1.95) & (rgb[:,:,1] < .28)) | ((rgb[:,:,1] > rgb[:,:,0]*1.08) & (rgb[:,:,1] > rgb[:,:,2]*1.1))
-remove = np.maximum(remove, np.asarray(unwanted.filter(ImageFilter.MaxFilter(5)),dtype=np.float32)/255 * cloth)
-reference = np.array(wardrobe['skinReference'])
-# Beard fibres are not skin wrinkles: use a low-contrast shade of the original
-# complexion, preserving the real lip/nostril pigment which is outside hair.
-shade = np.clip((rgb.mean(2)/max(np.mean(wardrobe['hairReference']), .05))**.12, .82, 1.08)
-replacement = reference[None,None,:] * shade[:,:,None]
-rgb = rgb*(1-remove[:,:,None]) + replacement*remove[:,:,None]
-# Dark creases are not beard pigment. Preserve their authored colour/shading
-# and tint them as skin; only the actual eyebrow band follows the hair colour.
-eligible = np.asarray(coverage.filter(ImageFilter.MaxFilter(9)), dtype=np.float32)/255
-protect_eye = np.asarray(eye_image.filter(ImageFilter.MaxFilter(3)), dtype=np.float32)/255
-feature = (rgb.mean(2) < .22) | ((np.ptp(rgb,axis=2) < .15) & (rgb.mean(2) > .4))
-protect_eye *= feature
-brow = np.asarray(brows.filter(ImageFilter.MaxFilter(3)),dtype=np.float32)/255
-mask[:,:,1] = np.zeros_like(mask[:,:,1])
-mask[:,:,0] = eligible * (1-protect_eye) * (1-mask[:,:,1])
-tints = np.ones((len(positions), 3))
-for index, tex, fade in cap_edges:
-    x = int(np.clip(round(tex[0]*(image.width-1)),0,image.width-1)); y = int(np.clip(round(tex[1]*(image.height-1)),0,image.height-1))
-    edge_tint = np.clip(rgb[y,x] / np.maximum(reference, .01), .55, 1.35)
-    tints[index] = edge_tint * (1-fade) + fade
+# A single closed anatomical surface replaces overlapping face/scalp layers.
+# Its skin has no donor hue, raster pupils or flattened moustache paint.
 head = {'version':1, 'sourceHash':wardrobe['sourceHash'], 'frame':m['head'],
         'positions':np.round(positions,7).reshape(-1).tolist(), 'normals':np.round(normals,7).reshape(-1).tolist(),
         'uvs':np.round(uvs,7).reshape(-1).tolist(), 'indices':indices, 'painted':painted,
-        'tints':np.round(tints,6).reshape(-1).tolist(),
+        'tints':np.ones((len(positions),3)).reshape(-1).tolist(),
         'skinReference':wardrobe['skinReference'], 'hairReference':wardrobe['hairReference']}
-(output/'soldier-head.json').write_text(json.dumps(head, separators=(',',':')))
-# Repack only the derived head. The original rig, images and animations stay
-# untouched; Blender transfers emission paint from the old UVs onto the new UVs.
-with tempfile.TemporaryDirectory(prefix='ff-head-atlas-') as temporary:
-    folder=Path(temporary)
-    Image.fromarray(np.uint8(np.clip(rgb,0,1)*255)).save(folder/'source-paint.png')
-    Image.fromarray(np.uint8(np.clip(mask,0,1)*255)).save(folder/'source-mask.png')
-    subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('bake-head-atlas.py')),
-        '--',str(output/'soldier-head.json'),str(folder/'source-paint.png'),str(folder/'source-mask.png'),str(folder/'paint.png'),str(folder/'mask.png')],check=True)
-    Image.open(folder/'paint.png').convert('RGB').save(output/'soldier-head-basecolor.webp',quality=95,method=6)
-    Image.open(folder/'mask.png').convert('RGB').resize((512,512),Image.Resampling.BILINEAR).save(output/'soldier-head-mask.webp',lossless=True,method=6)
-print('closed soldier head' , len(positions), 'vertices', len(indices)//3, 'triangles')
+head_file=output/'soldier-head.json'
+head_file.write_text(json.dumps(head,separators=(',',':'),allow_nan=False))
+subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('refine-head-sculpt.py')),
+    '--',str(head_file),str(head_file)],check=True)
+# Temporary face tiles keep the subsequent hair/arm packing step simple. The
+# final pack discards them: every skin vertex is now colour-independent anatomy.
+Image.new('RGB',(1024,1024),tuple(round(c*255) for c in wardrobe['skinReference'])).save(output/'soldier-head-basecolor.webp',quality=95,method=6)
+Image.new('RGB',(512,512),(255,0,0)).save(output/'soldier-head-mask.webp',lossless=True,method=6)
+refined=json.loads(head_file.read_text())
+print('Unified soldier head',len(refined['painted']),'vertices',len(refined['indices'])//3,'triangles')

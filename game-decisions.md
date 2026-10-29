@@ -2341,3 +2341,17 @@ and category 2 remain intact. Both shader backends override pigment and gloss
 for this solid anatomical base, preventing a donor pupil or foreign body atlas
 from leaking through. No wardrobe options, samplers or protocol fields change.
 Validation and limitations: `docs/qa/sculpted-eyes-2026-10-28.json`.
+
+
+The outfit-independent head skin uses a unified closed surface instead of
+overlapping painted face/scalp layers. Offline voxel union and local smoothing
+relax the old moustache folds, then decimation bounds geometry. Pigment 3 is a
+shaded anatomical feature: the lip RGB derives from selected skin and its
+source shade, while pigment 0 remains solid selected skin, 1 atlas paint and
+2 selected hair. Geometric eyes retain their own solid feature colours.
+
+Because the new face does not sample paint, final packing discards its tile.
+The existing curl and arm tiles occupy the same pixels in half the atlas
+height; UVs and all six content hashes change together. No new sampler, draw,
+frame-loop rebuild or gameplay protocol field is introduced. Source GLBs and
+remaining native heads are preserved. Validation: `docs/qa/unified-head-2026-10-29.json`.

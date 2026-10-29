@@ -1129,3 +1129,10 @@ keine Teile der ursprünglichen Weste oder zerrissenen Modellhose stehen.
 Anpassbare Köpfe besitzen jetzt modellierte Augen mit Iris, Pupille und
 Lichtpunkt. Die Haut um die Augen folgt deiner Hautfarbe; Augenweiß und Iris
 werden dabei nicht mitgefärbt. Haar-, Bart- und Kleidungswahl bleiben erhalten.
+
+
+Anpassbare Köpfe haben jetzt eine geschlossene, glattere Mundpartie. Die
+Lippenkontur folgt deiner Hautfarbe statt der alten Modell- oder Haarfarbe.
+Haut-, Haar- und Kleidungswahl bleiben gespeichert und werden beim Spielstart
+übernommen. Die kleinere gemeinsame Textur behält die Auflösung von Locken
+und Armen bei. Nach dem Update die Seite neu laden.

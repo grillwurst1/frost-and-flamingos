@@ -553,3 +553,31 @@ cloud external-Instance OperationError/device destruction; WebGPU runtime is
 unverified. Raw records and captures: `docs/qa/sculpted-eyes-2026-10-28.json`
 and `sculpted-eyes-*.png`. Mouth/upper-lip topology and sleeve/wrist sculpting
 remain visibly unfinished, as does the wider world/reference artwork.
+
+
+### Closed, unpainted head anatomy — 29 October 2026
+
+Merged the extracted scout face and replacement scalp offline into one closed
+volume. Local upper-lip smoothing removes the star-shaped folded skin; a
+projected 3D lip contour shades from the chosen skin, independently of hair
+or outfit. The source GLBs remain untouched. The shared head is now 3,651
+vertices / 7,228 triangles (was 6,654 / 9,420: about 23% fewer triangles).
+Geometric eyes remain, and native heads remain where selected.
+
+Solid anatomy no longer samples a face image. Remove that unused tile from
+the final atlas, preserving the previous curl/arm tile pixel density and
+gutters. Colour is now 1024x1024 and mask 512x512, once per scene: roughly
+6.7 MiB RGBA8+mips instead of 13.3 MiB. Version geometry, UVs and textures
+together. The four body captures have 25,880 / 23,448 / 31,045 / 23,201
+triangles and one body draw each; native heads do not change.
+
+309 checks pass: 13 script, 198 server, 98 client. The old bald-head check now
+counts actual Head-bound geometry rather than the former paint category.
+Types have zero errors/warnings; production builds pass. Software WebGL2
+readback matches all 12 selected colours at six skin fixtures and the expected
+skin-relative lip shade at a seventh. Actual wardrobe skin/hair selection,
+reload persistence and entering the game also pass without browser errors.
+See `docs/qa/unified-head-2026-10-29.json` and associated images; the comparison
+shows the prototype on the left and previous sculpt on the right. Native M4
+thermal/FPS behaviour, WebGPU runtime and full reference acceptance remain
+unverified. Heavy hand posing and garment/shoulder transitions remain open.

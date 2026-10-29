@@ -876,3 +876,12 @@ add 736 triangles to the existing body draw, with no new texture allocation.
 and all twelve skin colours are checked in WebGL2. Captures, fixture scope and
 the cloud WebGPU limitation are in `docs/qa/sculpted-eyes-2026-10-28.json`.
 The wider screenshot-quality work remains open.
+
+
+The configurable head is now a closed 3D sculpt with a smooth upper lip and
+skin-relative geometric mouth contour. Its geometry falls from 9,420 to 7,228
+triangles. Removing the unused face tile halves the shared hair/arm texture
+budget to about 6.7 MiB (RGBA8 with mips), preserving their tile pixel density.
+309 checks, strict types and production builds pass. All twelve skin choices
+and actual wardrobe/reload/game entry are verified in WebGL2. Evidence and
+limits: `docs/qa/unified-head-2026-10-29.json`; screenshot-quality work continues.

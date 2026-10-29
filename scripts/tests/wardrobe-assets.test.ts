@@ -32,6 +32,12 @@ test('the shared closed head and curls match their original sources and every cl
   expect(h!.sourceHash).toBe(await sourceHash('alpine-infiltrator'));
   expect(h!.afro?.sourceHash).toBe(await sourceHash('lagoon-allrounder'));
   expect(h!.afro!.indices.length).toBeGreaterThan(9000);
+  expect(h!.solidAnatomy).toBe(true);
+  expect(h!.painted.filter(kind => kind === 0).length).toBeGreaterThan(3000);
+  expect(h!.painted.includes(1)).toBe(false);
+  expect(h!.painted.includes(3)).toBe(true);
+  expect(h!.indices.length / 3).toBeLessThan(8000);
+  expect(h!.afro!.uvs.every(n => n >= 0 && n <= 1)).toBe(true);
   expect(bytes.byteLength).toBeLessThan(2000000);
   for (let v = 0; v < h!.normals.length; v += 3) expect(Math.hypot(...h!.normals.slice(v, v + 3))).toBeGreaterThan(.8);
   const manifest = await Bun.file(resolve(directory, 'manifest.json')).json();
@@ -47,7 +53,7 @@ test('the shared closed head and curls match their original sources and every cl
   const mask = new Uint8Array(await Bun.file(resolve(directory, 'soldier-head-mask.webp')).arrayBuffer());
   expect(new TextDecoder().decode(mask.subarray(12, 16))).toBe('VP8L');
   const dimensions = new DataView(mask.buffer).getUint32(21, true);
-  expect((dimensions & 0x3fff) + 1).toBe(512); expect(((dimensions >>> 14) & 0x3fff) + 1).toBe(1024);
+  expect((dimensions & 0x3fff) + 1).toBe(512); expect(((dimensions >>> 14) & 0x3fff) + 1).toBe(512);
 });
 
 

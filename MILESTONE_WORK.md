@@ -480,3 +480,11 @@ types/build pass; script/server checks are unchanged. Eight WGSL variants
 compile, but cloud queue/device failure prevents runtime acceptance. The next
 art defect is the actual upper-lip/mouth surface, not its texture resolution.
 Reference quality and M5 completion remain gated. See `docs/qa/sculpted-eyes-*`.
+
+
+Verified the closed configurable head, relaxed upper lip, selected-skin lip
+crease and half-height shared atlas. 309 checks, types and builds pass; all
+12 skin colours and wardrobe persistence/game entry pass in WebGL2. Native
+M4 and WebGPU runtime remain unverified. The next visible defect is the Heavy
+support hand; investigate the actual hold before adding more finger geometry.
+The reference art gate and M5 completion remain open. See `docs/qa/unified-head-*`.

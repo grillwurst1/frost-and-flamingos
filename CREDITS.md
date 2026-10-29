@@ -178,3 +178,9 @@ bake; original source GLBs, paint and animation files remain unchanged.
 The configurable-head ellipsoid eye whites and geometric iris, pupil and glint
 surfaces are original project art. They follow the owner's shared scout head
 coordinates, without modifying the source GLBs or importing external assets.
+
+
+The closed configurable head is an offline voxel union/refinement of the
+owner's scout sculpt and the project's scalp, with bounded decimation. The
+project's geometric lip contour follows that surface and selected complexion.
+The original owner GLBs, source images and animations are unchanged.

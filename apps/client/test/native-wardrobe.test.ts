@@ -10,7 +10,8 @@ import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { createDefaultProfile, LEGS_PALETTES, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
 import { GlbCharacterView } from '../src/rendering/glb-character';
-import { paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
+import { jointName, paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
+import { modularHeadFrame } from '../src/rendering/glb/modular-body';
 import { bodySurfaceRetarget } from '../src/rendering/glb/body-surfaces';
 import { parseWardrobeHead } from '../src/rendering/glb/wardrobe-head';
 import { nativeWardrobeRecipe, parseNativeWardrobe } from '../src/rendering/glb/native-wardrobe';
@@ -190,7 +191,7 @@ test('removing fused hair/hat or changing the beard uses a complete head rather 
 });
 
 
-test('custom hair and clean face keep the same detailed painted anatomy in one draw', () => {
+test('custom hair and clean face keep the same detailed anatomical surface in one draw', () => {
   expect(asset.wardrobeHead).toBeDefined();
   let faceFingerprint: string | null = null;
   const silhouettes = new Set<string>();
@@ -198,9 +199,13 @@ test('custom hair and clean face keep the same detailed painted anatomy in one d
     const { view, mesh } = build({ headgear: 'head_none', face: 'face_none', hairStyleIndex }, true);
     try {
       expect(mesh.subMeshes).toHaveLength(1); expect(mesh.getTotalIndices() / 3).toBeLessThan(60000);
-      const flags = mesh.getVerticesData('uv2')!, p = mesh.getVerticesData('position')!, uv = mesh.getVerticesData('uv')!;
+      const p = mesh.getVerticesData('position')!, uv = mesh.getVerticesData('uv')!, c = mesh.getVerticesData('color')!;
+      const joints = mesh.getVerticesData('matricesIndices')!, weights = mesh.getVerticesData('matricesWeights')!;
+      const head = mesh.skeleton!.bones.find(b => jointName(b.name) === 'Head')!.getIndex();
       const face = [];
-      for (let v = 0; v < mesh.getTotalVertices(); v++) if (flags[v * 2]! > 1.5 && flags[v * 2 + 1] === 2) face.push(p[v * 3], p[v * 3 + 1], p[v * 3 + 2], uv[v * 2], uv[v * 2 + 1]);
+      for (let v = 0; v < mesh.getTotalVertices(); v++) if (c[v * 4 + 3]! > .9
+        && [0, 1, 2, 3].some(k => joints[v * 4 + k] === head && weights[v * 4 + k]! > .99))
+        face.push(p[v * 3], p[v * 3 + 1], p[v * 3 + 2], uv[v * 2], uv[v * 2 + 1]);
       expect(face.length).toBeGreaterThan(15000);
       const fingerprint = new Bun.CryptoHasher('sha256').update(JSON.stringify(face)).digest('hex');
       if (faceFingerprint === null) faceFingerprint = fingerprint; else expect(fingerprint).toBe(faceFingerprint);
@@ -210,21 +215,46 @@ test('custom hair and clean face keep the same detailed painted anatomy in one d
   expect(silhouettes.size).toBe(7);
 });
 
-test('sculpted eyes keep head-atlas socket categories intact and add solid feature colours', () => {
+test('solid anatomy around sculpted eyes stays outside the pigment atlas', () => {
   const { view, mesh } = build({ headgear: 'head_none', face: 'face_none', hairStyleIndex: 6 }, true);
   try {
     const c = mesh.getVerticesData('color')!, flags = mesh.getVerticesData('uv2')!;
-    let sockets = 0, whites = 0;
+    const joints = mesh.getVerticesData('matricesIndices')!, weights = mesh.getVerticesData('matricesWeights')!;
+    const head = mesh.skeleton!.bones.find(b => jointName(b.name) === 'Head')!.getIndex();
+    let skin = 0, whites = 0;
     for (let v = 0; v < mesh.getTotalVertices(); v++) {
-      if (c[v * 4 + 3]! > 1.5) {
-        expect(flags[v * 2]).toBe(2); expect(flags[v * 2 + 1]).toBe(2); sockets++;
+      if (c[v * 4 + 3]! > .9 && [0, 1, 2, 3].some(k => joints[v * 4 + k] === head && weights[v * 4 + k]! > .99)) {
+        expect(flags[v * 2]).toBe(0); skin++;
       }
       if (flags[v * 2] === 0 && c[v * 4 + 3] === 0 && Math.abs(c[v * 4]! - .94) < .001
         && Math.abs(c[v * 4 + 1]! - .94) < .001 && Math.abs(c[v * 4 + 2]! - .90) < .001) whites++;
     }
-    expect(sockets).toBeGreaterThan(100); expect(whites).toBeGreaterThan(100);
+    expect(skin).toBeGreaterThan(3000); expect(whites).toBeGreaterThan(100);
     expect(mesh.subMeshes).toHaveLength(1);
   } finally { view.dispose(); }
+});
+
+test('the sculpted lip crease follows selected skin rather than donor paint or selected hair', () => {
+  const h = asset.wardrobeHead!, vertex = h.painted.findIndex(p => p === 3);
+  expect(vertex).toBeGreaterThanOrEqual(0);
+  for (const skinToneIndex of [0, 11]) {
+    const profile = createDefaultProfile('Lip colour');
+    Object.assign(profile.cosmetics, { headgear: 'head_none', face: 'face_none', hairStyleIndex: 6, skinToneIndex, hairColorIndex: 4 });
+    const { view, mesh } = build(profile.cosmetics, true);
+    try {
+      const frame = modularHeadFrame(profile, asset, true, true), scale = frame.radius / h.frame.radius;
+      const target = [h.positions[vertex * 3]! * scale, frame.y + (h.positions[vertex * 3 + 1]! - h.frame.y) * scale,
+        frame.z + (h.positions[vertex * 3 + 2]! - h.frame.z) * scale];
+      const p = mesh.getVerticesData('position')!, c = mesh.getVerticesData('color')!, flags = mesh.getVerticesData('uv2')!;
+      let found = -1;
+      for (let v = 0; v < mesh.getTotalVertices(); v++) if (Math.hypot(...target.map((n, k) => p[v * 3 + k]! - n)) < 1e-5) { found = v; break; }
+      expect(found).toBeGreaterThanOrEqual(0); expect(c[found * 4 + 3]).toBe(0); expect(flags[found * 2]).toBe(0);
+      for (let channel = 0; channel < 3; channel++) {
+        const skin = Number.parseInt(SKIN_TONES[skinToneIndex]!.slice(1 + channel * 2, 3 + channel * 2), 16) / 255;
+        expect(c[found * 4 + channel]!).toBeCloseTo(skin * h.tints[vertex * 3 + channel]!, 5);
+      }
+    } finally { view.dispose(); }
+  }
 });
 
 test('the replacement skull is a closed surface with outward faces and finite atlas data', () => {
@@ -258,8 +288,10 @@ test('the bald heavy uses the detailed face without importing the original winte
   try {
     const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
     const flags = mesh.getVerticesData('uv2')!;
+    const joints = mesh.getVerticesData('matricesIndices')!, weights = mesh.getVerticesData('matricesWeights')!;
+    const headBone = mesh.skeleton!.bones.find(b => jointName(b.name) === 'Head')!.getIndex();
     let head = 0; for (let v = 0; v < mesh.getTotalVertices(); v++) {
-      if (flags[v * 2]! > 1.5) head++;
+      if ([0, 1, 2, 3].some(k => joints[v * 4 + k] === headBone && weights[v * 4 + k]! > .99)) head++;
       // The old fur-trimmed coat's hips were labelled as trousers; they must
       // not leak into the selected olive-pants / open field-vest outfit.
       expect(flags[v * 2]! === 1 && flags[v * 2 + 1] === 6).toBe(false);

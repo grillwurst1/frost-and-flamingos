@@ -969,3 +969,26 @@ queue validation, so WebGPU gameplay/M4 thermals remain unverified. Evidence:
 `docs/qa/sculpted-eyes-2026-10-28.json` and `sculpted-eyes-*.png`.
 Continue the real mouth/upper-lip sculpt, then sleeve/wrist and world artwork.
 The reference acceptance and M5 art gate remain open.
+
+
+### Unified anatomical head and smaller atlas — 29 October 2026
+
+The configurable scout-derived face/scalp is now one closed, smoothed surface.
+Offline voxel union, local upper-lip relaxation and bounded decimation remove
+the folded moustache-shaped skin. A projected geometric lip crease follows
+selected skin via anatomical pigment 3 (not donor paint or hair colour).
+`refine-head-sculpt.py` runs only on generated JSON; owner GLBs are untouched.
+Head skin is solid pigment 0; keep native heads unchanged where still selected.
+
+The head has 3,651 vertices / 7,228 triangles instead of 6,654 / 9,420. The face
+no longer needs its atlas tile. Curls and arms retain their previous tile pixel
+density in a 1024x1024 colour / 512x512 mask pair: estimated RGBA8+mip budget
+6.7 MiB instead of 13.3 MiB, once per scene. Rebuild all metadata/hash versions
+with the packing change; do not mix old UVs and the smaller atlas.
+
+309 checks pass (13 script, 198 server, 98 client), strict types and builds pass.
+All 12 skin colours pass six skin-base and one skin-relative lip GPU fixtures.
+Real wardrobe selection, reload persistence and entering play pass with zero
+browser errors. Evidence: `docs/qa/unified-head-2026-10-29.json` and captures.
+Wider screenshot acceptance, M4 thermals/FPS and WebGPU runtime remain open.
+Next inspect the Heavy support-hand pose and sleeve/wrist transitions.
