@@ -992,3 +992,26 @@ Real wardrobe selection, reload persistence and entering play pass with zero
 browser errors. Evidence: `docs/qa/unified-head-2026-10-29.json` and captures.
 Wider screenshot acceptance, M4 thermals/FPS and WebGPU runtime remain open.
 Next inspect the Heavy support-hand pose and sleeve/wrist transitions.
+
+
+### Weapon holds follow the selected body — 29 October 2026
+
+The modular-body cache now stores torso front/back measurements from actual
+worn torso geometry, excluding heads, necks, legs and backpacks. Weapon
+clearance uses these measurements instead of the donor winter coat/beard/ring.
+Metadata is frozen, shared by cached bodies and computed only during building.
+
+Left shoulder protraction no longer switches off when the hand loses reach.
+A bounded/eased extra clavicle yaw (max 0.65 radians) brings the support hand
+forward when needed. Broad rigs with short arms can pull the held prop at
+most 0.06 extra armature units towards the support arm, under the existing
+torso/stock/right-arm constraints. This allowance is computed once per view.
+No geometry, texture, draw or per-frame skin-mesh rebuild was added.
+
+105 client tests pass, including actual foregrip contact through three idle
+phases for both Heavy rigs and SMG/shotgun/snow cannon. Types and builds pass;
+the 13 script/198 server checks are unchanged (316 total). Actual WebGL2 game
+fire/reload and close/four-figure captures pass without browser errors.
+Evidence: `docs/qa/weapon-grips-2026-10-29.json` and images. Native M4/WebGPU
+runtime and complete reference quality remain unverified. Improve hand/palm
+surfaces and garment/shoulder transitions next; M5 art acceptance stays open.

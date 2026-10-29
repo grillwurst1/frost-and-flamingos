@@ -488,3 +488,11 @@ crease and half-height shared atlas. 309 checks, types and builds pass; all
 M4 and WebGPU runtime remain unverified. The next visible defect is the Heavy
 support hand; investigate the actual hold before adding more finger geometry.
 The reference art gate and M5 completion remain open. See `docs/qa/unified-head-*`.
+
+
+Verified torso-aware holds, backpack-independent bounds and Heavy support-hand
+reach for three guns/three idle phases. 105 client tests, strict types/build
+and real game fire/reload pass (script/server checks unchanged: 316 total).
+No additional rendering geometry or textures. Evidence: `docs/qa/weapon-grips-*`.
+The visible remaining hand/palm and shoulder garment artwork still prevents
+reference acceptance; M5/new milestone feature work remains gated by that art.

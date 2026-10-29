@@ -21,7 +21,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
-import { buildModularBody, modularHeadFrame, modularRollBoxes } from './glb/modular-body';
+import { buildModularBody, modularHeadFrame, modularRollBoxes, modularTorsoFrame } from './glb/modular-body';
 import { bodySurfaceRecipe } from './glb/body-surfaces';
 import { wristHandSurface } from './glb/hand-surface';
 import { nativeWardrobeRecipe } from './glb/native-wardrobe';
@@ -40,6 +40,7 @@ import {
   paintedModelLibrary,
   type BakedClip,
   type PaintedModelAsset,
+  type TorsoDepth,
 } from './glb/library';
 import { createGlbMaterial, updateGlbMaterial, type PaintedTextures } from './glb/material';
 import { buildCanopyProp, buildWeaponProp, buildWrenchProp, type HoldSpec, type HoldStyle, type WeaponProp } from './glb/props';
@@ -317,8 +318,10 @@ export class GlbCharacterView implements AvatarView {
   private readonly shoulderLocal: Vector3 | null;
   /** Bind-pose chest front surface point in Spine2's frame (hero holds stay in front of it). */
   private readonly frontLocal: Vector3 | null;
+  private readonly torso: TorsoDepth | null;
   /** Bind-pose right arm length (shoulder → elbow → wrist). */
   private readonly armLength: number;
+  private readonly supportPullLimit: number;
   private readonly bulk: number;
   private weapon: WeaponProp | null = null;
   /** Rear end (weapon-space z) of the held prop, kept in front of the chest. */
@@ -335,6 +338,7 @@ export class GlbCharacterView implements AvatarView {
   /** Support hand: eased slide along the foregrip (0..1) and IK weight. */
   private supportSlide = 0;
   private supportReach = 1;
+  private supportShoulder = 0;
   private readonly wristHands: Partial<Record<HandSide, HandLocalFrame>> = {};
   /** The next hold frame snaps the eased hold state (just equipped). */
   private holdSnap = true;
@@ -402,6 +406,7 @@ export class GlbCharacterView implements AvatarView {
     this.armedModel = spec.armed !== false;
     this.scale = this.height / asset.height;
     this.bulk = spec.bulk;
+    this.torso = asset.torso;
     const leftArm = asset.bindPositions.get('LeftArm');
     const rightArm = asset.bindPositions.get('RightArm');
     this.shoulderHalf = leftArm && rightArm ? Math.max(0.1, Math.abs(leftArm.x - rightArm.x) / 2) : 0.2;
@@ -418,6 +423,7 @@ export class GlbCharacterView implements AvatarView {
     const rightWrist = asset.bindPositions.get('RightHand');
     this.armLength =
       rightArm && rightElbow && rightWrist ? Vector3.Distance(rightArm, rightElbow) + Vector3.Distance(rightElbow, rightWrist) : 0.43;
+    this.supportPullLimit = MAX_SUPPORT_PULL + Math.min(.06, Math.max(0, this.shoulderHalf * 2 - this.armLength) * .6);
 
     this.root = new TransformNode('glb-character-root', scene);
     this.tiltPivot = new TransformNode('glb-tilt-pivot', scene);
@@ -522,6 +528,9 @@ export class GlbCharacterView implements AvatarView {
     }
     if (spec.cosmetics !== false) {
       this.bodyMesh = buildModularBody(scene, profile, asset, mesh, this.material, this.nativeWardrobe, this.sharedWardrobeHead, this.sharedWardrobeBody);
+      this.torso = modularTorsoFrame(this.bodyMesh) ?? asset.torso;
+      this.frontLocal = spine2 && this.torso
+        ? new Vector3(0, 0, this.torso.front - this.torso.chestZ).rotateByQuaternionToRef(Quaternion.Inverse(spine2.rotation), new Vector3()) : null;
       mesh.isVisible = false;
       const box = this.bodyMesh.getBoundingInfo();
       this.bodyMesh.setBoundingInfo(new BoundingInfo(box.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), box.maximum.add(new Vector3(1.2, 0.5, 1.2))));
@@ -1432,7 +1441,7 @@ export class GlbCharacterView implements AvatarView {
     // heavies' idles) would leave the grips out of reach. A horn at the mouth
     // hunches the shoulders forward a little more.
     if (tucked) rig.rotateWorld('RightShoulder', Quaternion.RotationAxis(AXIS_Y, (mouthpiece ? 0.65 : 0.3) * armed));
-    if (hold.support) rig.rotateWorld('LeftShoulder', Quaternion.RotationAxis(AXIS_Y, -0.38 * armed * this.supportReach));
+    if (hold.support) rig.rotateWorld('LeftShoulder', Quaternion.RotationAxis(AXIS_Y, -0.38 * armed));
     if (tucked || hold.support) rig.refresh();
     if (tucked && this.shoulderLocal && spineRotation) {
       anchor = chest.add(this.shoulderLocal.rotateByQuaternionToRef(spineRotation, new Vector3()));
@@ -1484,7 +1493,7 @@ export class GlbCharacterView implements AvatarView {
         if (distance > reach && distance > 1e-4) {
           // Shoulder-anchored holds keep their place (pull a little at
           // most); the support hand then slides along the foregrip below.
-          const pull = Math.min(distance - reach, tucked ? MAX_SUPPORT_PULL : Infinity);
+          const pull = Math.min(distance - reach, tucked ? this.supportPullLimit : Infinity);
           const shift = toShoulder.scale(pull / distance);
           grip.addInPlace(shift);
           support = support.add(shift);
@@ -1497,7 +1506,7 @@ export class GlbCharacterView implements AvatarView {
     // hard limit (the butt never leaves through the back) may override that.
     // Shoulder-anchored holds tuck the stock against the body (under the
     // arm), so for them only the hard limit applies.
-    const torso = this.asset.torso;
+    const torso = this.torso;
     const tailZ = (): number =>
       grip.add(new Vector3(0, 0, this.weaponRear).rotateByQuaternionToRef(weaponRotation, new Vector3())).z;
     if (torso && this.weaponRear < -0.02 && !tucked) {
@@ -1559,6 +1568,27 @@ export class GlbCharacterView implements AvatarView {
       // to its animated pose instead of hovering beside the weapon.
       const reach = 0.92 * (Vector3.Distance(leftArm, leftFore) + Vector3.Distance(leftFore, leftWrist));
       const back = hold.supportBack ? grip.add(hold.supportBack.rotateByQuaternionToRef(weaponRotation, new Vector3())) : support.clone();
+      const shoulder = tucked ? rig.position('LeftShoulder') : null;
+      if (shoulder) {
+        // A short, broad rig can reach the foregrip by bringing its clavicle
+        // forward. Do not leave it behind the chest once the hand fades out.
+        // Work from the unchanged clip pose each frame, with a bounded/eased yaw.
+        const dx = back.x - support.x, dy = back.y - support.y, dz = back.z - support.z;
+        const length = dx * dx + dy * dy + dz * dz;
+        const t = length > 1e-8 ? Math.max(0, Math.min(1,
+          ((leftArm.x - support.x) * dx + (leftArm.y - support.y) * dy + (leftArm.z - support.z) * dz) / length)) : 0;
+        const x = support.x + dx * t, y = support.y + dy * t, z = support.z + dz * t;
+        const excess = Math.hypot(x - leftArm.x, y - leftArm.y, z - leftArm.z) - reach;
+        const ax = leftArm.x - shoulder.x, az = leftArm.z - shoulder.z;
+        const tx = x - shoulder.x, tz = z - shoulder.z;
+        const yaw = Math.atan2(az * tx - ax * tz, ax * tx + az * tz);
+        const target = Math.max(-.65, Math.min(0, yaw)) * smoothstep(.01, .12, excess);
+        this.supportShoulder += (target - this.supportShoulder) * ease;
+        if (Math.abs(this.supportShoulder) > .001) {
+          rig.rotateWorld('LeftShoulder', Quaternion.RotationAxis(AXIS_Y, this.supportShoulder * armed));
+          rig.refresh();
+        }
+      }
       this.supportSlide += (segmentReach(support, back, leftArm, reach) - this.supportSlide) * ease;
       support = support.add(back.subtract(support).scaleInPlace(this.supportSlide));
       const excess = Vector3.Distance(leftArm, support) - reach;

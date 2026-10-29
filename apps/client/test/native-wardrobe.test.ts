@@ -11,7 +11,9 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { createDefaultProfile, LEGS_PALETTES, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
 import { GlbCharacterView } from '../src/rendering/glb-character';
 import { jointName, paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
-import { modularHeadFrame } from '../src/rendering/glb/modular-body';
+import { modularHeadFrame, modularTorsoFrame } from '../src/rendering/glb/modular-body';
+import { closestOnSegment } from '../src/rendering/glb/hold';
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import { bodySurfaceRetarget } from '../src/rendering/glb/body-surfaces';
 import { parseWardrobeHead } from '../src/rendering/glb/wardrobe-head';
 import { nativeWardrobeRecipe, parseNativeWardrobe } from '../src/rendering/glb/native-wardrobe';
@@ -41,6 +43,50 @@ function build(changes: Partial<Cosmetics> = {}, detailedHead = false): { view: 
   const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
   return { view, mesh };
 }
+
+test('weapon clearance follows the worn torso and excludes backpack geometry', () => {
+  const a = build({ torso: 'torso_field_vest', back: 'back_none' });
+  const b = build({ torso: 'torso_field_vest', back: 'back_cuckoo_clock' });
+  const c = build({ torso: 'torso_tracht_shirt', back: 'back_none' });
+  try {
+    const vest = modularTorsoFrame(a.mesh)!, packed = modularTorsoFrame(b.mesh)!, shirt = modularTorsoFrame(c.mesh)!;
+    expect(vest).not.toBeNull(); expect(packed).toEqual(vest);
+    expect(vest.front).toBeGreaterThan(vest.back);
+    expect(Math.abs(shirt.front - vest.front)).toBeGreaterThan(.01);
+  } finally { a.view.dispose(); b.view.dispose(); c.view.dispose(); }
+});
+
+test.each([
+  ['alpine-heavy', 'smg'], ['alpine-heavy', 'shotgun'], ['alpine-heavy', 'snow_cannon'],
+  ['lagoon-heavy', 'smg'], ['lagoon-heavy', 'shotgun'], ['lagoon-heavy', 'snow_cannon'],
+] as const)('%s reaches the real %s foregrip through idle animation', async (key, weaponId) => {
+  const heavy = (await paintedModelLibrary(scene).load(key))!;
+  const profile = createDefaultProfile('Heavy foregrip', 'heavy'); profile.faction = key.startsWith('lagoon') ? 'lagoon' : 'alpine';
+  Object.assign(profile.cosmetics, { headgear: 'head_none', face: 'face_none', hairStyleIndex: 6, torso: 'torso_field_vest', back: 'back_none', legs: 'legs_olive_pants' });
+  const view = new GlbCharacterView(scene, new StandardMaterial('foregrip-shadow', scene), profile, heavy, textures);
+  const internals = view as unknown as {
+    rig: GlbRig; breath: number; supportReach: number; supportShoulder: number;
+    bindings: Map<string, { time: number; clip: { duration: number } }>;
+    weapon: { hold: { support: Vector3; supportBack?: Vector3 } }; weaponAnchor: TransformNode;
+  };
+  try {
+    for (const phase of [0, .35, .7]) {
+      internals.breath = 0;
+      for (const b of internals.bindings.values()) b.time = phase * b.clip.duration;
+      for (let i = 0; i < 90; i++) view.updatePreview(1 / 45, -.75, weaponId);
+      internals.rig.refresh();
+      const anchor = internals.weaponAnchor, hold = internals.weapon.hold;
+      const support = hold.support.rotateByQuaternionToRef(anchor.rotationQuaternion!, new Vector3()).add(anchor.position);
+      const back = (hold.supportBack ?? hold.support).rotateByQuaternionToRef(anchor.rotationQuaternion!, new Vector3()).add(anchor.position);
+      const wrist = internals.rig.position('LeftHand')!;
+      expect(Vector3.Distance(wrist, closestOnSegment(support, back, wrist))).toBeLessThan(.035);
+      expect(internals.supportReach).toBeGreaterThan(.9);
+      expect(internals.supportShoulder).toBeGreaterThanOrEqual(-.650001);
+      expect(internals.supportShoulder).toBeLessThanOrEqual(.000001);
+      expect(view.muzzlePosition()!.asArray().every(Number.isFinite)).toBe(true);
+    }
+  } finally { view.dispose(); }
+});
 
 test('Heavy wrist without finger bones has a closed grip and follows the requested hand frame', async () => {
   const heavy = (await paintedModelLibrary(scene).load('lagoon-heavy'))!;

@@ -1136,3 +1136,9 @@ Lippenkontur folgt deiner Hautfarbe statt der alten Modell- oder Haarfarbe.
 Haut-, Haar- und Kleidungswahl bleiben gespeichert und werden beim Spielstart
 übernommen. Die kleinere gemeinsame Textur behält die Auflösung von Locken
 und Armen bei. Nach dem Update die Seite neu laden.
+
+
+Die Heavy-Figuren greifen SMG, Schrotflinte und Schneekanone jetzt zuverlässiger
+mit der linken Hand. Der Waffenhalt passt sich der gewählten Kleidung an; ein
+Rucksack verschiebt die Waffe dabei nicht nach vorn. Munition, Schusswerte und
+Nachladen bleiben gleich.

@@ -581,3 +581,26 @@ See `docs/qa/unified-head-2026-10-29.json` and associated images; the comparison
 shows the prototype on the left and previous sculpt on the right. Native M4
 thermal/FPS behaviour, WebGPU runtime and full reference acceptance remain
 unverified. Heavy hand posing and garment/shoulder transitions remain open.
+
+
+### Worn-torso clearance and reachable Heavy grips — 29 October 2026
+
+The old hold used original model coat/beard/ring bounds after changing clothes.
+Cache actual selected torso bounds instead, excluding backpack/head/neck/legs.
+The Heavy support hand also lost its own shoulder protraction when unreachable.
+Keep that baseline active; add a continuous extra clavicle yaw up to 0.65 rad
+and, for short broad rigs, at most 0.06 extra armature units of carry pull under
+the existing body/stock/right-arm constraints. Static proportions/bounds are
+computed once; there are no new draw calls, textures, vertices or frame mesh
+rebuilds. Source rigs, animations and gameplay weapon parameters are retained.
+
+105 client tests pass, including actual segment contact (<0.035 model units),
+IK weight >0.9 and bounded shoulder yaw over three idle phases for both Heavy
+rigs with SMG/shotgun/snow cannon. Backpacks do not change the cached torso
+bounds. Strict types have zero errors/warnings and builds pass. Script/server
+checks are unchanged (13/198; 316 total). Close/four-view WebGL2 captures and
+real game 30 -> 29 -> 30 fire/reload pass with finite muzzle positions, painted
+crawler/live player labels and zero browser errors. Records/captures:
+`docs/qa/weapon-grips-2026-10-29.json` and associated images. These are cloud
+software-renderer checks, not native M4 performance/thermal measurements.
+Hand/palm sculpting and shoulder/garment transitions remain visibly unfinished.

@@ -2355,3 +2355,16 @@ The existing curl and arm tiles occupy the same pixels in half the atlas
 height; UVs and all six content hashes change together. No new sampler, draw,
 frame-loop rebuild or gameplay protocol field is introduced. Source GLBs and
 remaining native heads are preserved. Validation: `docs/qa/unified-head-2026-10-29.json`.
+
+
+Weapon/body clearance is derived from actual selected torso surfaces. The
+body cache keeps immutable front/back bounds from torso parts and native torso
+regions; head/neck, trousers and backpack parts are excluded. This prevents an
+old winter coat, beard or fused swim ring from displacing a changed outfit's gun.
+
+Support-hand failure must not disable its own clavicle protraction. A continuous
+extra shoulder yaw, capped at 0.65 radians, helps short broad rigs. Their carry
+pull can gain up to 0.06 armature units, still subject to torso/stock/right-arm
+limits. Contact remains on the actual support/foregrip-back segment. No gun
+stats, muzzle direction, protocol, texture or draw count changes. Validation:
+`docs/qa/weapon-grips-2026-10-29.json`.

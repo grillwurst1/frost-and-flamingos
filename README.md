@@ -885,3 +885,11 @@ budget to about 6.7 MiB (RGBA8 with mips), preserving their tile pixel density.
 309 checks, strict types and production builds pass. All twelve skin choices
 and actual wardrobe/reload/game entry are verified in WebGL2. Evidence and
 limits: `docs/qa/unified-head-2026-10-29.json`; screenshot-quality work continues.
+
+
+Weapon clearance follows the selected vest/shirt rather than the original
+model's coat or ring. Both Heavy rigs now reach SMG, shotgun and snow-cannon
+foregrips through tested idle poses, using bounded shoulder motion and a small
+extra carry adjustment for short arms. No new draw, texture or geometry is
+needed. 105 client tests, strict types/build and actual WebGL2 fire/reload pass.
+Evidence: `docs/qa/weapon-grips-2026-10-29.json`; broader reference work continues.

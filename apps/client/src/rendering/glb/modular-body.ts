@@ -6,7 +6,7 @@ import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Scene } from '@babylonjs/core/scene';
 import { profileAppearanceKey, SKIN_TONES, HAIR_COLORS, type PlayerProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../character';
-import { bindWorldTransform, jointName, type PaintedModelAsset } from './library';
+import { bindWorldTransform, jointName, type PaintedModelAsset, type TorsoDepth } from './library';
 import { bodySurfaceRecipe, bodySurfaceRetarget } from './body-surfaces';
 import { wristHandSurface } from './hand-surface';
 import { sculptedEyes } from './eye-surfaces';
@@ -15,7 +15,8 @@ import { RIG_JOINTS, type RigJoint } from './rig';
 
 export interface ModularRollBox { joint: RigJoint; corners: readonly Vector3[] }
 const rollBoxes = new WeakMap<Mesh, readonly ModularRollBox[]>();
-interface CachedBody { data: VertexData; boxes: readonly ModularRollBox[] }
+interface CachedBody { data: VertexData; boxes: readonly ModularRollBox[]; torso: TorsoDepth | null }
+const torsoFrames = new WeakMap<Mesh, TorsoDepth>();
 const bodyCache = new WeakMap<Scene, Map<string, CachedBody>>();
 const MAX_CACHED_BODIES = 12;
 
@@ -27,6 +28,7 @@ export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsse
 }
 
 export function modularRollBoxes(mesh: Mesh): readonly ModularRollBox[] { return rollBoxes.get(mesh) ?? []; }
+export function modularTorsoFrame(mesh: Mesh): TorsoDepth | null { return torsoFrames.get(mesh) ?? null; }
 
 /** A single skinned draw, with every wardrobe choice represented by geometry/colour. */
 export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: PaintedModelAsset,
@@ -45,6 +47,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     mesh.parent = source.parent; mesh.skeleton = skeleton; mesh.numBoneInfluencers = 4;
     mesh.material = material; mesh.isPickable = false; mesh.receiveShadows = true;
     rollBoxes.set(mesh, cached.boxes);
+    if (cached.torso) torsoFrames.set(mesh, cached.torso);
     return mesh;
   };
   const cached = cache.get(key);
@@ -56,6 +59,13 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     return { indices: [a, b, 0, 0], weights: [1 - amount, amount, 0, 0] };
   };
   const size = asset.height / 1.88;
+  const chest = bind('Spine2');
+  let torsoFront = -Infinity, torsoBack = Infinity;
+  const measureTorso = (at: Vector3): void => {
+    const x = Math.abs(at.x - chest.x), y = Math.abs(at.y - chest.y);
+    if (x < .25 * size && y < .12 * size) torsoFront = Math.max(torsoFront, at.z);
+    if (x < .08 * size && y < .06 * size) torsoBack = Math.min(torsoBack, at.z);
+  };
   const shoulder = Math.abs(bind('LeftArm').x - bind('RightArm').x) / 2;
   const bodyScaleX = shoulder / 0.30;
   const headScale = modularHeadFrame(profile, asset, native, sharedHead).radius / 0.21;
@@ -236,6 +246,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const mapped = name === 'character-body-mesh' ? body(p, tags[vertex * 2] ?? 0, tags[vertex * 2 + 1] ?? 0)
           : limb(p, name.startsWith('left') ? 'Left' : 'Right', name.includes('arm'));
         positions.push(mapped.at.x, mapped.at.y, mapped.at.z);
+        if (name === 'character-body-mesh' && tags[vertex * 2] === 0 && tags[vertex * 2 + 1] === 0)
+          measureTorso(mapped.at);
         if (name === 'character-body-mesh' && tags[vertex * 2] === 1)
           headNormals.push(target, -authoredNormals[i]!, authoredNormals[i + 1]!, authoredNormals[i + 2]!);
         joints.push(...mapped.indices); weights.push(...mapped.weights);
@@ -338,6 +350,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const index = positions.length / 3; remap.set(key, index);
       const scaleX = region === 3 || region === 6 ? width : 1;
       positions.push(srcP[old * 3]! * scaleX, srcP[old * 3 + 1]!, srcP[old * 3 + 2]!);
+      if (region === 3) measureTorso(new Vector3(srcP[old * 3]! * scaleX, srcP[old * 3 + 1]!, srcP[old * 3 + 2]!));
       const n = new Vector3(srcN[old * 3]! / scaleX, srcN[old * 3 + 1]!, srcN[old * 3 + 2]!).normalize();
       headNormals.push(index, n.x, n.y, n.z);
       const pigment = asset.wardrobe!.pigment[old];
@@ -468,7 +481,9 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const isJoint = (name: string): name is RigJoint => (RIG_JOINTS as readonly string[]).includes(name);
   const boxes: ModularRollBox[] = [...bounds].flatMap(([joint, b]) => isJoint(joint) ? [{ joint, corners:
     [b.min.x, b.max.x].flatMap(x => [b.min.y, b.max.y].flatMap(y => [b.min.z, b.max.z].map(z => new Vector3(x, y, z)))) }] : []);
-  const built = { data, boxes };
+  const torso = Number.isFinite(torsoFront) && Number.isFinite(torsoBack)
+    ? Object.freeze({ chestZ: chest.z, front: torsoFront, back: torsoBack }) : null;
+  const built = { data, boxes, torso };
   if (cache.size >= MAX_CACHED_BODIES) cache.delete(cache.keys().next().value!);
   cache.set(key, built);
   return finish(built);
