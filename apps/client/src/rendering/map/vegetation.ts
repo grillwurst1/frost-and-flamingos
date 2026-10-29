@@ -55,7 +55,7 @@ const CULL = {
   bush: 100,
   prop: 130,
   rock: 220,
-  tree: 0,
+  tree: 750,
   decal: 120,
   blob: 160,
 } as const;
@@ -532,9 +532,12 @@ export function buildVegetation(
       const y = outerHeight(x, z);
       if (y < 1.5) continue;
       const forest = Math.sin(x * 0.021 + Math.sin(z * 0.013) * 2.2) * Math.sin(z * 0.017 + Math.cos(x * 0.011) * 1.7);
-      if (forest < -0.25 || hash3(x, z, 43) > 0.72) continue;
+      const edgeDistance = Math.max(Math.abs(x), Math.abs(z)) - MAP_HALF_SIZE;
+      const tropical = y < 16 && x + z < -80;
+      const density = tropical ? .10 : edgeDistance < 70 ? .40 : .16;
+      if (forest < -0.25 || hash3(x, z, 43) > density) continue;
       const snowy = y > outerSnowLine(x, z) - 6;
-      const pool = snowy ? (hash3(x, z, 44) > 0.4 ? pools.firSnow.tall : pools.firSnow.medium) : pools.firGreen;
+      const pool = tropical ? pools.palmTall : snowy ? (hash3(x, z, 44) > 0.4 ? pools.firSnow.tall : pools.firSnow.medium) : pools.firGreen;
       const entry = choose(pool.length > 0 ? pool : pools.firGreen, hash3(z, x, 45));
       if (!entry) continue;
       trees.billboard(entry, x, y - 0.4, z, entry.height * (0.85 + hash3(x, 46, z) * 0.5), hash3(x, z, 47) > 0.5, CULL.tree, 0.6);

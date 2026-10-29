@@ -816,3 +816,23 @@ rebuild error / adapter-null failure; do not call this native runtime acceptance
 The waistcoat additionally overlaps the old waistband while keeping its shoulder
 opening. Final full client recheck passes (137) after this fit change; the full
 14/211/137 run, clean types/build and no-timeout-change scope are retained.
+
+
+### Final world/readability increment before requested complete push
+
+Bridge boards/ropes/posts are cleaner and lower cost (5,104→3,240 triangles);
+remove coplanar duplicate segment posts and large yaw overlaps. Colliders and
+route stay. Outside painted trees 9,398→2,369, with 750 m fade and low-outskirt
+palms. Crowded name labels separate with connectors to the same world anchors.
+Snow cannon blue/red and SMG/shotgun vector icons better follow the latest art.
+No new texture/fullscreen pass, weapon rules or protocol changes. Full 364 tests,
+clean types/build. Final real-game/model captures follow with this increment;
+full reference/native-Mac acceptance and later milestones remain open.
+
+Final browser evidence: `docs/qa/reference-readability-2026-10-29.json` and
+reference-readable-scene/reference-loadout-final captures. Actual connected
+WebGL2 game and three configured held-weapon models pass without browser
+errors. Static map vertices 1,743,468→1,712,804; actual outside instances 2,369.
+The crowded cow label lifts 90 CSS pixels, preserving its real anchor. Driver
+boarding keeps the loaded crawler in the capture without changing tow rules.
+These are software-renderer checks, not native M4 performance acceptance.

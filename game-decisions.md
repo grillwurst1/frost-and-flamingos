@@ -2538,3 +2538,16 @@ shirt when mixing clothes. Clouds retain their analytical silhouette but use
 broad illustrated underside shading, removing radial seams, dark rim and
 per-cloud normal/glow work. No new texture, render pass or protocol change.
 Full 14 script / 211 server / 137 client checks pass (362), clean types/build.
+
+
+29 October — bridge boards are about 0.8 m with 2.5 cm visual gaps and minimal
+yaw; remove duplicate segment posts, use rounder sparse posts and fewer thin
+rope/hanger lines. Preserve deck/rail colliders, route and sag. Bridge triangles
+5,104→3,240. Outside-map painted forest density is .40 near the edge/.16 farther
+out/.10 on low tropical outskirts, versus .72; instances 9,398→2,369, fade at
+750 m. Playable solid nature and collision blueprint are unchanged.
+Crowded name labels stack with connector lines to their unchanged anchors;
+visibility/faction/cloak rules stay, and layout uses CSS viewport dimensions.
+Snow cannon keeps its gameplay/hold geometry, now blue/red as in the latest
+reference; matching vector weapon icons remain texture-free. Full 364 checks,
+clean types and successful builds. No protocol, texture or fullscreen-pass change.

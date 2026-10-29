@@ -1255,3 +1255,13 @@ dezente räumliche Schattierung plastischer; die gewählte Hautgrundfarbe bleibt
 erhalten. Alte weiße Hemdfransen bleiben beim Kleidungswechsel nicht mehr an
 der Hose hängen. Wolken haben ruhigere weiße Flächen und eine blaue Unterseite.
 Dafür kommen keine neuen Texturen oder Vollbildfilter hinzu.
+
+
+Die Brücke hat breitere, dichter gesetzte Bohlen und ruhigere Seile/Stützen.
+Ihr Verlauf, die Begehbarkeit und seitlichen Begrenzungen bleiben erhalten.
+Die Fernlandschaft ist offener; zu weit entfernte Bäume blenden aus, an den
+tiefen tropischen Außenhängen stehen Palmen. Dicht beieinanderliegende
+Spielernamen werden versetzt und mit ihrer tatsächlichen Position verbunden.
+Der Schneewerfer und die Waffenbilder im HUD folgen stärker den blau-roten
+beziehungsweise stahlgrauen Farben der aktuellen Vorlage. Die Bedienung und
+Waffenwerte bleiben gleich.

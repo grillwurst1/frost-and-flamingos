@@ -91,7 +91,7 @@ const BRASS_DARK = '#bf7f28';
 const BLUE_STEEL = '#4f78a8';
 const OLIVE = '#6e8b3d';
 const MAROON = '#8b3a2a';
-const SNOW_YELLOW = '#f4c430';
+const SNOW_BLUE = '#79b9dc';
 const FLAMER_COPPER = '#d36b2c';
 const TANK_RED = '#e0482f';
 const TANK_GREEN = '#56a54a';
@@ -563,9 +563,9 @@ const DESIGNS: Record<string, WeaponDesign> = {
     build: (kit) => {
       kit.lathe(
         [
-          { z: -0.26, r: 0.06, hex: shadeHex(SNOW_YELLOW, 0.82) },
+          { z: -0.26, r: 0.06, hex: shadeHex(SNOW_BLUE, 0.82) },
           { z: -0.24, r: 0.1 },
-          { z: -0.22, r: 0.115, hex: SNOW_YELLOW },
+          { z: -0.22, r: 0.115, hex: SNOW_BLUE },
           { z: 0.26, r: 0.13 },
           { z: 0.26, r: 0.155, hard: true, hex: STEEL_LIGHT },
           { z: 0.3, r: 0.165 },
@@ -586,9 +586,9 @@ const DESIGNS: Record<string, WeaponDesign> = {
         });
       }
       kit.lathe([{ z: 0.43, r: 0.045, hex: STEEL_LIGHT }, { z: 0.49, r: 0.032 }, { z: 0.52, r: 0.0 }], { at: [0, 0.2, 0], segments: 10, capStart: true });
-      // Yellow saddle mount, dark pistol grip, top carry handle, hose stub.
+      // Reference blue drum / red saddle, dark grip, carry handle and hose.
       kit.extrude(
-        SNOW_YELLOW,
+        TANK_RED,
         [
           [-0.16, 0.12],
           [0.16, 0.12],

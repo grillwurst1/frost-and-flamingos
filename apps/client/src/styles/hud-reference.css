@@ -56,6 +56,8 @@
 .player-tags { position:absolute; inset:0; overflow:hidden; }
 .player-tag { position:absolute; display:flex; flex-direction:column; align-items:center; gap:.18rem; transform:translate(-50%,-100%); color:#db716a; font-family:'Arial Narrow','Trebuchet MS',Arial,sans-serif; font-size:1.25rem; line-height:1.1; font-weight:900; -webkit-text-stroke:.16rem #26323c; paint-order:stroke fill; white-space:nowrap; }
 .player-tag.is-friendly { color:#69a8cf; }
+.player-tag { transform:translate(-50%,-100%) translateY(calc(-1 * var(--tag-lift,0px))); }
+.player-tag::before { content:''; position:absolute; top:100%; left:50%; width:1px; height:var(--tag-lift,0px); background:currentColor; box-shadow:0 0 0 1px #26323c88; opacity:.75; }
 .player-tag>span { max-width:15rem; overflow:hidden; text-overflow:ellipsis; }
 .player-tag i { display:block; position:relative; width:1.3rem; height:.7rem; background:#26323c; clip-path:polygon(0 0,100% 0,50% 100%); }
 .player-tag i::after { content:''; position:absolute; inset:.1rem .16rem .15rem; background:currentColor; clip-path:polygon(0 0,100% 0,50% 100%); }

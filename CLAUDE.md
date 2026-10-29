@@ -1298,3 +1298,33 @@ rebuild error / adapter-null failure; do not call this native runtime acceptance
 The waistcoat additionally overlaps the old waistband while keeping its shoulder
 opening. Final full client recheck passes (137) after this fit change; the full
 14/211/137 run, clean types/build and no-timeout-change scope are retained.
+
+
+### Reference world and HUD readability — 29 October 2026
+
+Continued after 1f97087, then owner explicitly requests pushing everything.
+The bridge has broader close-set boards with minimal yaw, no coplanar duplicate
+segment posts, rounder small posts and fewer thin hanger/handrail lines. The
+shared deck/guardrail colliders, route and sag are unchanged. Bridge geometry
+falls from 6,282 vertices / 5,104 triangles to 3,734 / 3,240.
+Outside-map painted trees fall 9,398→2,369 on the same deterministic ring, fading
+after 750 m; low tropical outskirts use palms. Playable 3D trees/colliders stay.
+This reduces background overdraw/geometry, not a measured native-Mac FPS claim.
+
+Nearby name labels now separate vertically with a thin connector retaining
+their actual world anchor, colour, visibility and cloak rules. Local-marker
+priority is stable, and lifts reset on wider viewports. No packet change.
+The existing snow cannon is blue with a red mount following the latest image;
+its icon and SMG/shotgun pictograms match the actual forms/colours. No weapon
+stat/hold/socket change or new texture/fullscreen pass.
+Full 14 script / 211 server / 139 client checks pass (364), clean strict types
+and successful builds. Final browser evidence follows. Complete target art
+acceptance/native M4 acceptance and later milestones remain open.
+
+Final browser evidence: `docs/qa/reference-readability-2026-10-29.json` and
+reference-readable-scene/reference-loadout-final captures. Actual connected
+WebGL2 game and three configured held-weapon models pass without browser
+errors. Static map vertices 1,743,468→1,712,804; actual outside instances 2,369.
+The crowded cow label lifts 90 CSS pixels, preserving its real anchor. Driver
+boarding keeps the loaded crawler in the capture without changing tow rules.
+These are software-renderer checks, not native M4 performance acceptance.

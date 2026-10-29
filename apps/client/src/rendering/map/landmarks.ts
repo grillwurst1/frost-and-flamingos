@@ -586,24 +586,25 @@ export function drawBridgeDeck(batch: GeometryBatch, prop: MapProp): void {
   const width = prop.dimensions?.x ?? 6;
   const length = prop.dimensions?.z ?? 12.5;
   const rise = prop.dimensions?.y ?? 0;
-  const planks = Math.round(length / 0.42);
+  const planks = Math.max(1, Math.round(length / 0.80));
   for (let index = 0; index < planks; index += 1) {
     const t = (index + 0.5) / planks;
     const z = t * length;
     const y = rise * t - 0.1;
     const broken = hash3(prop.variant, index, 3);
     const w = width + (broken - 0.5) * 0.5;
-    batch.with(Affine.translation((broken - 0.5) * 0.12, y, z).rotateY((broken - 0.5) * 0.05), () => {
-      batch.box(0, 0, 0, w, 0.18, length / planks - 0.06, mix(P.plank, P.plankLight, broken), 'wood', 0.03);
+    batch.with(Affine.translation((broken - 0.5) * 0.12, y, z).rotateY((broken - 0.5) * 0.004), () => {
+      batch.box(0, 0, 0, w, 0.18, length / planks - 0.025, mix(P.plank, P.plankLight, broken), 'wood', 0.03);
     });
   }
   for (const side of [-1, 1]) {
     batch.log([side * (width / 2 - 0.15), -0.35, 0], [side * (width / 2 - 0.15), rise - 0.35, length], 0.2, P.logDark, 'wood', { segments: 6 });
     // Rope hand rail sagging between posts
-    const posts = 3;
+    const posts = 1;
     for (let post = 0; post <= posts; post += 1) {
+      if (post === 0 && prop.variant > 0) continue;
       const t = post / posts;
-      batch.log([side * (width / 2 - 0.05), rise * t - 0.2, t * length], [side * (width / 2 - 0.05), rise * t + 1.15, t * length], 0.09, P.log, 'wood', { segments: 5 });
+      batch.log([side * (width / 2 - 0.05), rise * t - 0.2, t * length], [side * (width / 2 - 0.05), rise * t + 1.15, t * length], 0.09, P.log, 'wood', { segments: 8 });
     }
     const rope: V3[] = [];
     for (let index = 0; index <= 10; index += 1) {
@@ -611,8 +612,6 @@ export function drawBridgeDeck(batch: GeometryBatch, prop: MapProp): void {
       rope.push([side * (width / 2 - 0.05), rise * t + 1.1 - Math.sin(((t * posts) % 1) * Math.PI) * 0.18, t * length]);
     }
     batch.tube(rope, 0.06, 5, P.rope, 'cloth');
-    const lower = rope.map(([x, y, z]): V3 => [x, y - 0.5, z]);
-    batch.tube(lower, 0.045, 4, P.ropeDark, 'cloth');
   }
   // Cross joists under the deck
   for (let joist = 0; joist <= 3; joist += 1) {
@@ -660,7 +659,8 @@ export function drawBridgeCables(batch: GeometryBatch): void {
     }
     batch.tube(points, 0.16, 6, P.ropeDark, 'cloth');
     // Hangers from the main cable down to the deck edge
-    for (const point of points) {
+    for (const [index, point] of points.entries()) {
+      if (index % 3 !== 0) continue;
       if (point[2] < south.z + 1 || point[2] > north.z - 1) continue;
       const deck = bridgeDeckHeightAt(point[2]);
       if (point[1] - deck < 1.4) continue;

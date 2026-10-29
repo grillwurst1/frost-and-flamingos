@@ -233,3 +233,9 @@ are original project work. Facial cavity shading is derived offline in Blender
 from the owner's existing closed scout sculpt, without changing skin pigment
 or importing external textures. Shirt-tail metadata derives from the original
 owner meshes and paint; source GLBs/images/animation clips remain unchanged.
+
+
+Bridge simplification, outside-forest art direction, player-label layout and
+blue/red/steel weapon palette/vector pictograms are original project work based
+on the owner's latest target. Outside vegetation reuses the owner's existing
+painted tree/palm atlas; no additional images or external game assets are used.

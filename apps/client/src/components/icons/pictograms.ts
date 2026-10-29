@@ -155,9 +155,9 @@ const VEHICLE_ICONS = {
 
 const WEAPON_ICONS: Record<WeaponId, string> = {
   smg: tilt(
-    p('M15 27 L5 30 L5 37 L15 35 Z', WOOD) +
-      p('M24 35 L21 50 L30 50 L32 35 Z', METAL_DARK) +
-      p('M37 35 L40 47 L46 47 L44 35 Z', WOOD) +
+    p('M15 27 L5 30 L5 37 L15 35 Z', METAL_DARK) +
+      p('M18 35 L14 47 H21 L25 35 Z', WOOD_DARK) +
+      r(31, 35, 7, 16, 1.2, METAL_DARK) +
       r(13, 25, 32, 11, 2.5, METAL) +
       r(44, 28, 16, 6, 2, METAL_LIGHT) +
       r(18, 21, 9, 5, 1.5, METAL_DARK) +
@@ -190,7 +190,7 @@ const WEAPON_ICONS: Record<WeaponId, string> = {
       r(26, 26, 35, 5.5, 2, METAL) +
       r(26, 31, 35, 5.5, 2, METAL_LIGHT) +
       r(30, 36, 14, 6, 3, WOOD) +
-      r(14, 26, 14, 12, 2.5, BRASS) +
+      r(14, 26, 14, 12, 2.5, METAL_DARK) +
       `<path d="M21 38 Q22 46 28 45" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>`,
   ),
   bazooka: tilt(
@@ -225,12 +225,12 @@ const WEAPON_ICONS: Record<WeaponId, string> = {
     ),
   snow_cannon: tilt(
     c(15, 41, 9, 9, 'none', { stroke: INK, 'stroke-width': 9 }) +
-      c(15, 41, 9, 9, 'none', { stroke: '#D9A62B', 'stroke-width': 4.5 }) +
+      c(15, 41, 9, 9, 'none', { stroke: METAL_DARK, 'stroke-width': 4.5 }) +
       r(4, 22, 20, 14, 6, ICE) +
-      r(22, 22, 34, 14, 5, '#FFD33D') +
-      `<path d="M26 26.5 H52" stroke="#FFF1A8" stroke-width="3" stroke-linecap="round"/>` +
-      r(52, 18, 8, 22, 3.5, BRASS) +
-      r(30, 36, 8, 11, 3, BRASS) +
+      r(22, 22, 34, 14, 5, '#79b9dc') +
+      `<path d="M26 26.5 H52" stroke="#d1eff8" stroke-width="3" stroke-linecap="round"/>` +
+      r(52, 18, 8, 22, 3.5, METAL) +
+      p('M25 36 H41 L46 49 H38 L33 41 L29 49 H21Z', RED) +
       spark(60, 12, 5, WHITE),
   ),
   sand_flamer: tilt(

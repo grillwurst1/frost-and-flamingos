@@ -626,3 +626,10 @@ shadows, offline neutral face cavity, shirt-tail slot cleanup and cleaner/cheape
 cloud shading. No new gameplay milestone, texture, fullscreen pass or protocol.
 Full 362 cases, strict types and builds pass; reference/native-Mac acceptance
 remains open.
+
+
+29 October — final requested push includes bridge readability/geometry reduction,
+sparser fading outside forest, tropical outskirts, overlapping-name separation
+and reference weapon colours/icons. Full 364 tests, strict types/build pass.
+Gameplay, collision blueprint and protocol stay; no later milestone is declared
+complete. Continue judging reference art/native-Mac behaviour independently.

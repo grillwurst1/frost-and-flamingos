@@ -1033,3 +1033,11 @@ skin pigment or adding a texture. White shirt tails belong to the torso slot,
 so mixed trousers no longer keep them. Clouds have cleaner white/blue shading
 and a cheaper shader. Full 362 tests, strict types and production builds pass.
 This is further progress toward the reference, not complete art acceptance.
+
+
+Further reference polish: broader bridge boards and simpler ropes/posts improve
+readability while reducing its triangles by about 37%; distant painted trees
+drop from 9,398 to 2,369, with distance fade and tropical palms on low outskirts.
+Playable geometry/collisions stay. Crowded player names separate with connectors
+to their true anchors. Snow cannon and weapon pictograms follow the latest
+blue/red/steel reference colours. Full 364 tests, types and builds pass.

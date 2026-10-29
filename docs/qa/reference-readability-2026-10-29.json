@@ -1,0 +1,238 @@
+{
+  "scope": "Final verified increment after 1f97087, before owner-requested push of all work: cleaner bridge and background, anchored name separation, reference weapon colours and vector pictograms.",
+  "validation": {
+    "script": 14,
+    "server": 211,
+    "client": 139,
+    "total": 364,
+    "failures": 0,
+    "types": "0 errors / 0 warnings",
+    "build": "passed, existing large client chunk advisory",
+    "simulatedConquestSoakMinutes": 15,
+    "simulatedSoakWallSeconds": 70.9,
+    "timeoutsChanged": false
+  },
+  "geometry": {
+    "bridge": {
+      "before": {
+        "vertices": 6282,
+        "triangles": 5104
+      },
+      "after": {
+        "vertices": 3734,
+        "triangles": 3240
+      }
+    },
+    "outerTrees": {
+      "before": 9398,
+      "after": 2369,
+      "tropical": 22,
+      "fadesAfter": 750
+    },
+    "scope": "Same deterministic coordinates and terrain; all source tree pools are available. Counts are geometry/instances, not a native FPS benchmark."
+  },
+  "webgl2Loadout": [
+    {
+      "native": false,
+      "result": [
+        {
+          "triangles": 35505,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -1.2924678325653076,
+            1.173614740371704,
+            0.6826757192611694
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3129037320613861,
+            0,
+            1.0115326642990112
+          ]
+        },
+        {
+          "triangles": 27420,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -0.19825169444084167,
+            1.3325942754745483,
+            0.7755436897277832
+          ],
+          "weapon": {
+            "vertices": 673,
+            "triangles": 1030
+          },
+          "forward": [
+            -0.3389790654182434,
+            0,
+            1.0958272218704224
+          ]
+        },
+        {
+          "triangles": 31927,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            0.44751453399658203,
+            1.2250531911849976,
+            0.9979388117790222
+          ],
+          "weapon": {
+            "vertices": 328,
+            "triangles": 448
+          },
+          "forward": [
+            -0.3129037618637085,
+            0,
+            1.0115327835083008
+          ]
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": []
+    }
+  ],
+  "captureScope": "Actual owner-provided rigs and their configured outfits, hands and held weapons. 100 CPU pose updates followed by three software GPU frames. Snow cannon Heavy uses an existing white tracht-shirt option for comparison; defaults and saved choices remain unchanged.",
+  "resources": {
+    "newTextures": 0,
+    "newFullscreenPasses": 0,
+    "newShadowPasses": 0,
+    "protocol": 13,
+    "unchanged": "Playable tree and bridge deck/rail colliders, weapon rules and sockets, 45 FPS default and existing pixel/shadow budgets.",
+    "mapVerticesBefore": 1743468,
+    "mapVerticesAfter": 1712804
+  },
+  "limitations": "Software WebGL2 browser evidence is not a native M4 FPS, thermal or freeze benchmark. Full screenshot/model/composition acceptance and remaining milestones stay open. WebGPU runtime acceptance remains open as recorded in reference-finishing-2026-10-29.json; no shader changes in this increment.",
+  "webgl2ActualGame": [
+    {
+      "feet": {
+        "x": 40,
+        "y": 23.02499923706055,
+        "z": 66
+      },
+      "camera": [
+        43.288457286633445,
+        25.240208827922768,
+        64.72151499221691
+      ],
+      "stats": {
+        "drawCalls": 183,
+        "activeMeshes": 97,
+        "meshes": 591,
+        "materials": 92,
+        "mapVertices": 1712804,
+        "destructibleMeshes": 102,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_facadeAtlas": 37,
+        "boot_spriteAtlas": 3178,
+        "boot_map": 3372,
+        "boot_world": 6550
+      },
+      "outerTreeInstances": 2369,
+      "tagLayout": [
+        {
+          "name": "GipfelRanger",
+          "lift": "0px"
+        },
+        {
+          "name": "Wuzzi",
+          "lift": "0px"
+        },
+        {
+          "name": "Angry_Cow_Beta",
+          "lift": "90px"
+        }
+      ],
+      "largestMeshes": [
+        {
+          "name": "plaza-painted-relief",
+          "vertices": 101716,
+          "triangles": 201496
+        },
+        {
+          "name": "tower_c-architecture",
+          "vertices": 68463,
+          "triangles": 40306
+        },
+        {
+          "name": "map-chunk-0_0",
+          "vertices": 66319,
+          "triangles": 34494
+        },
+        {
+          "name": "fjord-terrain",
+          "vertices": 66049,
+          "triangles": 131072
+        },
+        {
+          "name": "map-chunk-3_3",
+          "vertices": 57624,
+          "triangles": 30916
+        },
+        {
+          "name": "destructible-building_chalet_east",
+          "vertices": 45510,
+          "triangles": 24514
+        },
+        {
+          "name": "destructible-building_chalet_west",
+          "vertices": 39922,
+          "triangles": 24450
+        },
+        {
+          "name": "destructible-building_chalet_south",
+          "vertices": 37815,
+          "triangles": 21774
+        },
+        {
+          "name": "map-chunk--1_0",
+          "vertices": 36186,
+          "triangles": 22092
+        },
+        {
+          "name": "destructible-building_chalet_north",
+          "vertices": 36092,
+          "triangles": 19228
+        },
+        {
+          "name": "fjord-water",
+          "vertices": 34969,
+          "triangles": 69192
+        },
+        {
+          "name": "nature-solid--2:1",
+          "vertices": 32249,
+          "triangles": 36606
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": [],
+      "names": [
+        "GipfelRanger",
+        "Wuzzi",
+        "Angry_Cow_Beta"
+      ]
+    }
+  ],
+  "gameCaptureScope": "Real binary-network peers, cow and painted crawler with a peer driver, actual medium WebGL2 rendering. Staged dev positions/camera only. Cloak/line-of-sight and faction rules remain active, so occluded peers are not forced into view. Connected menu, deployment and loaded local model passed; crowded cow label lifts 90 CSS px with anchor connector.",
+  "captures": [
+    "reference-readable-scene-2026-10-29.png",
+    "reference-loadout-final-2026-10-29.png"
+  ]
+}
