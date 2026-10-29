@@ -124,7 +124,8 @@ Append these to <http://localhost:5173/> for testing (for example `?renderer=web
 
 | Option | Effect |
 | --- | --- |
-| `?renderer=webgl2` | Force the WebGL2 fallback instead of WebGPU. |
+| `?renderer=webgl2` | Use the validated WebGL2 default. |
+| `?renderer=webgpu` | Explicitly opt into the experimental WebGPU path. |
 | `?quality=auto\|high\|medium\|low` | Picture quality for this session only (the saved setting is untouched). |
 | `?painted=0` | Skip the painted Meshy models: soldiers use the procedural character, vehicles their stand-in hull. |
 | `?mascotModels=off` | Keep the procedural cow and coconut instead of the Meshy mascot models. |
@@ -906,3 +907,16 @@ strict types and production builds pass. Settled WebGL2 capture has zero browser
 errors. `docs/qa/closed-hands-2026-10-29.json` records scope, counts and limits.
 Owner now reports cow-skill/crawler-driving freezes: fix those before more art
 or autonomous-cow behaviour. Longer alphorn/cleaner animations are also requested.
+
+
+The renderer now starts on WebGL2; WebGPU is an explicit experimental opt-in.
+Cow/cannon sound graphs release their transient nodes, suspended audio cannot
+queue more engine automation, and an audio exception cannot stop rendering.
+110 client tests and strict types/build pass. Native Chrome/M4 freeze and heat
+acceptance still needs the owner's device; cloud WebGL2 checks are separate.
+
+Actual default-WebGL2 validation: all three cow Q/E/T moves emitted; crawler
+driving with eight separate cannon shots passed >90 s / >30 rendered frames
+with no browser errors. Full map, physics and real network remain in the test.
+Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
+Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.

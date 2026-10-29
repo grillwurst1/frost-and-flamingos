@@ -1,0 +1,109 @@
+{
+  "report": {
+    "browser": "Owner Chrome 156.0.8078.48 arm64 / MacBook M4",
+    "symptoms": [
+      "Cow Q/E/T freezes",
+      "Crawler driving plus shooting freezes"
+    ]
+  },
+  "scope": "Cloud Chromium / software WebGL2 functional validation. Exact original native-Mac freeze and thermal/FPS behavior remain unconfirmed. WebGPU remains explicit opt-in.",
+  "validation": {
+    "clientPassed": 110,
+    "scriptUnchanged": 14,
+    "serverUnchanged": 198,
+    "types": "0 errors / 0 warnings",
+    "productionBuild": "passed",
+    "audio": "100 mixed cow/cannon cycles release transient graphs; 10,000 suspended updates create no new voices; injected audio failure does not escape caller."
+  },
+  "cow": {
+    "actions": [
+      {
+        "type": "move",
+        "slot": 1,
+        "position": {
+          "x": 222.72500610351562,
+          "y": 55.025001525878906,
+          "z": 232.72500610351562
+        }
+      },
+      {
+        "type": "move",
+        "slot": 2,
+        "position": {
+          "x": 197.14999389648438,
+          "y": 55.025001525878906,
+          "z": 239.375
+        }
+      },
+      {
+        "type": "move",
+        "slot": 3,
+        "position": {
+          "x": 197.14999389648438,
+          "y": 55.025001525878906,
+          "z": 239.375
+        }
+      }
+    ],
+    "engine": "webgl2",
+    "stats": {
+      "drawCalls": 136,
+      "activeMeshes": 81,
+      "meshes": 502,
+      "materials": 84,
+      "mapVertices": 1696011,
+      "destructibleMeshes": 102,
+      "destructibleSprites": 0,
+      "fps": 0,
+      "boot_facadeAtlas": 46,
+      "boot_spriteAtlas": 4781,
+      "boot_map": 4067,
+      "boot_world": 8848
+    }
+  },
+  "crawler": {
+    "shots": 8,
+    "frame": 83,
+    "stats": {
+      "drawCalls": 502,
+      "activeMeshes": 300,
+      "meshes": 521,
+      "materials": 88,
+      "mapVertices": 1696011,
+      "destructibleMeshes": 102,
+      "destructibleSprites": 0,
+      "fps": 0,
+      "boot_facadeAtlas": 103,
+      "boot_spriteAtlas": 4588,
+      "boot_map": 4304,
+      "boot_world": 8892
+    },
+    "heap": 212503184,
+    "seat": {
+      "vehicleId": 4,
+      "seat": 0,
+      "kind": "fondue_crawler",
+      "driver": true,
+      "gunner": true,
+      "handWeapons": false,
+      "exposed": false
+    },
+    "at": {
+      "x": 332.36662157090177,
+      "y": 58.77620053641149,
+      "z": 314.10558594764086
+    }
+  },
+  "crawlerSoak": {
+    "minimumWallSeconds": 90,
+    "minimumRenderedFrames": 31,
+    "actualSeparateShots": 8,
+    "errors": [],
+    "note": "Full map and real input/physics/network path. A staged round reset applied the cow-to-soldier profile before a separate crawler run; the first combined harness was stopped while waiting for a class change, not a game freeze."
+  },
+  "remaining": [
+    "Native Chrome/M4 regression acceptance",
+    "CPU replay scheduling under overload",
+    "Long alphorn, art/animation cleanup and autonomous cow behavior"
+  ]
+}

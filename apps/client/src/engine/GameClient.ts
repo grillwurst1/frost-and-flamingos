@@ -262,9 +262,11 @@ async function createEngine(canvas: HTMLCanvasElement): Promise<{
   fallbackAdapter: boolean;
 }> {
   const params = new URLSearchParams(window.location.search);
-  const forceWebGL = params.get('renderer') === 'webgl2';
+  // The full gameplay/effect path is validated on WebGL2. WebGPU remains an
+  // explicit opt-in until its dynamic effect pipelines pass runtime QA.
+  const requestWebGPU = params.get('renderer') === 'webgpu';
 
-  if (!forceWebGL && typeof navigator !== 'undefined' && navigator.gpu) {
+  if (requestWebGPU && typeof navigator !== 'undefined' && navigator.gpu) {
     let webgpu: WebGPUEngine | null = null;
     try {
       const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
@@ -596,7 +598,7 @@ export class GameClient {
       this.engine.runRenderLoop(() => this.frame());
       setLoadingStep('engine', 'done');
       setLoadingProgress(0.34);
-      if (renderer === 'webgl2' && typeof navigator !== 'undefined' && navigator.gpu) {
+      if (renderer === 'webgl2' && new URLSearchParams(location.search).get('renderer') === 'webgpu') {
         notify('notifications.webglFallback');
       }
 

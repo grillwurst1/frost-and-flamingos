@@ -628,3 +628,18 @@ strict types and production builds pass. Settled WebGL2 capture has zero browser
 errors. `docs/qa/closed-hands-2026-10-29.json` records scope, counts and limits.
 Owner now reports cow-skill/crawler-driving freezes: fix those before more art
 or autonomous-cow behaviour. Longer alphorn/cleaner animations are also requested.
+
+
+Freeze stability now has priority: the owner reports all three cow skills and
+crawler driving plus firing on Chrome 156 arm64. Audio lifecycle/automation
+cleanup and exception isolation are implemented; WebGL2 becomes the default.
+The native-Mac root cause remains unconfirmed. This does not close screenshot
+acceptance or claim M4 thermal/FPS results. Longer alphorn/animation cleanup
+and occasional autonomous playable-cow grazing/ramming are explicitly requested
+next, with both teams eligible for the cow's target selection.
+
+Actual default-WebGL2 validation: all three cow Q/E/T moves emitted; crawler
+driving with eight separate cannon shots passed >90 s / >30 rendered frames
+with no browser errors. Full map, physics and real network remain in the test.
+Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
+Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.

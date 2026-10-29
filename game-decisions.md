@@ -2382,3 +2382,17 @@ where selected, and the existing rigid-wrist fallback where digits are absent.
 Arm anatomy, hands and wrist accessories use semantic part tags. Distance from
 the shoulder cannot decide whether a crossing watch/cuff is a hand. The full
 watch band/case/dial is bound rigidly to ForeArm; its band encircles the wrist.
+
+
+Following cow-skill/crawler-driving-plus-firing freezes reported on Chrome 156
+arm64, default to the runtime-tested WebGL2 backend. WebGPU remains explicit
+opt-in until dynamic gameplay/effect validation succeeds; do not infer a native
+Metal root cause from the cloud device failure. Graphics quality tiers remain.
+
+Audio is optional feedback: a synchronous browser audio exception must not
+escape the render callback and terminate scheduling. The public synth facade
+keeps method identity, uses the same engine, logs once per failing method and
+allows later cues. Transient audio nodes own their lifecycle; shared positional
+destinations remain alive until all overlapping partials finish. Suspended
+contexts must not accumulate playback or automation. Shared buses never belong
+to transient cleanup. Recipe tails release their mixer/reverb destinations.

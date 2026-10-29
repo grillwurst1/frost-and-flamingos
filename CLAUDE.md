@@ -1039,3 +1039,34 @@ strict types and production builds pass. Settled WebGL2 capture has zero browser
 errors. `docs/qa/closed-hands-2026-10-29.json` records scope, counts and limits.
 Owner now reports cow-skill/crawler-driving freezes: fix those before more art
 or autonomous-cow behaviour. Longer alphorn/cleaner animations are also requested.
+
+
+### Cow-skill / moving-crawler freeze priority — 29 October 2026
+
+Owner reports Chrome 156.0.8078.48 arm64 on M4: Q/E/T can freeze the cow; crawler
+freezes when driving and firing together. This takes priority over further art.
+WebGL2 is now the validated default; WebGPU requires `?renderer=webgpu` until
+complete dynamic gameplay/effect runtime validation succeeds. Both retain the
+same quality budgets/art. This is a compatibility choice, not proof of a Metal
+driver defect or a native Mac FPS/thermal measurement.
+
+AudioEngine lives in audio/engine.ts; synth.ts preserves the public API and wraps
+optional audio calls so synchronous browser audio errors cannot escape into
+Babylon's frame callback (which otherwise stops scheduling). Errors are logged
+once per method; later healthy cues still run. Transient oscillators, noise,
+filters, gains, LFOs and shared panners now disconnect after their last source.
+Unused panners disconnect too. Recipe mixer/reverb branches expire after their
+designed tails. Suspended contexts create no cues/engine voices and schedule no
+listener/motor/rolling automation. Running automation replaces its prior ramp;
+stopping an engine releases its whole graph. Preserve shared mixer buses.
+
+110 client tests, strict types and production builds pass. Lifecycle tests
+exercise 100 mixed cow/cannon cycles, 10,000 suspended driving/cue calls and
+continued callback progress after injected audio failure. Script/server checks
+are unchanged (14/198). Exact original native-Mac freeze remains unconfirmed.
+
+Actual default-WebGL2 validation: all three cow Q/E/T moves emitted; crawler
+driving with eight separate cannon shots passed >90 s / >30 rendered frames
+with no browser errors. Full map, physics and real network remain in the test.
+Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
+Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.

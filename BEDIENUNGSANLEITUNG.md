@@ -89,8 +89,9 @@ Wichtig ist die **Hardwarebeschleunigung**:
   aktivieren, danach Browser neu starten.
 - Safari: ist standardmäßig hardwarebeschleunigt; bei Problemen Safari aktualisieren.
 
-Das Spiel nutzt WebGPU, wenn der Browser es anbietet, und fällt sonst automatisch auf WebGL2
-zurück. Beide Wege sind spielbar.
+Das Spiel startet standardmäßig mit WebGL2. Der bisher automatisch gewählte
+WebGPU-Pfad bleibt für gezielte Tests mit `?renderer=webgpu` verfügbar; sein
+vollständiger Laufzeittest ist noch offen.
 
 ---
 
@@ -683,7 +684,8 @@ mit `&` verbinden, z. B. `?renderer=webgl2&quality=low`):
 
 | Zusatz | Wirkung |
 | --- | --- |
-| `?renderer=webgl2` | WebGL2 statt WebGPU |
+| `?renderer=webgl2` | WebGL2, der geprüfte Standard |
+| `?renderer=webgpu` | WebGPU gezielt für Tests aktivieren |
 | `?quality=auto`, `high`, `medium` oder `low` | Bildqualität nur für diese Sitzung |
 | `?painted=0` | ohne gemalte Modelle: Soldaten als prozedurale Figur, Fahrzeuge als Platzhalter |
 | `?mascotModels=off` | prozedurale Kuh und Kokosnuss statt der Meshy-Modelle |
@@ -1148,3 +1150,16 @@ Ersatzhände besitzen jetzt geschlossene Handflächen, Daumenansätze und glatte
 Finger. Ihre Hautfarbe folgt weiterhin deiner Auswahl. Bei der goldenen Uhr
 bleiben Band, Gehäuse, Zifferblatt und Zeiger vollständig am Unterarm befestigt.
 Handschuhe und Piratenhaken bleiben über die Kleiderauswahl verfügbar.
+
+
+Bei den gemeldeten Hängern von Kuhfähigkeiten und Fonduepanzer startet das Spiel
+jetzt mit WebGL2 als Standard. Eine angehaltene Audioausgabe sammelt keine neuen
+Motor- und Fähigkeitengeräusche an; beendete Kurzgeräusche werden freigegeben.
+Ein Audiogerätefehler darf die Spielschleife nicht mehr anhalten. Nach dem Update
+die Seite neu laden und einen alten `renderer=webgpu`-Zusatz entfernen.
+
+Actual default-WebGL2 validation: all three cow Q/E/T moves emitted; crawler
+driving with eight separate cannon shots passed >90 s / >30 rendered frames
+with no browser errors. Full map, physics and real network remain in the test.
+Evidence: `docs/qa/freeze-stability-2026-10-29.json` and crawler capture. Native
+Chrome/M4 acceptance remains open; cloud software FPS is not a benchmark.
