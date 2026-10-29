@@ -1015,3 +1015,27 @@ fire/reload and close/four-figure captures pass without browser errors.
 Evidence: `docs/qa/weapon-grips-2026-10-29.json` and images. Native M4/WebGPU
 runtime and complete reference quality remain unverified. Improve hand/palm
 surfaces and garment/shoulder transitions next; M5 art acceptance stays open.
+
+
+### Closed anatomical hands and complete watches — 29 October 2026
+
+Compatible replacement bare hands now use one closed sculpt built offline around
+the owner's Alpine Allrounder wrist/finger landmarks. Voxel union, smoothing and
+bounded decimation produce 2,004 vertices / 4,000 triangles for both hands.
+Neutral crease shade and selected anatomical skin replace donor hand pigment.
+Bone rolls vary between exporters: retarget using anatomical knuckle/palm axes
+and actual short finger lengths. Keep complete native matching hands and the
+wrist-only fallback for rigs missing finger bones; mittens/boxing/hooks remain.
+
+The hand data is embedded in the shared body JSON, validated within its combined
+vertex/index budget and cached per outfit. No extra sampler, texture or draw is
+added; this is a bounded geometry increase, not an M4 performance measurement.
+Arm/hand/accessory semantic tags replace distance-based clipping. The whole
+watch is rigid to ForeArm, with a correctly oriented band, case, dial and hands.
+Thumb curl closes further over the grip. Original GLBs/animations are unchanged.
+
+Validation: 14 script / 107 client checks pass, 198 server checks unchanged;
+strict types and production builds pass. Settled WebGL2 capture has zero browser
+errors. `docs/qa/closed-hands-2026-10-29.json` records scope, counts and limits.
+Owner now reports cow-skill/crawler-driving freezes: fix those before more art
+or autonomous-cow behaviour. Longer alphorn/cleaner animations are also requested.

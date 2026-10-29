@@ -30,6 +30,10 @@ try {
     const input = join(temporary, `${key}.json`); await Bun.write(input, JSON.stringify(data));
     const bake = Bun.spawn(['python3', join(root, 'scripts/bake-soldier-wardrobe.py'), input, output], { stdout: 'inherit', stderr: 'inherit' });
     if (await bake.exited !== 0) throw new Error(`Wardrobe mask bake failed: ${key}`);
+    if (key === 'alpine-allrounder') {
+      const hands = Bun.spawn(['blender', '--background', '--factory-startup', '--threads', '2', '--python', join(root, 'scripts/bake-soldier-hands.py'), '--', input, output, join(temporary, 'soldier-hands.json')], { stdout: 'inherit', stderr: 'inherit' });
+      if (await hands.exited !== 0) throw new Error('Anatomical hand bake failed');
+    }
     if (key === 'alpine-infiltrator') {
       const head = Bun.spawn(['python3', join(root, 'scripts/bake-soldier-head.py'), input, output], { stdout: 'inherit', stderr: 'inherit' });
       if (await head.exited !== 0) throw new Error('Soldier head bake failed');
@@ -39,7 +43,7 @@ try {
       if (await hair.exited !== 0) throw new Error('Authored afro bake failed');
     }
     if (key === 'lagoon-heavy') {
-      const body = Bun.spawn(['python3', join(root, 'scripts/bake-soldier-body.py'), input, output], { stdout: 'inherit', stderr: 'inherit' });
+      const body = Bun.spawn(['python3', join(root, 'scripts/bake-soldier-body.py'), input, output, join(temporary, 'soldier-hands.json')], { stdout: 'inherit', stderr: 'inherit' });
       if (await body.exited !== 0) throw new Error('Anatomical surface bake failed');
     }
     const entry = manifest.models[key]; if (!entry) throw new Error(`Missing manifest model: ${key}`);

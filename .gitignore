@@ -6,6 +6,7 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+__pycache__/
 
 # Local runtime data
 apps/server/data/

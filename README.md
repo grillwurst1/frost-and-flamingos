@@ -893,3 +893,16 @@ foregrips through tested idle poses, using bounded shoulder motion and a small
 extra carry adjustment for short arms. No new draw, texture or geometry is
 needed. 105 client tests, strict types/build and actual WebGL2 fire/reload pass.
 Evidence: `docs/qa/weapon-grips-2026-10-29.json`; broader reference work continues.
+
+
+Replacement hands now have closed palms, thumb webs and smooth articulated
+fingers, using selected skin independently of clothing. The hand pair is capped
+at 4,000 triangles, shares the existing body draw and needs no new texture.
+Gold watches remain complete and rigid on the forearm, including the dial.
+Original matching native hands and missing-finger fallbacks remain available.
+
+Validation: 14 script / 107 client checks pass, 198 server checks unchanged;
+strict types and production builds pass. Settled WebGL2 capture has zero browser
+errors. `docs/qa/closed-hands-2026-10-29.json` records scope, counts and limits.
+Owner now reports cow-skill/crawler-driving freezes: fix those before more art
+or autonomous-cow behaviour. Longer alphorn/cleaner animations are also requested.

@@ -467,6 +467,57 @@ test('bald Heavy uses sculpted bare arms without adding another body draw', asyn
   } finally { view.dispose(); }
 });
 
+test('connected hands follow target finger lengths and anatomical palm axes', async () => {
+  const target = (await paintedModelLibrary(scene).load('alpine-heavy'))!;
+  const hands = target.wardrobeBody!.hands!, profile = createDefaultProfile('Connected hands', 'heavy');
+  profile.cosmetics.bodyType = .15;
+  const indices = new Map(hands.bones.filter(b => target.bindPositions.has(b.name)).map(b => [b.name, b.index]));
+  const retarget = bodySurfaceRetarget(profile, target, hands, indices);
+  for (const side of ['Left', 'Right']) {
+    const palm = hands.bones.find(b => b.name === side + 'Hand')!;
+    const at = (digit: string) => retarget.point(palm.index,
+      Vector3.FromArray(hands.bones.find(b => b.name === `${side}Hand${digit}1`)!.position), new Vector3(0, 0, 1)).position;
+    const direction = target.bindPositions.get(side + 'HandMiddle1')!.subtract(target.bindPositions.get(side + 'Hand')!).normalize();
+    const across = at('Index').subtract(at('Pinky'));
+    const expected = target.bindPositions.get(side + 'HandIndex1')!.subtract(target.bindPositions.get(side + 'HandPinky1')!);
+    across.subtractInPlace(direction.scale(Vector3.Dot(across, direction))).normalize();
+    expected.subtractInPlace(direction.scale(Vector3.Dot(expected, direction))).normalize();
+    expect(Vector3.Dot(across, expected)).toBeGreaterThan(.999);
+  }
+  for (const side of ['Left', 'Right']) for (const digit of ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky']) {
+    for (const part of [1, 2]) {
+      const bone = hands.bones.find(b => b.name === `${side}Hand${digit}${part}`)!;
+      const end = hands.bones.find(b => b.name === `${side}Hand${digit}${part + 1}`)!;
+      const at = retarget.point(bone.index, Vector3.FromArray(end.position), new Vector3(0, 0, 1));
+      expect(Vector3.Distance(at.position, target.bindPositions.get(end.name)!)).toBeLessThan(.00001);
+    }
+  }
+});
+
+test('the complete gold watch stays rigid on the forearm when anatomical arms and hands replace primitives', async () => {
+  const target = (await paintedModelLibrary(scene).load('alpine-heavy'))!;
+  const profile = createDefaultProfile('Complete watch', 'heavy');
+  Object.assign(profile.cosmetics, { hands: 'hands_gold_watch', torso: 'torso_field_vest' });
+  const view = new GlbCharacterView(scene, new StandardMaterial('watch-shadow', scene), profile, target,
+    { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } });
+  try {
+    const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
+    const colors = mesh.getVerticesData('color')!, joints = mesh.getVerticesData('matricesIndices')!;
+    const weights = mesh.getVerticesData('matricesWeights')!, flags = mesh.getVerticesData('uv2')!;
+    const forearms = new Set(mesh.skeleton!.bones.filter(b => /ForeArm$/.test(jointName(b.name))).map(b => b.getIndex()));
+    let gold = 0;
+    for (let v = 0; v < mesh.getTotalVertices(); v++) {
+      if (flags[v * 2] !== 0 || colors[v * 4 + 3] !== 0
+        || ![244, 201, 93].every((channel, k) => Math.abs(colors[v * 4 + k]! - channel / 255) < .000001)) continue;
+      gold++;
+      expect(forearms.has(joints[v * 4]!)).toBe(true);
+      expect(weights[v * 4]).toBe(1);
+    }
+    expect(gold).toBeGreaterThan(500);
+    expect(mesh.subMeshes).toHaveLength(1);
+  } finally { view.dispose(); }
+});
+
 
 test('eyepatch beards follow selected hair colour and extend around the actual sculpted chin', () => {
   for (const hairColorIndex of [0, 2, 5]) {

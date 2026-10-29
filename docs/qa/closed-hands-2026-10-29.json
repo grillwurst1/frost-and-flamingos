@@ -1,0 +1,58 @@
+{
+  "scope": "Closed replacement hand sculpt and complete rigid watch. Actual WebGL2 settled Heavy capture; cloud software rendering, not native M4 thermals/FPS. Wider reference acceptance remains open.",
+  "validation": {
+    "scriptPassed": 14,
+    "clientPassed": 107,
+    "serverUnchanged": 198,
+    "types": "0 errors / 0 warnings",
+    "productionBuild": "passed",
+    "note": "An initial full run timed out in three unrelated loaded-model fixtures while the dev stack remained active. After stopping those processes the unchanged full 107-test suite passed; no timeout was increased."
+  },
+  "geometry": {
+    "sharedHandVertices": 2004,
+    "sharedHandTriangles": 4000,
+    "extraTextures": 0,
+    "bodyDraws": 1,
+    "bareHeavyTrianglesBefore": 23448,
+    "bareHeavyTrianglesAfter": 25108
+  },
+  "close": [
+    {
+      "native": false,
+      "result": [
+        {
+          "triangles": 25108,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "forward": [
+            -0.7818797826766968,
+            0,
+            0.839290201663971
+          ]
+        },
+        {
+          "triangles": 26512,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "forward": [
+            -0.7818797826766968,
+            0,
+            0.839290201663971
+          ]
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": []
+    }
+  ],
+  "remaining": [
+    "Shoulder/garment fragments",
+    "Native painted-face quality",
+    "Full screenshot match",
+    "User-reported cow-skill and crawler-driving freezes now highest priority"
+  ]
+}

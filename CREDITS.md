@@ -184,3 +184,11 @@ The closed configurable head is an offline voxel union/refinement of the
 owner's scout sculpt and the project's scalp, with bounded decimation. The
 project's geometric lip contour follows that surface and selected complexion.
 The original owner GLBs, source images and animations are unchanged.
+
+
+The closed replacement hand sculpt, palm/finger lofts, thumb webs, neutral crease
+shading and watch case/dial/hands are original project geometry. The hand sculpt
+follows joint landmarks from the owner's Alpine Allrounder rig; its source hash
+records that anatomical reference, not copied source hand surfaces. Blender
+performs an offline union/smoothing/decimation on generated geometry only.
+Owner GLBs, source paint and animations remain unchanged.

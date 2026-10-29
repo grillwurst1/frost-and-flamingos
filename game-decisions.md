@@ -2368,3 +2368,17 @@ pull can gain up to 0.06 armature units, still subject to torso/stock/right-arm
 limits. Contact remains on the actual support/foregrip-back segment. No gun
 stats, muzzle direction, protocol, texture or draw count changes. Validation:
 `docs/qa/weapon-grips-2026-10-29.json`.
+
+
+Replacement anatomical hands are generated offline from owner-rig landmarks,
+united into closed surfaces and bounded to 4,000 triangles per pair. Their
+semantic skin and neutral creases do not sample donor clothing/complexion.
+Embed them in the content-hashed body geometry; validate child topology data,
+weights and combined budgets without allowing nested children. Anatomical palm
+axes remove exporter bone-roll differences; real finger lengths preserve short
+phalanges. Compatible cached bodies remain a single draw. Preserve native hands
+where selected, and the existing rigid-wrist fallback where digits are absent.
+
+Arm anatomy, hands and wrist accessories use semantic part tags. Distance from
+the shoulder cannot decide whether a crossing watch/cuff is a hand. The full
+watch band/case/dial is bound rigidly to ForeArm; its band encircles the wrist.

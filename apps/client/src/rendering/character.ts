@@ -1122,6 +1122,7 @@ export class CharacterView {
       box(scene, parts, `${side}-cuff`, 0.135, 0.06, 0.145, 0, -0.59, 0, WHITE);
     }
 
+    const handStart = parts.length;
     const handColor = HANDS_PALETTES[hands];
     const handPrimary = hexToColor4(handColor.primary);
     const handSecondary = hexToColor4(handColor.secondary);
@@ -1166,15 +1167,21 @@ export class CharacterView {
       }
       if (hands === 'hands_gold_watch') {
         torus(scene, parts, `${side}-watch`, 0.13, 0.022, 0, -0.6, 0, handPrimary, {
-          rotationX: Math.PI / 2,
-          segments: 8,
+          segments: 16,
         });
-        disc(scene, parts, `${side}-watch-face`, 0.06, 0.02, -0.6, 0.065, handSecondary, {
-          segments: 8,
+        cylinder(scene, parts, `${side}-watch-case`, .012, .060, .060, .02, -.60, .065, handSecondary, {
+          rotationX: Math.PI / 2, segments: 20,
         });
+        disc(scene, parts, `${side}-watch-dial`, .046, .02, -.60, .072, hexToColor4(handColor.accent), { segments: 20 });
+        box(scene, parts, `${side}-watch-minute`, .003, .018, .002, .02, -.595, .074, hexToColor4('#202a30'));
+        box(scene, parts, `${side}-watch-hour`, .014, .003, .002, .025, -.60, .074, hexToColor4('#202a30'));
       }
     }
 
+    // Explicit garment/hand families survive wrist-crossing cuffs and straps.
+    // A rigid watch belongs to the chosen hand slot, not half of an arm.
+    tagParts(parts.slice(0, handStart), 0, 0);
+    tagParts(parts.slice(handStart), 0, hands === 'hands_gold_watch' ? 4 : 3);
     for (const part of parts) { part.position.x *= bulk; part.position.z *= bulk; part.scaling.x *= bulk; part.scaling.z *= bulk; }
     // MergeMeshes bakes part transforms; mergeParts' single-mesh fast path does
     // not. A bare articulated arm has no separate hand/cuff, so preserve its

@@ -40,7 +40,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const recipe = nativeWardrobeRecipe(profile, native ? asset : { ...asset, wardrobe: undefined });
   const cleanHead = Boolean(native && sharedHead && asset.wardrobeHead && !recipe.head);
   const surfaces = native && sharedBody ? bodySurfaceRecipe(profile, asset) : { arms: false };
-  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}:${surfaces.arms}`;
+  const handSource = native && sharedBody && !recipe.hands ? asset.wardrobeBody?.hands : undefined;
+  const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}:${surfaces.arms}:${Boolean(handSource)}`;
   const finish = (cached: CachedBody): Mesh => {
     const mesh = new Mesh('soldier-modular-detail', scene);
     cached.data.applyToMesh(mesh, false);
@@ -115,7 +116,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     return { at, ...weight(['Neck'], 0) };
   };
-  const limb = (p: Vector3, side: 'Left' | 'Right', arm: boolean) => {
+  const limb = (p: Vector3, side: 'Left' | 'Right', arm: boolean, detail = 0) => {
     const names = arm ? [`${side}Arm`, `${side}ForeArm`, `${side}Hand`]
       : [`${side}UpLeg`, `${side}Leg`, `${side}Foot`];
     const levels = arm ? [0, 0.33, 0.60] : [0, 0.40, 0.75];
@@ -138,6 +139,10 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const toe = Vector3.Cross(lateral, new Vector3(0, -1, 0)).normalize();
       right.copyFrom(Vector3.Lerp(right, lateral, flatten).normalize());
       front.copyFrom(Vector3.Lerp(front, toe, flatten).normalize());
+    }
+    if (arm && detail === 4) {
+      const at = b.add(direction.scale((distance - .60) * size)).add(right.scale(p.x * size)).add(front.scale(p.z * size));
+      return { at, ...weight([`${side}ForeArm`], 0) };
     }
     let at = Vector3.Lerp(a, b, t).add(right.scale(p.x * size)).add(front.scale(p.z * size));
     let skin;
@@ -174,6 +179,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     return hand ? [[side, hand] as const] : [];
   }));
   const handSides = (['Left', 'Right'] as const).filter(side => articulated.includes(side) || wristHands.has(side));
+  const sculptedHands = new Set(handSource ? articulated : []);
+  const generatedHands = recipe.hands ? [] : handSides.filter(side => !sculptedHands.has(side));
   const template = new CharacterView(scene, new StandardMaterial('wardrobe-build-shadow', scene), profile,
     handSides.map(side => side === 'Left' ? 'left' : 'right'));
   const positions: number[] = [], colors: number[] = [], indices: number[] = [];
@@ -232,8 +239,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           if (tag === 1) replaced = detail === 4 ? recipe.hat : detail === 0 ? recipe.head || cleanHead : recipe.head;
           else if (tag === 0) replaced = detail === 6 ? recipe.head : detail === 7 ? recipe.legs : recipe.torso;
         } else if (name.includes('arm')) {
-          const distance = -(points[a * 3 + 1]! + points[faces[f + 1]! * 3 + 1]! + points[faces[f + 2]! * 3 + 1]!) / 3;
-          replaced = distance > .60 ? recipe.hands : recipe.arms || surfaces.arms;
+          replaced = detail === 3 || detail === 4 ? recipe.hands : recipe.arms || surfaces.arms;
         } else replaced = detail === 2 ? recipe.feet : recipe.legs;
         if (!replaced) visible.push(faces[f]!, faces[f + 1]!, faces[f + 2]!);
       }
@@ -244,7 +250,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const i = vertex * 3, target = positions.length / 3; remap.set(vertex, target);
         const p = new Vector3(points[i]!, points[i + 1]!, points[i + 2]!);
         const mapped = name === 'character-body-mesh' ? body(p, tags[vertex * 2] ?? 0, tags[vertex * 2 + 1] ?? 0)
-          : limb(p, name.startsWith('left') ? 'Left' : 'Right', name.includes('arm'));
+          : limb(p, name.startsWith('left') ? 'Left' : 'Right', name.includes('arm'), tags[vertex * 2 + 1] ?? 0);
         positions.push(mapped.at.x, mapped.at.y, mapped.at.z);
         if (name === 'character-body-mesh' && tags[vertex * 2] === 0 && tags[vertex * 2 + 1] === 0)
           measureTorso(mapped.at);
@@ -264,7 +270,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const skinRGB = [1, 3, 5].map(i => Number.parseInt(skinHex.slice(i, i + 2), 16) / 255);
   const knuckle = (side: 'Left' | 'Right', digit: string): Vector3 =>
     wristHands.get(side)?.points.get(digit)?.[0] ?? bind(`${side}Hand${digit}1`);
-  for (const side of recipe.hands ? [] : handSides) {
+  for (const side of generatedHands) {
     const wrist = bind(`${side}Hand`), index = knuckle(side, 'Index'), pinky = knuckle(side, 'Pinky');
     const knuckles = ['Index', 'Middle', 'Ring', 'Pinky'].map(d => knuckle(side, d))
       .reduce((sum, p) => sum.add(p), Vector3.Zero()).scale(.25);
@@ -302,7 +308,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       }
     }
   }
-  for (const side of recipe.hands ? [] : handSides) for (const digit of digits) {
+  for (const side of generatedHands) for (const digit of digits) {
     const fixed = wristHands.get(side)?.points.get(digit);
     const names = [1, 2, 3].map(n => fixed ? `${side}Hand` : `${side}Hand${digit}${n}`);
     const centers = fixed ?? names.map(name => bind(name));
@@ -335,6 +341,23 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     const last = first + rings * (sides + 1);
     for (let n = 1; n < sides - 1; n++) indices.push(last, last + n + 1, last + n);
+  }
+  if (handSource && sculptedHands.size) {
+    const retarget = bodySurfaceRetarget(profile, asset, handSource, bones), remap = new Map<number, number>();
+    const add = (old: number): number => {
+      const found = remap.get(old); if (found !== undefined) return found;
+      const index = positions.length / 3, vertex = retarget.vertex(old); remap.set(old, index);
+      positions.push(vertex.position.x, vertex.position.y, vertex.position.z);
+      headNormals.push(index, vertex.normal.x, vertex.normal.y, vertex.normal.z);
+      colors.push(...skinRGB, 1); cavities.push(handSource.uvs[old * 2]!, 0); nativeFlags.push(0, 0);
+      joints.push(...vertex.indices); weights.push(...vertex.weights);
+      return index;
+    };
+    for (let f = 0; f < handSource.indices.length; f += 3) {
+      const a = handSource.indices[f]!;
+      if (sculptedHands.has(handSource.positions[a * 3]! > 0 ? 'Left' : 'Right'))
+        indices.push(add(a), add(handSource.indices[f + 2]!), add(handSource.indices[f + 1]!));
+    }
   }
   if (native && asset.wardrobe) {
     const srcP = source.getVerticesData('position')!, srcN = source.getVerticesData('normal')!, srcUV = source.getVerticesData('uv')!;

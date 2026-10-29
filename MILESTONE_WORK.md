@@ -496,3 +496,17 @@ and real game fire/reload pass (script/server checks unchanged: 316 total).
 No additional rendering geometry or textures. Evidence: `docs/qa/weapon-grips-*`.
 The visible remaining hand/palm and shoulder garment artwork still prevents
 reference acceptance; M5/new milestone feature work remains gated by that art.
+
+
+Closed configurable hand anatomy and rigid complete watches replace the torn
+hand transfer. The 4,000-triangle shared pair is built offline from original
+rig landmarks with anatomical palm-axis retargeting and selected-skin creases.
+No new texture/draw. Keep native/missing-digit fallback hands and all hand-slot
+choices. Shoulder/garment transitions and old native painted faces still block
+reference acceptance; M5/new milestone features remain gated.
+
+Validation: 14 script / 107 client checks pass, 198 server checks unchanged;
+strict types and production builds pass. Settled WebGL2 capture has zero browser
+errors. `docs/qa/closed-hands-2026-10-29.json` records scope, counts and limits.
+Owner now reports cow-skill/crawler-driving freezes: fix those before more art
+or autonomous-cow behaviour. Longer alphorn/cleaner animations are also requested.

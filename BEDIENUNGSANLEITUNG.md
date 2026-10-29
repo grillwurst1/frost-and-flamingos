@@ -1142,3 +1142,9 @@ Die Heavy-Figuren greifen SMG, Schrotflinte und Schneekanone jetzt zuverlässige
 mit der linken Hand. Der Waffenhalt passt sich der gewählten Kleidung an; ein
 Rucksack verschiebt die Waffe dabei nicht nach vorn. Munition, Schusswerte und
 Nachladen bleiben gleich.
+
+
+Ersatzhände besitzen jetzt geschlossene Handflächen, Daumenansätze und glattere
+Finger. Ihre Hautfarbe folgt weiterhin deiner Auswahl. Bei der goldenen Uhr
+bleiben Band, Gehäuse, Zifferblatt und Zeiger vollständig am Unterarm befestigt.
+Handschuhe und Piratenhaken bleiben über die Kleiderauswahl verfügbar.

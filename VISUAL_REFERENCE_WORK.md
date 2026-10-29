@@ -604,3 +604,27 @@ crawler/live player labels and zero browser errors. Records/captures:
 `docs/qa/weapon-grips-2026-10-29.json` and associated images. These are cloud
 software-renderer checks, not native M4 performance/thermal measurements.
 Hand/palm sculpting and shoulder/garment transitions remain visibly unfinished.
+
+
+### Closed hand anatomy and rigid watches — 29 October 2026
+
+The first donor-hand transfer was visually rejected: exporter roll differences
+and the donor's irregular surfaces produced bulky, torn fingers. The shipped
+approach instead constructs a closed anatomical hand from owner-rig landmarks,
+with a palm, thumb web, rounded digits and subdued joint creases. Offline union
+and decimation cap both hands at 2,004 vertices / 4,000 triangles. Retarget using
+palm axes and real finger lengths. Full native matching hands and wrist-only
+fallbacks remain. Shared body geometry carries the data in its existing draw;
+no added texture/material/sampler, no per-frame remeshing. Geometry rises modestly
+on compatible replacement hands; native M4 thermal/FPS benefit is not claimed.
+
+Semantic tags stop cutting wrist accessories in half. The complete watch stays
+rigid on ForeArm, with a band around the wrist, case, dial and two clock hands.
+Thumb grip curl increases. Full screenshot acceptance remains open, particularly
+shoulder/garment transitions and native painted faces.
+
+Validation: 14 script / 107 client checks pass, 198 server checks unchanged;
+strict types and production builds pass. Settled WebGL2 capture has zero browser
+errors. `docs/qa/closed-hands-2026-10-29.json` records scope, counts and limits.
+Owner now reports cow-skill/crawler-driving freezes: fix those before more art
+or autonomous-cow behaviour. Longer alphorn/cleaner animations are also requested.

@@ -138,7 +138,7 @@ const FINGER_CURL: Readonly<Record<string, readonly [number, number, number]>> =
   Middle: [1.0, 1.15, 0.75],
   Ring: [1.05, 1.15, 0.75],
   Pinky: [1.1, 1.1, 0.7],
-  Thumb: [0.3, 0.45, 0.35],
+  Thumb: [0.65, 0.75, 0.45],
 };
 
 const fistCache = new WeakMap<RigInfo, Map<HandSide, FingerTarget[]>>();

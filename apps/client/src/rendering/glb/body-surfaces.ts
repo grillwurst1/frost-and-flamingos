@@ -13,9 +13,11 @@ export interface BodySurfaceGeometry {
   positions: number[]; normals: number[]; uvs: number[];
   joints: number[]; weights: number[]; indices: number[]; regions: number[];
   bones: BodySurfaceBone[];
+  /** Optional connected bare hands, with UV.x storing neutral cavity shade. */
+  hands?: BodySurfaceGeometry;
 }
 
-export function parseBodySurfaces(value: unknown): BodySurfaceGeometry | null {
+function parseSurface(value: unknown, region: 4 | 5): BodySurfaceGeometry | null {
   if (!value || typeof value !== 'object') return null;
   const d = value as Partial<BodySurfaceGeometry>;
   if (d.version !== 1 || typeof d.sourceHash !== 'string' || !/^[a-f0-9]{64}$/.test(d.sourceHash)
@@ -25,7 +27,7 @@ export function parseBodySurfaces(value: unknown): BodySurfaceGeometry | null {
     if (!Array.isArray(a) || a.length !== length || !a.every(Number.isFinite)) return null;
   if (!Array.isArray(d.indices) || !d.indices.length || d.indices.length % 3 || d.indices.length > 120000
     || !d.indices.every(v => Number.isInteger(v) && v >= 0 && v < count)
-    || !Array.isArray(d.regions) || d.regions.length !== d.indices.length / 3 || !d.regions.every(v => v === 4)
+    || !Array.isArray(d.regions) || d.regions.length !== d.indices.length / 3 || !d.regions.every(v => v === region)
     || !Array.isArray(d.bones) || !d.bones.length || d.bones.length > 512) return null;
   for (const b of d.bones) if (!b || typeof b.name !== 'string' || !b.name.length || b.name.length > 80
     || (b.parent !== null && typeof b.parent !== 'string') || !Number.isInteger(b.index) || b.index < 0
@@ -44,6 +46,17 @@ export function parseBodySurfaces(value: unknown): BodySurfaceGeometry | null {
   return d as BodySurfaceGeometry;
 }
 
+export function parseBodySurfaces(value: unknown): BodySurfaceGeometry | null {
+  const data = parseSurface(value, 4);
+  if (!data) return null;
+  if (data.hands !== undefined) {
+    const hands = parseSurface(data.hands, 5);
+    if (!hands || hands.hands !== undefined || data.positions.length + hands.positions.length > 90000
+      || data.indices.length + hands.indices.length > 120000) return null;
+  }
+  return data;
+}
+
 export function bodySurfaceRecipe(profile: PlayerProfile, asset: PaintedModelAsset): { arms: boolean } {
   if (!asset.wardrobeBody) return { arms: false };
   const native = nativeWardrobeRecipe(profile, asset), c = profile.cosmetics;
@@ -54,6 +67,12 @@ export function bodySurfaceRecipe(profile: PlayerProfile, asset: PaintedModelAss
 
 const children: Readonly<Record<string, string>> = Object.fromEntries((['Left', 'Right'] as const).flatMap(side => [
   [`${side}Shoulder`, `${side}Arm`], [`${side}Arm`, `${side}ForeArm`], [`${side}ForeArm`, `${side}Hand`],
+  [`${side}Hand`, `${side}HandMiddle1`],
+  ...['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'].flatMap(digit => [
+    [`${side}Hand${digit}1`, `${side}Hand${digit}2`],
+    [`${side}Hand${digit}2`, `${side}Hand${digit}3`],
+    [`${side}Hand${digit}3`, `${side}Hand${digit}4`],
+  ]),
   [`${side}UpLeg`, `${side}Leg`], [`${side}Leg`, `${side}Foot`], [`${side}Foot`, `${side}ToeBase`],
 ]).concat([['Hips', 'Spine'], ['Spine', 'Spine1'], ['Spine1', 'Spine2'], ['Spine2', 'Neck']]));
 
@@ -84,15 +103,33 @@ export function bodySurfaceRetarget(profile: PlayerProfile, asset: PaintedModelA
   const shoulderRatio = sourceArm && sourceRightArm && targetArm && targetRightArm
     ? Math.abs(targetArm.x - targetRightArm.x) / Math.max(.1, Math.abs(sourceArm.position[0] - sourceRightArm.position[0])) : 1;
   const width = shoulderRatio * (1 + (.15 - profile.cosmetics.bodyType) * .18);
+  // Mixamo exporters can choose different bone rolls for the same hand.
+  // Anatomical knuckles define a stable palm frame independently of that roll.
+  const palmRotations = new Map<string, Quaternion>();
+  for (const side of ['Left', 'Right']) {
+    const frame = (position: (name: string) => Vector3 | undefined) => {
+      const wrist = position(side + 'Hand'), middle = position(side + 'HandMiddle1');
+      const index = position(side + 'HandIndex1'), pinky = position(side + 'HandPinky1');
+      if (!wrist || !middle || !index || !pinky) return null;
+      const along = middle.subtract(wrist).normalize(), across = index.subtract(pinky);
+      across.subtractInPlace(along.scale(Vector3.Dot(across, along))).normalize();
+      return Quaternion.RotationQuaternionFromAxis(across, along, Vector3.Cross(across, along).normalize());
+    };
+    const from = frame(name => { const b = byName.get(name); return b ? Vector3.FromArray(b.position) : undefined; });
+    const to = frame(name => asset.bindPositions.get(name));
+    if (from && to) palmRotations.set(side, to.multiply(Quaternion.Inverse(from)).normalize());
+  }
   const mapping = (sourceIndex: number): BoneMap => {
     const cached = cache.get(sourceIndex); if (cached) return cached;
     let bone = byIndex.get(sourceIndex);
-    while (bone && !targetIndices.has(bone.name)) bone = bone.parent ? byName.get(bone.parent) : undefined;
+    while (bone && (targetIndices.get(bone.name) ?? -1) < 0) bone = bone.parent ? byName.get(bone.parent) : undefined;
     bone ??= byName.get('Hips');
     if (!bone) throw new Error('Anatomical surfaces have no compatible root joint.');
     const target = bindWorldTransform(asset, bone.name);
     if (!target) throw new Error(`Anatomical surface target joint missing: ${bone.name}`);
-    const from = Vector3.FromArray(bone.position), rotation = target.rotation.multiply(Quaternion.Inverse(Quaternion.FromArray(bone.rotation)));
+    const side = bone.name.startsWith('Left') ? 'Left' : 'Right';
+    const from = Vector3.FromArray(bone.position), rotation = bone.name.includes('Hand') && palmRotations.has(side)
+      ? palmRotations.get(side)! : target.rotation.multiply(Quaternion.Inverse(Quaternion.FromArray(bone.rotation)));
     let sourceEnd = children[bone.name] ? byName.get(children[bone.name]!) : undefined;
     let targetEnd = sourceEnd ? asset.bindPositions.get(sourceEnd.name) : undefined;
     let sourceDirection: Vector3, targetDirection: Vector3;
@@ -104,11 +141,17 @@ export function bodySurfaceRetarget(profile: PlayerProfile, asset: PaintedModelA
       sourceDirection = sourceEnd ? from.subtract(Vector3.FromArray(sourceEnd.position)) : new Vector3(0, 1, 0);
       targetDirection = targetEnd ? target.position.subtract(targetEnd) : sourceDirection.clone();
     }
-    const length = Math.max(.05, targetDirection.length()) / Math.max(.05, sourceDirection.length());
+    const minLength = bone.name.includes('Hand') ? .001 : .05;
+    const length = Math.max(minLength, targetDirection.length()) / Math.max(minLength, sourceDirection.length());
     sourceDirection.normalize(); targetDirection.normalize();
     const mappedDirection = sourceDirection.rotateByQuaternionToRef(rotation, new Vector3()).normalize();
     const aligned = rotationBetween(mappedDirection, targetDirection).multiply(rotation).normalize();
-    const result = { index: targetIndices.get(bone.name) ?? 0, from, to: target.position, direction: sourceDirection, rotation: aligned, length, width };
+    const sourceIndexKnuckle = byName.get(`${side}HandIndex1`), sourcePinky = byName.get(`${side}HandPinky1`);
+    const targetIndexKnuckle = asset.bindPositions.get(`${side}HandIndex1`), targetPinky = asset.bindPositions.get(`${side}HandPinky1`);
+    const palmWidth = bone.name.includes('Hand') && sourceIndexKnuckle && sourcePinky && targetIndexKnuckle && targetPinky
+      ? Vector3.Distance(targetIndexKnuckle, targetPinky) / Math.max(.015, Vector3.Distance(Vector3.FromArray(sourceIndexKnuckle.position), Vector3.FromArray(sourcePinky.position)))
+      : width;
+    const result = { index: targetIndices.get(bone.name) ?? 0, from, to: target.position, direction: sourceDirection, rotation: aligned, length, width: palmWidth };
     cache.set(sourceIndex, result); return result;
   };
   const point = (sourceIndex: number, p: Vector3, normal: Vector3) => {

@@ -101,3 +101,38 @@ test('shared authored arms retain valid skinning and one content hash across all
   }
   expect(parseBodySurfaces({ ...body, weights: body!.weights.map(() => 0) })).toBeNull();
 });
+
+test('shared bare hands have closed anatomical fingers and neutral skin creases', async () => {
+  const directory = resolve(import.meta.dir, '../../apps/client/public/models');
+  const body = parseBodySurfaces(await Bun.file(resolve(directory, 'soldier-body.json')).json())!;
+  const hands = body.hands!;
+  expect(hands).toBeDefined();
+  const donor = await Bun.file(resolve(directory, 'alpine-allrounder.glb')).arrayBuffer();
+  expect(hands.sourceHash).toBe(new Bun.CryptoHasher('sha256').update(donor).digest('hex'));
+  expect(hands.indices.length / 3).toBeGreaterThan(2000);
+  expect(hands.indices.length / 3).toBeLessThanOrEqual(4000);
+  expect(hands.regions.every(r => r === 5)).toBe(true);
+  const fingers = new Set<number>();
+  for (let v = 0; v < hands.positions.length / 3; v++) {
+    expect(hands.uvs[v * 2]).toBeGreaterThanOrEqual(0);
+    expect(hands.uvs[v * 2]).toBeLessThanOrEqual(.12);
+    expect(hands.uvs[v * 2 + 1]).toBe(0);
+    const at = hands.positions.slice(v * 3, v * 3 + 3), side = at[0]! > 0 ? 'Left' : 'Right';
+    const wrist = hands.bones.find(b => b.name === side + 'Hand')!.position;
+    const forearm = hands.bones.find(b => b.name === side + 'ForeArm')!.position;
+    const axis = wrist.map((n, k) => n - forearm[k]!), length = Math.hypot(...axis);
+    expect(at.reduce((sum, n, k) => sum + (n - wrist[k]!) * axis[k]! / length, 0)).toBeGreaterThanOrEqual(-.04);
+    for (let k = 0; k < 4; k++) if (hands.weights[v * 4 + k]! > .1) fingers.add(hands.joints[v * 4 + k]!);
+  }
+  expect(hands.bones.filter(b => /Hand(Thumb|Index|Middle|Ring|Pinky)[123]$/.test(b.name) && fingers.has(b.index)).length).toBeGreaterThan(15);
+  const edges = new Map<string, number>();
+  for (let f = 0; f < hands.indices.length; f += 3) for (let k = 0; k < 3; k++) {
+    const a = hands.indices[f + k]!, b = hands.indices[f + (k + 1) % 3]!;
+    const key = `${Math.min(a, b)}:${Math.max(a, b)}`;
+    edges.set(key, (edges.get(key) ?? 0) + 1);
+  }
+  expect([...edges.values()].every(count => count === 2)).toBe(true);
+  expect(parseBodySurfaces({ ...body, hands: { ...hands, hands } })).toBeNull();
+  expect(parseBodySurfaces({ ...body, hands: { ...hands, weights: hands.weights.map(() => 0) } })).toBeNull();
+  expect(parseBodySurfaces({ ...body, hands: { ...hands, regions: hands.regions.map(() => 4) } })).toBeNull();
+});
