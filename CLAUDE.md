@@ -1227,3 +1227,48 @@ passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
 All browser captures and skin probes pass; 9 WGSL variants compile. Shader
 cost reductions are not a native-Mac FPS/temperature benchmark.
 Strict types report zero errors/warnings and production builds pass.
+
+
+### Reference geometry, outfit continuity and vector HUD — 29 October 2026
+
+The owner again requires continued work until the supplied screenshot quality is
+met. All configured soldiers now prefer the same closed anatomical head even
+with their default beard/hat; missing derived assets retain the complete native/
+procedural fallback. A fitted, closed 1,536-triangle beard is baked against the
+head offline, coloured from selected hair and merged into the existing body draw.
+Short hair clears the cheeks; the Tyrolean feather is curved geometry. Snorkel
+goggles have rounded seals, lenses and a head strap. The reference tracht vest
+uses its tailored closed shell with the authored sleeves, instead of recolouring
+a ragged native shirt. All original source images, GLBs and clips stay intact.
+
+Large decorative snowdrifts, rocks, bushes/ferns and logs now have opaque 3D
+volume, reusing the world material and its painted detail. Small dressing is
+kept below apparent cover height, batched in 100 m chunks, culled after 110 m,
+and bounded to 65,536 vertices (1,400 per chunk). Blueprint props/colliders and
+painted paving relief stay. Rocks have varied chipped planes and separate snow
+caps. The minimap uses cached interpolated vector contours instead of block
+height pixels; it still renders no second scene. Human framing remains centred
+with 1.50 m pivot / 3.60 m distance, leaving boots above the HUD at normal view.
+No new texture, fullscreen pass or network/protocol change (13).
+
+Validation: full 14 script / 211 server / 136 client cases pass (361), including
+the 15-minute simulated conquest soak; strict types have zero errors/warnings
+and production builds pass. New regressions cover default/custom head anatomy,
+closed beard topology, real dressing depth/budgets, contour holes/borders and
+boot framing. Real browser comparison is recorded with this increment.
+This remains active reference art work, not complete screenshot acceptance or
+a native M4 thermal/FPS measurement; M6/M7 stay gated.
+
+The six-rig render comparison additionally found shirt fragments labelled as
+sleeves across the chest and a missing native-trouser calf when changing shoes.
+Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
+a continuous trouser calf. All three new regressions fail before the fix and
+pass afterwards. The final full client suite has 136 passing cases; script/
+server remain the passing 14/211 from the full run, with no timeout changes.
+
+Browser evidence: `docs/qa/reference-forms-2026-10-29.json`, six-rig wardrobe,
+real network scene and harbour/summit captures. Final six bodies use
+35,584 / 24,286 / 23,674 / 31,927 / 21,744 / 19,997 triangles, one draw each.
+Static map vertex count is 1,743,468 versus 1,715,331 (+28,137), with no new
+textures/post pass. Complete target acceptance remains open; continue original
+garment waist fringes, sculpt proportions, clouds and contact-shadow refinement.

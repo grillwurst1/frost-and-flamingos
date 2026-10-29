@@ -1,4 +1,5 @@
 import { FJORD_MAP, MAP_HALF_SIZE, MAP_SIZE, GRID_POINTS, FjordLayout } from '@frost-and-flamingos/shared';
+import { contourPath, heightContours } from './map-contours';
 
 let cached: string | null = null;
 export const mapX = (x: number): number => x + MAP_HALF_SIZE;
@@ -8,22 +9,10 @@ export const mapY = (z: number): number => MAP_HALF_SIZE - z;
 export function minimapArtwork(): string {
   if (cached) return cached;
   const colours = ['#6f9fba', '#d9c89f', '#c0d1cf', '#bdcfd7', '#d9e7ec', '#e8f2f4'];
-  const paths = colours.map(() => '');
-  const side = GRID_POINTS - 1, step = MAP_SIZE / side;
-  for (let row = 0; row < side; row++) {
-    let previous = -1, start = 0;
-    const flush = (end: number) => {
-      if (previous >= 0) paths[previous] += `M${start*step},${row*step}h${(end-start)*step}v${step+0.1}H${start*step}Z`;
-    };
-    for (let col = 0; col <= side; col++) {
-      const height = col < side ? FJORD_MAP.heights[col * GRID_POINTS + side - row] ?? 0 : -Infinity;
-      const colour = col === side ? -1 : height < 0.2 ? 0 : height < 3 ? 1 : height < 17 ? 2 : height < 30 ? 3 : height < 48 ? 4 : 5;
-      if (colour !== previous) { flush(col); previous = colour; start = col; }
-    }
-  }
   const line = (points: readonly { x: number; z: number }[], width: number, colour: string): string =>
     `<polyline points="${points.map(p=>`${mapX(p.x)},${mapY(p.z)}`).join(' ')}" fill="none" stroke="${colour}" stroke-width="${width}" stroke-linejoin="round"/>`;
-  let shapes = colours.map((colour,i)=>`<path fill="${colour}" d="${paths[i]}"/>`).join('');
+  const levels = [.2, 3, 17, 30, 48];
+  let shapes = levels.map((level, i) => `<path fill="${colours[i + 1]}" fill-rule="evenodd" stroke="${i < 2 ? '#91a7ac' : '#a6bbc6'}" stroke-width="${i < 2 ? 1 : .7}" d="${contourPath(heightContours(FJORD_MAP.heights, GRID_POINTS, MAP_SIZE, level))}"/>`).join('');
   shapes += line(FJORD_MAP.routes.tankRoad.points, 9, '#7c8e98') + line(FJORD_MAP.routes.tankRoad.points, 5, '#eff5f1');
   shapes += line([FjordLayout.BRIDGE_SOUTH, FjordLayout.BRIDGE_NORTH], 7, '#8d6952');
   shapes += line(FJORD_MAP.routes.coaster.track.points, 2.5, '#ba8073');

@@ -217,3 +217,12 @@ The overall lighting, meadow palette, arithmetic cloud field and filtered water
 highlights are original project shader/art-direction work. Owner-generated
 models, original images and animation clips remain unchanged; no external
 commercial game assets or additional source textures are imported.
+
+
+The fitted closed beard, curved Tyrolean feather, rounded configurable goggles,
+tailored waistcoat and opaque ground dressing are original project geometry.
+The beard is fitted offline to the head derived from the owner's scout sculpt;
+selected hair/skin colours are independent of the original paint. Existing
+owner-painted world textures still supply rock/wood/foliage detail. Cached
+vector minimap contours derive from the original shared Fjord Fiesta heightfield.
+No external commercial game art, texture or animation is imported.

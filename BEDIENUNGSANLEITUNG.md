@@ -1225,3 +1225,25 @@ bei der Gondel liegt das Zugseil weiter vom Kamerablickpunkt entfernt.
 Die Bildqualitätsstufen und das FPS-Limit bleiben bestehen. Zusätzliche teure
 Vollbildeffekte wurden nicht ergänzt; Wolken und matte Oberflächen brauchen
 weniger Shader-Rechenoperationen.
+
+
+### Grafiküberarbeitung vom 29. Oktober 2026
+
+Die Soldaten behalten nun auch mit Standardhut und Bart dieselbe geschlossene
+Kopfform und ausgewählte Hautfarbe. Der Bart liegt räumlich am Kiefer; Haare,
+Hutfeder und Tauchermaske sind besser angepasst. Die grüne Weste hat eine eigene
+geschlossene Form über den detaillierten Hemdsärmeln. Bereits gespeicherte
+Kleidung und die Auswahl von Haut- und Haarfarbe bleiben erhalten.
+
+Schneehaufen, kleine Steine, Büsche/Farne und Holzstücke stehen räumlich auf dem
+Boden. Felsen besitzen unterschiedliche Bruchflächen und eigene Schneekappen.
+Die Minimap zeichnet Küste und Höhenlinien als glattere Vektorkonturen. Die
+Spielfigur bleibt beim Steuern waagrecht mittig; der leicht zurückgesetzte Blick
+zeigt die Stiefel im normalen Blick besser oberhalb der unteren Anzeigen.
+Steuerung, Fähigkeiten, Gondelbedienung und Qualitäts-/FPS-Einstellungen bleiben.
+
+Die vollständige Übereinstimmung mit dem Zielbild wird weiter bearbeitet.
+Die Cloud-Prüfung ersetzt keine Messung der MacBook-Temperatur oder nativen FPS.
+
+Zusätzlich wurden durch die Weste ragende Hemdteile entfernt und die Lücke
+zwischen langen Infiltrator-Hosen und gewechselten Schuhen geschlossen.

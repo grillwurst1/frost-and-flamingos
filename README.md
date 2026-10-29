@@ -1000,3 +1000,28 @@ passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
 All browser captures and skin probes pass; 9 WGSL variants compile. Shader
 cost reductions are not a native-Mac FPS/temperature benchmark.
 Strict types report zero errors/warnings and production builds pass.
+
+
+### Screenshot graphics follow-up (29 October 2026)
+
+Soldiers retain one closed skin head across default/custom outfits, with a
+head-fitted 3D beard, shorter fitted hair, curved hat feather and rounded
+snorkel goggles. The green waistcoat is a tailored shell over the detailed
+authored sleeves. Skin/hair selections, saved clothes and animation rigs stay.
+Snowdrifts, decorative stones, bushes/ferns and logs now have opaque volume;
+rocks have chipped planes and separate snow caps. Ground dressing shares the
+existing painted world material and a bounded, distance-culled geometry budget.
+The live minimap uses cached vector height contours, and the centred human
+camera leaves more room above the bottom HUD (1.50 m pivot, 3.60 m distance).
+No additional texture or fullscreen pass is needed.
+
+All 361 tests, strict types and production builds pass. The screenshot target
+remains in progress; cloud software rendering does not measure native M4 heat
+or FPS. M5 and later milestones are not declared complete by this art increment.
+
+The six-rig render comparison additionally found shirt fragments labelled as
+sleeves across the chest and a missing native-trouser calf when changing shoes.
+Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
+a continuous trouser calf. All three new regressions fail before the fix and
+pass afterwards. The final full client suite has 136 passing cases; script/
+server remain the passing 14/211 from the full run, with no timeout changes.

@@ -80,6 +80,33 @@ export function sculptedBeard(scene: Scene, headY: number, color: Color4): Mesh 
   return surface(scene, 'sculpted-jaw-beard', positions, indices, color, cavity);
 }
 
+/** Curved, tapered felt-hat feather with a raised quill and no alpha plane. */
+export function sculptedHatFeather(scene: Scene, headY: number, color: Color4): Mesh {
+  const positions: number[] = [], indices: number[] = [], cavity: number[] = [];
+  const rows = 16, sides = 8;
+  for (let row = 0; row <= rows; row++) {
+    const t = row / rows;
+    const width = .001 + .024 * Math.sin(Math.PI * t) ** .7;
+    const x = .20 + .075 * t + .025 * t * t, y = headY + .23 + .27 * t;
+    for (let col = 0; col < sides; col++) {
+      const a = col / sides * Math.PI * 2;
+      positions.push(x + Math.cos(a) * width, y - Math.cos(a) * width * .4,
+        .035 + .025 * t * t + Math.sin(a) * (.002 + .004 * (1 - t)));
+      cavity.push(.035 + .10 * Math.abs(Math.cos(a)));
+      if (row) {
+        const aa = (row - 1) * sides + col, b = (row - 1) * sides + (col + 1) % sides;
+        const c = row * sides + (col + 1) % sides, d = row * sides + col;
+        indices.push(aa, b, c, aa, c, d);
+      }
+    }
+  }
+  for (let col = 1; col < sides - 1; col++) {
+    indices.push(0, col + 1, col);
+    const last = rows * sides; indices.push(last, last + col, last + col + 1);
+  }
+  return surface(scene, 'tirol-sculpted-feather', positions, indices, color, cavity);
+}
+
 /** A continuous sculpted hair volume with a real forehead opening. A full
  * sphere reaches in front of the eyes; the hairline must follow the skull. */
 export function sculptedHairCap(scene: Scene, headY: number, color: Color4, style: number): Mesh {
@@ -89,7 +116,7 @@ export function sculptedHairCap(scene: Scene, headY: number, color: Color4, styl
     const t = row / rows * Math.PI / 2;
     for (let col = 0; col < sides; col++) {
       const angle = col / sides * Math.PI * 2, front = Math.max(0, Math.cos(angle));
-      const hairline = -.065 + .22 * front ** 3;
+      const hairline = style === 0 ? .035 + .12 * front : -.065 + .22 * front ** 3;
       const crown = afro ? .39 : quiff ? .40 : .30;
       const bulge = afro ? .055 * Math.sin(t * 2) : .012 * Math.sin(t * 2);
       const curl = afro ? .009 * Math.sin(angle * 18 + row * 1.7) * Math.sin(row * 1.8 + angle * 3) : .0035 * Math.sin(angle * 22 + t * 3);

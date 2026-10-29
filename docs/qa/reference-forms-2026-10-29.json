@@ -1,0 +1,263 @@
+{
+  "scope": "Continuous default/custom soldier anatomy, fitted beard/short hair/feather/goggles, closed reference vest, mixed-shoe calf repairs, opaque solid dressing/varied rock planes, cached vector minimap and centred full-figure camera. Real engine captures, no target painting substituted for gameplay.",
+  "tests": {
+    "fullRootRun": {
+      "script": 14,
+      "server": 211,
+      "client": 133,
+      "failed": 0
+    },
+    "finalClientAfterVisualRepairs": 136,
+    "totalVerified": 361,
+    "timeoutsChanged": false,
+    "strictTypes": "0 errors / 0 warnings",
+    "productionBuild": "passed, existing large chunk advisory",
+    "soak": "15 minute simulated conquest soak passed in full run"
+  },
+  "visualRegressions": {
+    "shirtFragments": "Source arms included central shirt fragments. Filter only when using the tailored reference vest. Regression fails before repair and passes after.",
+    "calfGaps": "Native Infiltrator pants end in a knee-labelled region while the old boot region included calves; alternate shoes removed both. Retain a continuous trouser calf bridge. Sandal/flipper regressions fail before and pass after.",
+    "camera": "Normal-view feet project to about 0.8345 screen height; x centre 0.5, collision/aim tests pass."
+  },
+  "resourceScope": {
+    "newTextures": 0,
+    "newFullscreenPasses": 0,
+    "bodyDrawsPerFigure": 1,
+    "outfitCacheLimit": 12,
+    "bodyTriangleCeiling": 60000,
+    "beardTriangles": 1536,
+    "dressingVertexBudget": 65536,
+    "dressingPerChunk": 1400,
+    "dressingChunkMetres": 100,
+    "dressingCutoffMetres": 110,
+    "extraDressingShadowCasters": 0,
+    "staticMapVerticesBefore": 1715331,
+    "staticMapVerticesAfter": 1743468,
+    "mapVertexDelta": 28137,
+    "unchanged": "45 FPS default, pixel/MSAA/shadow budgets, protocol 13, shared map/colliders, original GLBs/albedo/animation clips and painted paving relief. Geometry budget is not a native-Mac FPS/heat measurement."
+  },
+  "webgl2SixRigs": [
+    {
+      "native": false,
+      "result": [
+        {
+          "triangles": 35584,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -2.410128593444824,
+            1.1723802089691162,
+            0.6640055775642395
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3129037320613861,
+            0,
+            1.0115326642990112
+          ]
+        },
+        {
+          "triangles": 24286,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -1.4356789588928223,
+            1.218011736869812,
+            0.7365790009498596
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389790654182434,
+            0,
+            1.0958272218704224
+          ]
+        },
+        {
+          "triangles": 23674,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -0.7481899857521057,
+            1.140667200088501,
+            0.5843756794929504
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.30421191453933716,
+            0,
+            0.9834344387054443
+          ]
+        },
+        {
+          "triangles": 31927,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            0.11077868193387985,
+            1.1223772764205933,
+            0.6133908629417419
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3129037618637085,
+            0,
+            1.0115327835083008
+          ]
+        },
+        {
+          "triangles": 21744,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            0.9090346097946167,
+            1.3525370359420776,
+            0.6631960868835449
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3389791250228882,
+            0,
+            1.095827341079712
+          ]
+        },
+        {
+          "triangles": 19997,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            1.7780498266220093,
+            1.1398953199386597,
+            0.5607858300209045
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.3042120337486267,
+            0,
+            0.983434796333313
+          ]
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": []
+    }
+  ],
+  "webgl2Gameplay": [
+    {
+      "feet": {
+        "x": 40,
+        "y": 23.02499923706055,
+        "z": 66
+      },
+      "camera": [
+        43.48820037962126,
+        25.240208827922768,
+        65.46996853607662
+      ],
+      "stats": {
+        "drawCalls": 239,
+        "activeMeshes": 123,
+        "meshes": 594,
+        "materials": 90,
+        "mapVertices": 1743468,
+        "destructibleMeshes": 102,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_facadeAtlas": 36,
+        "boot_spriteAtlas": 3496,
+        "boot_map": 2818,
+        "boot_world": 6314
+      }
+    },
+    {
+      "status": "passed",
+      "errors": [],
+      "names": [
+        "GipfelRanger",
+        "RoofSniper77",
+        "Angry_Cow_Beta"
+      ]
+    }
+  ],
+  "webgl2WorldViews": [
+    {
+      "status": "passed",
+      "result": {
+        "frame": 43,
+        "stats": {
+          "drawCalls": 156,
+          "activeMeshes": 73,
+          "meshes": 570,
+          "materials": 77,
+          "mapVertices": 1743468,
+          "destructibleMeshes": 102,
+          "destructibleSprites": 0,
+          "fps": 0,
+          "boot_facadeAtlas": 69,
+          "boot_spriteAtlas": 3771,
+          "boot_map": 4183,
+          "boot_world": 7954
+        },
+        "look": {
+          "quality": "medium",
+          "weather": 0,
+          "booting": false,
+          "webgpu": false,
+          "frameId": 43,
+          "drawCalls": 7080,
+          "activeMeshes": 73,
+          "shadowCasters": 43,
+          "shadowMapSize": 1024,
+          "gbuffer": true,
+          "sceneSamples": 2,
+          "postProcesses": [
+            "ff-comic",
+            "ff-fxaa"
+          ],
+          "painterlyClouds": false,
+          "panorama": false
+        }
+      },
+      "errors": []
+    }
+  ],
+  "captureScope": "Six-rig capture is after final garment repairs. Real network scene includes genuine named peers, loaded crawler and cow, with ordinary line-of-sight labels. Harbour/summit world views preceded the final sleeve/calf-only repairs; world geometry and rendering are unchanged afterwards. Profiles/positions are staged using existing development tools, gameplay is not a static illustration.",
+  "remainingAcceptance": [
+    "Full supplied screenshot art/composition acceptance remains open. Original garment waist fringes, some sculpt proportions, cloud shape/shading and hard contact-shadow discs still need comparison/refinement.",
+    "WebGL2 remains default. GLSL/WGSL source pairs did not change in this increment; prior isolated WGSL compilation is not full WebGPU gameplay acceptance.",
+    "Native Chrome/M4 FPS, thermal behaviour and long native freeze acceptance remain unmeasured.",
+    "This increment does not complete M5/M6/M7."
+  ],
+  "headHash": "1ad79ca43ceaebb8c8394fff08f5a482b62baa51ecf0a5d96b4f110d34533e41"
+}

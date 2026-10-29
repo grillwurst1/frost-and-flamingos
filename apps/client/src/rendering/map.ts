@@ -696,6 +696,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
       {
         billboard: createSpriteMaterial(scene, 'sprite-billboard-material', atlas.texture, size, 'billboard'),
         ground: createSpriteMaterial(scene, 'sprite-ground-material', atlas.texture, size, 'ground'),
+        solid: material,
       },
       FJORD_MAP.props,
     );

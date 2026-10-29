@@ -11,8 +11,10 @@ const MAX_DISTANCE = 8.2;
 /** Centred follow view: the owner now wants the controlled player on the
  * horizontal centre line, rather than the old 1.9 m painting-style offset. */
 const SHOULDER_OFFSET = 0;
-const PLAYER_PIVOT_HEIGHT = 1.64;
-const PLAYER_DISTANCE = 3.25;
+// Upper torso framing keeps the full silhouette above the bottom HUD. A
+// head-height target put the boots behind the action tiles at normal zoom.
+const PLAYER_PIVOT_HEIGHT = 1.50;
+const PLAYER_DISTANCE = 3.60;
 /** Vertical FOV while playing (62 deg); menu, wardrobe and killer cam keep the tele framing. */
 const PLAYER_FOV = 1.0821;
 const SHOWCASE_FOV = 0.88;

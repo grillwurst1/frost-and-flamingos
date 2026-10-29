@@ -762,3 +762,37 @@ passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
 All browser captures and skin probes pass; 9 WGSL variants compile. Shader
 cost reductions are not a native-Mac FPS/temperature benchmark.
 Strict types report zero errors/warnings and production builds pass.
+
+
+### Reference forms and continuous wardrobe anatomy — 29 October 2026
+
+The owner again asks to continue until the screenshot looks right. Replaced
+remaining large ground paper props with bounded opaque dressing, varied rock
+planes/separate snow caps, and blocky minimap heights with interpolated contours.
+All loaded soldier outfits now use the same closed head, a fitted closed beard,
+shorter cheek-clearing hair, curved feather, rounded goggles and a tailored green
+waistcoat over retained native sleeves. Centred follow pivot/distance are now
+1.50/3.60 m so normal-view feet clear the HUD. Texture/post/FPS budgets and
+protocol 13 stay; original assets, physics/layout and paving are unchanged.
+
+Full tests pass: 14 script, 211 server, 136 client (361); strict types report
+zero errors/warnings and builds pass. Beard bake is reproducible through the
+full wardrobe-assets command; its 1,536 triangles replace the discarded generic
+beard in the same draw. Real dressing depth, global budget, contour holes/edges,
+head continuity and camera framing have regressions. Browser evidence follows
+with this increment. Continue judging the actual game against the image: these
+checks alone do not establish visual acceptance or native M4 performance.
+
+The six-rig render comparison additionally found shirt fragments labelled as
+sleeves across the chest and a missing native-trouser calf when changing shoes.
+Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
+a continuous trouser calf. All three new regressions fail before the fix and
+pass afterwards. The final full client suite has 136 passing cases; script/
+server remain the passing 14/211 from the full run, with no timeout changes.
+
+Browser evidence: `docs/qa/reference-forms-2026-10-29.json`, six-rig wardrobe,
+real network scene and harbour/summit captures. Final six bodies use
+35,584 / 24,286 / 23,674 / 31,927 / 21,744 / 19,997 triangles, one draw each.
+Static map vertex count is 1,743,468 versus 1,715,331 (+28,137), with no new
+textures/post pass. Complete target acceptance remains open; continue original
+garment waist fringes, sculpt proportions, clouds and contact-shadow refinement.

@@ -22,8 +22,8 @@ const MAX_CACHED_BODIES = 12;
 
 export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset, native = false, sharedHead = false): PaintedModelAsset['spec']['head'] {
   const head = asset.spec.head;
-  if (native && nativeWardrobeRecipe(profile, asset).head) return head;
   if (native && sharedHead && asset.wardrobeHead) return { ...head, radius: profile.cosmetics.classId === 'heavy' ? .16 : profile.cosmetics.classId === 'infiltrator' ? .125 : .15 };
+  if (native && nativeWardrobeRecipe(profile, asset).head) return head;
   return { ...head, radius: head.radius * (profile.cosmetics.classId === 'heavy' ? .80 : .90) };
 }
 
@@ -37,8 +37,14 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   if (!skeleton) throw new Error('A modular soldier needs the shared animation skeleton.');
   let cache = bodyCache.get(scene);
   if (!cache) { cache = new Map(); bodyCache.set(scene, cache); }
-  const recipe = nativeWardrobeRecipe(profile, native ? asset : { ...asset, wardrobe: undefined });
-  const cleanHead = Boolean(native && sharedHead && asset.wardrobeHead && !recipe.head);
+  const cleanHead = Boolean(native && sharedHead && asset.wardrobeHead);
+  const nativeRecipe = nativeWardrobeRecipe(profile, native ? asset : { ...asset, wardrobe: undefined });
+  const recipe = cleanHead ? { ...nativeRecipe, head: false, hat: false,
+    // The authored sleeves keep their folds. The reference waistcoat is a
+    // complete tailored shell, so painted shirt highlights cannot cut holes
+    // through a colour-only vest or leave a ragged white lower hem.
+    torso: profile.cosmetics.torso === 'torso_tracht_shirt' ? false : nativeRecipe.torso,
+  } : nativeRecipe;
   const surfaces = native && sharedBody ? bodySurfaceRecipe(profile, asset) : { arms: false };
   const handSource = native && !recipe.hands ? asset.wardrobeBody?.hands : undefined;
   const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}:${surfaces.arms}:${Boolean(handSource)}`;
@@ -93,7 +99,11 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       at.x *= .82; at.y = asset.spec.head.y + (at.y - asset.spec.head.y) * .82;
       at.z = asset.spec.head.z + (at.z - asset.spec.head.z) * .82;
     }
-    if (head && cleanHead && detail === 2) {
+    if (head && cleanHead && detail === 3 && profile.cosmetics.hairStyleIndex !== 1) {
+      at.x *= .9;
+      at.z = asset.spec.head.z + (at.z - asset.spec.head.z) * .82;
+    }
+    if (head && cleanHead && (detail === 2 || detail === 8)) {
       // Map the old eye (+.035) and mouth (-.105) landmarks onto the
       // shared sculpt's eyes (+.017) and lips (-.073), in donor model units.
       // Compressing the whole face left beards and pipes above the real mouth.
@@ -236,11 +246,19 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const a = faces[f]!, detail = tags[a * 2 + 1] ?? 0, tag = tags[a * 2] ?? 0;
         let replaced = false;
         if (name === 'character-body-mesh') {
-          if (tag === 1) replaced = detail === 4 ? recipe.hat : detail === 0 ? recipe.head || cleanHead : recipe.head;
+          if (tag === 1) replaced = detail === 4 ? recipe.hat : detail === 0 ? recipe.head || cleanHead
+            : detail === 8 ? recipe.head || (cleanHead && Boolean(asset.wardrobeHead?.beard)) : recipe.head;
           else if (tag === 0) replaced = detail === 6 ? recipe.head : detail === 7 ? recipe.legs : recipe.torso;
         } else if (name.includes('arm')) {
           replaced = detail === 3 || detail === 4 ? recipe.hands : recipe.arms || surfaces.arms;
-        } else replaced = detail === 2 ? recipe.feet : recipe.legs;
+        } else {
+          replaced = detail === 2 ? recipe.feet : recipe.legs;
+          // Some authored long pants stop in the knee-labelled region: their
+          // calves were classified with the original boots. Keep a continuous
+          // trouser bridge when another shoe removes that lower native region.
+          if (detail === 1 && recipe.legs && !recipe.feet && profile.cosmetics.legs === 'legs_olive_pants'
+            && [faces[f]!, faces[f + 1]!, faces[f + 2]!].every(v => points[v * 3 + 1]! <= -.36)) replaced = false;
+        }
         if (!replaced) visible.push(faces[f]!, faces[f + 1]!, faces[f + 2]!);
       }
       // Compact discarded wardrobe parts; keep neither hidden body vertices nor
@@ -364,6 +382,18 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     const srcJ = source.getVerticesData('matricesIndices')!, srcW = source.getVerticesData('matricesWeights')!, srcI = source.getIndices()!;
     const hair = HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
     const hairRGB = [1, 3, 5].map(i => Number.parseInt(hair.slice(i, i + 2), 16) / 255);
+    const tailoredVest = cleanHead && nativeRecipe.torso && profile.cosmetics.torso === 'torso_tracht_shirt';
+    const sleevePoint = (old: number): boolean => {
+      const p = Vector3.FromArray(srcP, old * 3), side = p.x >= 0 ? 'Left' : 'Right';
+      if (Math.abs(p.x) < Math.abs(bind(side + 'Arm').x) * .65) return false;
+      let distance = Infinity;
+      for (const [from, to] of [['Arm', 'ForeArm'], ['ForeArm', 'Hand']] as const) {
+        const a = bind(side + from), b = bind(side + to), axis = b.subtract(a);
+        const t = Math.max(0, Math.min(1, Vector3.Dot(p.subtract(a), axis) / Math.max(axis.lengthSquared(), 1e-8)));
+        distance = Math.min(distance, Vector3.Distance(p, a.add(axis.scale(t))));
+      }
+      return distance < .165 * size;
+    };
     const remap = new Map<string, number>(), width = 1 + (.15 - profile.cosmetics.bodyType) * .18;
     const add = (old: number, region: number): number => {
       // Material-region identifiers are categorical: a vertex shared across
@@ -386,6 +416,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const region = asset.wardrobe.regions[f / 3]!;
       // Imported glTF meshes override Babylon's front-face convention. The new
       // mixed mesh uses the procedural convention, so native faces must flip.
+      if (region === 4 && tailoredVest && ![srcI[f]!, srcI[f + 1]!, srcI[f + 2]!].every(sleevePoint)) continue;
       if (usesNativeRegion(recipe, region) && !(region === 4 && surfaces.arms)) indices.push(add(srcI[f]!, region), add(srcI[f + 2]!, region), add(srcI[f + 1]!, region));
     }
   }
@@ -424,6 +455,19 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
     }
     for (let f = 0; f < eyes.indices.length; f += 3) indices.push(eyeBase + eyes.indices[f]!, eyeBase + eyes.indices[f + 2]!, eyeBase + eyes.indices[f + 1]!);
+    if ((profile.cosmetics.face === 'face_full_beard' || profile.cosmetics.face === 'face_eyepatch_beard') && h.beard) {
+      const beard = h.beard, base = positions.length / 3;
+      for (let v = 0; v < beard.positions.length / 3; v++) {
+        positions.push(beard.positions[v * 3]! * scale * broad,
+          frame.y + (beard.positions[v * 3 + 1]! - h.frame.y) * scale,
+          frame.z + (beard.positions[v * 3 + 2]! - h.frame.z) * scale);
+        const normal = new Vector3(beard.normals[v * 3]! / broad, beard.normals[v * 3 + 1]!, beard.normals[v * 3 + 2]!).normalize();
+        headNormals.push(base + v, normal.x, normal.y, normal.z);
+        colors.push(...hairRGB, 0); cavities.push(beard.cavities[v]!, 0); nativeFlags.push(0, 0);
+        const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
+      }
+      for (let f = 0; f < beard.indices.length; f += 3) indices.push(base + beard.indices[f]!, base + beard.indices[f + 2]!, base + beard.indices[f + 1]!);
+    }
     if (profile.cosmetics.hairStyleIndex === 1 && h.afro) {
       const hair = h.afro, base = positions.length / 3;
       for (let v = 0; v < hair.positions.length / 3; v++) {

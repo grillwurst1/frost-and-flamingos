@@ -13,6 +13,7 @@ export interface WardrobeHeadGeometry {
   tints: number[];
   skinReference: [number, number, number];
   hairReference: [number, number, number];
+  beard?: { positions: number[]; normals: number[]; indices: number[]; cavities: number[] };
   afro?: { sourceHash: string; positions: number[]; normals: number[]; indices: number[]; uvs: number[]; shades: number[] };
 }
 
@@ -37,6 +38,15 @@ export function parseWardrobeHead(value: unknown): WardrobeHeadGeometry | null {
       if (!Array.isArray(array) || array.length !== length || !array.every(Number.isFinite)) return null;
     if (!Array.isArray(a.indices) || !a.indices.length || a.indices.length > 120000 || a.indices.length % 3
       || !a.indices.every(n => Number.isInteger(n) && n >= 0 && n < count) || !a.shades.every(n => n >= .2 && n <= 2)) return null;
+  }
+  if (h.beard) {
+    const b = h.beard, count = b.positions?.length / 3;
+    if (!Number.isInteger(count) || count < 100 || count > 5000) return null;
+    for (const [array, length] of [[b.positions, count * 3], [b.normals, count * 3], [b.cavities, count]] as const)
+      if (!Array.isArray(array) || array.length !== length || !array.every(Number.isFinite)) return null;
+    if (!Array.isArray(b.indices) || !b.indices.length || b.indices.length > 30000 || b.indices.length % 3
+      || !b.indices.every(n => Number.isInteger(n) && n >= 0 && n < count)
+      || !b.cavities.every(n => n >= 0 && n <= .4)) return null;
   }
   return h as WardrobeHeadGeometry;
 }

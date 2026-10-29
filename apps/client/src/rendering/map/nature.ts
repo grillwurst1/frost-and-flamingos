@@ -164,21 +164,43 @@ export function drawPalm(batch: GeometryBatch, scale: number, variant: number, s
   }
 }
 
-/** Faceted boulder: snow-capped grey, mossy, bare, or the warm beige beach rock. */
+/** Broad chipped planes, with a separate snow cap and deterministic slab shapes. */
 export function drawRock(batch: GeometryBatch, scale: number, variant: number, top: 'snow' | 'moss' | 'bare' | 'beach', seed: number, far = false): void {
   const base = top === 'beach' ? P.rockBeach : variant === 4 ? P.rockWarm : P.rock;
-  const topColor = top === 'snow' ? P.snow : top === 'moss' ? P.grassShade : top === 'beach' ? P.rockBeachLight : P.rockLight;
-  batch.blob(
-    0,
-    0.7 * scale,
-    0,
-    1.05 * scale,
-    0.75 * scale,
-    0.9 * scale,
-    (ny) => (ny > 0.55 ? topColor : ny < -0.2 ? P.rockShade : mix(P.rockShade, base, 0.6 + ny * 0.4)),
-    top === 'snow' ? 'snow' : 'rock',
-    { segments: far ? 6 : 9, rings: far ? 3 : 5, wobble: 0.08, seed, flat: true, flatBottom: true },
-  );
+  const sides = far ? 6 : 8;
+  const slab = variant % 4;
+  // Keep the authored collision envelope: changing height by a factor of two
+  // would leave an invisible wall above a visually flat slab.
+  const height = (1.30 + slab * .025) * scale;
+  const width = (.98 + rand(seed, 1) * .06) * scale;
+  const depth = (.85 + rand(seed, 4) * .04) * scale;
+  const slopeX = (rand(seed, 2) - .5) * .22, slopeZ = (rand(seed, 3) - .5) * .16;
+  const profiles = [[.88, -.04], [1, .22], [.78, .84], [.50, 1]] as const;
+  const loops = profiles.map(([radius, y], ring) => Array.from({ length: sides }, (_, col): V3 => {
+    const a = col / sides * Math.PI * 2 + .17;
+    const wobble = 1 + (rand(seed, col + 10) - .5) * .23;
+    const x = Math.sin(a) * width * radius * wobble;
+    const z = Math.cos(a) * depth * radius * wobble;
+    return [x + ring * slopeX * .12 * scale, y * height + (ring > 1 ? x * slopeX + z * slopeZ : 0), z];
+  }));
+  for (let ring = 1; ring < loops.length; ring++) for (let col = 0; col < sides; col++) {
+    const next = (col + 1) % sides;
+    const a = loops[ring - 1]![col]!, b = loops[ring - 1]![next]!, c = loops[ring]![next]!, d = loops[ring]![col]!;
+    batch.orientedPolygon([a, b, c, d], [(a[0] + b[0]) / 2, .1, (a[2] + b[2]) / 2],
+      mix(P.rockShade, base, .65 + .09 * ring), 'rock');
+  }
+  const crown = loops[loops.length - 1]!;
+  batch.orientedPolygon(crown, [0, 1, 0], top === 'moss' ? mix(P.grassShade, base, .45) : mix(base, P.rockLight, .38), 'rock');
+  batch.orientedPolygon(loops[0]!, [0, -1, 0], P.rockShade, 'rock');
+  if (top === 'snow') {
+    const lip = loops[2]!.map((p): V3 => [p[0] * 1.04, p[1] + .025 * scale, p[2] * 1.04]);
+    const cap = crown.map((p): V3 => [p[0] * 1.02, p[1] + .065 * scale, p[2] * 1.02]);
+    for (let col = 0; col < sides; col++) {
+      const next = (col + 1) % sides;
+      batch.orientedPolygon([lip[col]!, lip[next]!, cap[next]!, cap[col]!], [lip[col]![0], 1, lip[col]![2]], P.snowMid, 'snow');
+    }
+    batch.orientedPolygon(cap, [0, 1, 0], P.snow, 'snow');
+  }
 }
 
 export function drawGrassTuft(batch: GeometryBatch, scale: number, seed: number, dry: boolean): void {

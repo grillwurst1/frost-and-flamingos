@@ -32,7 +32,7 @@ import {
 } from './materials';
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
-import { sculptedBeard, sculptedHairCap, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
+import { sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
 
 const MODEL_HEIGHT = 1.88;
 const SPINE_Y = 0.88;
@@ -300,6 +300,7 @@ function torus(
   if (options.rotationX) mesh.rotation.x = options.rotationX;
   if (options.rotationY) mesh.rotation.y = options.rotationY;
   if (options.rotationZ) mesh.rotation.z = options.rotationZ;
+  mesh.scaling.set(options.scaleX ?? 1, options.scaleY ?? 1, options.scaleZ ?? 1);
   paint(mesh, color, options.skin ?? false);
   parts.push(mesh);
   return mesh;
@@ -494,6 +495,7 @@ export class CharacterView {
     const faceStart = body.length;
     this.buildFace(scene, body, cosmetics.face, HEAD_Y, skinColor, hairHex);
     tagParts(body.slice(faceStart), 1, 2);
+    tagParts(body.slice(faceStart).filter(part => part.name === 'sculpted-jaw-beard' || part.name === 'beard-mustache'), 1, 8);
     const hairStart = body.length;
     this.buildHair(scene, body, cosmetics.hairStyleIndex, HEAD_Y, hairHex);
     tagParts(body.slice(hairStart), 1, 3);
@@ -926,13 +928,22 @@ export class CharacterView {
         segments: 6,
       });
     } else if (face === 'face_snorkel_mask') {
-      box(scene, body, 'snorkel-mask', 0.25, 0.12, 0.06, 0, headY + 0.03, 0.21, primary);
-      box(scene, body, 'snorkel-glass', 0.2, 0.08, 0.02, 0, headY + 0.03, 0.24, secondary);
+      for (const side of [-1, 1]) {
+        torus(scene, body, 'snorkel-lens-seal', .135, .020, side * .073, headY + .035, .215, primary,
+          { rotationX: Math.PI / 2, segments: 16, scaleZ: .8 });
+        sphere(scene, body, 'snorkel-curved-lens', .117, side * .073, headY + .035, .228, secondary,
+          { segments: 16, scaleY: .78, scaleZ: .12 });
+        torus(scene, body, 'snorkel-lens-rim', .133, .008, side * .073, headY + .035, .233, accent,
+          { rotationX: Math.PI / 2, segments: 16, scaleZ: .8 });
+      }
+      torus(scene, body, 'snorkel-head-strap', .45, .018, 0, headY + .035, -.005, primary,
+        { segments: 16, scaleX: .84 });
+      box(scene, body, 'snorkel-nose-bridge', .030, .035, .035, 0, headY + .035, .226, primary);
       cylinder(scene, body, 'snorkel-tube', 0.36, 0.03, 0.03, 0.16, headY + 0.14, 0.12, accent, {
-        segments: 6,
+        segments: 12,
       });
       cylinder(scene, body, 'snorkel-top', 0.06, 0.045, 0.045, 0.16, headY + 0.33, 0.12, accent, {
-        segments: 6,
+        segments: 12,
         rotationX: Math.PI / 2,
       });
     } else if (face === 'face_flamingo_shades') {
@@ -1013,9 +1024,7 @@ export class CharacterView {
       cylinder(scene, body, 'tirol-band', 0.045, 0.368, 0.368, 0, headY + 0.22, 0, secondary, {
         segments: 32, scaleZ: .85,
       });
-      box(scene, body, 'tirol-feather', 0.05, 0.24, 0.02, 0.2, headY + 0.33, 0.05, accent, {
-        rotationZ: -0.5,
-      });
+      body.push(sculptedHatFeather(scene, headY, accent));
     } else if (headgear === 'head_fondue_pot') {
       cylinder(scene, body, 'fondue-pot', 0.24, 0.38, 0.44, 0, headY + 0.24, 0, primary, {
         segments: 12,

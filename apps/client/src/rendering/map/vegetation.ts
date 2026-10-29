@@ -20,6 +20,7 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import '@babylonjs/core/Meshes/thinInstanceMesh';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
+import type { Material } from '@babylonjs/core/Materials/material';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   FJORD_MAP,
@@ -40,6 +41,7 @@ import type { SpriteAtlas, SpriteEntry } from '../sprite-atlas';
 import { excludeFromInk, excludeFromShadows } from '../materials';
 import { hash3 } from './geometry';
 import { referenceFrost } from './reference-frost';
+import { SolidDressing } from './solid-dressing';
 import { outerHeight, outerIsSea, outerSnowLine } from './terrain-mesh';
 
 const CLUTTER_CHUNK = 200;
@@ -61,6 +63,7 @@ const CULL = {
 export interface VegetationMaterials {
   billboard: ShaderMaterial;
   ground: ShaderMaterial;
+  solid: Material;
 }
 
 /**
@@ -94,6 +97,7 @@ function choose<T>(list: readonly T[], roll: number): T | undefined {
 }
 
 class SpriteBatch {
+  constructor(private readonly volumes?: SolidDressing) {}
   readonly matrices: number[] = [];
   readonly rects: number[] = [];
   readonly data: number[] = [];
@@ -117,6 +121,7 @@ class SpriteBatch {
 
   /** Camera-facing billboard standing on (x, y, z). */
   billboard(entry: SpriteEntry, x: number, y: number, z: number, height: number, flip: boolean, cull: number, swayScale = 1): void {
+    if (this.volumes?.add(entry, x, y, z, height)) return;
     const width = height * entry.aspect;
     this.matrices.push(width, 0, 0, 0, 0, height, 0, 0, 0, 0, width, 0, x, y, z, 1);
     const [u0, v0, u1, v1] = entry.rect;
@@ -180,12 +185,13 @@ class SpriteBatch {
 
 class ClutterChunks {
   readonly chunks = new Map<string, SpriteBatch>();
+  constructor(private readonly volumes: SolidDressing) {}
 
   at(x: number, z: number): SpriteBatch {
     const key = `${Math.floor(x / CLUTTER_CHUNK)}_${Math.floor(z / CLUTTER_CHUNK)}`;
     let batch = this.chunks.get(key);
     if (!batch) {
-      batch = new SpriteBatch();
+      batch = new SpriteBatch(this.volumes);
       this.chunks.set(key, batch);
     }
     return batch;
@@ -332,7 +338,8 @@ export function buildVegetation(
   const trees = new SpriteBatch();
   const groundDecals = new SpriteBatch();
   const blobs = new SpriteBatch();
-  const clutter = new ClutterChunks();
+  const volumes = new SolidDressing();
+  const clutter = new ClutterChunks(volumes);
   const destructible = new Map<string, number>();
   const blob = atlas.blob;
 
@@ -479,7 +486,7 @@ export function buildVegetation(
               batch.billboard(entry, x, y - 0.05, z, height, flip, CULL.bush);
             }
           }
-          else if (pick < 0.5) put(choose(pools.rockSnowSmall, hash3(x, z, 15)), CULL.rock, 0.3);
+          else if (pick < 0.56) put(choose(pools.rockSnowSmall, hash3(x, z, 15)), CULL.rock, 0.3);
           else if (pick < 0.62 && nearFir(x, z)) put(choose(pools.saplingSnow, hash3(x, z, 16)), CULL.prop, 0.25);
           else if (pick < 0.68) put(choose(pools.bushForest.filter((entry) => entry.tags.has('snow')), hash3(x, z, 17)), CULL.bush, 0.3);
           else if (pick < 0.72) decal(choose(pools.decalStone, hash3(x, z, 18)), 0.75, 0.8);
@@ -556,7 +563,9 @@ export function buildVegetation(
   if (treeMesh) {
     for (const [id, index] of destructible) handles.set(id, instanceHandle(treeMesh, index, trees.matrices));
   }
-  return { meshes, destructible: handles, instances, vertexCount: instances * 4 };
+  const solid = volumes.build(scene, materials.solid);
+  meshes.push(...solid.meshes);
+  return { meshes, destructible: handles, instances, vertexCount: instances * 4 + solid.vertices };
 }
 
 function instanceHandle(mesh: Mesh, index: number, source: readonly number[]): SpriteInstanceHandle {

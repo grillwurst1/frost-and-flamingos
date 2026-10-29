@@ -447,7 +447,10 @@ export class GlbCharacterView implements AvatarView {
     // and stays in the g-buffer like every character: the painterly post
     // has no out-of-band exemption yet (see shaders/post.ts).
     this.nativeWardrobe = spec.cosmetics !== false && Boolean(asset.wardrobe && textures?.wardrobeMask);
-    this.sharedWardrobeHead = this.nativeWardrobe && !nativeWardrobeRecipe(profile, asset).head && Boolean(asset.wardrobeHead && textures?.head);
+    // Use the same closed anatomy for every outfit, including the default
+    // beard/hat. Fused donor faces otherwise restore painted, oversized eyes
+    // and change the head shape when a single wardrobe item is removed.
+    this.sharedWardrobeHead = this.nativeWardrobe && Boolean(asset.wardrobeHead && textures?.head);
     const bodySurfaces = bodySurfaceRecipe(profile, asset);
     this.sharedWardrobeBody = this.nativeWardrobe && Boolean(asset.wardrobeBody
       && (asset.wardrobeBody.solidAnatomy || (asset.wardrobeHead && textures?.head))) && bodySurfaces.arms;

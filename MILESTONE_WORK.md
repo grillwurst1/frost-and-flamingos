@@ -603,3 +603,19 @@ passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
 All browser captures and skin probes pass; 9 WGSL variants compile. Shader
 cost reductions are not a native-Mac FPS/temperature benchmark.
 Strict types report zero errors/warnings and production builds pass.
+
+
+29 October — active screenshot priority continues: unified default/custom
+closed heads, fitted closed beard, tailored reference vest/native sleeves,
+short hair, curved feather and rounded goggles. Opaque bounded ground dressing,
+varied rock planes/snow caps, vector minimap contours and centred full-figure
+framing. Full 361 checks, strict types and builds pass. No new gameplay milestone
+or protocol change. Overall reference art and native-Mac acceptance stay open;
+finish visual comparison before returning to remaining M5 toys, then M6/M7.
+
+The six-rig render comparison additionally found shirt fragments labelled as
+sleeves across the chest and a missing native-trouser calf when changing shoes.
+Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
+a continuous trouser calf. All three new regressions fail before the fix and
+pass afterwards. The final full client suite has 136 passing cases; script/
+server remain the passing 14/211 from the full run, with no timeout changes.

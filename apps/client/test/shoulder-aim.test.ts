@@ -47,7 +47,8 @@ test('centred follow camera keeps the full hero visible and retracts in front of
     const feet=Vector3.Project(Vector3.Zero(),Matrix.Identity(),scene.getTransformMatrix(),viewport);
     const head=Vector3.Project(new Vector3(0,2,0),Matrix.Identity(),scene.getTransformMatrix(),viewport);
     expect(feet.x/1280).toBeCloseTo(.5, 6);
-    expect(feet.y/714).toBeGreaterThan(.85);expect(feet.y/714).toBeLessThan(.96);
+    // Reference framing leaves boots above the bottom action/weapon cards.
+    expect(feet.y/714).toBeGreaterThan(.80);expect(feet.y/714).toBeLessThan(.89);
     expect(head.y/714).toBeGreaterThan(.25);expect(head.y/714).toBeLessThan(.55);
     const wall={raycast:(_origin:unknown,direction:{z:number})=>direction.z<-.9?{distance:2.2}:null};
     rig.resetAngles(0,-.08);

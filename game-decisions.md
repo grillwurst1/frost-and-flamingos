@@ -2495,3 +2495,35 @@ passed separately without timeout changes (3.21/7.59 s versus 5/15 s limits).
 All browser captures and skin probes pass; 9 WGSL variants compile. Shader
 cost reductions are not a native-Mac FPS/temperature benchmark.
 Strict types report zero errors/warnings and production builds pass.
+
+
+### Reference art decisions — 29 October 2026
+
+Default clothes must not restore a different fused/painted face. Prefer the
+scene-shared closed head for all soldiers when validated assets are available;
+keep the old complete fallback. A closed beard is fitted to this actual skin
+sculpt offline (1,536 triangles), follows selected hair and stays in the body
+draw. The tracht waistcoat uses a complete tailored shell with native sleeve
+folds; short hair, hat feather and goggles are real geometry. No source art or
+clips are overwritten. Generated head hashes/revisions are rebuilt together.
+
+Large paper-like ground props are replaced by small opaque volumes. Existing
+painted rock/wood/foliage detail remains on those surfaces. Chunk size 100 m,
+cutoff 110 m, maximum 1,400 vertices/chunk and 65,536 total, no added directional
+shadow casters or screen-space edge work. These are low decoration, not new
+non-solid cover; blueprint colliders, layout and paving stay unchanged. Rocks
+retain the authored collision envelope while their chipped planes/snow caps vary.
+
+The minimap interpolates terrain contours into cached SVG paths with holes and
+rounded sub-cell corners, using the same map data and no additional 3D view.
+Human camera stays horizontally centred; pivot 1.50 m, distance 3.60 m, same
+FOV/collision/aim behaviour. Protocol 13, quality/FPS budgets and post passes stay.
+Validation: 361 tests, clean strict types and successful builds; screenshot art
+acceptance and native M4 thermal/FPS checks remain open.
+
+The six-rig render comparison additionally found shirt fragments labelled as
+sleeves across the chest and a missing native-trouser calf when changing shoes.
+Fitted-vest sleeves now reject those off-arm fragments; replacement shoes keep
+a continuous trouser calf. All three new regressions fail before the fix and
+pass afterwards. The final full client suite has 136 passing cases; script/
+server remain the passing 14/211 from the full run, with no timeout changes.

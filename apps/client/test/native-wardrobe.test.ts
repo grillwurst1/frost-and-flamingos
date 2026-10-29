@@ -305,6 +305,59 @@ test('solid anatomy around sculpted eyes stays outside the pigment atlas', () =>
   } finally { view.dispose(); }
 });
 
+test('the default beard and hat use the same anatomical skin head as a clean wardrobe choice', () => {
+  const a = build({}, true), b = build({ face: 'face_none', headgear: 'head_none', hairStyleIndex: 6 }, true);
+  const anatomy = (mesh: Mesh) => {
+    const p = mesh.getVerticesData('position')!, c = mesh.getVerticesData('color')!, flags = mesh.getVerticesData('uv2')!;
+    const joints = mesh.getVerticesData('matricesIndices')!, weights = mesh.getVerticesData('matricesWeights')!;
+    const head = mesh.skeleton!.bones.find(bone => jointName(bone.name) === 'Head')!.getIndex();
+    const result: number[] = [];
+    for (let v = 0; v < mesh.getTotalVertices(); v++) if (c[v * 4 + 3] === 1 && flags[v * 2] === 0
+      && joints[v * 4] === head && weights[v * 4] === 1) result.push(p[v * 3]!, p[v * 3 + 1]!, p[v * 3 + 2]!);
+    return result;
+  };
+  try {
+    const skin = anatomy(a.mesh); expect(skin.length).toBeGreaterThan(9000);
+    expect(skin).toEqual(anatomy(b.mesh));
+    expect(a.mesh.subMeshes).toHaveLength(1); expect(a.mesh.getTotalIndices() / 3).toBeLessThan(60000);
+  } finally { a.view.dispose(); b.view.dispose(); }
+});
+
+test('the tailored waistcoat is not pierced by sleeve-labelled shirt fragments at the chest centre', () => {
+  const { view, mesh } = build({}, true);
+  try {
+    const p = mesh.getVerticesData('position')!, flags = mesh.getVerticesData('uv2')!;
+    const chest = asset.bindPositions.get('Spine2')!;
+    let sleeves = 0;
+    for (let v = 0; v < mesh.getTotalVertices(); v++) {
+      if (flags[v * 2] !== 1 || flags[v * 2 + 1] !== 4) continue;
+      sleeves++;
+      expect(!(Math.abs(p[v * 3]!) < .10 && Math.abs(p[v * 3 + 1]! - chest.y) < .2)).toBe(true);
+    }
+    expect(sleeves).toBeGreaterThan(1000);
+  } finally { view.dispose(); }
+});
+
+test.each(['feet_sandals_socks', 'feet_dive_flippers'] as const)('native Infiltrator trousers keep a complete calf above %s', async feet => {
+  const target = (await paintedModelLibrary(scene).load('alpine-infiltrator'))!;
+  const profile = createDefaultProfile('Closed trouser calves', 'infiltrator');
+  profile.cosmetics.feet = feet;
+  const view = new GlbCharacterView(scene, new StandardMaterial('calf-shadow', scene), profile, target,
+    { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } });
+  try {
+    const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail')!;
+    const p = mesh.getVerticesData('position')!;
+    for (const side of ['Left', 'Right']) for (const t of [.25, .5, .75]) {
+      const knee = target.bindPositions.get(side + 'Leg')!, ankle = target.bindPositions.get(side + 'Foot')!;
+      const at = Vector3.Lerp(knee, ankle, t); let vertices = 0;
+      for (let v = 0; v < mesh.getTotalVertices(); v++) if (Math.abs(p[v * 3 + 1]! - at.y) < .045
+        && Math.hypot(p[v * 3]! - at.x, p[v * 3 + 2]! - at.z) < .18) vertices++;
+      expect(vertices).toBeGreaterThan(12);
+    }
+    expect(mesh.subMeshes).toHaveLength(1);
+  } finally { view.dispose(); }
+});
+
 test('the sculpted lip crease follows selected skin rather than donor paint or selected hair', () => {
   const h = asset.wardrobeHead!, vertex = h.painted.findIndex(p => p === 3);
   expect(vertex).toBeGreaterThanOrEqual(0);

@@ -37,6 +37,15 @@ test('the shared closed head and curls match their original sources and every cl
   expect(h!.painted.includes(1)).toBe(false);
   expect(h!.painted.includes(3)).toBe(true);
   expect(h!.indices.length / 3).toBeLessThan(8000);
+  expect(h!.beard).toBeDefined();
+  expect(h!.beard!.indices.length / 3).toBeLessThan(2500);
+  const beardEdges = new Map<string, number>();
+  for (let f = 0; f < h!.beard!.indices.length; f += 3) for (let k = 0; k < 3; k++) {
+    const a = h!.beard!.indices[f + k]!, b = h!.beard!.indices[f + (k + 1) % 3]!;
+    const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+    beardEdges.set(key, (beardEdges.get(key) ?? 0) + 1);
+  }
+  expect([...beardEdges.values()].every(count => count === 2)).toBe(true);
   expect(h!.afro!.uvs.every(n => n >= 0 && n <= 1)).toBe(true);
   expect(bytes.byteLength).toBeLessThan(2000000);
   for (let v = 0; v < h!.normals.length; v += 3) expect(Math.hypot(...h!.normals.slice(v, v + 3))).toBeGreaterThan(.8);
