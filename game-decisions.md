@@ -2551,3 +2551,21 @@ visibility/faction/cloak rules stay, and layout uses CSS viewport dimensions.
 Snow cannon keeps its gameplay/hold geometry, now blue/red as in the latest
 reference; matching vector weapon icons remain texture-free. Full 364 checks,
 clean types and successful builds. No protocol, texture or fullscreen-pass change.
+
+
+30 October — verify existing playability after the graphics pushes, without
+implementing another gameplay milestone. Record a reusable browser soak with
+actual cow skills, drive/fire inputs, finite authoritative state, bounded
+scene/audio/projectile counters, menu cycles and Chrome freeze/resume. The
+passed driving phase lasts 600.435 real seconds with 11 local cannon cues.
+After two minutes of warmup the final scene/audio counts do not grow. Full
+14/211/139 cases are verified; the initial four server wall-clock timeouts all
+pass in the unchanged server recheck. Types/build pass, no timeout changes.
+Kit changes after acting retain next-respawn semantics even while the menu is
+open; the QA harness follows the notice and out-of-world respawn guard. A narrow-window panel alignment fix keeps the
+existing wardrobe figure visible beside the controls, with no extra render work. Production mechanics,
+protocol, assets and rendering budgets stay. Native M4 heat/FPS and native WebGPU remain unmeasured.
+
+Supplemental real-browser cable brake/F boarding/ride/exit/centred-camera
+and wardrobe skin/hair/shirt/persistence/live-language flows also pass with
+zero errors. The same QA report records both results and captures.

@@ -1,0 +1,1429 @@
+{
+  "status": "passed with documented environment limitations and initial timeout/recheck history",
+  "testedGameCommit": "f5db43f594c9f5250d3055565f7795e7823dc5cc",
+  "scope": "Owner-requested playability, resource lifetime and crash regression checks after graphics changes. No new gameplay milestone or screenshot-acceptance claim.",
+  "automated": {
+    "script": {
+      "passed": 14,
+      "failed": 0
+    },
+    "initialRootServer": {
+      "passed": 207,
+      "failed": 4,
+      "failureKind": "Existing 5000 ms wall-clock timeouts; no assertion failure reported. The root command stopped before the client suite.",
+      "cases": [
+        "sidecar drift",
+        "sidecar horn/passenger/seat switching",
+        "sidecar roadkill",
+        "ordinary F boarding at mid cable-car station"
+      ]
+    },
+    "serverRecheck": {
+      "passed": 211,
+      "failed": 0,
+      "wallSeconds": 139.64,
+      "scope": "All server cases, including the four timed-out cases, without code or timeout changes."
+    },
+    "client": {
+      "passed": 139,
+      "failed": 0,
+      "wallSeconds": 70.5
+    },
+    "uniquePassingCases": 364,
+    "types": "0 errors / 0 warnings",
+    "build": "Passed shared/client/server; existing large client chunk advisory.",
+    "simulatedConquestSoak": {
+      "minutes": 15,
+      "wallSeconds": 43.9,
+      "roundEnds": 2,
+      "roundResets": 2,
+      "towerCaptures": 3,
+      "kills": 29
+    },
+    "timeoutsChanged": false
+  },
+  "firstBrowserAttempt": {
+    "outcome": "Harness assumption corrected, not counted as a passed complete run.",
+    "reason": "After cow abilities, returning to the menu does not bypass the combat kit deferral rule. Waiting for an immediate allrounder switch timed out; the final harness waits for the queued-profile notice and exercises the existing out-of-world respawn guard.",
+    "pageErrors": []
+  },
+  "coverage": "Real WebGL2 browser paths and their resource counters are recorded below when complete. Unit/integration cases additionally cover shared collision/stairs, boats/aircraft/vehicles, cable-car dwell/exits/brakes, conquest/reset, profiles/skin/outfits, camera, render/pixel/FPS budgets, bounded audio graphs and suspended-audio cues.",
+  "limitations": [
+    "Cloud uses SwiftShader at low quality and 800x450; its FPS and thermal behaviour cannot establish native M4 performance.",
+    "JS heap excludes GPU and native decoded-audio memory. Connected audio nodes are numeric probe IDs, not a browser-native memory total.",
+    "No finite QA run proves universal crash-free operation or completion of remaining milestones.",
+    "Native WebGPU device restore/runtime acceptance remains open as previously recorded; compatibility WebGL2 is the default."
+  ],
+  "browserSoak": {
+    "status": "passed",
+    "scope": "Real WebGL2 inputs, audio and network; dev endpoints only arrange starting positions.",
+    "softwareRenderer": true,
+    "requestedDrivingSeconds": 600,
+    "errors": [],
+    "failedResponses": [],
+    "checkpoints": [
+      {
+        "label": "cow-start",
+        "time": 54238.29999998212,
+        "phase": "playing",
+        "frame": 26,
+        "tick": 9368,
+        "connected": true,
+        "heap": 427056615,
+        "meshes": 554,
+        "materials": 82,
+        "textures": 46,
+        "geometries": 522,
+        "gpuTextures": 48,
+        "audioConnections": 24,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {},
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 222.725,
+          "y": 55.025,
+          "z": 232.725
+        },
+        "seat": null
+      },
+      {
+        "label": "cow-1-q",
+        "time": 75081.89999997616,
+        "phase": "playing",
+        "frame": 33,
+        "tick": 9850,
+        "connected": true,
+        "heap": 209343669,
+        "meshes": 556,
+        "materials": 84,
+        "textures": 48,
+        "geometries": 524,
+        "gpuTextures": 50,
+        "audioConnections": 28,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 1
+        },
+        "contextLosses": 0,
+        "pendingInputs": 15,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 197.14999389648438,
+          "y": 55.025001525878906,
+          "z": 239.375
+        },
+        "seat": null
+      },
+      {
+        "label": "cow-1-e",
+        "time": 82553.39999997616,
+        "phase": "playing",
+        "frame": 38,
+        "tick": 10208,
+        "connected": true,
+        "heap": 227920102,
+        "meshes": 555,
+        "materials": 84,
+        "textures": 48,
+        "geometries": 522,
+        "gpuTextures": 50,
+        "audioConnections": 25,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 1,
+          "2": 1
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 197.14999389648438,
+          "y": 55.025001525878906,
+          "z": 239.375
+        },
+        "seat": null
+      },
+      {
+        "label": "cow-1-t",
+        "time": 90636.79999998212,
+        "phase": "playing",
+        "frame": 43,
+        "tick": 10451,
+        "connected": true,
+        "heap": 209198634,
+        "meshes": 555,
+        "materials": 84,
+        "textures": 48,
+        "geometries": 522,
+        "gpuTextures": 50,
+        "audioConnections": 25,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 1,
+          "2": 1,
+          "3": 1
+        },
+        "contextLosses": 0,
+        "pendingInputs": 2,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 197.14999389648438,
+          "y": 55.025001525878906,
+          "z": 239.375
+        },
+        "seat": null
+      },
+      {
+        "label": "cow-2-q",
+        "time": 99148.59999999404,
+        "phase": "playing",
+        "frame": 48,
+        "tick": 10706,
+        "connected": true,
+        "heap": 207266685,
+        "meshes": 556,
+        "materials": 85,
+        "textures": 49,
+        "geometries": 523,
+        "gpuTextures": 51,
+        "audioConnections": 25,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 2,
+          "2": 1,
+          "3": 1
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 197.075,
+          "y": 55.025,
+          "z": 239.725
+        },
+        "seat": null
+      },
+      {
+        "label": "cow-2-e",
+        "time": 106418.59999999404,
+        "phase": "playing",
+        "frame": 53,
+        "tick": 10924,
+        "connected": true,
+        "heap": 210997537,
+        "meshes": 555,
+        "materials": 84,
+        "textures": 48,
+        "geometries": 522,
+        "gpuTextures": 50,
+        "audioConnections": 25,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 1
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 197.075,
+          "y": 55.025,
+          "z": 239.725
+        },
+        "seat": null
+      },
+      {
+        "label": "cow-2-t",
+        "time": 113470.69999998808,
+        "phase": "playing",
+        "frame": 58,
+        "tick": 11136,
+        "connected": true,
+        "heap": 213191262,
+        "meshes": 555,
+        "materials": 84,
+        "textures": 48,
+        "geometries": 522,
+        "gpuTextures": 50,
+        "audioConnections": 25,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 197.075,
+          "y": 55.025,
+          "z": 239.725
+        },
+        "seat": null
+      },
+      {
+        "label": "queued-class-applied-at-respawn",
+        "time": 116860.79999998212,
+        "phase": "menu",
+        "frame": 59,
+        "tick": 11237,
+        "connected": true,
+        "heap": 233696149,
+        "meshes": 560,
+        "materials": 77,
+        "textures": 46,
+        "geometries": 531,
+        "gpuTextures": 48,
+        "audioConnections": 31,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 195.15,
+          "y": 55.025,
+          "z": 232.025
+        },
+        "seat": null
+      },
+      {
+        "label": "tank-start",
+        "time": 127652.79999998212,
+        "phase": "playing",
+        "frame": 63,
+        "tick": 11561,
+        "connected": true,
+        "heap": 244451197,
+        "meshes": 559,
+        "materials": 79,
+        "textures": 51,
+        "geometries": 529,
+        "gpuTextures": 53,
+        "audioConnections": 38,
+        "audioState": "running",
+        "shots": 0,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 195.14999389648438,
+          "y": 55.02499923706055,
+          "z": 232.02499389648438
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-30s",
+        "time": 157781,
+        "phase": "playing",
+        "frame": 74,
+        "tick": 12464,
+        "connected": true,
+        "heap": 218532746,
+        "meshes": 571,
+        "materials": 86,
+        "textures": 54,
+        "geometries": 535,
+        "gpuTextures": 56,
+        "audioConnections": 51,
+        "audioState": "running",
+        "shots": 2,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.55473739372826,
+          "y": 58.77550063328672,
+          "z": 316.6874342234886
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-60s",
+        "time": 187806.09999999404,
+        "phase": "playing",
+        "frame": 82,
+        "tick": 13364,
+        "connected": true,
+        "heap": 223591950,
+        "meshes": 573,
+        "materials": 87,
+        "textures": 55,
+        "geometries": 536,
+        "gpuTextures": 57,
+        "audioConnections": 56,
+        "audioState": "running",
+        "shots": 4,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 1,
+        "feet": {
+          "x": 333.44685767621996,
+          "y": 58.77579964607721,
+          "z": 316.4455118967301
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-90s",
+        "time": 217811.59999999404,
+        "phase": "playing",
+        "frame": 91,
+        "tick": 14264,
+        "connected": true,
+        "heap": 222410198,
+        "meshes": 571,
+        "materials": 85,
+        "textures": 54,
+        "geometries": 534,
+        "gpuTextures": 56,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 5,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 1,
+        "feet": {
+          "x": 333.3041304403523,
+          "y": 58.776199903112136,
+          "z": 316.13057693895763
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-120s",
+        "time": 247819.39999997616,
+        "phase": "playing",
+        "frame": 98,
+        "tick": 15156,
+        "connected": true,
+        "heap": 221661200,
+        "meshes": 570,
+        "materials": 85,
+        "textures": 53,
+        "geometries": 534,
+        "gpuTextures": 55,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 5,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.2218586491028,
+          "y": 58.77580001860624,
+          "z": 315.9580125083762
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-150s",
+        "time": 277829.2999999821,
+        "phase": "playing",
+        "frame": 106,
+        "tick": 16055,
+        "connected": true,
+        "heap": 226856058,
+        "meshes": 567,
+        "materials": 82,
+        "textures": 51,
+        "geometries": 531,
+        "gpuTextures": 53,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 5,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.1110055045996,
+          "y": 58.77570065563341,
+          "z": 315.7115482924587
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-180s",
+        "time": 307834.89999997616,
+        "phase": "playing",
+        "frame": 115,
+        "tick": 16954,
+        "connected": true,
+        "heap": 229038500,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 5,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 332.96662423495,
+          "y": 58.77619960136362,
+          "z": 315.4055817878886
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-210s",
+        "time": 337841.39999997616,
+        "phase": "playing",
+        "frame": 122,
+        "tick": 17854,
+        "connected": true,
+        "heap": 229802030,
+        "meshes": 568,
+        "materials": 82,
+        "textures": 51,
+        "geometries": 531,
+        "gpuTextures": 53,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 6,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 1,
+        "feet": {
+          "x": 332.8843574927494,
+          "y": 58.77580022349721,
+          "z": 315.23301515682476
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-240s",
+        "time": 367848.5,
+        "phase": "playing",
+        "frame": 131,
+        "tick": 18754,
+        "connected": true,
+        "heap": 234388299,
+        "meshes": 568,
+        "materials": 83,
+        "textures": 52,
+        "geometries": 532,
+        "gpuTextures": 54,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 6,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 332.75935913211,
+          "y": 58.77580063327914,
+          "z": 314.95801647697454
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-270s",
+        "time": 397872.09999999404,
+        "phase": "playing",
+        "frame": 140,
+        "tick": 19636,
+        "connected": true,
+        "heap": 245016953,
+        "meshes": 568,
+        "materials": 82,
+        "textures": 51,
+        "geometries": 531,
+        "gpuTextures": 53,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 7,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 1,
+        "feet": {
+          "x": 332.6148562743401,
+          "y": 58.77630113990599,
+          "z": 314.63929399723065
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-300s",
+        "time": 427904,
+        "phase": "playing",
+        "frame": 148,
+        "tick": 20531,
+        "connected": true,
+        "heap": 219670988,
+        "meshes": 568,
+        "materials": 83,
+        "textures": 52,
+        "geometries": 532,
+        "gpuTextures": 54,
+        "audioConnections": 56,
+        "audioState": "running",
+        "shots": 7,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 332.5023571694575,
+          "y": 58.77630036132032,
+          "z": 314.40179118766326
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-330s",
+        "time": 457914.89999997616,
+        "phase": "playing",
+        "frame": 157,
+        "tick": 21416,
+        "connected": true,
+        "heap": 230931052,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 7,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 332.34554068032446,
+          "y": 58.77680167260987,
+          "z": 314.06913243374663
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-360s",
+        "time": 487937.7999999821,
+        "phase": "playing",
+        "frame": 164,
+        "tick": 22316,
+        "connected": true,
+        "heap": 227048514,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 53,
+        "audioState": "running",
+        "shots": 7,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 332.27911881476905,
+          "y": 58.77620004839846,
+          "z": 313.91808764963287
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-390s",
+        "time": 517973.2999999821,
+        "phase": "playing",
+        "frame": 174,
+        "tick": 23203,
+        "connected": true,
+        "heap": 237958604,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 53,
+        "audioState": "running",
+        "shots": 7,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 332.06391503972264,
+          "y": 58.7773017657295,
+          "z": 313.46002845005944
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-420s",
+        "time": 547992.7999999821,
+        "phase": "playing",
+        "frame": 184,
+        "tick": 24097,
+        "connected": true,
+        "heap": 235360498,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 7,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 331.9916211776508,
+          "y": 58.77620054013678,
+          "z": 313.30558612738616
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-450s",
+        "time": 578003.3999999762,
+        "phase": "playing",
+        "frame": 194,
+        "tick": 24990,
+        "connected": true,
+        "heap": 248356830,
+        "meshes": 571,
+        "materials": 85,
+        "textures": 53,
+        "geometries": 534,
+        "gpuTextures": 55,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 9,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 1,
+        "feet": {
+          "x": 331.78890769577845,
+          "y": 58.7772993070379,
+          "z": 312.8475263124413
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-480s",
+        "time": 608013.099999994,
+        "phase": "playing",
+        "frame": 205,
+        "tick": 25890,
+        "connected": true,
+        "heap": 225151529,
+        "meshes": 573,
+        "materials": 87,
+        "textures": 55,
+        "geometries": 536,
+        "gpuTextures": 57,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 1,
+        "feet": {
+          "x": 331.6724308048448,
+          "y": 58.776700894026725,
+          "z": 312.59818412466785
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-510s",
+        "time": 638018.3999999762,
+        "phase": "playing",
+        "frame": 215,
+        "tick": 26785,
+        "connected": true,
+        "heap": 220067380,
+        "meshes": 567,
+        "materials": 82,
+        "textures": 51,
+        "geometries": 531,
+        "gpuTextures": 53,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 331.5735033952704,
+          "y": 58.77570021977444,
+          "z": 312.39904745473405
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-540s",
+        "time": 668025.5,
+        "phase": "playing",
+        "frame": 225,
+        "tick": 27683,
+        "connected": true,
+        "heap": 231407695,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 51,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 331.384929631844,
+          "y": 58.77670069658634,
+          "z": 311.99818379823927
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-570s",
+        "time": 698037.6999999881,
+        "phase": "playing",
+        "frame": 231,
+        "tick": 28577,
+        "connected": true,
+        "heap": 227622581,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 331.3468583393216,
+          "y": 58.77579985841876,
+          "z": 311.9080132066353
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-600s",
+        "time": 728052.7999999821,
+        "phase": "playing",
+        "frame": 240,
+        "tick": 29474,
+        "connected": true,
+        "heap": 238322950,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 331.20235845619607,
+          "y": 58.77630060718948,
+          "z": 311.60179180070634
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "tank-end",
+        "time": 728087.7999999821,
+        "phase": "playing",
+        "frame": 240,
+        "tick": 29474,
+        "connected": true,
+        "heap": 238350604,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 47,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 331.20235845619607,
+          "y": 58.77630060718948,
+          "z": 311.60179180070634
+        },
+        "seat": {
+          "vehicleId": 4,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        }
+      },
+      {
+        "label": "menu-cycle-1",
+        "time": 731789.8999999762,
+        "phase": "playing",
+        "frame": 242,
+        "tick": 29586,
+        "connected": true,
+        "heap": 244084387,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 42,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.125,
+          "y": 58.25,
+          "z": 310.75
+        },
+        "seat": null
+      },
+      {
+        "label": "menu-cycle-2",
+        "time": 745270.7999999821,
+        "phase": "playing",
+        "frame": 249,
+        "tick": 29990,
+        "connected": true,
+        "heap": 225741232,
+        "meshes": 566,
+        "materials": 81,
+        "textures": 50,
+        "geometries": 530,
+        "gpuTextures": 52,
+        "audioConnections": 55,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.125,
+          "y": 58.25,
+          "z": 310.75
+        },
+        "seat": null
+      },
+      {
+        "label": "menu-cycle-3",
+        "time": 750413.5,
+        "phase": "playing",
+        "frame": 252,
+        "tick": 30138,
+        "connected": true,
+        "heap": 242765071,
+        "meshes": 565,
+        "materials": 82,
+        "textures": 51,
+        "geometries": 527,
+        "gpuTextures": 53,
+        "audioConnections": 68,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.125,
+          "y": 58.25,
+          "z": 310.75
+        },
+        "seat": null
+      },
+      {
+        "label": "before-page-freeze",
+        "time": 750439.2999999821,
+        "phase": "playing",
+        "frame": 252,
+        "tick": 30139,
+        "connected": true,
+        "heap": 242813581,
+        "meshes": 565,
+        "materials": 82,
+        "textures": 51,
+        "geometries": 527,
+        "gpuTextures": 53,
+        "audioConnections": 68,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.125,
+          "y": 58.25,
+          "z": 310.75
+        },
+        "seat": null
+      },
+      {
+        "label": "resumed-page",
+        "time": 768361.7999999821,
+        "phase": "playing",
+        "frame": 256,
+        "tick": 30675,
+        "connected": true,
+        "heap": 238615789,
+        "meshes": 565,
+        "materials": 82,
+        "textures": 51,
+        "geometries": 527,
+        "gpuTextures": 53,
+        "audioConnections": 67,
+        "audioState": "running",
+        "shots": 11,
+        "skills": {
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "contextLosses": 0,
+        "pendingInputs": 0,
+        "vehicleShots": 0,
+        "feet": {
+          "x": 333.125,
+          "y": 58.22025833129883,
+          "z": 310.75
+        },
+        "seat": null
+      }
+    ],
+    "actualDrivingSeconds": 600.435,
+    "steadyResourceDelta": {
+      "meshes": -4,
+      "materials": -4,
+      "geometries": -4,
+      "textures": -3,
+      "gpuTextures": -3,
+      "audioConnections": 0,
+      "heap": 16661750
+    },
+    "totalBrowserSeconds": 714.1235
+  },
+  "browserResourceSummary": {
+    "checkpoints": 35,
+    "heapMiBRangeDuringDriving": [
+      208.41,
+      236.85
+    ],
+    "connectedAudioNodeRangeDuringDriving": [
+      47,
+      56
+    ],
+    "maxPendingInputsDuringDriving": 0,
+    "maxVisibleVehicleProjectiles": 1,
+    "movementBetweenFirstAndLastDrivingSamplesMetres": 5.603342409500415,
+    "movementScope": "First post-boarding sample to last; excludes the initial teleport into the vehicle. Slow software frames starve prediction inputs, so distance/FPS do not represent a native client.",
+    "contextLosses": 0
+  },
+  "mapAccessBrowser": {
+    "status": "passed",
+    "boarded": {
+      "vehicleId": 101,
+      "seat": 1,
+      "kind": "cable_car",
+      "driver": false,
+      "gunner": false,
+      "handWeapons": false,
+      "exposed": false
+    },
+    "centered": {
+      "fraction": 0.49999964318412937,
+      "frame": 54,
+      "renderer": "ThinEngine",
+      "maxLeverAngle": 1.35,
+      "leverPulls": 1,
+      "stats": {
+        "drawCalls": 124,
+        "activeMeshes": 68,
+        "meshes": 581,
+        "materials": 77,
+        "mapVertices": 1712804,
+        "destructibleMeshes": 102,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_facadeAtlas": 57,
+        "boot_spriteAtlas": 3705,
+        "boot_map": 3911,
+        "boot_world": 7616
+      }
+    },
+    "errors": []
+  },
+  "mapAccessScope": "Actual F brake pull, two authoritative cabin stop events, visible 1.35-radian lever feedback, normal F boarding, moving cabin-follow camera, F exit and centred controlled-player projection at 800x500/Low WebGL2. Shared station stair/platform/exits additionally pass server/client integration cases.",
+  "wardrobeBrowser": {
+    "status": "passed",
+    "expected": {
+      "classId": "heavy",
+      "bodyType": 0.0784313725490196,
+      "skinToneIndex": 8,
+      "hairColorIndex": 2,
+      "hairStyleIndex": 6,
+      "headgear": "head_none",
+      "face": "face_none",
+      "torso": "torso_hawaii_shirt",
+      "back": "back_none",
+      "hands": "hands_bare",
+      "legs": "legs_olive_pants",
+      "feet": "feet_mountain_boots",
+      "voicePitch": 0.82
+    },
+    "errors": []
+  },
+  "wardrobeScope": "Actual EN/DE live buttons; Heavy detail preview, skin tone 9 and hair colour 3 selected through UI, field vest -> tracht shirt -> Hawaii shirt without changing selected skin/style, full cosmetics equality after reload, deployed local detailed model matching selection. 800x600/Low WebGL2.",
+  "artifacts": [
+    "playability-final-2026-10-30.png",
+    "playability-cabin-2026-10-30.png",
+    "playability-centered-2026-10-30.png",
+    "playability-wardrobe-2026-10-30.png",
+    "playability-wardrobe-game-2026-10-30.png",
+    "playability-wardrobe-before-2026-10-30.png"
+  ],
+  "layoutFix": {
+    "file": "apps/client/src/styles/panels.css",
+    "problem": "At 800 px the narrow-window centred wardrobe panel covered the existing 3D figure.",
+    "change": "Right-align the panel in the existing <=980 px layout, preserving its width and the existing left-hand showcase camera.",
+    "newRenderPasses": 0,
+    "newScenes": 0,
+    "newTextures": 0,
+    "validation": "Actual 800x600 WebGL2 layout/selection/persistence/gameplay flow passed after the fix. Strict types report 0 errors/warnings, production shared/client/server builds pass, node syntax check passes.",
+    "projectionAndPanelCssPixels": {
+      "left": 395.203125,
+      "right": 779.203125,
+      "width": 800,
+      "figureX": 252.5697812019661,
+      "figureY": 280.94487364589247
+    },
+    "beforeCapture": "playability-wardrobe-before-2026-10-30.png",
+    "afterCapture": "playability-wardrobe-2026-10-30.png"
+  }
+}

@@ -633,3 +633,19 @@ sparser fading outside forest, tropical outskirts, overlapping-name separation
 and reference weapon colours/icons. Full 364 tests, strict types/build pass.
 Gameplay, collision blueprint and protocol stay; no later milestone is declared
 complete. Continue judging reference art/native-Mac behaviour independently.
+
+
+30 October — owner-priority post-push playability/stability QA. Verify 364
+unique cases, types/build and a real ten-minute cow/crawler/menu/browser-lifecycle
+soak; record resource liveness in docs/qa/playability-2026-10-30.json and add a
+repeatable browser harness. Four initial server timeouts pass an unchanged
+full server recheck. No later milestone or full/native-M4 art/performance
+acceptance is declared complete. Supplemental map/wardrobe verification follows.
+
+Supplemental real-browser cable brake/F boarding/ride/exit/centred-camera
+and wardrobe skin/hair/shirt/persistence/live-language flows also pass with
+zero errors. The same QA report records both results and captures.
+
+Final QA additionally fixes the 800 px wardrobe overlay hiding the model;
+right-align its existing panel, recheck actual preview projection, selection/
+persistence/deployment and clean types/build. No additional rendering work.

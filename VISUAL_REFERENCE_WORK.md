@@ -836,3 +836,37 @@ errors. Static map vertices 1,743,468→1,712,804; actual outside instances 2,36
 The crowded cow label lifts 90 CSS pixels, preserving its real anchor. Driver
 boarding keeps the loaded crawler in the capture without changing tow rules.
 These are software-renderer checks, not native M4 performance acceptance.
+
+
+### Post-push playability check — 30 October 2026
+
+The owner now requests stability/playability verification of the pushed art.
+Current source f5db43f passes 364 unique cases, strict types/build and a real
+600.435-second crawler drive/fire phase after repeated cow Q/E/T, followed by
+menu cycles and Chrome page freeze/resume. No browser/context/network error.
+Warmed scene/texture/audio counts do not grow; detailed checkpoints and native
+GPU measurement limits are recorded in docs/qa/playability-2026-10-30.json.
+This checks existing art's lifetime/liveness; it does not finish the supplied
+screenshot's visual acceptance or later milestones.
+
+Supplemental actual WebGL2 map check passes F brake/boarding, cabin ride/
+follow, F exit and centred projection (x fraction 0.49999964). The brake
+receives two authoritative cabin events and visibly pulls once to 1.35 rad.
+See playability-cabin/playability-centered captures and the same QA JSON.
+
+Final supplemental wardrobe browser check passes EN/DE live switching,
+selected skin/hair, both shirt changes without changing that skin, exact
+cosmetics persistence after reload and the same loaded detailed local model
+in gameplay. All three browser flows finish with zero errors. Evidence and
+playability-wardrobe/playability-wardrobe-game captures are in the same QA
+report. The main soak tests production source f5db43f. Final capture review found
+that the centred panel hid the preview at 800 px width; align the narrow-window
+panel to the right so the existing left-hand 3D preview remains visible.
+This adds no second scene or rendering work; types/build and the wardrobe
+browser flow are rechecked after this CSS-only fix.
+
+Final layout recheck passes: at 800×600 the actual detailed preview centre
+is x=252.57 CSS px, left of the control panel starting at x=395.20. EN/DE,
+skin/hair, both shirt switches, exact reload persistence and the same selected
+local model in gameplay pass again without browser errors. Strict types/build
+pass after the CSS change. Before/after captures are included in the QA report.

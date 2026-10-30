@@ -940,7 +940,9 @@
   }
 
   .wardrobe-panel {
-    justify-self: center;
+    /* The showcase camera places the figure on the left. Keep that area
+       visible when the stage copy is hidden on smaller desktop windows. */
+    justify-self: end;
     width: min(32rem, 100%);
   }
 }

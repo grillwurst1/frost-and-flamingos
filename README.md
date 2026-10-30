@@ -1041,3 +1041,21 @@ drop from 9,398 to 2,369, with distance fade and tropical palms on low outskirts
 Playable geometry/collisions stay. Crowded player names separate with connectors
 to their true anchors. Snow cannon and weapon pictograms follow the latest
 blue/red/steel reference colours. Full 364 tests, types and builds pass.
+
+
+30 October stability verification: 364 unique script/server/client cases, clean
+strict types and production builds; real cow Q/E/T, a ten-minute combined
+crawler drive/fire run, pause/menu cycles and Chrome freeze/resume pass.
+See [the recorded scope and results](docs/qa/playability-2026-10-30.json) and
+[repeatable browser-soak instructions](scripts/qa/README.md). Initial server
+timeouts passed an unchanged full server recheck. Software-renderer evidence
+does not establish native M4 frame rate/temperature or universal crash freedom.
+
+Supplemental real-browser cable brake/F boarding/ride/exit/centred-camera
+and wardrobe skin/hair/shirt/persistence/live-language flows also pass with
+zero errors. The same QA report records both results and captures.
+
+The QA capture review also fixed the narrow-window wardrobe panel covering
+the figure: the existing preview is visible beside the right-aligned controls
+at 800 px width, without another scene/pass. Its complete browser flow and
+types/build pass again after the CSS change.

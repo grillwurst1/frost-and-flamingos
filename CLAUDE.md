@@ -1328,3 +1328,59 @@ errors. Static map vertices 1,743,468→1,712,804; actual outside instances 2,36
 The crowded cow label lifts 90 CSS pixels, preserving its real anchor. Driver
 boarding keeps the loaded crawler in the capture without changing tow rules.
 These are software-renderer checks, not native M4 performance acceptance.
+
+
+### Post-push playability and stability verification — 30 October 2026
+
+Owner requests checking smooth, playable operation without overload/crashes.
+Test the current GitHub source of truth f5db43f serially; no later milestone
+is implemented by this QA pass. A reusable real-browser soak now lives in
+`scripts/qa/playability.mjs` with setup/scope in `scripts/qa/README.md`. It uses
+real inputs, WebGL2, audio and binary networking, and records numeric audio-node
+IDs rather than retaining nodes. Dev endpoints only stage a seat and the existing
+out-of-world respawn guard; no cooldown/physics/render substitute is used.
+
+14 script / 211 server / 139 client cases are verified (364). The initial root
+server run hit four existing 5-second wall-clock limits (three sidecar cases
+and mid-station F boarding); all 211 server cases passed the unchanged recheck,
+including those four. No timeout was raised. Strict types have zero errors/
+warnings and production builds pass. The bot soak covers 15 simulated minutes,
+two round endings/resets, three captures and 29 kills.
+
+The real-browser run passes repeated cow Q/E/T, 600.435 real seconds of driving
+with 11 local cannon cues, three pause/menu/deploy cycles and Chrome page freeze/
+resume. Thirty-five checkpoints contain no page/console/HTTP errors, disconnect
+or WebGL context loss. From the warmed tank interval, meshes/materials/geometries
+change by -4 each, texture wrappers/internal textures by -3, connected audio by 0.
+JS heap varies with normal collection; GPU/native decoded-audio memory is not
+included. The first attempt incorrectly expected an immediate combat-kit change
+after the cow acted; the final probe follows the queued-profile notice and
+existing respawn rule instead. This is a harness correction, not a gameplay fix.
+
+Evidence: `docs/qa/playability-2026-10-30.json` and capture. Cloud SwiftShader at
+800×450/Low verifies lifetime/liveness, not native M4 FPS, heat or universal
+crash-free operation. Complete screenshot acceptance, native WebGPU runtime
+and remaining gameplay milestones stay open. Supplemental map/wardrobe evidence
+is added below once complete.
+
+Supplemental actual WebGL2 map check passes F brake/boarding, cabin ride/
+follow, F exit and centred projection (x fraction 0.49999964). The brake
+receives two authoritative cabin events and visibly pulls once to 1.35 rad.
+See playability-cabin/playability-centered captures and the same QA JSON.
+
+Final supplemental wardrobe browser check passes EN/DE live switching,
+selected skin/hair, both shirt changes without changing that skin, exact
+cosmetics persistence after reload and the same loaded detailed local model
+in gameplay. All three browser flows finish with zero errors. Evidence and
+playability-wardrobe/playability-wardrobe-game captures are in the same QA
+report. The main soak tests production source f5db43f. Final capture review found
+that the centred panel hid the preview at 800 px width; align the narrow-window
+panel to the right so the existing left-hand 3D preview remains visible.
+This adds no second scene or rendering work; types/build and the wardrobe
+browser flow are rechecked after this CSS-only fix.
+
+Final layout recheck passes: at 800×600 the actual detailed preview centre
+is x=252.57 CSS px, left of the control panel starting at x=395.20. EN/DE,
+skin/hair, both shirt switches, exact reload persistence and the same selected
+local model in gameplay pass again without browser errors. Strict types/build
+pass after the CSS change. Before/after captures are included in the QA report.

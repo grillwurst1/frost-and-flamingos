@@ -1265,3 +1265,29 @@ Spielernamen werden versetzt und mit ihrer tatsächlichen Position verbunden.
 Der Schneewerfer und die Waffenbilder im HUD folgen stärker den blau-roten
 beziehungsweise stahlgrauen Farben der aktuellen Vorlage. Die Bedienung und
 Waffenwerte bleiben gleich.
+
+
+### Spielbarkeitsprüfung vom 30. Oktober 2026
+
+Die Prüfung umfasst 364 Testfälle sowie einen echten Browserlauf: Kuh-Q/E/T
+je zweimal, zehn Minuten Panzerfahren mit Schießen, dreimal Pause/Menü/
+Wiedereinstieg und Einfrieren/Wiederaufnehmen der Browserseite. Diese Abläufe
+liefen ohne Browserabsturz, Verbindungsabbruch oder verlorenen WebGL-Kontext.
+Die Szenen-, Textur- und Audioobjekte wachsen im warmen Panzerabschnitt nicht an.
+
+Wer mit einer Klasse bereits gekämpft oder Fähigkeiten benutzt hat, wechselt
+das Kampfset beim nächsten Respawn. Das Öffnen des Menüs umgeht diese Regel
+nicht; beachte die angezeigte Vormerkung. Die Auswahl wird gespeichert.
+
+Die Ergebnisse und Grenzen stehen in `docs/qa/playability-2026-10-30.json`.
+Der Cloud-Browser rendert per Software; seine Prüfung kann Temperatur und
+Bildrate eines echten MacBook M4 nicht bestätigen. Grafik-Auto und das
+45-FPS-Standardlimit bleiben erhalten.
+
+Auch Gondelhebel, F-Einstieg, Fahrt, F-Ausstieg und mittige Kamera sind im
+Browser geprüft. Haut-/Haarwahl, zwei Hemdwechsel, Speichern nach Neuladen
+und die Übernahme ins Spiel sowie der DE/EN-Wechsel funktionieren im Prüflauf.
+
+Bei schmalen Desktopfenstern steht das Garderobenpanel rechts, damit die
+vorhandene Figur daneben sichtbar bleibt. Die 800-Pixel-Ansicht ist nach
+dieser Korrektur erneut mit Auswahl, Speicherung und Spielstart geprüft.
