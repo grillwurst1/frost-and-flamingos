@@ -56,7 +56,10 @@ milestones. JS heap measurements exclude GPU and native decoded-audio memory.
 checks the authored spawn and loaded modular hero, records the bounded crawler/
 smoke draws, walks/jumps with real input and saves an actual renderer capture.
 Use the same Playwright/Chromium/output/software environment variables above.
-The capture uses 1280×800 at Medium. Do not infer native GPU throughput from
+The public-entry capture uses 1280×800 at Medium; subsequent input checks and
+the isolated mechanics flow use 800×500 Low. `FF_QA_REFERENCE_LOW=1` also makes
+the public capture Low. `FF_QA_REFERENCE_CLOSE=1` adds a posed real 3D avatar
+inspection with the wardrobe panel hidden only for that diagnostic capture. Do not infer native GPU throughput from
 Cloud SwiftShader timings.
 
 For an isolated capture/board/drive/fire/exit flow, start a fresh stack with

@@ -54,10 +54,10 @@ try {
     await stage({x:'1',z:'71.5',y:'16.98'});await frames();
     await wait(()=>window.__frostDebug.snapshotHistory.at(-1).snapshot.conquest.towers[1].owner==='alpine');
     await sample('bridge-captured');await page.screenshot({path:resolve(output,'reference-bridge.png'),timeout:180000});
-    await stage({x:'24.4',z:'103',y:'18.5'});await frames();
+    await stage({x:'19',z:'103.2',y:'18.5'});await frames();
     await page.keyboard.down('f');await wait(()=>window.__frostDebug.vehicles.localSeat?.vehicleId===201);await page.keyboard.up('f');
     await page.evaluate(()=>{const g=window.__frostDebug;window.__qaCannonShots=0;const fire=g.vehicles.localShot.bind(g.vehicles);g.vehicles.localShot=(...a)=>{window.__qaCannonShots++;return fire(...a)}});
-    const before=await sample('tank-boarded');assert.ok(before.trackAttribute>=0,'track matrices must be active in the actual GPU shader');await page.keyboard.down('w');await page.mouse.down();
+    const before=await sample('tank-boarded');assert.equal(before.vehicles.seat.driver,true);assert.ok(before.trackAttribute>=0,'track matrices must be active in the actual GPU shader');await page.keyboard.down('w');await page.mouse.down();
     const deadline=Date.now()+60000;
     while(Date.now()<deadline){await page.waitForTimeout(10000);await sample('drive-fire')}
     await page.mouse.up();await page.keyboard.up('w');await frames();

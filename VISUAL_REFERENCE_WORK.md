@@ -927,3 +927,17 @@ walk/jump, room isolation and actual on-screen wardrobe projection pass with
 zero browser errors. A death-camera priority defect found in the wardrobe
 capture is fixed. Evidence: `docs/qa/reference-scene-2026-11-04.json` and images.
 The additional isolated sustained drive/fire check is running at this checkpoint.
+
+The isolated real-browser reference capture/driver check now passes: bridge
+capture, front-side F driver boarding, at least sixty real seconds of combined
+W/cannon fire, movement, F exit and visible wardrobe. The actual WebGL2 track
+shader exposes active world0 at attribute location 3. Last warmed resource
+changes: +2 meshes/materials/textures/geometries, fixed 80 tracks/eight chimney
+puffs; no browser/context/network error. A rear-side QA attempt correctly
+boarded the commander; the final probe approaches the driver rather than
+changing the ordinary seat-selection rule. Native GPU throughput is unmeasured.
+
+Idle-room release is also verified: after the last socket closed, the health
+endpoint changed from a live empty room to `idle` at the 65.453-second polling
+checkpoint (60-second configured grace). See the same QA report. This completes
+the reference core's additional drive/instance/resource/lifetime checks.

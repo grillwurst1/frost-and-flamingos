@@ -1335,3 +1335,11 @@ Die Garderobenkamera hat nun auch nach einem Tod Vorrang vor der Killercam,
 sodass die Figur beim Konfigurieren sichtbar bleibt. Spieleinstieg, Bewegung,
 getrennte Räume und sichtbare Vorschau sind im Browser geprüft. Der aktuelle
 Prüfbericht und echte Spielaufnahmen liegen in `docs/qa/`.
+
+F wählt den nächstgelegenen freien Fahrzeugplatz. Beim Fonduepanzer sitzt der
+Fahrer vorne in der geschützten Kabine; von hinten erreicht man eher den
+Kommandantenplatz. **C** wechselt auf einen freien Platz. Der zusätzliche
+Browsercheck mit Fahrt, Kanonenfeuer und F-Ausstieg hat bestanden.
+
+Der ungenutzte Referenzraum wird nach 60 Sekunden freigegeben; diese automatische
+Freigabe wurde über den Serverstatus nach dem Verbindungsende überprüft.
