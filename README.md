@@ -1059,3 +1059,15 @@ The QA capture review also fixed the narrow-window wardrobe panel covering
 the figure: the existing preview is visible beside the right-aligned controls
 at 800 px width, without another scene/pass. Its complete browser flow and
 types/build pass again after the CSS change.
+
+
+30 October footwear correction: generated shoes follow the model's real toe
+bind axes, and a cached fit leaves clear idle space between the selected soles.
+Both ankles remain independently animated through the original walking/running
+clips. This adds no per-frame solver, body draw, texture or source-asset change.
+Targeted tests cover six soldiers and every selectable shoe option.
+
+Completed 4 November: full 375 cases, strict types/build and actual WebGL2
+idle/alternating-step comparisons pass; one body draw and unchanged triangle
+counts. Evidence: `docs/qa/footwear-2026-11-04.json`. No native-M4 or complete
+reference-art acceptance claim.

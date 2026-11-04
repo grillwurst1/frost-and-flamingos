@@ -870,3 +870,26 @@ is x=252.57 CSS px, left of the control panel starting at x=395.20. EN/DE,
 skin/hair, both shirt switches, exact reload persistence and the same selected
 local model in gameplay pass again without browser errors. Strict types/build
 pass after the CSS change. Before/after captures are included in the QA report.
+
+
+### Clear, independently animated feet — 30 October 2026
+
+The owner rejects the fused-foot appearance. Generated footwear now follows
+source toe bind axes and receives a cached idle-fit origin spread, rather
+than leaving wide soles intersecting. Both leg chains/ankles already animate
+independently and continue using the original clips. Eleven targeted tests
+cover separate soles/triangles/weights, independent left-ankle deformation,
+walk/run alternation on six rigs and all five shoes on both Allrounder rigs.
+The original code fails the new idle-gap regression; the fixed code passes.
+No new body draw, texture/pass, per-frame solver or source asset modification.
+Final browser evidence follows; complete reference art acceptance stays open.
+
+Validation completed 4 November 2026: the full root run passes 14 script /
+211 server / 150 client cases (375), strict types report zero errors/warnings
+and production builds pass without timeout changes. Real WebGL2 comparisons
+show separate idle soles and opposite leading feet in both walk captures on
+all six rigs, with zero browser errors. Bodies retain 35,505 / 24,286 / 23,674 /
+31,927 / 21,744 / 19,997 triangles and one submesh each. The hardware-normal
+regression now checks each shoe's toe axis and blended ankle corners, preserving
+its outward-facing threshold on both shoes. See docs/qa/footwear-2026-11-04.json
+and before/idle/left-step/right-step captures. Native M4/art acceptance stays open.

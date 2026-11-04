@@ -1384,3 +1384,38 @@ is x=252.57 CSS px, left of the control panel starting at x=395.20. EN/DE,
 skin/hair, both shirt switches, exact reload persistence and the same selected
 local model in gameplay pass again without browser errors. Strict types/build
 pass after the CSS change. Before/after captures are included in the QA report.
+
+
+### Independent feet and fitted footwear — 30 October 2026
+
+Owner reports fused-looking feet and asks whether they move independently.
+All six soldiers already have independent Left/Right leg/ankle skin weights.
+The problem was visual: generated +Z shoes disagreed with the imported splayed
+ToeBase bind axes, while the animated idle stance brought wide soles together.
+Fit the generated ankle/sole frame to each source toe axis, with a continuous
+shin-to-sole transition and the original fallback when no toe joint exists.
+
+A cached outfit fit samples eight baked idle frames on the CPU, reusing the
+existing inverse binds and only lower-foot vertices. It sets a bounded pair of
+independent upper-leg origin offsets once on the cloned avatar. The rotations
+and alternating walk/run steps remain the owner's existing clips. Do not add
+a per-frame foot solver, CPU skinning pass or another draw. The same 12-entry
+body cache holds the fit scalar; source GLBs/clips, pigment, wardrobe choices,
+network protocol 13, movement/collision and render budgets stay.
+
+Eleven targeted regressions pass: all six rigs have clear idle soles, no
+triangle bridge or cross-side weights, a changed left ankle moves only its
+left shoe, and walk/run leads alternate. All five footwear options are checked
+on both Allrounder rigs. The Alpine Allrounder idle-gap regression fails on
+the original committed code (-0.168 model units) and passes with the fix.
+Full validation and final actual-renderer comparisons are recorded below.
+
+Validation completed 4 November 2026: the full root run passes 14 script /
+211 server / 150 client cases (375), strict types report zero errors/warnings
+and production builds pass without timeout changes. Real WebGL2 comparisons
+show separate idle soles and opposite leading feet in both walk captures on
+all six rigs, with zero browser errors. Bodies retain 35,505 / 24,286 / 23,674 /
+31,927 / 21,744 / 19,997 triangles and one submesh each. The hardware-normal
+regression now checks each shoe's toe axis and blended ankle corners, preserving
+its outward-facing threshold on both shoes. See docs/qa/footwear-2026-11-04.json
+and before/idle/left-step/right-step captures. Native M4/art acceptance stays open.

@@ -2569,3 +2569,20 @@ protocol, assets and rendering budgets stay. Native M4 heat/FPS and native WebGP
 Supplemental real-browser cable brake/F boarding/ride/exit/centred-camera
 and wardrobe skin/hair/shirt/persistence/live-language flows also pass with
 zero errors. The same QA report records both results and captures.
+
+
+30 October — the fused-foot appearance is a footwear/idle-fit problem; left
+and right ankles already have separate bones and weights. Fit generated shoe
+axes to the owner's actual ToeBase directions instead of world +Z. Sample
+eight baked idle frames once per cached outfit to derive a bounded leg-origin
+spread with a 0.035 * model-size target sole gap. Apply it once to the cloned
+upper-leg nodes in the bind pelvis frame. Clips still animate both sides
+independently, with no new runtime solver/draw/texture. Keep the existing
+12-outfit cache, every shoe/skin/clothing choice, source assets, physics and
+protocol. Regression checks exercise actual skinned soles and independent
+ankle motion, triangle separation and alternating walk/run leads.
+
+Completed 4 November: full 375 cases, strict types/build and actual WebGL2
+idle/alternating-step comparisons pass; one body draw and unchanged triangle
+counts. Evidence: `docs/qa/footwear-2026-11-04.json`. No native-M4 or complete
+reference-art acceptance claim.

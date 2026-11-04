@@ -225,14 +225,22 @@ test('ankle hardware retains outward normals across the shin-to-foot transition'
   const {view,mesh}=build({feet:'feet_ski_boots',legs:'legs_lederhosen'});
   try {
     const p=mesh.getVerticesData('position')!,n=mesh.getVerticesData('normal')!,c=mesh.getVerticesData('color')!;
-    let toe=-Infinity;
-    const white:number[]=[];
-    for(let v=0;v<p.length/3;v++) if(p[v*3+1]!<asset.height*.2&&c[v*4]!>.85&&c[v*4+1]!>.85&&c[v*4+2]!>.85) {
-      white.push(v);toe=Math.max(toe,p[v*3+2]!);
+    const j=mesh.getVerticesData('matricesIndices')!,w=mesh.getVerticesData('matricesWeights')!;
+    for(const side of ['Left','Right']) {
+      const foot=asset.bindPositions.get(`${side}Foot`)!,axis=asset.bindPositions.get(`${side}ToeBase`)!.subtract(foot);
+      axis.y=0;axis.normalize();
+      const bone=mesh.skeleton!.bones.find(b=>jointName(b.name)===`${side}Foot`)!;
+      const footIndex=bone.getIndex()??mesh.skeleton!.bones.indexOf(bone);
+      const forward=(v:number)=>Vector3.Dot(Vector3.FromArray(p,v*3).subtract(foot),axis);
+      const normal=(v:number)=>Vector3.Dot(Vector3.FromArray(n,v*3),axis);
+      const white:number[]=[];
+      for(let v=0;v<p.length/3;v++) if(p[v*3+1]!<asset.height*.2&&c[v*4]!>.85&&c[v*4+1]!>.85&&c[v*4+2]!>.85
+        &&[0,1,2,3].some(k=>j[v*4+k]===footIndex&&w[v*4+k]!>.5)) white.push(v);
+      // Both shoes follow their own splayed toe frame, rather than world +Z.
+      const toe=Math.max(...white.map(forward)),front=white.filter(v=>forward(v)>toe-.006);
+      expect(front.filter(v=>normal(v)>.9).length).toBeGreaterThanOrEqual(4);
+      for(const v of front)expect(normal(v)).toBeGreaterThan(-.1);
     }
-    const front=white.filter(v=>p[v*3+2]!>toe-.006);
-    expect(front.filter(v=>n[v*3+2]!>.9).length).toBeGreaterThanOrEqual(4);
-    for(const v of front)expect(n[v*3+2]!).toBeGreaterThan(-.1);
   }finally{view.dispose()}
 });
 

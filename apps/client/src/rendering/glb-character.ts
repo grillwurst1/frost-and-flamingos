@@ -21,7 +21,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
-import { buildModularBody, modularHeadFrame, modularRollBoxes, modularTorsoFrame } from './glb/modular-body';
+import { buildModularBody, modularFootSpread, modularHeadFrame, modularRollBoxes, modularTorsoFrame } from './glb/modular-body';
 import { bodySurfaceRecipe } from './glb/body-surfaces';
 import { wristHandSurface } from './glb/hand-surface';
 import { nativeWardrobeRecipe } from './glb/native-wardrobe';
@@ -539,6 +539,17 @@ export class GlbCharacterView implements AvatarView {
       const box = this.bodyMesh.getBoundingInfo();
       this.bodyMesh.setBoundingInfo(new BoundingInfo(box.minimum.subtract(new Vector3(1.2, 0.2, 1.2)), box.maximum.add(new Vector3(1.2, 0.5, 1.2))));
       this.hatHidden = profile.cosmetics.headgear === 'head_none';
+    }
+    // Fit the selected soles once. Clips animate rotations and Hips translation;
+    // these independent upper-leg offsets persist without a per-frame solver.
+    const spread = modularFootSpread(this.bodyMesh);
+    const hipBind = bindWorldTransform(asset, 'Hips');
+    if (spread > 0 && hipBind) {
+      const inverse = Quaternion.Inverse(hipBind.rotation);
+      for (const [side, sign] of [['Left', 1], ['Right', -1]] as const) {
+        const node = this.rig.node(`${side}UpLeg`);
+        if (node) node.position.addInPlace(new Vector3(sign * spread, 0, 0).rotateByQuaternionToRef(inverse, new Vector3()));
+      }
     }
     this.head = headFrame(asset, this.bodyMesh, spec.cosmetics === false ? spec.head : modularHeadFrame(profile, asset, this.nativeWardrobe, this.sharedWardrobeHead));
     const fist = (side: HandSide): Array<{ node: TransformNode; fist: Quaternion; trigger: boolean }> =>

@@ -12,11 +12,13 @@ import { wristHandSurface } from './hand-surface';
 import { sculptedEyes } from './eye-surfaces';
 import { nativeWardrobeRecipe, usesNativeRegion } from './native-wardrobe';
 import { RIG_JOINTS, type RigJoint } from './rig';
+import { footwearSpread } from './footwear-stance';
 
 export interface ModularRollBox { joint: RigJoint; corners: readonly Vector3[] }
 const rollBoxes = new WeakMap<Mesh, readonly ModularRollBox[]>();
-interface CachedBody { data: VertexData; boxes: readonly ModularRollBox[]; torso: TorsoDepth | null }
+interface CachedBody { data: VertexData; boxes: readonly ModularRollBox[]; torso: TorsoDepth | null; footSpread: number }
 const torsoFrames = new WeakMap<Mesh, TorsoDepth>();
+const footSpreads = new WeakMap<Mesh, number>();
 const bodyCache = new WeakMap<Scene, Map<string, CachedBody>>();
 const MAX_CACHED_BODIES = 12;
 
@@ -29,6 +31,7 @@ export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsse
 
 export function modularRollBoxes(mesh: Mesh): readonly ModularRollBox[] { return rollBoxes.get(mesh) ?? []; }
 export function modularTorsoFrame(mesh: Mesh): TorsoDepth | null { return torsoFrames.get(mesh) ?? null; }
+export function modularFootSpread(mesh: Mesh): number { return footSpreads.get(mesh) ?? 0; }
 
 /** A single skinned draw, with every wardrobe choice represented by geometry/colour. */
 export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: PaintedModelAsset,
@@ -54,6 +57,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     mesh.parent = source.parent; mesh.skeleton = skeleton; mesh.numBoneInfluencers = 4;
     mesh.material = material; mesh.isPickable = false; mesh.receiveShadows = true;
     rollBoxes.set(mesh, cached.boxes);
+    footSpreads.set(mesh, cached.footSpread);
     if (cached.torso) torsoFrames.set(mesh, cached.torso);
     return mesh;
   };
@@ -146,7 +150,19 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const u = Math.max(0, Math.min(1, (distance - 0.55) / 0.20));
       const flatten = u * u * (3 - 2 * u);
       const lateral = new Vector3(right.x, 0, right.z).normalize();
-      const toe = Vector3.Cross(lateral, new Vector3(0, -1, 0)).normalize();
+      let toe = Vector3.Cross(lateral, new Vector3(0, -1, 0)).normalize();
+      // The imported bind pose splays the toes outwards. Its idle/walk clips
+      // turn those feet back towards forward; a +Z shoe would turn inwards
+      // instead, crossing the other shoe. Fit the same authored toe axis.
+      const toeJoint = asset.bindPositions.get(`${side}ToeBase`);
+      if (toeJoint) {
+        const axis = toeJoint.subtract(bind(`${side}Foot`));
+        axis.y = 0;
+        if (axis.lengthSquared() > 1e-8) {
+          toe = axis.normalize();
+          lateral.copyFrom(Vector3.Cross(toe, Vector3.Up()).normalize());
+        }
+      }
       right.copyFrom(Vector3.Lerp(right, lateral, flatten).normalize());
       front.copyFrom(Vector3.Lerp(front, toe, flatten).normalize());
     }
@@ -551,7 +567,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     [b.min.x, b.max.x].flatMap(x => [b.min.y, b.max.y].flatMap(y => [b.min.z, b.max.z].map(z => new Vector3(x, y, z)))) }] : []);
   const torso = Number.isFinite(torsoFront) && Number.isFinite(torsoBack)
     ? Object.freeze({ chestZ: chest.z, front: torsoFront, back: torsoBack }) : null;
-  const built = { data, boxes, torso };
+  const footSpread = footwearSpread(asset, positions, joints, weights, jointNames, inverseBinds);
+  const built = { data, boxes, torso, footSpread };
   if (cache.size >= MAX_CACHED_BODIES) cache.delete(cache.keys().next().value!);
   cache.set(key, built);
   return finish(built);

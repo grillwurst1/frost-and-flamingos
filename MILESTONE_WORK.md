@@ -649,3 +649,16 @@ zero errors. The same QA report records both results and captures.
 Final QA additionally fixes the 800 px wardrobe overlay hiding the model;
 right-align its existing panel, recheck actual preview projection, selection/
 persistence/deployment and clean types/build. No additional rendering work.
+
+
+30 October — owner-priority foot articulation/appearance fix. Preserve existing
+independent ankles; correct generated toe-axis binding and cache a bounded idle
+sole/stance fit per outfit. Eleven new actual skinning regressions cover all
+six soldiers, every shoe option, independent ankle motion and alternating
+walk/run leads. Source meshes/clips, physics/protocol and rendering budgets
+stay. This is avatar correction, not completion of another gameplay milestone.
+
+Completed 4 November: full 375 cases, strict types/build and actual WebGL2
+idle/alternating-step comparisons pass; one body draw and unchanged triangle
+counts. Evidence: `docs/qa/footwear-2026-11-04.json`. No native-M4 or complete
+reference-art acceptance claim.

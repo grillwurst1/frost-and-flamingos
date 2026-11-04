@@ -1291,3 +1291,16 @@ und die Übernahme ins Spiel sowie der DE/EN-Wechsel funktionieren im Prüflauf.
 Bei schmalen Desktopfenstern steht das Garderobenpanel rechts, damit die
 vorhandene Figur daneben sichtbar bleibt. Die 800-Pixel-Ansicht ist nach
 dieser Korrektur erneut mit Auswahl, Speicherung und Spielstart geprüft.
+
+
+Die Füße der sechs Soldaten werden links und rechts getrennt animiert: beim
+Gehen und Rennen wechseln die Schritte, und ein Knöchel bewegt nicht den
+anderen Schuh mit. Die Schuhachsen und die Standbreite sind so angepasst,
+dass die Sohlen im Stand nicht mehr zusammengewachsen wirken. Alle fünf
+Schuhoptionen bleiben auswählbar. Die Standanpassung wird je Ausstattung
+einmal berechnet und nutzt danach die vorhandene Animation.
+
+Abschlussprüfung am 4. November: 375 Testfälle, Typprüfung und Build erfolgreich.
+Die getrennten Sohlen und wechselnden Schritte aller sechs Soldaten wurden
+zusätzlich im tatsächlichen Renderer kontrolliert. Belege und Aufnahmen:
+`docs/qa/footwear-2026-11-04.json`.

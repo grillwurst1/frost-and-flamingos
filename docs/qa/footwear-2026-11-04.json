@@ -1,0 +1,386 @@
+{
+  "date": "2026-11-04",
+  "baselineCommit": "0b9522c233c478b596fffbfbb29ea78e043bdc8c",
+  "scope": "Owner-reported fused-looking feet. Preserve independent ankles and original gaits, correct generated toe-axis binding and fit idle sole separation once per cached outfit.",
+  "rootValidation": {
+    "script": 14,
+    "server": 211,
+    "client": 150,
+    "total": 375,
+    "failures": 0,
+    "types": "0 errors / 0 warnings",
+    "build": "passed; existing large client chunk advisory",
+    "timeoutsChanged": false,
+    "simulatedConquestMinutes": 15
+  },
+  "newRegressions": {
+    "cases": 11,
+    "soldierRigs": [
+      "alpine-allrounder",
+      "alpine-heavy",
+      "alpine-infiltrator",
+      "lagoon-allrounder",
+      "lagoon-heavy",
+      "lagoon-infiltrator"
+    ],
+    "footwearOptions": [
+      "feet_mountain_boots",
+      "feet_ski_boots",
+      "feet_dive_flippers",
+      "feet_sandals_socks",
+      "feet_peg_leg"
+    ],
+    "checks": [
+      "Clearance > 0.025 * (asset height / 1.88) in each settled idle pose.",
+      "No foot triangles bridge both sides and no lower-foot vertex blends opposite leg chains.",
+      "Changing the left ankle moves its own shoe by > 0.015 model units while the right changes by < 0.00001.",
+      "Walking and running each alternate forward foot lead below -0.12 and above +0.12 model units.",
+      "All five shoe options pass idle clearance on both Allrounder rigs."
+    ]
+  },
+  "baselineRegression": {
+    "observedDate": "2026-10-30",
+    "scope": "The new Alpine Allrounder idle-clearance check was run against the original committed rendering code before restoring the fix.",
+    "result": "expected failure",
+    "oldGap": -0.1681630201637745,
+    "requiredGapGreaterThan": 0.02260638529932035
+  },
+  "normalsRegression": "Hardware front normals are checked against each shoe\u2019s own toe axis, including the ankle-buckle corners that blend shin and foot. At least four forward-facing vertices per shoe and no inverted front normals. The previous world +Z / combined-foot assumption does not apply to splayed shoe frames.",
+  "fit": {
+    "idleFramesSampled": 8,
+    "cachedOutfits": 12,
+    "targetGap": ".035 * asset height / 1.88",
+    "maximumPerSideSpread": ".14 * asset height / 1.88",
+    "applied": "Once to cloned upper-leg origins in bind-pelvis coordinates; original clip rotations and foot articulation remain.",
+    "perFrameFit": false
+  },
+  "resources": {
+    "extraBodyDraws": 0,
+    "newTextures": 0,
+    "newRenderPasses": 0,
+    "sourceGlbsOrClipsChanged": false,
+    "protocol": 13,
+    "unchanged": "Movement/capsule physics, controls, skin/outfit selection, source assets and laptop render budgets."
+  },
+  "webgl2": [
+    {
+      "native": false,
+      "result": [
+        {
+          "stanceFit": 0.04167119708161382,
+          "triangles": 35505,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -1.5647157430648804,
+            1.173614740371704,
+            0.7329580783843994
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.12675409018993378,
+            0,
+            1.0512090921401978
+          ]
+        },
+        {
+          "stanceFit": 0.008641811123382533,
+          "triangles": 24286,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -0.8729021549224854,
+            1.2241874933242798,
+            0.7873330116271973
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.13731694221496582,
+            0,
+            1.1388099193572998
+          ]
+        },
+        {
+          "stanceFit": 0.0665217640324334,
+          "triangles": 23674,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            -0.49719005823135376,
+            1.1408426761627197,
+            0.6524599194526672
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.1232331246137619,
+            0,
+            1.0220086574554443
+          ]
+        },
+        {
+          "stanceFit": 0.08674583688316383,
+          "triangles": 31927,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            0.08289995044469833,
+            1.1237624883651733,
+            0.7002209424972534
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.12675410509109497,
+            0,
+            1.0512092113494873
+          ]
+        },
+        {
+          "stanceFit": 0.034450432594384184,
+          "triangles": 21744,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            0.5921550393104553,
+            1.355997085571289,
+            0.7420958876609802
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.13731695711612701,
+            0,
+            1.1388100385665894
+          ]
+        },
+        {
+          "stanceFit": 0.018495419839807466,
+          "triangles": 19997,
+          "submeshes": 1,
+          "backFaceCulling": true,
+          "renderer": "native-wardrobe",
+          "headShared": true,
+          "muzzle": [
+            1.1608786582946777,
+            1.1423629522323608,
+            0.6434787511825562
+          ],
+          "weapon": {
+            "vertices": 664,
+            "triangles": 1052
+          },
+          "forward": [
+            -0.12323316931724548,
+            0,
+            1.022009015083313
+          ]
+        }
+      ]
+    },
+    {
+      "phase": "a",
+      "motion": [
+        {
+          "left": [
+            0.10057082186158126,
+            0.20580336497507468,
+            0.19996741266169238
+          ],
+          "right": [
+            -0.09059333424059082,
+            0.1798547324985299,
+            -0.1506019338676787
+          ]
+        },
+        {
+          "left": [
+            0.09975130262426106,
+            0.2027056571244426,
+            0.1260383353997997
+          ],
+          "right": [
+            -0.07661538360179689,
+            0.18954120354531093,
+            -0.08201447125999853
+          ]
+        },
+        {
+          "left": [
+            0.09001758773782441,
+            0.22041719282886257,
+            0.22267670242427756
+          ],
+          "right": [
+            -0.07011400653348625,
+            0.18161116404218258,
+            -0.1773087771164349
+          ]
+        },
+        {
+          "left": [
+            0.10015307101714252,
+            0.18462608290505433,
+            0.2178849202732427
+          ],
+          "right": [
+            -0.08416944354775928,
+            0.15491569765695978,
+            -0.07794711163637294
+          ]
+        },
+        {
+          "left": [
+            0.11188786915694897,
+            0.14909035992453146,
+            0.21946445570195366
+          ],
+          "right": [
+            -0.06804812834541628,
+            0.1917465017741078,
+            -0.4050580792430821
+          ]
+        },
+        {
+          "left": [
+            0.07281987328871803,
+            0.1809574367636041,
+            0.3530503414969915
+          ],
+          "right": [
+            -0.040577620275853085,
+            0.16089379258733683,
+            -0.32099073055198857
+          ]
+        }
+      ]
+    },
+    {
+      "phase": "b",
+      "motion": [
+        {
+          "left": [
+            0.1385939269763364,
+            0.17732507075907328,
+            -0.13168725778146081
+          ],
+          "right": [
+            -0.10987833392965317,
+            0.2475210491075499,
+            0.1537778929935003
+          ]
+        },
+        {
+          "left": [
+            0.1321894859890237,
+            0.16330547834898987,
+            -0.09884198256413669
+          ],
+          "right": [
+            -0.09855867548017516,
+            0.25866062210104634,
+            0.1683572040548451
+          ]
+        },
+        {
+          "left": [
+            0.12491150482308748,
+            0.17992893417225225,
+            -0.11454724120454014
+          ],
+          "right": [
+            -0.07710035259330941,
+            0.27313278050526596,
+            0.07003046015669946
+          ]
+        },
+        {
+          "left": [
+            0.13829096817032716,
+            0.15929515527740667,
+            -0.06313720680125895
+          ],
+          "right": [
+            -0.09428543873159027,
+            0.24132435479214043,
+            0.17846837015173717
+          ]
+        },
+        {
+          "left": [
+            0.14579878480872813,
+            0.15423015423184194,
+            -0.163738483045973
+          ],
+          "right": [
+            -0.10200603479213557,
+            0.23069602792028276,
+            0.05614874286614391
+          ]
+        },
+        {
+          "left": [
+            0.11222478295434885,
+            0.15373859927567068,
+            -0.10944650963556736
+          ],
+          "right": [
+            -0.07862692975079011,
+            0.22434708622949856,
+            0.1943204531574554
+          ]
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "errors": []
+    }
+  ],
+  "modelOrder": [
+    "alpine-allrounder",
+    "alpine-heavy",
+    "alpine-infiltrator",
+    "lagoon-allrounder",
+    "lagoon-heavy",
+    "lagoon-infiltrator"
+  ],
+  "imageLeftToRight": [
+    "lagoon-infiltrator",
+    "lagoon-heavy",
+    "lagoon-allrounder",
+    "alpine-infiltrator",
+    "alpine-heavy",
+    "alpine-allrounder"
+  ],
+  "captureScope": "Actual owner rigs and selected outfits in the existing WebGL2 character renderer. CPU pose updates settle the original clip/hold before drawing. Two walking captures use real velocity-driven animation updates until opposite anatomical feet lead by > 0.18 for all six rigs. This is a posed-model comparison, not a native M4 FPS/thermal or full-game soak benchmark. Canceled unused world-paint texture requests in this isolated stage are not figure-load failures.",
+  "artifacts": [
+    "footwear-before-2026-10-30.png",
+    "footwear-idle-2026-11-04.png",
+    "footwear-step-left-2026-11-04.png",
+    "footwear-step-right-2026-11-04.png"
+  ],
+  "remaining": "Complete supplied-reference art acceptance and native M4 performance remain open; no later gameplay milestone is declared complete."
+}

@@ -239,3 +239,8 @@ Bridge simplification, outside-forest art direction, player-label layout and
 blue/red/steel weapon palette/vector pictograms are original project work based
 on the owner's latest target. Outside vegetation reuses the owner's existing
 painted tree/palm atlas; no additional images or external game assets are used.
+
+
+Footwear axis and stance fitting are original project code derived from the
+owner's existing toe/leg skeletons, skinning data and idle clips. Original GLBs,
+images and animations remain intact; no external model or animation is added.
