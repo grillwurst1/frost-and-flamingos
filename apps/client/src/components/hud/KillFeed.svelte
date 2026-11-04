@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { CONQUEST_TOWERS, TOWER_LETTERS, weaponSlotForId } from '@frost-and-flamingos/shared';
+  import { sceneTowers } from '../../state/scene';
+  import { TOWER_LETTERS, weaponSlotForId } from '@frost-and-flamingos/shared';
   import type { Faction, WeaponId } from '@frost-and-flamingos/shared';
   import { objectiveFeed, type ObjectiveFeedEntry } from '../../state/conquest';
   import { killFeed, localPlayer } from '../../state/game';
@@ -51,7 +52,7 @@
     .slice(-7);
 
   function objectiveText(entry: ObjectiveFeedEntry): string {
-    const tower = CONQUEST_TOWERS[entry.towerIndex];
+    const tower = sceneTowers[entry.towerIndex];
     return $t(`conquest.feed.${entry.kind}`, {
       team: $t(`factions.${entry.faction}.short`),
       tower: tower ? $t(tower.labelKey) : '',
@@ -62,7 +63,7 @@
 <aside class="kill-feed" aria-label={$t('combat.killFeed')}>
   {#each feed as item (item.key)}
     {#if item.type === 'objective'}
-      {@const tower = CONQUEST_TOWERS[item.entry.towerIndex]}
+      {@const tower = sceneTowers[item.entry.towerIndex]}
       <div class="kill-ribbon is-objective" class:is-mine={item.entry.faction === localFaction}>
         <span class="kill-crest"><Crest faction={item.entry.faction} /></span>
         <span class="feed-objective">{objectiveText(item.entry)}</span>

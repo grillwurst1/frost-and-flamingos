@@ -29,6 +29,7 @@ import {
   type TowerControlState,
   type TowerId,
   type Vec3,
+  type TowerDefinition,
 } from '@frost-and-flamingos/shared';
 
 /** Capture-capable living players of each side inside one tower zone. */
@@ -53,12 +54,13 @@ export const classMayCapture: CapturePredicate = (classId) => classCapabilities(
 export function countTowerPresence(
   candidates: Iterable<CaptureCandidate>,
   canCapture: CapturePredicate = classMayCapture,
+  towers: readonly TowerDefinition[] = CONQUEST_TOWERS,
 ): TowerPresence[] {
-  const presence: TowerPresence[] = CONQUEST_TOWERS.map(() => ({ alpine: 0, lagoon: 0 }));
+  const presence: TowerPresence[] = towers.map(() => ({ alpine: 0, lagoon: 0 }));
   for (const candidate of candidates) {
     if (!candidate.alive || !canCapture(candidate.classId)) continue;
-    for (let index = 0; index < CONQUEST_TOWERS.length; index += 1) {
-      const tower = CONQUEST_TOWERS[index];
+    for (let index = 0; index < towers.length; index += 1) {
+      const tower = towers[index];
       const count = presence[index];
       if (!tower || !count || !insideCaptureZone(tower, candidate.position)) continue;
       count[candidate.faction] += 1;
@@ -130,7 +132,7 @@ export class ClimateConquest {
   private roundsCompleted = 0;
   private ownerChanges = 0;
 
-  constructor() {
+  constructor(private readonly initialOwners?: Readonly<Record<TowerId, Faction | null>>) {
     this.resetRound(1);
   }
 
@@ -382,7 +384,7 @@ export class ClimateConquest {
     this.bleedTicks.alpine = 0;
     this.bleedTicks.lagoon = 0;
     for (const tower of this.towers) {
-      tower.owner = startOwner(tower.id);
+      tower.owner = this.initialOwners ? this.initialOwners[tower.id] : startOwner(tower.id);
       tower.control = tower.owner ? controlSign(tower.owner) * CONTROL_FULL : 0;
       tower.pushing = null;
       tower.contested = false;

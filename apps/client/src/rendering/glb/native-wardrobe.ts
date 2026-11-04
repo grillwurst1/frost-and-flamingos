@@ -23,7 +23,8 @@ export interface NativeWardrobeRecipe {
 }
 
 const outfits: Record<string, { torso?: Cosmetics['torso']; legs?: Cosmetics['legs']; feet?: Cosmetics['feet']; hair: number }> = {
-  'alpine-allrounder': { torso: 'torso_tracht_shirt', legs: 'legs_lederhosen', feet: 'feet_mountain_boots', hair: 0 },
+  // Clean, closed selected breeches replace the donor's ragged cloth silhouette.
+  'alpine-allrounder': { torso: 'torso_tracht_shirt', feet: 'feet_mountain_boots', hair: 0 },
   'alpine-heavy': { hair: 0 },
   'alpine-infiltrator': { torso: 'torso_loden_coat', legs: 'legs_olive_pants', feet: 'feet_mountain_boots', hair: 0 },
   'lagoon-allrounder': { torso: 'torso_hawaii_shirt', legs: 'legs_boardshorts', hair: 1 },

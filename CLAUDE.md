@@ -1419,3 +1419,56 @@ all six rigs, with zero browser errors. Bodies retain 35,505 / 24,286 / 23,674 /
 regression now checks each shoe's toe axis and blended ankle corners, preserving
 its outward-facing threshold on both shoes. See docs/qa/footwear-2026-11-04.json
 and before/idle/left-step/right-step captures. Native M4/art acceptance stays open.
+
+### Public playable reference slice — 4 November 2026
+
+Owner explicitly keeps the browser and requests the complete reference scene.
+Build the Gletscherpass skirmish as a public `/?scene=reference` entry and a
+separate lazy `/ws?scene=reference` room, using the same immutable Fjord map,
+shared physics and binary protocol 13. Normal mode remains the default. The
+three nearby objective definitions must drive server capture/bot goals and
+client rings/flags/feed/minimap together. A starts Alpine, B neutral, C Lagoon;
+resets preserve those reference owners. Normal room start owners remain.
+
+Reference profile storage is separate (`frost-and-flamingos.profile.reference`),
+with a configurable GipfelRanger preset rather than changing the saved main
+wardrobe. Selected tracht sleeves/leather shorts receive restrained cloth paint
+in both GLSL/WGSL, with real sculpted folds, semantic skin masks and all outfit
+selectors preserved. Reference cast has five armed bots plus a real cow using
+the existing mascot systems; do not substitute static actor paintings. Bots/
+tickets wait for the first human movement/fire, so loading cannot play away the
+round. Six solid crate props use the same extra collider definitions on both
+sides. Existing bridge/chalet/gondola routes remain walkable/interactive.
+
+The original reference crawler is four shared-material meshes, including 80
+fixed tread instances; pivots/muzzle match vehicleMuzzle and all moving meshes
+must unfreeze their world matrices. Do not fetch the old crawler GLB in this
+mode. Three world-dressing draws include a fixed eight-instance chimney plume,
+merged crate/lantern geometry and low packed snow; no new image textures,
+fullscreen passes, timers or unbounded particle allocations. Reference room
+physics/timers release after sixty seconds without connections. Loopback dev
+staging is explicitly scoped to a requested room; no staging is required to play.
+
+Seven targeted cases cover public spawn/nearby capture/local respawn, solid
+crate/end-to-end bridge, round owners/reset, continuous tank drive/fire, real
+reference cast, crawler muzzle/transform/instance budgets and fixed world draws.
+The first full run found an incorrect new QA snapshot-field assertion; fix the
+harness to use WorldSnapshot.ticketsAlpine/ticketsLagoon, without altering the
+rules or test timeouts. Full validation/browser evidence is recorded below.
+This slice does not authorize claiming completed M6/M7 or exact PHOTO art/native
+M4 performance acceptance. Preserve those limitations in user-facing status.
+
+The final renderer review additionally replaces the donor's ragged Alpine
+lederhosen surface with the existing closed, skinned selected breeches (seams/
+buttons retained). Source GLBs stay unchanged. Crawler track instances use the
+same GLSL/WGSL world-matrix path as the instanced map shader, composed before
+bone transforms; eighty links no longer overlap at the vehicle origin.
+
+Reference checkpoint validation: 382 cases pass (14 script / 216 server /
+152 client), strict types zero errors/warnings, successful production builds.
+Unchanged full rechecks resolve two existing cable-car and one anatomy test's
+Cloud wall-clock timeouts; no timeout increased. Real WebGL2 public entry,
+walk/jump, room isolation and actual on-screen wardrobe projection pass with
+zero browser errors. A death-camera priority defect found in the wardrobe
+capture is fixed. Evidence: `docs/qa/reference-scene-2026-11-04.json` and images.
+The additional isolated sustained drive/fire check is running at this checkpoint.

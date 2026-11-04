@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { referenceScene } from '../state/scene';
   import { onMount } from 'svelte';
   import { connection } from '../state/game';
   import { profile } from '../state/profile';
@@ -63,19 +64,20 @@
       {/if}
 
       <div class="menu-topline">
-        <span class="menu-ticket-chip">{$t('meta.season')}</span>
+        <span class="menu-ticket-chip">{referenceScene ? $t('reference.title') : $t('meta.season')}</span>
         {#if keyart}<span class="menu-ticket-chip is-badge">{$t('meta.badge')}</span>{/if}
       </div>
 
-      <p class="menu-lead">{$t('menu.lead')}</p>
+      <p class="menu-lead">{referenceScene ? $t('reference.lead') : $t('menu.lead')}</p>
 
       <div class="menu-actions">
         <button class="btn-primary cover-play" type="button" disabled={!connected} on:click={onPlay}>
           <svg class="btn-play-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 3 L21 12 L6 21 Z" fill="#1b1410" />
           </svg>
-          {$t('menu.playNow')}
+          {referenceScene ? $t('reference.enter') : $t('menu.playNow')}
         </button>
+        <a class="btn-ghost reference-entry" href={referenceScene ? '/' : '/?scene=reference'}>{referenceScene ? $t('reference.back') : $t('reference.enter')}</a>
         <div class="menu-actions-row">
           <button class="btn-ghost" type="button" on:click={onWardrobe}>
             {$t('menu.wardrobe')}

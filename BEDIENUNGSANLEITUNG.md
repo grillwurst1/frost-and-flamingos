@@ -1304,3 +1304,34 @@ Abschlussprüfung am 4. November: 375 Testfälle, Typprüfung und Build erfolgre
 Die getrennten Sohlen und wechselnden Schritte aller sechs Soldaten wurden
 zusätzlich im tatsächlichen Renderer kontrolliert. Belege und Aufnahmen:
 `docs/qa/footwear-2026-11-04.json`.
+
+## Referenzszene „Gletscherpass“ (4. November 2026)
+
+Im Hauptmenü **„Referenzszene spielen“** wählen oder `/?scene=reference`
+öffnen. Die Figur startet auf dem Schneeausblick über der Hängebrücke. Gehe
+zunächst über die Rampe zurück Richtung Chalet/Vorplatz, um zur Brücke zu
+kommen; das Geländer am Aussichtspunkt begrenzt die Schlucht. A liegt beim
+Chalet, B auf der Brücke und C beim Fonduepanzer auf der anderen Seite.
+Erst eine Bewegung oder ein Schuss startet das Gefecht. Ladezeit im Menü
+verbraucht somit keine Tickets. Eroberung, Kämpfe, Wiedereinstieg und neue
+Runden funktionieren nach denselben Regeln wie im Hauptspiel.
+
+Mit **F** neben dem Fonduepanzer oder Motorrad einsteigen. **W/S** fahren,
+**A/D** lenken, Maus zielen und linke Maustaste schießen; **F** steigt wieder
+aus. Der vorhandene Gondelbetrieb mit Notbremse bleibt nutzbar. Fünf bewaffnete
+Bots und die eigenständig reagierende Kuh spielen in dieser Runde mit.
+
+Die Garderobe wird für die Referenzszene getrennt gespeichert. Voreingestellt
+ist „GipfelRanger“ mit Tirolerhut, Weste, Lederhose, roten Schuhen und
+Kuckucksrucksack. Haut, Haare und Kleidung lassen sich weiterhin anpassen.
+Über **„Zurück zu Fjord Fiesta“** im Hauptmenü gelangst du zum normalen Spiel.
+Die beiden Runden teilen weder Spieler noch Fahrzeugplätze oder Punktestand.
+
+Das Chalet ist begehbar; vollständige Gebäudebrände/Zerstörung aus M6 sind
+noch kein Bestandteil dieser Szene. Die Zielbilder bleiben die grafische
+Referenz. Ein Cloud-Test ersetzt keine Temperatur-/FPS-Messung auf deinem M4.
+
+Die Garderobenkamera hat nun auch nach einem Tod Vorrang vor der Killercam,
+sodass die Figur beim Konfigurieren sichtbar bleibt. Spieleinstieg, Bewegung,
+getrennte Räume und sichtbare Vorschau sind im Browser geprüft. Der aktuelle
+Prüfbericht und echte Spielaufnahmen liegen in `docs/qa/`.

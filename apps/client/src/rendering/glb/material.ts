@@ -67,7 +67,7 @@ export interface GlbMaterialOptions {
   soft?: boolean;
   /** Anatomical base colour, independent of every outfit texture. */
   skin?: string;
-  wardrobe?: { hair: string; skinReference: readonly number[]; hairReference: readonly number[]; greenVest: boolean; torso: readonly number[]; head?: { skinReference: readonly number[]; hairReference: readonly number[] } };
+  wardrobe?: { hair: string; skinReference: readonly number[]; hairReference: readonly number[]; greenVest: boolean; cloth?: readonly number[]; torso: readonly number[]; head?: { skinReference: readonly number[]; hairReference: readonly number[] } };
   /** Scene-alpha look mask: {@link LOOK_MASK_CHARACTER} (default) or {@link LOOK_MASK_WORLD}. */
   lookMask?: number;
   /** Physically based shading instead of the cel bands (textured only). */
@@ -107,7 +107,7 @@ export function createGlbMaterial(
         'uLookMask',
         'uDither',
         ...(options.soft ? ['uSkinColor'] : []),
-        ...(native ? ['uWardrobeHair', 'uSkinReference', 'uHairReference', 'uGreenVest', 'uWardrobeTorso'] : []),
+        ...(native ? ['uWardrobeHair', 'uSkinReference', 'uHairReference', 'uGreenVest', 'uWardrobeTorso', 'uClothPaint'] : []),
         ...(sharedHead ? ['uHeadSkinReference', 'uHeadHairReference'] : []),
         ...LOOK_UNIFORMS,
       ],
@@ -138,6 +138,7 @@ export function createGlbMaterial(
       material.setTexture('headPaintSampler', textures.head.albedo); material.setTexture('headMaskSampler', textures.head.mask);
       material.setVector3('uHeadSkinReference', Vector3.FromArray(w.head.skinReference)); material.setVector3('uHeadHairReference', Vector3.FromArray(w.head.hairReference));
     }
+    material.setVector4('uClothPaint', Vector4.FromArray(w.cloth ?? [0,0,0,0]));
     material.setFloat('uGreenVest', w.greenVest ? 1 : 0); material.setVector4('uWardrobeTorso', Vector4.FromArray(w.torso));
   } else if (textures) {
     material.setTexture('albedoSampler', textures.albedo);

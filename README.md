@@ -4,6 +4,7 @@
 painted world, configurable soldiers, drifters, mascots and hens.
 **Active work:** matching the owner’s latest visual reference; further M5 features follow
 after this graphics pass, then M6–M8 in order.
+**Playable reference slice:** choose **Play the reference scene** or open `/?scene=reference` (Gletscherpass).
 Development proceeds serially; see [MILESTONE_WORK.md](MILESTONE_WORK.md).
 
 A clean-room, browser-based third-person multiplayer action-cartoon shooter built with
@@ -124,6 +125,7 @@ Append these to <http://localhost:5173/> for testing (for example `?renderer=web
 
 | Option | Effect |
 | --- | --- |
+| `?scene=reference` | Play the isolated Gletscherpass chalet/bridge skirmish. |
 | `?renderer=webgl2` | Use the validated WebGL2 default. |
 | `?renderer=webgpu` | Explicitly opt into the experimental WebGPU path. |
 | `?quality=auto\|high\|medium\|low` | Picture quality for this session only (the saved setting is untouched). |
@@ -1071,3 +1073,45 @@ Completed 4 November: full 375 cases, strict types/build and actual WebGL2
 idle/alternating-step comparisons pass; one body draw and unchanged triangle
 counts. Evidence: `docs/qa/footwear-2026-11-04.json`. No native-M4 or complete
 reference-art acceptance claim.
+
+### Playable Gletscherpass reference scene — 4 November 2026
+
+Choose **Play the reference scene** in the main menu, or open
+`/?scene=reference`. This is a separate server skirmish in the existing 3D
+chalet/gorge area: capture A at the chalet approach, B on the suspension bridge
+and C at the opposite camp. Movement or firing starts the round; loading the
+menu does not consume its tickets. Normal combat, ticket scoring, respawns and
+round resets apply. Six bots include armed soldiers and the autonomous Alpine
+Cow. The Fondue Crawler and sidecar can be boarded normally with F; the existing
+cable cars remain functional. Reference and normal rooms do not share players,
+vehicle occupancy, tickets or captures.
+
+Its separate saved wardrobe starts as GipfelRanger (felt hat, green waistcoat,
+lederhosen, red ski boots, cuckoo backpack, SMG/shotgun/snow cannon). Customisation
+stays available. Clean selected cloth pigment retains sculpted folds and skin
+choices. The original reference crawler has bevelled armour, road wheels,
+80 animated tread links, driver windows, a fondue pot and a gun following the
+actual server pivots/muzzle. Four shared-material draws, no new texture images.
+Six solid crates, packed snow and chalet lanterns are merged; chimney smoke is
+a fixed eight-instance plume. The lazy reference room is released sixty seconds
+after its last connection closes. Picture-quality/frame-rate limits remain.
+
+This is the playable reference slice, not completed M6 destruction or a claim
+of exact PHOTO/target-image art parity. Native MacBook M4 frame rate and heat
+still require a real hardware check. See the reference-scene QA report under
+`docs/qa/` and the reproducible browser flow in `scripts/qa/README.md`.
+
+The final renderer review additionally replaces the donor's ragged Alpine
+lederhosen surface with the existing closed, skinned selected breeches (seams/
+buttons retained). Source GLBs stay unchanged. Crawler track instances use the
+same GLSL/WGSL world-matrix path as the instanced map shader, composed before
+bone transforms; eighty links no longer overlap at the vehicle origin.
+
+Reference checkpoint validation: 382 cases pass (14 script / 216 server /
+152 client), strict types zero errors/warnings, successful production builds.
+Unchanged full rechecks resolve two existing cable-car and one anatomy test's
+Cloud wall-clock timeouts; no timeout increased. Real WebGL2 public entry,
+walk/jump, room isolation and actual on-screen wardrobe projection pass with
+zero browser errors. A death-camera priority defect found in the wardrobe
+capture is fixed. Evidence: `docs/qa/reference-scene-2026-11-04.json` and images.
+The additional isolated sustained drive/fire check is running at this checkpoint.

@@ -79,13 +79,14 @@ export class PhysicsWorld {
     this.world = world;
   }
 
-  static async create(): Promise<PhysicsWorld> {
+  static async create(extraProps: readonly MapProp[] = []): Promise<PhysicsWorld> {
     await initializeRapier();
     const world = new RAPIER.World({ x: 0, y: GRAVITY, z: 0 });
     world.timestep = FIXED_DT;
     const physics = new PhysicsWorld(world);
     physics.createTerrainCollider();
     physics.createPropColliders();
+    for (const prop of extraProps) physics.createPropCollider(prop);
     physics.createBoundaryColliders();
     // Populate the broad phase before the first raycast or character query.
     world.step();

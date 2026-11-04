@@ -1,3 +1,4 @@
+import { referenceScene, sceneTowers } from '../state/scene';
 /**
  * Readable weather-tower state in the world (game-decisions 10.3, the cheap
  * part): a capture ring on the ground at the zone edge that fills in the
@@ -19,7 +20,6 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import type { Material } from '@babylonjs/core/Materials/material';
 import type { Scene } from '@babylonjs/core/scene';
 import {
-  CONQUEST_TOWERS,
   SPAWN_PROTECTION_SECONDS,
   sampleMapHeight,
   type Faction,
@@ -192,7 +192,7 @@ class TowerFlag {
     const anchor = visual.attach.get(mount.attach) ?? visual.root;
     this.root = new TransformNode(`${visual.id}-flag`, scene);
     this.root.parent = anchor;
-    this.root.position.set(mount.offset.x, mount.offset.y, mount.offset.z);
+    this.root.position.set(referenceScene ? 0 : mount.offset.x, referenceScene ? 0 : mount.offset.y, referenceScene ? 0 : mount.offset.z);
     this.root.scaling.setAll(FLAG_SCALE);
     this.phase = visual.id.length * 1.7 + (visual.id.endsWith('b') ? 1.1 : visual.id.endsWith('c') ? 2.3 : 0);
 
@@ -297,9 +297,13 @@ export class TowerStateView {
     toonMaterial: Material,
     probe: GroundProbe,
   ) {
-    this.rings = CONQUEST_TOWERS.map((tower) => new CaptureRing(scene, tower, probe));
-    this.visuals = CONQUEST_TOWERS.flatMap((tower) => {
-      const visual = visuals.towers.get(tower.id);
+    this.rings = sceneTowers.map((tower) => new CaptureRing(scene, tower, probe));
+    this.visuals = sceneTowers.flatMap((tower) => {
+      let visual = visuals.towers.get(tower.id);
+      if (referenceScene) {
+        const root = new TransformNode(`reference-${tower.id}`, scene); root.position.copyFromFloats(tower.position.x, tower.position.y, tower.position.z);
+        visual = { id: tower.id, root, mesh: null, dressing: { alpine: null, lagoon: null }, pads: { alpine: null, lagoon: null, neutral: null }, attach: new Map() };
+      }
       return visual ? [visual] : [];
     });
     this.flags = this.visuals.map((visual) => new TowerFlag(scene, visual, toonMaterial));
@@ -315,7 +319,7 @@ export class TowerStateView {
     this.haloMaterials = { alpine: haloMaterial('alpine'), lagoon: haloMaterial('lagoon') };
     // Round-start look until the first snapshot arrives.
     this.setState(
-      CONQUEST_TOWERS.map((tower) => ({
+      sceneTowers.map((tower) => ({
         owner: tower.homeFaction,
         control: tower.homeFaction === 'alpine' ? -1 : tower.homeFaction === 'lagoon' ? 1 : 0,
         pushing: null,
@@ -389,6 +393,7 @@ export class TowerStateView {
     for (const ring of this.rings) ring.dispose();
     for (const flag of this.flags) flag.dispose();
     for (const halo of this.halos) halo.mesh.dispose();
+    if (referenceScene) for (const visual of this.visuals) visual.root.dispose();
     this.haloMaterials.alpine.dispose();
     this.haloMaterials.lagoon.dispose();
   }

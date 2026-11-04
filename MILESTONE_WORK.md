@@ -662,3 +662,22 @@ Completed 4 November: full 375 cases, strict types/build and actual WebGL2
 idle/alternating-step comparisons pass; one body draw and unchanged triangle
 counts. Evidence: `docs/qa/footwear-2026-11-04.json`. No native-M4 or complete
 reference-art acceptance claim.
+
+4 November — owner keeps the browser and requests the complete reference scene.
+Implement the public playable Gletscherpass slice on the shared existing map:
+local capture points, isolated lazy room, normal combat/respawn/rounds, separate
+editable ranger profile, five armed bots/cow, drivable original crawler/sidecar
+and existing gondola operation. Add original bounded 3D set dressing and clean
+selected cloth paint. First input begins the round; release its idle room.
+Seven targeted checks plus full regression/type/build/browser validation are
+recorded in the reference-scene QA report. Full PHOTO-level visual acceptance,
+M6 destruction and native M4 performance acceptance are not declared complete.
+
+Reference checkpoint validation: 382 cases pass (14 script / 216 server /
+152 client), strict types zero errors/warnings, successful production builds.
+Unchanged full rechecks resolve two existing cable-car and one anatomy test's
+Cloud wall-clock timeouts; no timeout increased. Real WebGL2 public entry,
+walk/jump, room isolation and actual on-screen wardrobe projection pass with
+zero browser errors. A death-camera priority defect found in the wardrobe
+capture is fixed. Evidence: `docs/qa/reference-scene-2026-11-04.json` and images.
+The additional isolated sustained drive/fire check is running at this checkpoint.

@@ -7,7 +7,7 @@
 **Engine:** Babylon.js v8 · Rapier3D · Bun · Svelte 5  
 **Languages:** English (master dictionary) and German (fully typed translation)  
 **Status:** Milestones 1–4 and M5 core complete; remaining M5–M8 authorized on 26 October 2026
-**Last updated:** 26 October 2026
+**Last updated:** 4 November 2026
 
 This document is the single written record of the game’s direction, content, systems, technical contracts and scope decisions. It intentionally separates **what is implemented**, **what is being implemented**, and **what is a design reference for later milestones**. When the code and this document disagree, the code is the current truth and this document must be corrected.
 
@@ -2586,3 +2586,38 @@ Completed 4 November: full 375 cases, strict types/build and actual WebGL2
 idle/alternating-step comparisons pass; one body draw and unchanged triangle
 counts. Evidence: `docs/qa/footwear-2026-11-04.json`. No native-M4 or complete
 reference-art acceptance claim.
+
+### 4 November 2026 — public Gletscherpass reference skirmish
+
+Owner keeps the browser. Implement a public, fully simulated reference slice
+at `/?scene=reference`, reached from the main menu. Its lazy server room is
+isolated from Fjord Fiesta and released sixty seconds after the last socket
+closes. Use the existing gorge, walkable chalet/bridge and cable-car route;
+local A/B/C objectives, bots, captures, tickets, respawns and resets use the
+same protocol 13/gameplay rules. First movement/fire begins the reference
+round. Six bots include the existing autonomous Alpine Cow. Main mode keeps
+its own cast/objectives, saved profile and vehicle slots.
+
+Author an original red Fondue Crawler with correct working gun pivots and
+bounded moving track instances. Merge solid crate cover, chalet lanterns and
+low snow dressing; chimney smoke uses eight reused instances. Use a separately
+saved, fully editable ranger preset and restrained paint on selected tracht/
+lederhosen, with skin colour unaffected. No EA assets, source-GLB changes,
+additional texture downloads or fullscreen passes. Target screenshots remain
+the art direction; complete screenshot parity, native M4 measurements and M6
+building destruction are separate unfinished acceptance points.
+
+The final renderer review additionally replaces the donor's ragged Alpine
+lederhosen surface with the existing closed, skinned selected breeches (seams/
+buttons retained). Source GLBs stay unchanged. Crawler track instances use the
+same GLSL/WGSL world-matrix path as the instanced map shader, composed before
+bone transforms; eighty links no longer overlap at the vehicle origin.
+
+Reference checkpoint validation: 382 cases pass (14 script / 216 server /
+152 client), strict types zero errors/warnings, successful production builds.
+Unchanged full rechecks resolve two existing cable-car and one anatomy test's
+Cloud wall-clock timeouts; no timeout increased. Real WebGL2 public entry,
+walk/jump, room isolation and actual on-screen wardrobe projection pass with
+zero browser errors. A death-camera priority defect found in the wardrobe
+capture is fixed. Evidence: `docs/qa/reference-scene-2026-11-04.json` and images.
+The additional isolated sustained drive/fire check is running at this checkpoint.

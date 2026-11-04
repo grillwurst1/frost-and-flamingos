@@ -1,0 +1,606 @@
+{
+  "date": "2026-11-04",
+  "baseCommit": "4bebae9b2ea2ca1cd05f8118d42ba3437191e794",
+  "status": "public-entry-verified; sustained-drive-in-progress",
+  "scope": "Public playable Gletscherpass entry, live reference cast, real WebGL2 rendering, movement, independent rooms and wardrobe visibility. Screenshot parity remains open.",
+  "checks": {
+    "scripts": 14,
+    "server": 216,
+    "client": 152,
+    "total": 382,
+    "strictTypes": "passed, zero errors/warnings",
+    "productionBuilds": "passed",
+    "testTimeoutsChanged": false,
+    "rechecks": "Two existing cable-car cases and one existing anatomy case exceeded their original 5 s Cloud wall-clock limits; unchanged full server/client rechecks pass."
+  },
+  "publicEntry": {
+    "errors": [],
+    "failedResponses": [],
+    "checkpoints": [
+      {
+        "label": "public-entry",
+        "phase": "playing",
+        "frame": 31,
+        "tick": 4561,
+        "connected": true,
+        "feet": {
+          "x": 40,
+          "y": 23.02002868652344,
+          "z": 66
+        },
+        "camera": [
+          43.20544798425676,
+          25.583901430504262,
+          64.75369425707854
+        ],
+        "profile": {
+          "displayName": "GipfelRanger",
+          "faction": "alpine",
+          "cosmetics": {
+            "classId": "allrounder",
+            "bodyType": 0.14901960784313725,
+            "skinToneIndex": 2,
+            "hairColorIndex": 1,
+            "hairStyleIndex": 0,
+            "headgear": "head_tirol",
+            "face": "face_full_beard",
+            "torso": "torso_tracht_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_ski_boots",
+            "voicePitch": 1
+          },
+          "loadout": {
+            "primary": "smg",
+            "secondary": "shotgun",
+            "gimmick": "snow_cannon"
+          }
+        },
+        "heroTriangles": 38743,
+        "contextLosses": 0,
+        "stats": {
+          "drawCalls": 225,
+          "activeMeshes": 109,
+          "meshes": 525,
+          "materials": 63,
+          "mapVertices": 1712804,
+          "destructibleMeshes": 102,
+          "destructibleSprites": 0,
+          "fps": 0,
+          "boot_facadeAtlas": 104,
+          "boot_spriteAtlas": 8439,
+          "boot_map": 6638,
+          "boot_world": 15077
+        },
+        "meshes": 525,
+        "materials": 63,
+        "textures": 50,
+        "geometries": 517,
+        "gpuTextures": 52,
+        "heap": 235175162,
+        "pendingInputs": 0,
+        "vehicles": {
+          "localId": 7,
+          "seat": null,
+          "passengerView": false,
+          "predicted": 0,
+          "pending": 0,
+          "correction": 0,
+          "lastCameraYaw": 0,
+          "vehicles": [
+            {
+              "id": 201,
+              "kind": "fondue_crawler",
+              "loaded": true,
+              "wreck": false,
+              "hp": 650,
+              "seats": [
+                0,
+                0
+              ],
+              "position": {
+                "x": 22,
+                "y": 18.45,
+                "z": 103
+              },
+              "yaw": -1.4999684768570178
+            },
+            {
+              "id": 202,
+              "kind": "sidecar",
+              "loaded": true,
+              "wreck": false,
+              "hp": 280,
+              "seats": [
+                0,
+                0
+              ],
+              "position": {
+                "x": 30,
+                "y": 18.4,
+                "z": 48
+              },
+              "yaw": -1.3999705783998824
+            },
+            {
+              "id": 100,
+              "kind": "cable_car",
+              "loaded": true,
+              "wreck": false,
+              "hp": 1000,
+              "seats": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "position": {
+                "x": 46.6,
+                "y": 28.0625,
+                "z": 48.5
+              },
+              "yaw": 0.7531960597116477
+            },
+            {
+              "id": 101,
+              "kind": "cable_car",
+              "loaded": true,
+              "wreck": false,
+              "hp": 1000,
+              "seats": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "position": {
+                "x": 43.4,
+                "y": 28.0625,
+                "z": 51.5
+              },
+              "yaw": 0.7531960597116477
+            }
+          ]
+        },
+        "names": [
+          "Senn_Koloss",
+          "Skipper",
+          "Wuzzi",
+          "StumbleBoi",
+          "GipfelRanger"
+        ],
+        "crawlerTriangles": 6736,
+        "tracks": 80,
+        "smoke": 8
+      },
+      {
+        "label": "walk-and-jump",
+        "phase": "playing",
+        "frame": 50,
+        "tick": 6556,
+        "connected": true,
+        "feet": {
+          "x": 38.92499923706055,
+          "y": 23.71249923706055,
+          "z": 66.5875015258789
+        },
+        "camera": [
+          42.130447221317304,
+          26.276371981041372,
+          65.34119578295744
+        ],
+        "profile": {
+          "displayName": "GipfelRanger",
+          "faction": "alpine",
+          "cosmetics": {
+            "classId": "allrounder",
+            "bodyType": 0.14901960784313725,
+            "skinToneIndex": 2,
+            "hairColorIndex": 1,
+            "hairStyleIndex": 0,
+            "headgear": "head_tirol",
+            "face": "face_full_beard",
+            "torso": "torso_tracht_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_ski_boots",
+            "voicePitch": 1
+          },
+          "loadout": {
+            "primary": "smg",
+            "secondary": "shotgun",
+            "gimmick": "snow_cannon"
+          }
+        },
+        "heroTriangles": 38743,
+        "contextLosses": 0,
+        "stats": {
+          "drawCalls": 234,
+          "activeMeshes": 125,
+          "meshes": 528,
+          "materials": 65,
+          "mapVertices": 1712804,
+          "destructibleMeshes": 102,
+          "destructibleSprites": 0,
+          "fps": 0,
+          "boot_facadeAtlas": 104,
+          "boot_spriteAtlas": 8439,
+          "boot_map": 6638,
+          "boot_world": 15077
+        },
+        "meshes": 528,
+        "materials": 65,
+        "textures": 51,
+        "geometries": 518,
+        "gpuTextures": 55,
+        "heap": 233130104,
+        "pendingInputs": 2,
+        "vehicles": {
+          "localId": 7,
+          "seat": null,
+          "passengerView": false,
+          "predicted": 0,
+          "pending": 0,
+          "correction": 0,
+          "lastCameraYaw": 0,
+          "vehicles": [
+            {
+              "id": 201,
+              "kind": "fondue_crawler",
+              "loaded": true,
+              "wreck": false,
+              "hp": 631,
+              "seats": [
+                0,
+                0
+              ],
+              "position": {
+                "x": 22,
+                "y": 18.45,
+                "z": 103
+              },
+              "yaw": -1.4999684768570178
+            },
+            {
+              "id": 202,
+              "kind": "sidecar",
+              "loaded": true,
+              "wreck": false,
+              "hp": 280,
+              "seats": [
+                0,
+                0
+              ],
+              "position": {
+                "x": 30,
+                "y": 18.4,
+                "z": 48
+              },
+              "yaw": -1.3999705783998824
+            },
+            {
+              "id": 100,
+              "kind": "cable_car",
+              "loaded": true,
+              "wreck": false,
+              "hp": 1000,
+              "seats": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "position": {
+                "x": 46.37587837837636,
+                "y": 28.05,
+                "z": 48.275439189188184
+              },
+              "yaw": 0.8186788637828105
+            },
+            {
+              "id": 101,
+              "kind": "cable_car",
+              "loaded": true,
+              "wreck": false,
+              "hp": 1000,
+              "seats": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "position": {
+                "x": 43.524121621623635,
+                "y": 28.0625,
+                "z": 51.63662162162364
+              },
+              "yaw": 0.7531960597116477
+            }
+          ]
+        },
+        "names": [
+          "Senn_Koloss",
+          "GipfelRanger"
+        ],
+        "crawlerTriangles": 6736,
+        "tracks": 80,
+        "smoke": 8
+      }
+    ],
+    "capture": "reference-scene-2026-11-04.png",
+    "captureQuality": "1280x800 Medium; input checks resized to 800x500 Low"
+  },
+  "wardrobe": {
+    "status": "passed",
+    "errors": [],
+    "projection": {
+      "x": 277.42394344892995,
+      "y": 247.34543341844434,
+      "w": 4.009435683446853,
+      "visible": true,
+      "wardrobeOpen": true,
+      "deathAt": 0
+    },
+    "capture": "reference-ranger-2026-11-04.png",
+    "fix": "A killer camera could override wardrobe after a death. Preview camera now has priority when the wardrobe is open or the menu is shown."
+  },
+  "roomIsolation": {
+    "status": "passed",
+    "normal": {
+      "reference": false,
+      "welcome": {
+        "playerId": 6,
+        "serverTick": 6342,
+        "spawn": {
+          "x": 222.725,
+          "y": 55.05,
+          "z": 232.725
+        },
+        "spawnYaw": 4.9522449175516465,
+        "protocolVersion": 13,
+        "profile": {
+          "displayName": "Normal isolation QA",
+          "faction": "alpine",
+          "cosmetics": {
+            "classId": "allrounder",
+            "bodyType": 0.14901960784313725,
+            "skinToneIndex": 1,
+            "hairColorIndex": 4,
+            "hairStyleIndex": 0,
+            "headgear": "head_tirol",
+            "face": "face_full_beard",
+            "torso": "torso_tracht_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_ski_boots",
+            "voicePitch": 1
+          },
+          "loadout": {
+            "primary": "smg",
+            "secondary": "shotgun",
+            "gimmick": "horn"
+          }
+        }
+      },
+      "names": [
+        "Heidi Hangtime",
+        "Bruno Gletscher",
+        "Coral Kai",
+        "Sandy Palms"
+      ],
+      "vehicles": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        100,
+        101
+      ],
+      "players": [
+        {
+          "id": 1,
+          "position": {
+            "x": 184.1375,
+            "y": 52.425,
+            "z": 185.725
+          },
+          "alive": true
+        },
+        {
+          "id": 2,
+          "position": {
+            "x": 135.8625,
+            "y": 42.1875,
+            "z": 143.375
+          },
+          "alive": true
+        },
+        {
+          "id": 3,
+          "position": {
+            "x": 99.825,
+            "y": 21.6,
+            "z": 73.7
+          },
+          "alive": true
+        },
+        {
+          "id": 4,
+          "position": {
+            "x": -1.175,
+            "y": 18.025,
+            "z": -12.5
+          },
+          "alive": true
+        },
+        {
+          "id": 6,
+          "position": {
+            "x": 222.725,
+            "y": 55.025,
+            "z": 232.725
+          },
+          "alive": true
+        }
+      ]
+    },
+    "reference": {
+      "reference": true,
+      "welcome": {
+        "playerId": 9,
+        "serverTick": 5262,
+        "spawn": {
+          "x": -18,
+          "y": 18.475,
+          "z": 112
+        },
+        "spawnYaw": 2.9000349305190833,
+        "protocolVersion": 13,
+        "profile": {
+          "displayName": "Reference isolation QA",
+          "faction": "lagoon",
+          "cosmetics": {
+            "classId": "allrounder",
+            "bodyType": 0.14901960784313725,
+            "skinToneIndex": 1,
+            "hairColorIndex": 4,
+            "hairStyleIndex": 0,
+            "headgear": "head_tirol",
+            "face": "face_full_beard",
+            "torso": "torso_tracht_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_ski_boots",
+            "voicePitch": 1
+          },
+          "loadout": {
+            "primary": "smg",
+            "secondary": "shotgun",
+            "gimmick": "horn"
+          }
+        }
+      },
+      "names": [
+        "GipfelWache",
+        "Senn_Koloss",
+        "Skipper",
+        "Wuzzi",
+        "Angry_Cow_Beta",
+        "StumbleBoi",
+        "GipfelRanger"
+      ],
+      "vehicles": [
+        100,
+        101,
+        201,
+        202
+      ],
+      "players": [
+        {
+          "id": 1,
+          "position": {
+            "x": 7,
+            "y": 18.025,
+            "z": 43
+          },
+          "alive": true
+        },
+        {
+          "id": 2,
+          "position": {
+            "x": -6,
+            "y": 18.8125,
+            "z": 47
+          },
+          "alive": true
+        },
+        {
+          "id": 3,
+          "position": {
+            "x": -5,
+            "y": 18.425,
+            "z": 105
+          },
+          "alive": true
+        },
+        {
+          "id": 4,
+          "position": {
+            "x": 17,
+            "y": 18.925,
+            "z": 116
+          },
+          "alive": true
+        },
+        {
+          "id": 5,
+          "position": {
+            "x": 1,
+            "y": 17.25,
+            "z": 82
+          },
+          "alive": true
+        },
+        {
+          "id": 6,
+          "position": {
+            "x": 20.9375,
+            "y": 18.425,
+            "z": 101.0375
+          },
+          "alive": true
+        },
+        {
+          "id": 7,
+          "position": {
+            "x": 40,
+            "y": 23.025,
+            "z": 66
+          },
+          "alive": true
+        },
+        {
+          "id": 9,
+          "position": {
+            "x": -18,
+            "y": 18.45,
+            "z": 112
+          },
+          "alive": true
+        }
+      ]
+    }
+  },
+  "budgets": {
+    "heroTriangles": 38743,
+    "heroSubmeshes": 1,
+    "crawlerTrianglesIncludingInstances": 6736,
+    "crawlerMeshes": 4,
+    "trackInstances": 80,
+    "chimneyInstances": 8,
+    "newImageTextures": 0,
+    "newFullscreenPasses": 0
+  },
+  "limitations": [
+    "Cloud SwiftShader checks rendering/liveness, not native MacBook M4 FPS, heat or GPU memory.",
+    "Complete target/PHOTO art acceptance and M6 building burning/destruction are unfinished."
+  ],
+  "sustainedDrive": "running; result will be appended after the isolated test"
+}

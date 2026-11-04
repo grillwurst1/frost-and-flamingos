@@ -1,4 +1,4 @@
-import { LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
+import { INSTANCED_WORLD_GLSL, INSTANCED_WORLD_WGSL, INSTANCED_WORLD_WGSL_MAIN, LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
 
 /**
  * Cel shader for the owner's painted Meshy characters (skinned GLB models)
@@ -56,7 +56,7 @@ varying vec3 vWardrobeRest;
 #endif
 #include<bonesDeclaration>
 
-uniform mat4 world;
+${INSTANCED_WORLD_GLSL}
 uniform mat4 viewProjection;
 
 varying vec3 vWorldPosition;
@@ -69,7 +69,7 @@ void main(void) {
   vWardrobe = uv2;
   vWardrobeRest = position;
 #endif
-  mat4 finalWorld = world;
+  mat4 finalWorld = ffFinalWorld();
 #include<bonesVertex>
   vec4 worldPosition = finalWorld * vec4(position, 1.0);
   vWorldPosition = worldPosition.xyz;
@@ -129,6 +129,7 @@ uniform vec3 uSkinReference;
 uniform vec3 uHairReference;
 uniform float uGreenVest;
 uniform vec4 uWardrobeTorso;
+uniform vec4 uClothPaint;
 #endif
 #ifdef FF_TEXTURED
 uniform sampler2D albedoSampler;
@@ -257,6 +258,11 @@ void main(void) {
     mask.r = smoothstep(0.06, 0.35, mask.r);
     base = mix(skinPaint, original, 1.0 - mask.r);
     base = mix(base, hairPaint, mask.g);
+    // Replace donor-atlas pigment speckles on selected cloth, preserving real
+    // sculpted folds and restrained painted creases. Skin stays independent.
+    float crease = clamp(dot(original, vec3(.299,.587,.114)) / .52, .88, 1.08);
+    float sleeves = (1.0 - smoothstep(.15,.35,abs(vWardrobe.y-4.0))) * uClothPaint.x;
+    base = mix(base, vec3(.88,.86,.77) * crease, sleeves * (1.0-mask.r));
     vec3 waistcoat = vec3(0.275, 0.365, 0.196) * clamp(dot(original, vec3(0.299, 0.587, 0.114)) / 0.75, 0.4, 1.3);
     float shape = smoothstep(uWardrobeTorso.y + 0.025, uWardrobeTorso.y + 0.09, vWardrobeRest.y)
       * (1.0 - smoothstep(uWardrobeTorso.z - 0.085, uWardrobeTorso.z - 0.015, vWardrobeRest.y))
@@ -349,7 +355,7 @@ varying vWardrobeRest : vec3f;
 #endif
 #include<bonesDeclaration>
 
-uniform world : mat4x4f;
+${INSTANCED_WORLD_WGSL}
 uniform viewProjection : mat4x4f;
 
 varying vWorldPosition : vec3f;
@@ -363,7 +369,7 @@ fn main(input : VertexInputs) -> FragmentInputs {
   vertexOutputs.vWardrobe = input.uv2;
   vertexOutputs.vWardrobeRest = input.position;
 #endif
-  var finalWorld = uniforms.world;
+${INSTANCED_WORLD_WGSL_MAIN}
 #include<bonesVertex>
   let worldPosition = finalWorld * vec4f(input.position, 1.0);
   vertexOutputs.vWorldPosition = worldPosition.xyz;
@@ -404,6 +410,7 @@ uniform uSkinReference : vec3f;
 uniform uHairReference : vec3f;
 uniform uGreenVest : f32;
 uniform uWardrobeTorso : vec4f;
+uniform uClothPaint : vec4f;
 var albedoSamplerSampler : sampler;
 var albedoSampler : texture_2d<f32>;
 var wardrobeMaskSamplerSampler : sampler;
@@ -541,6 +548,9 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     mask.r = smoothstep(0.06, 0.35, mask.r);
     base = mix(skinPaint, original, 1.0 - mask.r);
     base = mix(base, hairPaint, mask.g);
+    let crease = clamp(dot(original, vec3f(.299,.587,.114)) / .52, .88, 1.08);
+    let sleeves = (1.0 - smoothstep(.15,.35,abs(input.vWardrobe.y-4.0))) * uniforms.uClothPaint.x;
+    base = mix(base, vec3f(.88,.86,.77) * crease, sleeves * (1.0-mask.r));
     let waistcoat = vec3f(0.275, 0.365, 0.196) * clamp(dot(original, vec3f(0.299, 0.587, 0.114)) / 0.75, 0.4, 1.3);
     let shape = smoothstep(uniforms.uWardrobeTorso.y + 0.025, uniforms.uWardrobeTorso.y + 0.09, input.vWardrobeRest.y)
       * (1.0 - smoothstep(uniforms.uWardrobeTorso.z - 0.085, uniforms.uWardrobeTorso.z - 0.015, input.vWardrobeRest.y))

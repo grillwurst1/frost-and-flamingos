@@ -1,3 +1,4 @@
+import { sceneTowers } from '../state/scene';
 /**
  * Client side of Climate Conquest: mirrors the authoritative conquest block
  * of each snapshot into the HUD stores and the tower visuals, turns tower
@@ -8,7 +9,6 @@
 import type { Material } from '@babylonjs/core/Materials/material';
 import type { Scene } from '@babylonjs/core/scene';
 import {
-  CONQUEST_TOWERS,
   SPAWN_PROTECTION_SECONDS,
   captureZoneIndexAt,
   classCapabilities,
@@ -112,7 +112,7 @@ export class ConquestClient {
   /** TURRET_CAPTURED: paramX tower index, paramZ 1 captured / 2 neutralised, paramValue faction code + 1. */
   onTowerEvent(event: GameEvent, localFaction: Faction, inMatch: boolean): void {
     const index = event.paramX;
-    const tower = CONQUEST_TOWERS[index];
+    const tower = sceneTowers[index];
     if (!tower) return;
     const faction: Faction = event.paramValue === 1 ? 'alpine' : 'lagoon';
     const neutralised = event.paramZ === 2;
@@ -138,7 +138,7 @@ export class ConquestClient {
   /** Per frame: local zone membership (predicted feet), visuals and feed expiry. */
   update(delta: number, localFeet: Vec3 | null, alive: boolean): void {
     const now = performance.now();
-    const zone = alive && localFeet ? captureZoneIndexAt(localFeet) : -1;
+    const zone = alive && localFeet ? captureZoneIndexAt(localFeet, sceneTowers) : -1;
     if (zone !== this.localZone) {
       this.localZone = zone;
       conquest.update((state) => ({ ...state, localZone: zone }));

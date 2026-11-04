@@ -116,9 +116,9 @@ export function insideCaptureZone(tower: TowerDefinition, position: Vec3): boole
 }
 
 /** Wire index of the capture zone a position stands in, or -1. Zones never overlap. */
-export function captureZoneIndexAt(position: Vec3): number {
-  for (let index = 0; index < CONQUEST_TOWERS.length; index += 1) {
-    const tower = CONQUEST_TOWERS[index];
+export function captureZoneIndexAt(position: Vec3, towers: readonly TowerDefinition[] = CONQUEST_TOWERS): number {
+  for (let index = 0; index < towers.length; index += 1) {
+    const tower = towers[index];
     if (tower && insideCaptureZone(tower, position)) return index;
   }
   return -1;

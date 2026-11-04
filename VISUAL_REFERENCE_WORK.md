@@ -893,3 +893,37 @@ all six rigs, with zero browser errors. Bodies retain 35,505 / 24,286 / 23,674 /
 regression now checks each shoe's toe axis and blended ankle corners, preserving
 its outward-facing threshold on both shoes. See docs/qa/footwear-2026-11-04.json
 and before/idle/left-step/right-step captures. Native M4/art acceptance stays open.
+
+### 4 November — playable reference slice
+
+Add a public reference menu entry and isolated Gletscherpass server skirmish
+with nearby chalet/bridge/camp objectives, real combat/capture/respawn/round
+rules, five armed actors and an actual autonomous cow. Preserve the normal
+room and wardrobe. The initial camera has a steeper gorge view and the ranger
+preset matches the hat/waistcoat/shorts/red-boots/cuckoo-backpack loadout.
+Selected native cloth paint is calmer while real folds and selected skin stay.
+
+Original crawler art replaces its old model only in this mode: bevelled hull,
+windows, wheels, tread links, fondue pot/spoon and a rotating/elevating gun.
+Four draws/80 reused instances, server muzzle alignment; moving mesh transforms
+are unfrozen. Original solid crates, lanterns, packed snow and eight-instance
+chimney smoke add three merged draws with no new images. Round activity waits
+for first input and the unused reference room is torn down after sixty seconds.
+Seven targeted tests pass after correcting new harness API/field assumptions.
+Final browser and full-suite evidence follows. Exact PHOTO art parity and M6
+burning/destruction remain open; do not present a static target image as gameplay.
+
+The final renderer review additionally replaces the donor's ragged Alpine
+lederhosen surface with the existing closed, skinned selected breeches (seams/
+buttons retained). Source GLBs stay unchanged. Crawler track instances use the
+same GLSL/WGSL world-matrix path as the instanced map shader, composed before
+bone transforms; eighty links no longer overlap at the vehicle origin.
+
+Reference checkpoint validation: 382 cases pass (14 script / 216 server /
+152 client), strict types zero errors/warnings, successful production builds.
+Unchanged full rechecks resolve two existing cable-car and one anatomy test's
+Cloud wall-clock timeouts; no timeout increased. Real WebGL2 public entry,
+walk/jump, room isolation and actual on-screen wardrobe projection pass with
+zero browser errors. A death-camera priority defect found in the wardrobe
+capture is fixed. Evidence: `docs/qa/reference-scene-2026-11-04.json` and images.
+The additional isolated sustained drive/fire check is running at this checkpoint.

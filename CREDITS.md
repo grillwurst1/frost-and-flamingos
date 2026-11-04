@@ -244,3 +244,11 @@ painted tree/palm atlas; no additional images or external game assets are used.
 Footwear axis and stance fitting are original project code derived from the
 owner's existing toe/leg skeletons, skinning data and idle clips. Original GLBs,
 images and animations remain intact; no external model or animation is added.
+
+Gletscherpass reference crawler and set dressing (4 November 2026): original
+project-authored procedural 3D geometry in `reference-crawler.ts` and
+`reference-world.ts`: bevelled red armour, road wheels/tread links, caquelon,
+spoon, cannon, crate panels, lanterns, snow and chimney plume. Shared project
+materials; no additional image textures or third-party models. The owner's
+PHOTO/Gemini images remain visual references. Existing source soldier GLBs,
+rigs, animation clips and selectable skin pigments are unchanged.

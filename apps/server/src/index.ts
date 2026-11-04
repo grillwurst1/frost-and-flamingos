@@ -21,6 +21,8 @@ import {
 import { MatchRoom } from './rooms/match-room.js';
 
 interface SocketData {
+  room: MatchRoom;
+  reference: boolean;
   joined: boolean;
   playerId: number | null;
   helloTimeout: ReturnType<typeof setTimeout> | null;
@@ -31,6 +33,14 @@ const hostname = process.env.HOST ?? '127.0.0.1';
 
 const room = await MatchRoom.create();
 room.start();
+
+let referenceRoom: MatchRoom | null = null;
+let referenceLoad: Promise<MatchRoom> | null = null;
+let referenceClients = 0;
+let referenceIdle: ReturnType<typeof setTimeout> | null = null;
+function getReferenceRoom(): Promise<MatchRoom> {
+  return referenceLoad ??= MatchRoom.create({ reference: true, critters: false }).then(value => { referenceRoom = value; value.start(); return value; }).catch(error => { referenceLoad = null; throw error; });
+}
 
 const jsonHeaders = {
   'content-type': 'application/json; charset=utf-8',
@@ -45,19 +55,23 @@ function json(value: unknown, status = 200): Response {
 const server = Bun.serve<SocketData>({
   port,
   hostname,
-  fetch(request, bunServer) {
+  async fetch(request, bunServer) {
     const url = new URL(request.url);
 
     if (url.pathname === WS_PATH) {
+      if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return json({ error: 'websocket_upgrade_required' }, 426);
+      const reference = url.searchParams.get('scene') === 'reference';
+      const activeRoom = reference ? await getReferenceRoom() : room;
       const upgraded = bunServer.upgrade(request, {
-        data: { joined: false, playerId: null, helloTimeout: null },
+        data: { room: activeRoom, reference, joined: false, playerId: null, helloTimeout: null },
       });
       if (upgraded) return undefined;
       return json({ error: 'websocket_upgrade_failed' }, 426);
     }
 
     if (url.pathname === '/api/health') {
-      return json({ status: 'ok', ...room.getStatus() });
+      const active = url.searchParams.get('scene') === 'reference' ? referenceRoom : room;
+      return json(active ? { status: 'ok', ...active.getStatus() } : { status: 'idle' });
     }
 
     if (url.pathname === '/api/dev/teleport' && process.env.FF_DEV_TOOLS === '1') {
@@ -71,7 +85,8 @@ const server = Bun.serve<SocketData>({
       const yParam = url.searchParams.get('y');
       const y = yParam === null ? undefined : Number(yParam);
       if (!Number.isFinite(player) || !Number.isFinite(x) || !Number.isFinite(z)) return json({ ok: false }, 400);
-      return json(room.devTeleport(player, x, z, y !== undefined && Number.isFinite(y) ? y : undefined));
+      const targetRoom = url.searchParams.get('scene') === 'reference' ? await getReferenceRoom() : room;
+      return json(targetRoom.devTeleport(player, x, z, y !== undefined && Number.isFinite(y) ? y : undefined));
     }
 
     if (url.pathname === '/api/dev/vehicle' && process.env.FF_DEV_TOOLS === '1') {
@@ -87,7 +102,8 @@ const server = Bun.serve<SocketData>({
       const x = Number(url.searchParams.get('x'));
       const z = Number(url.searchParams.get('z'));
       const place = Number.isFinite(x) && Number.isFinite(z) ? { x, z, yaw: Number(url.searchParams.get('yaw') ?? 0) || 0 } : null;
-      return json(room.devVehicle(player, action, vehicle, value, place));
+      const targetRoom = url.searchParams.get('scene') === 'reference' ? await getReferenceRoom() : room;
+      return json(targetRoom.devVehicle(player, action, vehicle, value, place));
     }
 
     if (url.pathname === '/api/dev/critters' && process.env.FF_DEV_TOOLS === '1') {
@@ -154,6 +170,7 @@ const server = Bun.serve<SocketData>({
   websocket: {
     data: {} as SocketData,
     open(ws) {
+      if (ws.data.reference) { referenceClients++; if (referenceIdle) clearTimeout(referenceIdle); referenceIdle = null; }
       ws.data.helloTimeout = setTimeout(() => {
         if (!ws.data.joined) {
           ws.close(4001, 'Handshake timeout.');
@@ -161,6 +178,7 @@ const server = Bun.serve<SocketData>({
       }, 8000);
     },
     message(ws, message) {
+      const room = ws.data.room;
       if (typeof message === 'string') return;
       const opcode = peekOpcode(message);
       if (opcode === null) return;
@@ -228,7 +246,11 @@ const server = Bun.serve<SocketData>({
         clearTimeout(ws.data.helloTimeout);
         ws.data.helloTimeout = null;
       }
-      room.leaveBySocket(ws);
+      ws.data.room.leaveBySocket(ws);
+      if (ws.data.reference && --referenceClients === 0) {
+        const old = ws.data.room;
+        referenceIdle = setTimeout(() => { if (referenceClients === 0 && referenceRoom === old) { old.stop(); referenceRoom = null; referenceLoad = null; } }, 60000);
+      }
     },
   },
 });
@@ -242,6 +264,8 @@ function shutdown(signal: string): void {
   shuttingDown = true;
   console.log(`[frost-and-flamingos] ${signal} received, closing resort server.`);
   room.stop();
+  if (referenceIdle) clearTimeout(referenceIdle);
+  referenceRoom?.stop();
   server.stop(true);
   process.exit(0);
 }

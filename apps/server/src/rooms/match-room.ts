@@ -1,3 +1,4 @@
+import { REFERENCE_TOWERS, REFERENCE_VEHICLES, REFERENCE_MARKERS, referenceSpawn, CONQUEST_TOWERS } from '@frost-and-flamingos/shared';
 import { validatedShotDirection } from '@frost-and-flamingos/shared';
 import {
   CLASS_DEFAULT_LOADOUTS,
@@ -288,6 +289,7 @@ export interface JoinError {
 }
 
 export interface MatchRoomOptions {
+  reference?: boolean;
   /** Number of AI bots (default 4). Tests use 0 for a quiet room. */
   bots?: number;
   /** Seed of the critter simulation (default: random per server start; fixed under tests). */
@@ -364,6 +366,13 @@ const BOT_NAMES = [
   { name: 'Coral Kai', faction: 'lagoon', classId: 'infiltrator', mascotChance: 0 },
   { name: 'Sandy Palms', faction: 'lagoon', classId: 'allrounder', mascotChance: 0.6 },
 ] as const satisfies readonly { name: string; faction: Faction; classId: ClassId; mascotChance: number }[];
+
+/** Reference cast keeps both factions armed and adds the actual autonomous cow. */
+const REFERENCE_BOTS: readonly { name:string; faction:Faction; classId:ClassId; mascotChance:number }[] = [
+  ...BOT_NAMES.map((entry,i)=>({...entry, name:['GipfelWache','Senn_Koloss','Skipper','Wuzzi'][i]!, mascotChance:0})),
+  {name:'Angry_Cow_Beta',faction:'alpine',classId:'allrounder',mascotChance:1},
+  {name:'StumbleBoi',faction:'lagoon',classId:'allrounder',mascotChance:0},
+];
 
 const ZERO_VELOCITY: Vec3 = { x: 0, y: 0, z: 0 };
 /** "Never hit": the aura treats a fresh player as out of combat. */
@@ -464,17 +473,22 @@ export class MatchRoom {
   private accumulator = 0;
   private readonly startedAt = Date.now();
   /** Climate Conquest: towers, tickets, weather balance and round flow. */
-  private readonly conquest = new ClimateConquest();
-  private readonly conquestBots = new ConquestBots();
+  private readonly conquest: ClimateConquest;
+  private readonly conquestBots: ConquestBots;
+  private readonly towers: typeof CONQUEST_TOWERS;
   private readonly spawnFacing: SpawnFacingCache;
   /** Conquest state as of the last tick (bots read it without re-snapshotting). */
-  private conquestView = this.conquest.snapshot();
+  private conquestView: ReturnType<ClimateConquest['snapshot']>;
   private windAngle = 0.6;
   private windStrength = 0;
   /** Drivable vehicles (package 4V); see vehicle-manager.ts. */
   readonly vehicles: VehicleManager<PlayerConnection>;
 
-  private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean) {
+  private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean, private readonly reference = false) {
+    this.towers = reference ? REFERENCE_TOWERS : CONQUEST_TOWERS;
+    this.conquest = new ClimateConquest(reference ? { tower_a: 'alpine', tower_b: null, tower_c: 'lagoon' } : undefined);
+    this.conquestView = this.conquest.snapshot();
+    this.conquestBots = new ConquestBots(this.towers);
     this.physics = physics;
     // Static geometry only: a parked vehicle or a player must not bend a cached facing.
     this.spawnFacing = new SpawnFacingCache({
@@ -498,7 +512,7 @@ export class MatchRoom {
       killCrittersInSphere: (center, radius, killerId, weaponId) => this.critters.killInSphere(center, radius, killerId, weaponId, null),
       // The results intermission (package 4T) is a ceasefire for hulls too.
       ceasefire: () => this.isCeasefire(),
-    });
+    }, reference ? REFERENCE_VEHICLES : undefined);
     // Capture-gated slots (`{ capture: TowerId }`) follow the Climate Conquest towers.
     this.vehicles.setTowerQuery((tower, faction) => this.isTowerHeldBy(tower, faction));
     this.critters = new CritterSystem(physics, {
@@ -511,14 +525,14 @@ export class MatchRoom {
   }
 
   static async create(options: MatchRoomOptions = {}): Promise<MatchRoom> {
-    const physics = await PhysicsWorld.create();
+    const physics = await PhysicsWorld.create(options.reference ? REFERENCE_MARKERS : []);
     const testRun = process.env.NODE_ENV === 'test';
     const critters = options.critters ?? (!testRun || options.critterSeed !== undefined);
     // Tests are reproducible: a fixed seed unless one is given.
     const seed = options.critterSeed ?? (testRun ? 0x3e9 : Math.floor(Math.random() * 0xffffffff));
-    const room = new MatchRoom(physics, seed, critters);
+    const room = new MatchRoom(physics, seed, critters, options.reference);
     // Local capture tooling: FF_NO_BOTS=1 starts an empty resort (no AI vacationers).
-    if (process.env.FF_NO_BOTS !== '1') room.spawnBots(options.bots ?? BOT_COUNT);
+    if (process.env.FF_NO_BOTS !== '1') room.spawnBots(options.bots ?? (options.reference ? REFERENCE_BOTS.length : BOT_COUNT));
     return room;
   }
 
@@ -550,6 +564,8 @@ export class MatchRoom {
     if (steps === 6) this.accumulator = 0;
   }
 
+  private referenceStarted = false;
+
   private tick(): void {
     this.physicsTick += 1;
     const wind = this.currentWind();
@@ -570,7 +586,9 @@ export class MatchRoom {
       }
 
       const input = player.isBot
-        ? this.vehicles.botAdjust(player, this.botInput(player))
+        ? this.reference && !this.referenceStarted
+          ? idleInput(player.lastProcessedInput, player.lastInput.yaw, player.lastInput.pitch, player.activeSlot)
+          : this.vehicles.botAdjust(player, this.botInput(player))
         : player.inputQueue.shift() ?? null;
       if (input) {
         this.applyInput(player, input, wind);
@@ -605,7 +623,7 @@ export class MatchRoom {
       if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
     }
     this.updateProjectiles();
-    this.stepConquest();
+    if (!this.reference || this.referenceStarted) this.stepConquest();
     this.recordLagHistory();
 
     if (this.physicsTick % SNAPSHOT_INTERVAL === 0) {
@@ -704,6 +722,10 @@ export class MatchRoom {
    * skip pads another living player is standing on.
    */
   private spawnFor(faction: Faction, selfId = 0): { position: Vec3; yaw: number } {
+    if (this.reference) {
+      for (let i = 0; i < 16; i++) { const spawn = referenceSpawn(faction, i); if (!this.isSpawnOccupied(spawn.position, selfId)) return spawn; }
+      return referenceSpawn(faction);
+    }
     if (!this.arena) {
       // Pads around the towers the faction holds; the main base when it holds none.
       const spawn = selectConquestSpawn(faction, this.conquest.heldTowers(faction), Math.random, (position) =>
@@ -789,7 +811,7 @@ export class MatchRoom {
       alive: player.alive && this.physicsTick >= player.spawnProtectionUntil,
       position: player.character.position,
     }));
-    for (const event of this.conquest.step(countTowerPresence(candidates))) this.handleConquestEvent(event);
+    for (const event of this.conquest.step(countTowerPresence(candidates, undefined, this.towers))) this.handleConquestEvent(event);
     this.conquestView = this.conquest.snapshot();
   }
 
@@ -2002,16 +2024,21 @@ export class MatchRoom {
   }
 
   private spawnBots(count: number): void {
-    for (const entry of BOT_NAMES.slice(0, Math.max(0, count))) {
+    for (const entry of (this.reference ? REFERENCE_BOTS : BOT_NAMES).slice(0, Math.max(0, count))) {
       const id = this.allocatePlayerId();
       const classId: ClassId = entry.mascotChance > 0 ? 'mascot' : entry.classId;
-      const base = createDefaultProfile(entry.name, classId);
+      const name = entry.name;
+      const base = createDefaultProfile(name, classId);
+      if (this.reference && entry.faction === 'lagoon') Object.assign(base.cosmetics, { torso: 'torso_hawaii_shirt', legs: 'legs_boardshorts', feet: 'feet_sandals_socks', headgear: 'head_none', hairStyleIndex: 1 });
       const profile: PlayerProfile = {
         ...base,
         faction: entry.faction,
         loadout: { ...CLASS_DEFAULT_LOADOUTS[classId] },
       };
-      const spawn = this.spawnFor(entry.faction);
+      const spawn = this.reference ? (() => {
+        const [x,z] = ([[7,43],[-6,47],[-5,105],[17,116],[1,82],[21,102]][id-1] ?? [0,47]) as [number,number];
+        return { position: { x, y: (id === 5 ? 18.3 - 1.4 * Math.sin((z - 46.5) / 50 * Math.PI) : sampleMapHeight(x, z)) + .05, z }, yaw: entry.faction === 'alpine' ? -.2 : Math.PI };
+      })() : this.spawnFor(entry.faction);
       const character = this.physics.createCharacter({
         position: spawn.position,
         classId,
@@ -2537,7 +2564,7 @@ export class MatchRoom {
     if (player.inputQueue.length >= MAX_INPUT_BACKLOG) {
       player.inputQueue.shift();
     }
-    if (input.buttons !== 0) player.pressedSinceSpawn = true;
+    if (input.buttons !== 0) { player.pressedSinceSpawn = true; this.referenceStarted = true; }
     player.inputQueue.push(input);
   }
 
@@ -2555,6 +2582,7 @@ export class MatchRoom {
     const originDistance = distance3(serverEye, fire.origin);
     if (!Number.isFinite(originDistance) || originDistance > 6) return;
     if (player.fireQueue.length >= 8) player.fireQueue.shift();
+    this.referenceStarted = true;
     player.fireQueue.push(fire);
   }
 
@@ -2646,7 +2674,7 @@ export class MatchRoom {
     // client still in the menu wardrobe has not deployed yet.
     if (player.pressedSinceSpawn && this.physicsTick >= player.spawnProtectionUntil) return false;
     const feet = player.character.position;
-    if (captureZoneIndexAt(feet) !== -1) return false;
+    if (captureZoneIndexAt(feet, this.towers) !== -1) return false;
     const spawn = player.spawnPosition;
     return Math.hypot(feet.x - spawn.x, feet.z - spawn.z) <= 4 && Math.abs(feet.y - spawn.y) <= 3;
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { referenceScene, sceneTowers } from '../../state/scene';
   import { FJORD_MAP, MAP_SIZE } from '@frost-and-flamingos/shared';
   import { localPlayer } from '../../state/game';
   import { tacticalPlayers } from '../../state/tactical';
@@ -6,7 +7,7 @@
   import { t } from '../../state/locale';
   import { mapX, mapY, minimapArtwork } from '../../rendering/minimap-map';
   const artwork = minimapArtwork();
-  const span = 260;
+  const span = referenceScene ? 125 : 260;
   $: player = $localPlayer;
   $: centreX = mapX(player?.position.x ?? 0);
   $: centreY = mapY(player?.position.z ?? 0);
@@ -16,7 +17,7 @@
   <svg viewBox={`${centreX-span/2} ${centreY-span/2} ${span} ${span}`} aria-hidden="true">
     <image href={artwork} x="0" y="0" width={MAP_SIZE} height={MAP_SIZE}/>
     <circle cx={centreX} cy={centreY} r="107" fill="none" stroke="#ffffff88" stroke-width="1.5" />
-    {#each FJORD_MAP.towers as tower, index}
+    {#each sceneTowers as tower, index}
       {@const owner = $conquest.towers[index]?.owner}
       <circle cx={mapX(tower.position.x)} cy={mapY(tower.position.z)} r="7" fill={owner === 'alpine' ? '#7dbddd' : owner === 'lagoon' ? '#d77570' : '#d8d7c8'} stroke="#293d48" stroke-width="2"/>
       <text x={mapX(tower.position.x)} y={mapY(tower.position.z)+3} text-anchor="middle" fill="#f7faf7" stroke="#293d48" stroke-width="1" paint-order="stroke" font-size="9" font-weight="bold">{String.fromCharCode(65+index)}</text>

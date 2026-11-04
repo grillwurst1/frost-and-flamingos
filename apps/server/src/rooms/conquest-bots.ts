@@ -14,6 +14,7 @@ import {
   type ConquestSnapshot,
   type Faction,
   type Vec3,
+  type TowerDefinition,
 } from '@frost-and-flamingos/shared';
 
 /** Seconds between objective reviews (sooner when the target tower is secured). */
@@ -29,7 +30,7 @@ function horizontal(a: Vec3, b: Vec3): number {
 }
 
 /** Land waypoints inside each zone (wire order A, B, C). */
-const HOLD_NODES: Vec3[][] = CONQUEST_TOWERS.map((tower) => {
+const buildHoldNodes = (towers: readonly TowerDefinition[]): Vec3[][] => towers.map((tower) => {
   const inside = FJORD_MAP.nav.nodes.filter(
     (node) =>
       !node.water &&
@@ -39,6 +40,8 @@ const HOLD_NODES: Vec3[][] = CONQUEST_TOWERS.map((tower) => {
   const nodes = inside.length > 0 ? inside : FJORD_MAP.nav.nodes.filter((node) => !node.water && horizontal(node.position, tower.position) <= tower.captureRadius + 6);
   return nodes.map((node) => ({ ...node.position }));
 });
+
+const HOLD_NODES = buildHoldNodes(CONQUEST_TOWERS);
 
 export function holdNodesOf(towerIndex: number): readonly Vec3[] {
   return HOLD_NODES[towerIndex] ?? [];
@@ -67,6 +70,8 @@ export function towerSecured(state: ConquestSnapshot['towers'][number] | undefin
 }
 
 export class ConquestBots {
+  private readonly nodes: Vec3[][];
+  constructor(private readonly towers: readonly TowerDefinition[] = CONQUEST_TOWERS) { this.nodes = towers === CONQUEST_TOWERS ? HOLD_NODES : buildHoldNodes(towers); }
   private readonly memory = new Map<number, BotObjective>();
 
   forget(botId: number): void {
@@ -100,7 +105,7 @@ export class ConquestBots {
     if (!objective || tick >= objective.nextReviewTick || securedReview) {
       const tower = this.chooseTower(bot, towers, bots, objective?.tower ?? -1, random);
       if (!objective || objective.tower !== tower) {
-        const nodes = holdNodesOf(tower);
+        const nodes = this.nodes[tower] ?? [];
         objective = {
           tower,
           nextReviewTick: 0,
@@ -112,8 +117,8 @@ export class ConquestBots {
       objective.lastReviewTick = tick;
       objective.nextReviewTick = tick + REVIEW_TICKS + Math.floor(random() * 60);
     }
-    const nodes = holdNodesOf(objective.tower);
-    if (nodes.length === 0) return CONQUEST_TOWERS[objective.tower]?.position ?? null;
+    const nodes = this.nodes[objective.tower] ?? [];
+    if (nodes.length === 0) return this.towers[objective.tower]?.position ?? null;
     let node = nodes[objective.holdNode % nodes.length];
     // Inside the zone: walk on to another hold waypoint on arrival (a moving target is harder to hit).
     if (node && horizontal(node, bot.position) < HOLD_ARRIVAL && Math.abs(node.y - bot.position.y) < 2.5 && nodes.length > 1) {
@@ -127,7 +132,7 @@ export class ConquestBots {
   isHolding(bot: ObjectiveBot, towers: ConquestSnapshot['towers']): boolean {
     const objective = this.memory.get(bot.id);
     if (!objective) return false;
-    const tower = CONQUEST_TOWERS[objective.tower];
+    const tower = this.towers[objective.tower];
     if (!tower) return false;
     if (horizontal(tower.position, bot.position) > tower.captureRadius) return false;
     if (Math.abs(bot.position.y - tower.position.y) > 8) return false;
@@ -142,7 +147,7 @@ export class ConquestBots {
     random: () => number,
   ): number {
     const rival = oppositeFaction(bot.faction);
-    const crowd = CONQUEST_TOWERS.map(() => 0);
+    const crowd = this.towers.map(() => 0);
     for (const other of bots) {
       if (other.id === bot.id || other.faction !== bot.faction) continue;
       const index = this.objectiveOf(other.id);
@@ -154,9 +159,9 @@ export class ConquestBots {
     const leading = own > towers.filter((state) => state.owner === rival).length;
     let frontline = -1;
     let frontlineGap = Number.POSITIVE_INFINITY;
-    CONQUEST_TOWERS.forEach((tower, index) => {
+    this.towers.forEach((tower, index) => {
       if (towers[index]?.owner !== bot.faction) return;
-      CONQUEST_TOWERS.forEach((other, otherIndex) => {
+      this.towers.forEach((other, otherIndex) => {
         if (towers[otherIndex]?.owner === bot.faction) return;
         const gap = horizontal(tower.position, other.position);
         if (gap < frontlineGap) {
@@ -167,7 +172,7 @@ export class ConquestBots {
     });
     let best = 0;
     let bestScore = Number.NEGATIVE_INFINITY;
-    CONQUEST_TOWERS.forEach((tower, index) => {
+    this.towers.forEach((tower, index) => {
       const state = towers[index];
       if (!state) return;
       let value: number;

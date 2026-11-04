@@ -1,3 +1,4 @@
+import { referenceScene } from './scene';
 import { get, writable } from 'svelte/store';
 import {
   BACK_IDS,
@@ -37,7 +38,7 @@ import {
   type TorsoId,
 } from '@frost-and-flamingos/shared';
 
-const STORAGE_KEY = 'frost-and-flamingos.profile';
+const STORAGE_KEY = referenceScene ? 'frost-and-flamingos.profile.reference' : 'frost-and-flamingos.profile';
 
 const CALLSIGNS = [
   'Alpine Otter',
@@ -70,7 +71,8 @@ function withPlayableClass(value: PlayerProfile): PlayerProfile {
 }
 
 function loadProfile(): PlayerProfile {
-  const fallback = createDefaultProfile(randomCallsign());
+  const fallback = createDefaultProfile(referenceScene ? 'GipfelRanger' : randomCallsign());
+  if (referenceScene) { Object.assign(fallback.cosmetics, { skinToneIndex: 2, hairColorIndex: 1, torso: 'torso_tracht_shirt', legs: 'legs_lederhosen', back: 'back_cuckoo_clock', headgear: 'head_tirol', face: 'face_full_beard' }); fallback.loadout.gimmick = 'snow_cannon'; }
   if (typeof window === 'undefined') return fallback;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);

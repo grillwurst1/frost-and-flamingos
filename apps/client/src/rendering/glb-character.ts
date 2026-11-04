@@ -463,6 +463,7 @@ export class GlbCharacterView implements AvatarView {
           hair: HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0],
           skinReference: asset.wardrobe.skinReference, hairReference: asset.wardrobe.hairReference,
           head: (this.sharedWardrobeHead || this.sharedWardrobeBody) && asset.wardrobeHead ? { skinReference: asset.wardrobeHead.skinReference, hairReference: asset.wardrobeHead.hairReference } : undefined,
+          cloth: [profile.cosmetics.torso === 'torso_tracht_shirt' ? 1 : 0, 0, 0, 0],
           greenVest: profile.cosmetics.torso === 'torso_tracht_shirt' && nativeWardrobeRecipe(profile, asset).torso,
           torso: [Math.abs(leftArm?.x ?? .2), asset.bindPositions.get('Hips')?.y ?? .85, (asset.bindPositions.get('Neck')?.y ?? 1.25) + .10, asset.bindPositions.get('Spine2')?.z ?? 0],
         } : undefined },

@@ -1,3 +1,6 @@
+import { REFERENCE_MARKERS, REFERENCE_SCENE } from '@frost-and-flamingos/shared';
+import { buildReferenceWorld } from '../rendering/reference-world';
+import { referenceScene } from '../state/scene';
 import { CableBrakeLevers } from '../rendering/cable-brake-levers';
 import { frameLimit } from '../state/graphics';
 import { renderFrameLimit, type FrameLimit } from '../rendering/render-profile';
@@ -623,7 +626,7 @@ export class GameClient {
         console.warn('[frost-and-flamingos] painted facades unavailable, using procedural buildings', error);
         return null;
       });
-      const physics = await PhysicsWorld.create();
+      const physics = await PhysicsWorld.create(referenceScene ? REFERENCE_MARKERS : []);
       if (this.disposed) {
         physics.dispose();
         return;
@@ -634,6 +637,7 @@ export class GameClient {
       if (this.disposed) return;
       const buildStart = performance.now();
       this.visuals = buildFjordFiesta(scene, this.toonMaterial, { sprites, facades });
+      if (referenceScene) buildReferenceWorld(scene, this.toonMaterial);
       this.cableBrakeLevers = new CableBrakeLevers(this.visuals.brakeLevers);
       this.bootTimings.map = Math.round(performance.now() - buildStart);
       this.bootTimings.world = Math.round(performance.now() - artStart);
@@ -1069,7 +1073,7 @@ export class GameClient {
     this.localView?.setPosition(welcome.spawn);
     this.localView?.setYaw(welcome.spawnYaw, true);
 
-    this.cameraRig?.resetAngles(welcome.spawnYaw);
+    this.cameraRig?.resetAngles(welcome.spawnYaw, referenceScene ? REFERENCE_SCENE.view.pitch : -.08);
     this.cameraRig?.snapToPlayer(toVector3(welcome.spawn));
     this.lastFrameAt = performance.now();
     this.accumulator = 0;
@@ -1837,7 +1841,7 @@ export class GameClient {
       camera.camera.setTarget(this.devCamera.target);
       return;
     }
-    if (this.deathAt > 0 && this.physics) {
+    if (this.deathAt > 0 && this.physics && !this.wardrobeIsOpen && this.currentPhase !== 'menu') {
       const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
       const killer = latest?.players.find((player) => player.id === this.deathKillerId);
       const target = killer?.position ?? this.latestLocalState?.position ?? this.localCharacter?.position;

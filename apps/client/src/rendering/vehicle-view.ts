@@ -1,3 +1,5 @@
+import { referenceScene } from '../state/scene';
+import { buildReferenceCrawler } from './reference-crawler';
 import type { InstantiatedEntries } from '@babylonjs/core/assetContainer';
 import { AnimationGroup } from '@babylonjs/core/Animations/animationGroup';
 import { Vector3 } from '@babylonjs/core/Maths/math';
@@ -87,6 +89,7 @@ export class VehicleView {
   private material: ShaderMaterial;
   private readonly fallbackMaterial: ShaderMaterial;
   private fallback: Mesh | null = null;
+  private referenceModel: ReturnType<typeof buildReferenceCrawler> | null = null;
   private entries: InstantiatedEntries | null = null;
   private turret: TransformNode | null = null;
   private barrel: TransformNode | null = null;
@@ -133,7 +136,7 @@ export class VehicleView {
 
   /** Loads the painted model once the vehicle is near or on screen. */
   private requestModel(position: Vec3, cameraPosition: Vector3): void {
-    if (this.definition.chassis === 'ride') return;
+    if (this.definition.chassis === 'ride' || this.referenceModel) return;
     if (this.loadRequested) return;
     const distance = Math.hypot(position.x - cameraPosition.x, position.y - cameraPosition.y, position.z - cameraPosition.z);
     const camera = this.scene.activeCamera;
@@ -201,6 +204,11 @@ export class VehicleView {
 
   /** Box hull + turret stand-in in the vehicle's palette (loading / missing model). */
   private buildFallback(): void {
+    if (referenceScene && this.kind === 'fondue_crawler') {
+      const model = buildReferenceCrawler(this.scene, this.tilt, this.fallbackMaterial);
+      this.referenceModel = model; this.fallback = model.hull; this.turret = model.turret; this.barrel = model.barrel;
+      return;
+    }
     if (this.kind === 'cable_car') {
       this.fallback = buildCableCar(this.scene, this.fallbackMaterial);
       this.fallback.parent = this.tilt;
@@ -257,7 +265,7 @@ export class VehicleView {
   }
 
   get loaded(): boolean {
-    return this.kind === 'rowboat' || this.definition.chassis === 'ride' || this.entries !== null;
+    return this.referenceModel !== null || this.kind === 'rowboat' || this.definition.chassis === 'ride' || this.entries !== null;
   }
 
   /**
@@ -334,10 +342,11 @@ export class VehicleView {
     }
 
     // Parts (the glTF root mirrors X: yaws are negated, pitches keep their sign).
-    if (this.turret) this.turret.rotation.set(0, -pose.turretYaw, 0);
+    if (this.turret) this.turret.rotation.set(0, this.referenceModel ? pose.turretYaw : -pose.turretYaw, 0);
     if (this.barrel) this.barrel.rotation.set(-pose.turretPitch, 0, 0);
     if (this.steerNode) this.steerNode.rotation.set(0, -pose.steer * 0.8, 0);
     if (this.propeller && !pose.wreck && ((pose.seats?.[0] ?? 0) !== 0 || Math.abs(pose.forwardSpeed)>1)) this.propeller.rotation.z += dt * (42+Math.abs(pose.forwardSpeed));
+    this.referenceModel?.update(dt, pose.wreck ? 0 : pose.forwardSpeed);
     if (!pose.wreck) this.wheelAngle += (pose.forwardSpeed * dt);
     for (const wheel of this.wheels) wheel.node.rotation.set(this.wheelAngle / wheel.radius, 0, 0);
 

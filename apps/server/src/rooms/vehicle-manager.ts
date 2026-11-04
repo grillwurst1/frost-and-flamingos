@@ -214,10 +214,10 @@ export class VehicleManager<P extends VehicleOccupant> {
   private splashExclude = 0;
   private readonly stats = { shots: 0, rams: 0, destroyed: 0, lastRam: null as VehicleRamRecord | null };
 
-  constructor(physics: PhysicsWorld, hooks: VehicleRoomHooks<P>) {
+  constructor(physics: PhysicsWorld, hooks: VehicleRoomHooks<P>, slots: readonly VehicleSlot[] = VEHICLE_SLOTS) {
     this.physics = physics;
     this.hooks = hooks;
-    this.records = VEHICLE_SLOTS.map((slot) => ({
+    this.records = slots.map((slot) => ({
       slot,
       definition: slotDefinition(slot),
       body: null,

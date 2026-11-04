@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { CONQUEST_TOWERS, TOWER_LETTERS, type Faction, type TranslationKey } from '@frost-and-flamingos/shared';
+  import { sceneTowers } from '../../state/scene';
+  import {  TOWER_LETTERS, type Faction, type TranslationKey } from '@frost-and-flamingos/shared';
   import { conquest } from '../../state/conquest';
   import { localPlayer } from '../../state/game';
   import { t } from '../../state/locale';
@@ -14,7 +15,7 @@
   $: state = $conquest;
   $: index = state.localZone;
   $: tower = index >= 0 ? state.towers[index] : undefined;
-  $: definition = index >= 0 ? CONQUEST_TOWERS[index] : undefined;
+  $: definition = index >= 0 ? sceneTowers[index] : undefined;
   $: own = ($localPlayer?.faction ?? 'alpine') as Faction;
   $: rival = (own === 'alpine' ? 'lagoon' : 'alpine') as Faction;
   $: visible = !!tower && !!definition && state.phase === 'live' && ($localPlayer?.alive ?? false);

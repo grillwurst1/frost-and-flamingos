@@ -1,3 +1,4 @@
+import { referenceScene } from '../state/scene';
 import {
   MAX_PLAYERS,
   PROTOCOL_VERSION,
@@ -44,7 +45,7 @@ type Timer = ReturnType<typeof setTimeout>;
 
 function socketUrl(): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}${WS_PATH}`;
+  return `${protocol}//${window.location.host}${WS_PATH}${referenceScene ? '?scene=reference' : ''}`;
 }
 
 /**

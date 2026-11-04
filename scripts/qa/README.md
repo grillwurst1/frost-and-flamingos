@@ -49,3 +49,21 @@ The script checks:
 evidence for these exercised paths. It does not establish universal crash-free
 operation, native M4 temperature/FPS, WebGPU acceptance, or all remaining
 milestones. JS heap measurements exclude GPU and native decoded-audio memory.
+
+## Gletscherpass reference scene
+
+`scripts/qa/reference-scene.mjs` enters the public `/?scene=reference` menu,
+checks the authored spawn and loaded modular hero, records the bounded crawler/
+smoke draws, walks/jumps with real input and saves an actual renderer capture.
+Use the same Playwright/Chromium/output/software environment variables above.
+The capture uses 1280×800 at Medium. Do not infer native GPU throughput from
+Cloud SwiftShader timings.
+
+For an isolated capture/board/drive/fire/exit flow, start a fresh stack with
+`FF_NO_BOTS=1 FF_DEV_TOOLS=1 bun run dev`, then set
+`FF_QA_REFERENCE_MECHANICS=1`. Only the starting bridge/vehicle locations are
+staged through loopback development endpoints, scoped to the reference room;
+objectives, F boarding, driving, shooting and F exit use ordinary server rules.
+This includes sixty real seconds of combined driving/shooting and resource
+checkpoints. Run without that flag and without `FF_NO_BOTS` for the live cast.
+The reference scene itself works without development tools or URL teleports.
