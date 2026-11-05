@@ -686,7 +686,8 @@ describe('vehicle edge cases', () => {
       for (const collider of prop.colliders) {
         const yaw = prop.rotationY + (collider.type === 'box' ? (collider.rotation?.y ?? 0) : 0);
         const centre = vehicleLocalToWorld(prop.position, prop.rotationY, collider.offset);
-        const halfY = collider.type === 'box' ? collider.halfExtents.y : collider.type === 'sphere' ? collider.radius : collider.halfHeight;
+        const halfY = collider.type === 'box' ? collider.halfExtents.y : collider.type === 'sphere' ? collider.radius
+          : collider.type === 'hull' ? Math.max(...collider.vertices.map(p=>Math.abs(p.y))) : collider.halfHeight;
         let clearance = Number.POSITIVE_INFINITY;
         for (const sample of samples) {
           // Only colliders at road level (not bridges overhead or posts in the gorge below).
@@ -695,7 +696,7 @@ describe('vehicle edge cases', () => {
           const distance =
             collider.type === 'box'
               ? Math.hypot(Math.max(0, Math.abs(local.x) - collider.halfExtents.x), Math.max(0, Math.abs(local.z) - collider.halfExtents.z))
-              : Math.hypot(local.x, local.z) - collider.radius;
+              : Math.hypot(local.x, local.z) - (collider.type==='hull'?Math.max(...collider.vertices.map(p=>Math.hypot(p.x,p.z))):collider.radius);
           clearance = Math.min(clearance, distance - halfWidth);
         }
         if (moved.has(prop.id)) movedMin = Math.min(movedMin, clearance);

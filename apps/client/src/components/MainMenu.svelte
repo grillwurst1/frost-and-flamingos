@@ -77,7 +77,7 @@
           </svg>
           {referenceScene ? $t('reference.enter') : $t('menu.playNow')}
         </button>
-        <a class="btn-ghost reference-entry" href={referenceScene ? '/' : '/?scene=reference'}>{referenceScene ? $t('reference.back') : $t('reference.enter')}</a>
+        <a class="btn-ghost reference-entry" href={referenceScene ? '/?scene=field' : '/'}>{referenceScene ? $t('reference.back') : $t('reference.enter')}</a>
         <div class="menu-actions-row">
           <button class="btn-ghost" type="button" on:click={onWardrobe}>
             {$t('menu.wardrobe')}

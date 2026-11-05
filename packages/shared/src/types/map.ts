@@ -83,6 +83,14 @@ export type PropCollider =
       readonly pieceId?: string;
     }
   | {
+      /** Authored solid convex prop; the renderer consumes these same points. */
+      readonly type: 'hull';
+      readonly vertices: readonly Vec3[];
+      readonly offset: Vec3;
+      readonly surface?: SurfaceTag;
+      readonly pieceId?: string;
+    }
+  | {
       /** Regular polygon prism (octagonal harbour platform, pavilion plinths). */
       readonly type: 'prism';
       readonly sides: number;

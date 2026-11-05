@@ -71,7 +71,7 @@ try {
     console.log(JSON.stringify({ label, ...data }));
     return data;
   };
-  await page.goto(base + '/?renderer=webgl2&quality=low', { waitUntil: 'domcontentloaded' });
+  await page.goto(base + '/?scene=field&renderer=webgl2&quality=low', { waitUntil: 'domcontentloaded' });
   await wait(() => window.__frostDebug?.currentPhase === 'menu' && window.__frostDebug.network?.ready);
   console.log('connected menu');
   await activate(page.getByRole('button', { name: /Play Now/i }));

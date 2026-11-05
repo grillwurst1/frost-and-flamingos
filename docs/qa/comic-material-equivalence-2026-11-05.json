@@ -1,0 +1,79 @@
+{
+  "baselineRef": "022fb93349f301c21f92c797c3ee4738d8231418",
+  "softwareRenderer": true,
+  "cases": [
+    {
+      "mode": 1,
+      "name": "near",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 135
+    },
+    {
+      "mode": 1,
+      "name": "unpainted",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 129
+    },
+    {
+      "mode": 1,
+      "name": "fading",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 51
+    },
+    {
+      "mode": 1,
+      "name": "neutral-distance",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 64
+    },
+    {
+      "mode": 2,
+      "name": "near",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 135
+    },
+    {
+      "mode": 2,
+      "name": "unpainted",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 129
+    },
+    {
+      "mode": 2,
+      "name": "fading",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 51
+    },
+    {
+      "mode": 2,
+      "name": "neutral-distance",
+      "maxError": 0,
+      "meanError": 0,
+      "changedChannels": 0,
+      "paintedPixels": 17488,
+      "colours": 64
+    }
+  ],
+  "errors": []
+}

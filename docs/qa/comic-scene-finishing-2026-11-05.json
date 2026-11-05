@@ -1,0 +1,61 @@
+{
+  "date": "2026-11-05",
+  "browser": "Chromium 154.0.8037.57 on Cloud Debian 13, SwiftShader WebGL2",
+  "nativeMacM4Measured": false,
+  "tests": {
+    "scripts": 15,
+    "server": 229,
+    "client": 156,
+    "total": 400,
+    "serverCloudCaseBudgetMs": 15000,
+    "note": "Original default combined run hit two existing five-second physics-case timeouts; unchanged assertions pass with a 15-second Cloud budget. The final nine reference cases were rerun after the cast placement adjustment."
+  },
+  "strictTypecheck": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "productionBuild": "passed",
+  "geometry": {
+    "natureStoredTrianglesBefore": 864012,
+    "natureStoredTrianglesAfter": 321292,
+    "firPrototypes": 12,
+    "firInstances": 720,
+    "firStoredTrianglesAllLODs": 26484,
+    "mapStoredVerticesBefore": 1802341,
+    "mapStoredVerticesAfter": 1420595,
+    "rangerBodyTriangles": 41644
+  },
+  "shaderEquivalence": {
+    "cases": 8,
+    "changedChannels": 0,
+    "evidence": "comic-material-equivalence-2026-11-05.json"
+  },
+  "interactive": {
+    "status": "passed",
+    "evidence": "comic-default-controls-2026-11-05.json",
+    "drivingPlusFiringSeconds": 60,
+    "resourceDelta": {
+      "meshes": -2,
+      "materials": -1,
+      "textures": -1,
+      "geometries": -1
+    },
+    "scope": "Movement/jump, late-join fire, normal snow-cannon extinguishing, bridge capture, ordinary driver boarding, driving/firing, exit and 3D wardrobe. Final sky/cast adjustments have separate renderer and groundedness checks."
+  },
+  "finalPublicView": {
+    "status": "passed",
+    "evidence": "comic-final-reference-2026-11-05.json",
+    "size": [
+      1280,
+      800
+    ],
+    "quality": "medium",
+    "entry": "default",
+    "labels": 7
+  },
+  "webgpu": {
+    "status": "unverified",
+    "limitation": "Cloud native diagnostics drop the adapter/device; getCompilationInfo reports Instance dropped. Earlier forceCompilationAsync readiness reports are not shader-module compilation proof."
+  },
+  "visualAcceptance": "Not met: the running solid 3D scene still differs from the PHOTO illustrations in proportions, composition, sculpt/paint quality and full environmental staging."
+}

@@ -12,7 +12,7 @@ const captureOnly=process.env.FF_QA_REFERENCE_CAPTURE_ONLY==='1';
 await mkdir(output,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,headless:true,
   args:['--no-proxy-server','--disable-dev-shm-usage','--disable-gpu-watchdog',...(process.env.FF_QA_SOFTWARE==='1'?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
-const result={status:'running',softwareRenderer:process.env.FF_QA_SOFTWARE==='1',mechanics,errors:[],failedResponses:[],checkpoints:[]};
+const result={status:'running',entry:process.env.FF_QA_REFERENCE_ROOT==='1'?'default':'reference-query',softwareRenderer:process.env.FF_QA_SOFTWARE==='1',mechanics,errors:[],failedResponses:[],checkpoints:[]};
 try {
   const page=await browser.newPage({viewport:low?{width:800,height:500}:{width:1280,height:800},locale:'en-US'});
   page.setDefaultTimeout(180000);
@@ -32,19 +32,28 @@ try {
         crawlerTriangles:g.scene.meshes.filter(m=>m.name.startsWith('reference-crawler-')).reduce((n,m)=>n+m.getTotalIndices()/3*Math.max(1,m.thinInstanceCount||0),0),
         trackAttribute:g.scene.getMeshByName('reference-crawler-tracks')?.subMeshes[0]?.effect?.getAttributeLocationByName('world0'),
         fire:{burning:g.referenceFire?.burning,flames:g.scene.getMeshByName('reference-chalet-flames')?.thinInstanceCount,puffs:g.scene.getMeshByName('reference-chalet-fire-smoke')?.thinInstanceCount},
+        firGeometry:g.scene.meshes.filter(m=>m.name.startsWith('nature-fir-')&&m.getClassName()==='Mesh').reduce((n,m)=>n+m.getTotalIndices()/3,0),
+        firInstances:g.scene.meshes.filter(m=>m.name.startsWith('nature-fir-')&&m.getClassName()==='InstancedMesh').length,
+        firInstanceAttribute:Math.max(-1,...g.scene.meshes.filter(m=>m.name.startsWith('nature-fir-')&&m.getClassName()==='Mesh').map(m=>m.subMeshes[0]?.effect?.getAttributeLocationByName('world0')??-1)),
+        fireSmokeAttribute:g.scene.getMeshByName('reference-chalet-fire-smoke')?.subMeshes[0]?.effect?.getAttributeLocationByName('world0'),
         tracks:g.scene.getMeshByName('reference-crawler-tracks')?.thinInstanceCount,smoke:g.scene.getMeshByName('reference-chimney-smoke')?.thinInstanceCount};});
     assert.equal(value.connected,true);assert.equal(value.contextLosses,0);assert.ok(Object.values(value.feet).every(Number.isFinite));
     assert.ok(value.pendingInputs<=180);assert.equal(value.tracks,80);assert.equal(value.smoke,8);
+    assert.equal(value.firInstances,720);assert.ok(value.firInstanceAttribute>=0,'shared fir transforms must be active in the actual GPU shader');
+    if(value.fire.burning)assert.ok(value.fireSmokeAttribute>=0,'solid smoke transforms must be active in the actual GPU shader');
     result.checkpoints.push({label,...value});console.log(JSON.stringify({label,...value}));return value;
   };
-  await page.goto(base+'/?scene=reference&renderer=webgl2&quality='+(low?'low':'medium'),{waitUntil:'domcontentloaded'});
+  await page.goto(base+'/?'+(process.env.FF_QA_REFERENCE_ROOT==='1'?'':'scene=reference&')+'renderer=webgl2&quality='+(low?'low':'medium'),{waitUntil:'domcontentloaded'});
   await wait(()=>window.__frostDebug?.currentPhase==='menu'&&window.__frostDebug.network?.ready);console.log('connected reference menu');
   assert.match(await page.locator('.menu-ticket-chip').first().innerText(),/Gletscherpass/i);
+  assert.equal(await page.locator('a.reference-entry').getAttribute('href'),'/?scene=field');
   console.log('buttons '+JSON.stringify(await page.locator('button').allTextContents()));
   await page.locator('button.cover-play').focus();await page.keyboard.press('Enter');console.log('play pressed '+await page.evaluate(()=>window.__frostDebug.currentPhase));
   await wait(()=>window.__frostDebug?.currentPhase==='playing');console.log('playing');
   await wait(()=>window.__frostDebug.localView.root.getChildMeshes().some(m=>m.name==='soldier-modular-detail'));
   console.log('detailed model loaded');await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x-40)<.2&&Math.abs(first.feet.z-66)<.2);
+  if(process.env.FF_QA_REFERENCE_CAST==='1')for(const name of ['RoofSniper77','Senn_Koloss','Skipper','Wuzzi','Angry_Cow_Beta','StumbleBoi','GipfelRanger'])
+    assert.ok(first.names.includes(name),name+' must be labelled in the initial view');
   if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');
   await page.screenshot({path:resolve(output,'reference-scene.png'),timeout:180000});
   if(process.env.FF_QA_REFERENCE_VIEWS==='1') {
@@ -52,7 +61,7 @@ try {
       await page.evaluate(yaw=>{const g=window.__frostDebug,p=g.localCharacter.position;g.cameraRig.resetAngles(yaw,-.30);g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));},yaw);
       await frames(2);await page.screenshot({path:resolve(output,'reference-view-'+String(yaw)+'.png'),timeout:180000});
     }
-    await page.evaluate(()=>{const g=window.__frostDebug,p=g.localCharacter.position;g.cameraRig.resetAngles(-1.2,-.30);g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));});await frames(2);
+    await page.evaluate(async module=>{const {REFERENCE_SCENE}=await import(module),g=window.__frostDebug,p=g.localCharacter.position;g.cameraRig.resetAngles(REFERENCE_SCENE.view.yaw,REFERENCE_SCENE.view.pitch);g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));},'/@fs'+resolve(import.meta.dirname,'../../packages/shared/src/index.ts'));await frames(2);
   }
   if(!captureOnly) {
   if(!await page.evaluate(()=>window.__frostDebug.input.isLocked))await page.locator('canvas.game-canvas').click({position:{x:400,y:250}});
@@ -89,8 +98,12 @@ try {
     await stage({x:'1',z:'71.5',y:'16.98'});await frames();
     await wait(()=>window.__frostDebug.snapshotHistory.at(-1).snapshot.conquest.towers[1].owner==='alpine');
     await sample('bridge-captured');await page.screenshot({path:resolve(output,'reference-bridge.png'),timeout:180000});
-    await stage({x:'19',z:'103.2',y:'18.5'});await frames();
+    const tankPad=await page.evaluate(async module=>{const {REFERENCE_VEHICLES}=await import(module),spawn=REFERENCE_VEHICLES.find(v=>v.id===201).spawn,p=spawn.position;return {x:String(p.x+Math.sin(spawn.rotationY)*3),z:String(p.z+Math.cos(spawn.rotationY)*3),y:String(p.y+.05)}},'/@fs'+resolve(import.meta.dirname,'../../packages/shared/src/index.ts'));
+    await stage(tankPad);await frames();
     await page.keyboard.down('f');await wait(()=>window.__frostDebug.vehicles.localSeat?.vehicleId===201);await page.keyboard.up('f');
+    if(!await page.evaluate(()=>window.__frostDebug.vehicles.localSeat?.driver)) {
+      await page.keyboard.down('c');try{await wait(()=>window.__frostDebug.vehicles.localSeat?.driver===true)}finally{await page.keyboard.up('c')}
+    }
     await page.evaluate(()=>{const g=window.__frostDebug;window.__qaCannonShots=0;const fire=g.vehicles.localShot.bind(g.vehicles);g.vehicles.localShot=(...a)=>{window.__qaCannonShots++;return fire(...a)}});
     const before=await sample('tank-boarded');assert.equal(before.vehicles.seat.driver,true);assert.ok(before.trackAttribute>=0,'track matrices must be active in the actual GPU shader');await page.keyboard.down('w');await page.mouse.down();
     const deadline=Date.now()+60000;

@@ -769,8 +769,59 @@ strict diagnostics and production builds pass. Real WebGL2 isolated inputs,
 chalet extinguishing and wardrobe pass; separate 1280×800 Medium public entry
 with all six real cast members passes without console/HTTP/context errors.
 Evidence: `docs/qa/comic-wearables-2026-11-05.json` and
-`docs/qa/comic-reference-live-2026-11-05.json`. Both new prop/fire WGSL variants
-compile without validation errors, but Cloud WebGPU adapter/restoration errors
-keep native runtime acceptance open. Visual review still rejects exact PHOTO
+`docs/qa/comic-reference-live-2026-11-05.json`. Prop/fire WGSL material-readiness probes
+complete, but actual shader-module compilation is unverified because Cloud
+WebGPU drops its device during diagnostic draws. Native runtime acceptance stays open. Visual review still rejects exact PHOTO
 parity: repeated vegetation, sparse foreground, face/silhouette production and
 composition need further work. Native Mac M4 heat/FPS have not been measured.
+
+
+### Shared 3D woodland, solid geology and skin form — 5 November 2026
+
+The public default `/` now enters Gletscherpass; `/?scene=reference` remains an
+alias and the menu links to the full field at `/?scene=field`. Wardrobes remain
+separately saved. The vista turns to -1.35 rad and its actual crawler parks at
+(14, 99), keeping the chalet and vehicle in view with a horizontally centred hero.
+
+720 firs now instance twelve shared solid sculptures, with individual frustum
+culling and 24-segment near / 8-segment middle / 6-segment far shapes at 75/145 m.
+Tree scales, placements and trunk collisions are retained. Palms/rocks stay
+chunk-batched. Unique complete nature geometry falls from 864,012 to 321,292
+triangles (62.8%); actual map vertex buffers fall from 1,802,341 to 1,420,595
+(21.2%). Scene object/draw counts can increase with individually visible instances;
+these are storage reductions, not native GPU frame-time or temperature claims.
+
+Varied reference boulders use the same authored convex vertices in the visible
+faces and shared Rapier hulls. Coverage rays test actual stone roofs and the
+visitor pad/bridge remain clear. They join the existing static dressing draw.
+Closed-head contact shadows are baked offline (32 rays, no topology increase),
+packed into existing uv3.y and applied only to lighting. Selected skin colours,
+outfits and the existing one-body draw are retained; no runtime face rays or
+extra character texture/post pass. Metadata hashes and shared cache revisions
+are refreshed for all six classes. Smoke now uses fixed vertex form lighting
+in its existing instanced draw, with no light/texture reads in its fragment.
+
+The surface shader samples only atlas families with non-zero material weights
+and skips fully faded detail. Explicit gradients remain outside branches on
+GLSL/WGSL. Eight real WebGL2 pixel-readback comparisons against 022fb93 produce
+zero changed channels in dominant/triplanar, near/fading/far and painted/unpainted
+cases. The existing distant painted sky panorama is restored alongside clouds;
+`paintedSky=clouds` keeps clouds only and `paintedSky=0` skips painted sky.
+
+All 400 automated cases pass: 15 script, 229 server (including 21 src/ cases) and
+156 client. The Cloud server test/ run uses a 15-second per-case wall-clock
+budget after the default 5-second combined run hit two pre-existing long
+physics-test timeouts; assertions and production timing are unchanged. Strict
+checks report 0 errors/warnings and production builds pass. Real default-entry
+WebGL2 checks cover loaded actor, movement/jump, fire extinguishing, bridge
+capture, ordinary F/C driver selection, 60 seconds driving plus cannon fire,
+exit and actual wardrobe/full-body/face inspection. No page/HTTP/context errors;
+warmed resources remain bounded. Native Mac M4 heat/FPS and exact PHOTO visual
+acceptance remain open. Do not mark M5/M6/M7 complete from these art checks.
+
+Final cast check: Wuzzi starts at (1, 75.5) on the actual bridge ramp;
+StumbleBoi starts at (12, 96) beside the crawler approach. A ten-second
+reference-intro regression checks Wuzzi remains alive and supported. All seven
+initial live labels are verified in the actual Medium renderer. The updated
+nine-case reference suite, strict diagnostics and production build pass.
+Evidence: `docs/qa/comic-final-reference-2026-11-05.json` and its PNG.

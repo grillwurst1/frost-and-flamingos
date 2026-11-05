@@ -278,3 +278,11 @@ It is used only for the live extinguishable fire effect. The solid smoke plume
 is original 3D geometry. Existing owner-painted clouds and foam are reused.
 `bake-illustrated-clothing.py` preserves/rebinds the owner's existing Alpine
 clothing with original seam/lining geometry; original Meshy GLBs are untouched.
+
+
+### Shared sculptures and form lighting (5 November 2026)
+
+Original procedural solid fir prototypes and convex boulders are authored in
+code. The scalar facial contact shading is baked from the existing owner-derived
+closed head; it adds no external artwork or replacement source models. The
+existing owner-supplied horizon/sky assets remain credited above.

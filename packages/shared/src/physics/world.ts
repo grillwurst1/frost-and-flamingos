@@ -154,6 +154,11 @@ export class PhysicsWorld {
         return RAPIER.ColliderDesc.cylinder(collider.halfHeight, collider.radius);
       case 'sphere':
         return RAPIER.ColliderDesc.ball(collider.radius);
+      case 'hull': {
+        const points = new Float32Array(collider.vertices.length * 3);
+        collider.vertices.forEach((p, i) => points.set([p.x, p.y, p.z], i * 3));
+        return RAPIER.ColliderDesc.convexHull(points);
+      }
       case 'prism': {
         // Regular polygon prism with flat sides facing (sin a, cos a) for a = k · 2π / sides.
         const points = new Float32Array(collider.sides * 2 * 3);

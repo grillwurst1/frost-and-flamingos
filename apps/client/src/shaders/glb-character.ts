@@ -355,6 +355,7 @@ void main(void) {
   if (vWardrobe.x < 0.5)
 #endif
   lit *= 1.0 - clamp(vUV.x, 0.0, 0.5);
+  lit *= 1.0 - clamp(vComicPaint.y, 0.0, .55);
 #endif
   lit = ffHaze(lit, vWorldPosition);
   // Pass-through shimmer (last, after every derivative).
@@ -665,6 +666,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   if (input.vWardrobe.x < 0.5) {
 #endif
   lit *= 1.0 - clamp(input.vUV.x, 0.0, 0.5);
+  lit *= 1.0 - clamp(input.vComicPaint.y, 0.0, .55);
 #ifdef FF_NATIVE_WARDROBE
   }
 #endif

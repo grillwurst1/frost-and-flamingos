@@ -138,7 +138,8 @@ const FOOTPRINTS: ReadonlyArray<{ x: number; z: number; radius: number }> = FJOR
     const x = prop.position.x + collider.offset.x * cos + collider.offset.z * sin;
     const z = prop.position.z - collider.offset.x * sin + collider.offset.z * cos;
     const radius =
-      collider.type === 'box' ? Math.hypot(collider.halfExtents.x, collider.halfExtents.z) : collider.radius;
+      collider.type === 'box' ? Math.hypot(collider.halfExtents.x, collider.halfExtents.z)
+        : collider.type === 'hull' ? Math.max(...collider.vertices.map(p=>Math.hypot(p.x,p.z))) : collider.radius;
     return { x, z, radius };
   }),
 );

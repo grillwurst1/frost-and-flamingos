@@ -874,15 +874,17 @@
   },
   "visualAcceptance": "Open: real 3D scene still differs from PHOTO illustrations; no native M4 performance measurement.",
   "webgpuCompile": {
-    "compiled": [
-      "glb-props-comic-compile",
-      "reference-drawn-fire"
-    ],
     "validationFailures": [],
     "lifecycleErrors": [
       "A fatal error occurred during WebGPU creation/initialization.",
       "Could not retrieve a WebGPU adapter (adapter is null)."
     ],
-    "runtimeAcceptance": "Open: Cloud WebGPU adapter/restoration errors, not a passing native runtime test."
+    "runtimeAcceptance": "Open: Cloud WebGPU adapter/restoration errors, not a passing native runtime test.",
+    "legacyReadinessProbeReportedCompiled": [
+      "glb-props-comic-compile",
+      "reference-drawn-fire"
+    ],
+    "validationStatus": "unverified",
+    "correction": "forceCompilationAsync readiness alone did not establish GPU shader-module compilation; actual native diagnostics drop the Cloud device."
   }
 }

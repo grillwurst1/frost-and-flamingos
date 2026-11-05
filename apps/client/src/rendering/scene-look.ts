@@ -303,7 +303,7 @@ export class SceneLook {
     this.setWeatherLook(0);
     this.setBooting(true);
     const skyOption=new URLSearchParams(window.location.search).get('paintedSky');
-    if(skyOption!=='0')void this.loadPaintedSky(skyOption==='1');
+    if(skyOption!=='0')void this.loadPaintedSky(skyOption!=='clouds');
     this.installDevHandle();
   }
 
@@ -661,7 +661,7 @@ export class SceneLook {
     }
   }
 
-  private async loadPaintedSky(includePanorama = false): Promise<void> {
+  private async loadPaintedSky(includePanorama = true): Promise<void> {
     const values = this.context.values;
     const [panoramaImage, foam, ...clouds] = await Promise.all([
       includePanorama ? loadArtImage('sky/horizon-panorama.jpg') : Promise.resolve(null),

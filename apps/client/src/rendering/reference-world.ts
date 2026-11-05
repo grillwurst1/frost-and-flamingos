@@ -8,11 +8,27 @@ import type { Scene } from '@babylonjs/core/scene';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import { FJORD_MAP, REFERENCE_MARKERS, roofBase, sampleMapHeight } from '@frost-and-flamingos/shared';
 import { excludeFromInk, excludeFromShadows } from './materials';
-import { Affine, GeometryBatch, type RGB } from './map/geometry';
+import { Affine, GeometryBatch, mix, type RGB, type V3 } from './map/geometry';
+import { P } from './map/palette';
 
 export function buildReferenceWorld(scene: Scene, material: ShaderMaterial) {
   const wood: RGB = [.44,.29,.16], trim: RGB = [.24,.16,.10], snow: RGB = [.89,.96,1];
   const details = new GeometryBatch(); details.jitter = 0;
+  for(const prop of REFERENCE_MARKERS.filter(p=>p.kind==='rock')) {
+    const hull=prop.colliders.find(c=>c.type==='hull');if(!hull||hull.type!=='hull')continue;
+    const points=hull.vertices.map(p=>[p.x,p.y,p.z] as V3);
+    details.at(prop.position.x,prop.position.y,prop.position.z,prop.rotationY,()=>{
+      for(let ring=0;ring<2;ring++)for(let side=0;side<8;side++) {
+        const next=(side+1)%8,a=points[ring*8+side]!,b=points[ring*8+next]!;
+        details.orientedPolygon([a,b,points[(ring+1)*8+next]!,points[(ring+1)*8+side]!],
+          [a[0]+b[0],.2,a[2]+b[2]],mix(P.rockShade,P.rockLight,.24+ring*.25+(side%3)*.045),'rock');
+      }
+      details.orientedPolygon(points.slice(0,8),[0,-1,0],P.rockShade,'rock');
+      details.orientedPolygon(points.slice(16),[0,1,0],P.rockLight,'rock');
+      const cap=points.slice(16).map(([x,y,z]):V3=>[x*1.015,y+.045,z*1.015]);
+      details.orientedPolygon(cap,[0,1,0],snow,'snow');
+    });
+  }
   for (const prop of REFERENCE_MARKERS.filter(p => p.kind === 'crate_stack')) {
     const {x,y,z} = prop.position;
     details.with(Affine.translation(x,y,z).rotateY(prop.rotationY), () => {

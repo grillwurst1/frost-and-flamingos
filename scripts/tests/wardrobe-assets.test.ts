@@ -39,6 +39,11 @@ test('the shared closed head and curls match their original sources and every cl
   expect(h!.uvs.some((n, i) => i % 2 === 0 && h!.painted[i / 2] === 0 && n > .01)).toBe(true);
   expect(h!.uvs.every((n, i) => h!.painted[Math.floor(i / 2)] !== 0 || n >= 0 && n <= .18)).toBe(true);
   expect(h!.indices.length / 3).toBeLessThan(8000);
+  expect(h!.ambientOcclusion).toHaveLength(h!.positions.length/3);
+  expect(Math.max(...h!.ambientOcclusion!)).toBeGreaterThan(.2);
+  expect(h!.ambientOcclusion!.every(n=>n>=0&&n<=.55&&Number.isFinite(n))).toBe(true);
+  expect(parseWardrobeHead({...h,ambientOcclusion:[0]})).toBeNull();
+  expect(parseWardrobeHead({...h,ambientOcclusion:undefined})).not.toBeNull();
   expect(h!.beard).toBeDefined();
   expect(h!.beard!.indices.length / 3).toBeLessThan(2500);
   const beardEdges = new Map<string, number>();

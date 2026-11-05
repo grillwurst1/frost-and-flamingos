@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { REFERENCE_TOWERS, REFERENCE_MARKERS, referenceSpawn, InputButton, PHYSICS_TICK_RATE, INTERMISSION_TICKS, type CharacterBody } from '@frost-and-flamingos/shared';
+import { PhysicsWorld, REFERENCE_TOWERS, REFERENCE_MARKERS, referenceSpawn, InputButton, PHYSICS_TICK_RATE, INTERMISSION_TICKS, type CharacterBody } from '@frost-and-flamingos/shared';
 import { MatchRoom } from '../src/rooms/match-room';
 import { joinPlayer, internals, playerOf, placePlayer, run, sendInput } from './vehicle-helpers';
 import { ClimateConquest, countTowerPresence } from '../src/rooms/conquest';
@@ -48,6 +48,24 @@ test('local objectives use their own positions and reset their own initial owner
   for(let i=0;i<=INTERMISSION_TICKS;i++)conquest.step([]);
   expect(conquest.snapshot().round).toBe(2);expect(conquest.snapshot().towers.map(t=>t.owner)).toEqual(['alpine',null,'lagoon']);
   expect(new ClimateConquest().snapshot().towers.map(t=>t.owner)).toEqual(['lagoon',null,'alpine']);
+});
+
+test('illustrated stone cover has real matching convex roofs and leaves the visitor pad clear',async()=>{
+  const physics=await PhysicsWorld.create(REFERENCE_MARKERS);
+  try {
+    const rocks=REFERENCE_MARKERS.filter(p=>p.kind==='rock');expect(rocks.length).toBeGreaterThan(8);
+    for(const rock of rocks) {
+      expect(Math.hypot(rock.position.x-40,rock.position.z-66)).toBeGreaterThan(3.5);
+      const hull=rock.colliders.find(c=>c.type==='hull')!;
+      if(hull.type!=='hull')throw new Error('stone hull missing');
+      const top=hull.vertices[16]!;
+      const height=top.y-top.x*.07-top.z*.05;
+      const hit=physics.raycast({x:rock.position.x,y:rock.position.y+height+2,z:rock.position.z},{x:0,y:-1,z:0},5);
+      expect(hit).not.toBeNull();
+      // This is an actual Rapier ray against the hull, not the terrain under it.
+      expect(hit!.point.y).toBeCloseTo(rock.position.y+height,3);
+    }
+  }finally{physics.dispose();}
 });
 
 test('reference tank drives and fires continuously through its normal authoritative controls',async()=>{
@@ -102,5 +120,17 @@ test('the reference cow stays supported by the actual bridge ramps throughout th
     expect(cow.character.position.z).toBeCloseTo(87,1);
     expect(cow.character.position.y).toBeGreaterThan(17.3);
     expect(cow.character.position.y).toBeLessThan(18.5);
+  }finally{room.stop();}
+});
+
+test('the bridge defender holds its actual deck throughout the reference intro',async()=>{
+  const room=await MatchRoom.create({reference:true,bots:6,critters:false});
+  try {
+    const defender=playerOf(room,4);run(room,600);
+    expect(defender.alive).toBe(true);
+    expect(defender.character.position.x).toBeCloseTo(1,1);
+    expect(defender.character.position.z).toBeCloseTo(75.5,1);
+    expect(defender.character.position.y).toBeGreaterThan(16);
+    expect(defender.character.position.y).toBeLessThan(18);
   }finally{room.stop();}
 });

@@ -1,7 +1,7 @@
 # Frost & Flamingos — Bedienungsanleitung
 
 **Bullets, Fondue & Coconuts** · Test-Build „M5-Kern“: Klima-Eroberung, Fahrzeuge, Wanderinnen, Hühner & gemalte Welt
-Stand: 26. Oktober 2026 · Zielplattform: macOS
+Stand: 5. November 2026 · Zielplattform: macOS
 
 Diese Anleitung beschreibt die lokale Playtest-Version. Sie richtet sich an alle, die das
 Projekt auf einem Mac starten, spielen, testen, aktualisieren und wieder sauber beenden wollen.
@@ -17,7 +17,9 @@ Flamingo-Schwimmringe und barfüßigen Chaos-Urlaub.
 
 Die Meilensteine M1 bis M4 sind fertig (Bewegung, Klassen und Garderobe, Waffen, Kampf, Bots
 und Audio). Dieser **Test-Build „M5-Kern“** ist der Kern von Milestone 5 plus die neuen Grafik-
-und Figurenpakete. Nach diesem Build ruht die Arbeit, bis der Projektinhaber getestet hat.
+und Figurenpakete. Die PHOTO-Referenzszene „Gletscherpass“ ist der Standardstart.
+Über den Menülink oder `/?scene=field` gelangst du zur großen Fjord-Fiesta-Karte.
+Die Grafikarbeit hat derzeit Vorrang vor neuen Meilenstein-Funktionen.
 Neu sind:
 
 - **Klima-Eroberung:** drei Wettertürme, 50 Urlaubstickets pro Team, Ticketverlust für das
@@ -1386,8 +1388,9 @@ without bots; whole-scene/close views use 1280×800 Medium, controls use 800×50
 still rejects PHOTO parity: detailed clothing forms, composition and fire artwork
 need further production. Native Mac M4 performance/heat was not measured.
 
-The new soft/native outfit variants also compile with the WebGPU WGSL compiler.
-Cloud device-loss/restoration warnings prevent a full WebGPU runtime acceptance claim.
+The soft/native outfit variants completed Babylon material-readiness probes.
+Actual native shader-module compilation/runtime remain unverified: Cloud WebGPU
+drops its adapter/device during diagnostic draws. Readiness is not compiler proof.
 
 
 ### PHOTO-Referenzszene: Kleidung und Anzeige
@@ -1414,3 +1417,35 @@ server-driven extinguishing, loaded 41,644-triangle ranger and visible wardrobe.
 No page/console errors, failed asset responses or WebGL context losses in the
 isolated run. Evidence: `docs/qa/comic-wearables-2026-11-05.json`.
 This verifies those paths; PHOTO visual parity and native Mac M4 heat/FPS remain open.
+
+
+### Standardstart, Landschaft und Stabilitätsprüfung (5. November 2026)
+
+„Spielen“ startet jetzt direkt den Gletscherpass. Die große Fjord-Fiesta-Karte
+ist über den Menülink und `/?scene=field` erreichbar. Beide Garderoben bleiben
+getrennt gespeichert. Der Spieler bleibt mittig; Chalet und Fonduepanzer liegen
+im anfänglichen Sichtfeld. Neue unterschiedliche 3D-Felsen besitzen passende
+Kollisionen. Die Tannen teilen ihre Formen und wechseln einzeln zwischen drei
+Entfernungsstufen: rund 63 % weniger gespeicherte Naturgeometrie, rund 21 % weniger
+Karten-Vertices. Diese Werte belegen keine bestimmte Bildrate oder Mac-Temperatur.
+
+Gesichtsschatten werden vorab aus der tatsächlichen Kopfform berechnet; die
+gewählte Hautfarbe bleibt unabhängig von Kleidung und Haaren. Die detaillierten
+Kleidungsflächen, einzeln beweglichen Schuhe und Garderobenoptionen bleiben
+erhalten. Rauch erhält eine ruhigere Formschattierung. Die vorhandene gemalte
+Fernsicht und Wolken ergänzen die räumliche Landschaft.
+
+400 automatische Prüfungen bestehen; bei langen Server-Physiktests wurde im
+Cloud-Lauf das Zeitbudget pro Test auf 15 Sekunden gesetzt. Typprüfung und
+Produktions-Build bestehen. Der echte WebGL2-Browsertest prüft Standardstart,
+Bewegung, Springen, Chalet löschen, Brücke erobern, Einsteigen/Fahrerplatz,
+60 Sekunden Fahren und Schießen, Aussteigen und die 3D-Garderobe. Dabei traten
+keine Konsolenfehler, fehlenden Dateien oder Grafik-Kontextverluste auf; die
+geprüften Ressourcen blieben begrenzt. Die acht Bildvergleiche des vereinfachten
+Materialshaders zeigen keinen Pixelunterschied. Die exakte PHOTO-Vorgabe ist
+weiterhin offen; Mac-M4-Temperaturen und native Bildraten wurden hier nicht gemessen.
+
+Die abschließende Ansicht zeigt alle sechs tatsächlichen Mitspieler und den
+Ranger mit ihren Beschriftungen. Wuzzi steht auf einem begehbaren Brückenstück;
+seine Bodenhaftung wird zusätzlich über zehn Sekunden Simulationszeit geprüft.
+Bild und Bericht: `docs/qa/comic-final-reference-2026-11-05.png` / `.json`.

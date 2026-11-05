@@ -680,12 +680,14 @@
   },
   "visualReview": "Paint is stronger and real fitted face detail is present. The captured scene still differs substantially from PHOTO illustrations. Cloth sculpt, scene composition and fire appearance need further production; no visual acceptance claimed.",
   "webgpuCompiler": {
-    "compiled": [
+    "shaderErrors": [],
+    "scope": "isolated material compilation, not full-game/native-Mac acceptance",
+    "limitation": "Cloud WebGPU reported device-loss/restoration warnings; do not treat as a stable runtime test",
+    "legacyReadinessProbeReportedCompiled": [
       "qa-soft",
       "qa-native"
     ],
-    "shaderErrors": [],
-    "scope": "isolated material compilation, not full-game/native-Mac acceptance",
-    "limitation": "Cloud WebGPU reported device-loss/restoration warnings; do not treat as a stable runtime test"
+    "validationStatus": "unverified",
+    "correction": "forceCompilationAsync readiness alone did not establish GPU shader-module compilation; actual native diagnostics drop the Cloud device."
   }
 }

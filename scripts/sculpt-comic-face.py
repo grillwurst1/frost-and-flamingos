@@ -63,5 +63,36 @@ for sign in [-1,1]:
 # Two quiet forehead arcs; these are skin-relative, never a fixed skin-colour cap.
 stroke([(-.037,1.490),(0,1.497),(.038,1.490)],.00065,.59)
 stroke([(-.026,1.505),(0,1.510),(.028,1.505)],.00050,.67)
+
+# Bake soft contact shadows from the actual closed sculpt. A scalar lighting
+# attribute preserves every selected skin pigment and needs no runtime rays,
+# extra texture, post pass or change to head topology.
+occlusion=[]
+for vertex,paint in enumerate(h['painted']):
+    if paint not in (0,1):
+        occlusion.append(0.);continue
+    at=Vector(h['positions'][vertex*3:vertex*3+3]); n=Vector(h['normals'][vertex*3:vertex*3+3]).normalized()
+    axis=Vector((0.,1.,0.)) if abs(n.y)<.9 else Vector((1.,0.,0.))
+    tangent=n.cross(axis).normalized();bitangent=n.cross(tangent).normalized()
+    shade=0.;samples=32
+    for ray in range(samples):
+        radius=math.sqrt((ray+.5)/samples);angle=ray*2.39996323
+        direction=tangent*(math.cos(angle)*radius)+bitangent*(math.sin(angle)*radius)+n*math.sqrt(1-radius*radius)
+        hit,_,_,distance=bvh.ray_cast(at+n*.0007,direction,.045)
+        if hit is not None:shade+=1-(distance/.045)**.55
+    occlusion.append(min(.48,shade/samples*1.65))
+
+# Smooth only across skin neighbours, preventing Monte Carlo speckles on a
+# moving cheek. Hair/ink vertices have their own colour and remain untouched.
+neighbours=[set() for _ in occlusion]
+for face in f:
+    for vertex in face:
+        if h['painted'][vertex] not in (0,1):continue
+        neighbours[vertex].update(other for other in face if other!=vertex and h['painted'][other] in (0,1))
+for _ in range(2):
+    occlusion=[value*.5+sum(occlusion[j] for j in neighbours[i])/len(neighbours[i])*.5 if neighbours[i] else value
+        for i,value in enumerate(occlusion)]
+h['ambientOcclusion']=[round(value,5) for value in occlusion]
 path.write_text(json.dumps(h,separators=(',',':'),allow_nan=False))
 print('Comic facial anatomy:',(len(h['indices'])-h['comicDetailBase'][1])//3,'triangles, fitted to closed skin')
+print('Baked skin contact shade:',len(occlusion),'vertices, peak',round(max(occlusion),3))

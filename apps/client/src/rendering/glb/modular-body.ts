@@ -215,6 +215,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const headNormals: number[] = [];
   const nativeFlags: number[] = [];
   const comicTags = new Map<number, number>();
+  const headOcclusion = new Map<number, number>();
   try {
     for (const mesh of template.root.getChildMeshes(false)) {
       const name = mesh.name;
@@ -474,6 +475,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         frame.z + (h.positions[v * 3 + 2]! - h.frame.z) * scale);
       const normal = new Vector3(h.normals[v * 3]! / broad, h.normals[v * 3 + 1]!, h.normals[v * 3 + 2]!).normalize();
       headNormals.push(first + v, normal.x, normal.y, normal.z);
+      if(h.ambientOcclusion)headOcclusion.set(first+v,h.ambientOcclusion[v]!);
       const pigment = h.painted[v] === 2 ? hairRGB : skinRGB;
       const socket = h.painted[v] === 1 && h.positions[v * 3 + 1]! > 1.420 && h.positions[v * 3 + 1]! < 1.453
         && Math.abs(h.positions[v * 3]!) > .018 && Math.abs(h.positions[v * 3]!) < .081 && h.positions[v * 3 + 2]! > .015;
@@ -554,6 +556,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   data.uvs2 = new Float32Array(nativeFlags);
   const paintTags = new Float32Array(positions.length / 3 * 2);
   for (const [vertex, kind] of comicTags) paintTags[vertex * 2] = kind;
+  for (const [vertex, occlusion] of headOcclusion) paintTags[vertex * 2 + 1] = occlusion;
   data.uvs3 = paintTags;
   data.colors = new Float32Array(colors); data.indices = new Uint32Array(indices);
   data.matricesIndices = new Float32Array(joints); data.matricesWeights = new Float32Array(weights);

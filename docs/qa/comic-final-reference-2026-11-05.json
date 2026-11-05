@@ -1,0 +1,184 @@
+{
+  "status": "passed",
+  "entry": "default",
+  "softwareRenderer": true,
+  "mechanics": false,
+  "errors": [],
+  "failedResponses": [],
+  "checkpoints": [
+    {
+      "label": "public-entry",
+      "phase": "playing",
+      "frame": 31,
+      "tick": 3124,
+      "connected": true,
+      "feet": {
+        "x": 40,
+        "y": 23.02002868652344,
+        "z": 66
+      },
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 1
+      },
+      "camera": [
+        43.355733594560746,
+        26.03390143050426,
+        65.24685537447901
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "allrounder",
+          "bodyType": 0.14901960784313725,
+          "skinToneIndex": 2,
+          "hairColorIndex": 1,
+          "hairStyleIndex": 0,
+          "headgear": "head_tirol",
+          "face": "face_full_beard",
+          "torso": "torso_tracht_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_ski_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 41644,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 270,
+        "activeMeshes": 376,
+        "meshes": 1221,
+        "materials": 73,
+        "mapVertices": 1420595,
+        "destructibleMeshes": 102,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_facadeAtlas": 44,
+        "boot_spriteAtlas": 4399,
+        "boot_map": 3414,
+        "boot_world": 7813
+      },
+      "meshes": 1221,
+      "materials": 73,
+      "textures": 62,
+      "geometries": 493,
+      "gpuTextures": 64,
+      "heap": 237224585,
+      "pendingInputs": 5,
+      "vehicles": {
+        "localId": 7,
+        "seat": null,
+        "passengerView": false,
+        "predicted": 0,
+        "pending": 0,
+        "correction": 0,
+        "lastCameraYaw": 0,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 14,
+              "y": 18.425,
+              "z": 99
+            },
+            "yaw": -1.4999684768570178
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 30,
+              "y": 18.4,
+              "z": 48
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 66.525,
+              "y": 28.45,
+              "z": 69.75
+            },
+            "yaw": 0.7531960597116477
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 23.225,
+              "y": 27.1375,
+              "z": 32.6375
+            },
+            "yaw": 0.8186788637828105
+          }
+        ]
+      },
+      "names": [
+        "RoofSniper77",
+        "Senn_Koloss",
+        "Skipper",
+        "Wuzzi",
+        "Angry_Cow_Beta",
+        "StumbleBoi",
+        "GipfelRanger"
+      ],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": true,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 26484,
+      "firInstances": 720,
+      "firInstanceAttribute": 3,
+      "fireSmokeAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    }
+  ]
+}

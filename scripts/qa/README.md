@@ -86,3 +86,24 @@ Do not edit client code/assets during a run: Vite hot reload invalidates it.
 The close option saves both full-body and face views of the actual loaded,
 posed 3D wardrobe model at 1280×800 Medium. These are diagnostic inspection
 views; `reference-scene.png` remains the unchanged public gameplay camera.
+
+Gletscherpass is now the default at `/`; `FF_QA_REFERENCE_ROOT=1` verifies that
+entry instead of the explicit reference alias. The menu must link to
+`/?scene=field`, which the full-field playability script uses explicitly.
+`FF_QA_REFERENCE_CAST=1` additionally requires all six live cast labels and the
+local ranger in the starting view (run with bots enabled). Driver staging uses
+the shared crawler spawn/yaw; F and, if necessary, C select the actual driver.
+
+## Painted material equivalence
+
+`scripts/qa/material-equivalence.mjs` compares real WebGL2 pixel readbacks with
+the painted surface shader from commit `022fb93`. It uses the same browser,
+URL/output and software-renderer variables. A deterministic multi-surface grid
+exercises dominant/triplanar modes, painted/unpainted material and near/fading/far
+detail. The grid must contain actual non-background coverage; it is a controlled
+shader comparison, not a scene screenshot or native GPU throughput benchmark.
+
+On slow Cloud hosts, long existing physics cases can exceed Bun's default
+five-second wall-clock test budget. Preserve their assertions and run the complete
+server coverage with `bun test --timeout 15000 ./apps/server/src ./apps/server/test`.
+The source directory contains 21 additional critter cases and must be included.

@@ -1,8 +1,7 @@
 import '@babylonjs/core/Meshes/thinInstanceMesh';
-import { Color3, Matrix, Vector3 } from '@babylonjs/core/Maths/math';
+import { Matrix, Vector3 } from '@babylonjs/core/Maths/math';
 import { BoundingInfo } from '@babylonjs/core/Culling/boundingInfo';
 import type { Observer } from '@babylonjs/core/Misc/observable';
-import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import { ShaderLanguage } from '@babylonjs/core/Materials/shaderLanguage';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture';
@@ -11,8 +10,9 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import type { Scene } from '@babylonjs/core/scene';
 import { REFERENCE_CHALET_FIRE } from '@frost-and-flamingos/shared';
 import { GeometryBatch } from './map/geometry';
-import { comicFireVertexGLSL, comicFireFragmentGLSL, comicFireVertexWGSL, comicFireFragmentWGSL } from '../shaders/comic-fire';
-import { excludeFromInk, excludeFromShadows } from './materials';
+import { comicFireVertexGLSL, comicFireFragmentGLSL, comicFireVertexWGSL, comicFireFragmentWGSL,
+  comicSmokeVertexGLSL, comicSmokeFragmentGLSL, comicSmokeVertexWGSL, comicSmokeFragmentWGSL } from '../shaders/comic-fire';
+import { SUN_DIRECTION, excludeFromInk, excludeFromShadows } from './materials';
 const FIRE_ORIGIN=REFERENCE_CHALET_FIRE.points[0]!;
 const PUFFS_PER_FIRE=8;
 
@@ -23,7 +23,7 @@ export class ReferenceChaletFireView {
   readonly meshes:readonly Mesh[];
   private readonly flames:Mesh;
   private readonly smoke:Mesh;
-  private readonly material:StandardMaterial;
+  private readonly material:ShaderMaterial;
   private readonly fireMaterial:ShaderMaterial;
   private readonly paint:Texture;
   private readonly cameraRight=new Vector3(1,0,0);
@@ -37,10 +37,13 @@ export class ReferenceChaletFireView {
   private readonly observer:Observer<Scene>|null;
 
   constructor(private readonly scene:Scene) {
-    this.material=new StandardMaterial('reference-fire-unlit',scene);
-    this.material.diffuseColor=Color3.White();
-    this.material.emissiveColor=new Color3(.035,.035,.035);this.material.specularColor=Color3.Black();
     const webgpu=scene.getEngine().isWebGPU;
+    this.material=new ShaderMaterial('reference-smoke-form',scene,{
+      vertexSource:webgpu?comicSmokeVertexWGSL:comicSmokeVertexGLSL,
+      fragmentSource:webgpu?comicSmokeFragmentWGSL:comicSmokeFragmentGLSL,
+    },{attributes:['position','normal','color'],uniforms:['world','viewProjection','uSmokeLight'],
+      shaderLanguage:webgpu?ShaderLanguage.WGSL:ShaderLanguage.GLSL});
+    this.material.setVector3('uSmokeLight',SUN_DIRECTION);
     this.fireMaterial=new ShaderMaterial('reference-drawn-fire',scene,{
       vertexSource:webgpu?comicFireVertexWGSL:comicFireVertexGLSL,
       fragmentSource:webgpu?comicFireFragmentWGSL:comicFireFragmentGLSL,
@@ -54,7 +57,7 @@ export class ReferenceChaletFireView {
     this.flames=CreatePlane('reference-chalet-flames',{size:1},scene);
     this.flames.bakeTransformIntoVertices(Matrix.Translation(0,.5,0));this.flames.material=this.fireMaterial;
     const smoke=new GeometryBatch();smoke.jitter=0;
-    smoke.blob(0,0,0,1,1,1,ny=>[.23+ny*.07,.23+ny*.07,.22+ny*.08],'plain',{segments:10,rings:6,wobble:.1,seed:17});
+    smoke.blob(0,0,0,1,1,1,ny=>[.44+ny*.09,.46+ny*.09,.48+ny*.10],'plain',{segments:10,rings:6,wobble:.1,seed:17});
     this.smoke=smoke.toMesh(scene,'reference-chalet-fire-smoke',this.material)!;
     this.flames.thinInstanceSetBuffer('matrix',this.flameMatrices,16,false);
     this.smoke.thinInstanceSetBuffer('matrix',this.smokeMatrices,16,false);

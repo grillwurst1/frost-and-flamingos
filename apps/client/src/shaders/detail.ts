@@ -157,21 +157,6 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
   vec3 w = pow(an, vec3(4.0));
   w /= max(w.x + w.y + w.z, 0.0001);
 
-  float tileBlend = smoothstep(0.32, 0.68, ffDetailNoise(worldPos.xz * 0.045 + worldPos.y * 0.02));
-  vec4 a;
-  vec4 b;
-  vec4 c;
-  if (mode > 1.5) {
-    a = ffTriplanar(detailA, localPos, dpx, dpy, w, uFFDetailScale.x);
-    b = ffTriplanarAT(detailB, localPos, dpx, dpy, w, uFFDetailScale.y, tileBlend);
-    c = ffTriplanar(detailC, localPos, dpx, dpy, w, uFFDetailScale.z);
-  } else {
-    int axis = ffDominantAxis(w);
-    a = ffSampleGrad(detailA, localPos, dpx, dpy, axis, uFFDetailScale.x);
-    b = ffAntiTile(detailB, localPos, dpx, dpy, axis, uFFDetailScale.y, tileBlend);
-    c = ffSampleGrad(detailC, localPos, dpx, dpy, axis, uFFDetailScale.z);
-  }
-
   float maxC = max(base.r, max(base.g, base.b));
   float minC = min(base.r, min(base.g, base.b));
   float saturation = (maxC - minC) / max(maxC, 0.001);
@@ -222,12 +207,29 @@ vec3 ffSurface(vec4 vertexColor, vec3 localPos, vec3 localNormal, vec3 worldPos,
   // The colour tiles already carry the painted strokes of natural surfaces.
   wB *= uFFColorParams.x > 0.0 ? 0.35 : 1.0;
 
+  float distanceToCamera = length(cameraPosition - worldPos);
+  float fade = 1.0 - smoothstep(uFFDetailParams.y, uFFDetailParams.z, distanceToCamera);
+  if (fade <= 0.0) return base; // The original blend is exactly neutral here.
+  // Explicit gradients were taken in main, before any branches. Skip unrelated
+  // atlas families: timber needs no snow/rock reads, fir boughs need no timber.
+  bool useA = dot(wA,vec4(1.0)) > 0.0, useB = dot(wB,vec4(1.0)) > 0.0;
+  float tileBlend = useB ? smoothstep(0.32,0.68,ffDetailNoise(worldPos.xz*.045+worldPos.y*.02)) : 0.0;
+  vec4 a=vec4(.5),b=vec4(.5),c;
+  if (mode > 1.5) {
+    if(useA) a=ffTriplanar(detailA,localPos,dpx,dpy,w,uFFDetailScale.x);
+    if(useB) b=ffTriplanarAT(detailB,localPos,dpx,dpy,w,uFFDetailScale.y,tileBlend);
+    c=ffTriplanar(detailC,localPos,dpx,dpy,w,uFFDetailScale.z);
+  } else {
+    int axis=ffDominantAxis(w);
+    if(useA) a=ffSampleGrad(detailA,localPos,dpx,dpy,axis,uFFDetailScale.x);
+    if(useB) b=ffAntiTile(detailB,localPos,dpx,dpy,axis,uFFDetailScale.y,tileBlend);
+    c=ffSampleGrad(detailC,localPos,dpx,dpy,axis,uFFDetailScale.z);
+  }
+
   float value = dot(a, wA) + dot(b, wB) + dot(c, wC);
   float weight = dot(wA, vec4(1.0)) + dot(wB, vec4(1.0)) + dot(wC, vec4(1.0));
   value += 0.5 * (1.0 - clamp(weight, 0.0, 1.0));
 
-  float distanceToCamera = length(cameraPosition - worldPos);
-  float fade = 1.0 - smoothstep(uFFDetailParams.y, uFFDetailParams.z, distanceToCamera);
   float strength = uFFDetailParams.x * fade;
   float delta = (value - 0.5) * 2.0 * strength;
   vec3 darkTint = ffShadeTint(base) * 0.8;
@@ -508,21 +510,6 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
   var w = pow(an, vec3f(4.0));
   w /= max(w.x + w.y + w.z, 0.0001);
 
-  let tileBlend = smoothstep(0.32, 0.68, ffDetailNoise(worldPos.xz * 0.045 + worldPos.y * 0.02));
-  var a : vec4f;
-  var b : vec4f;
-  var c : vec4f;
-  if (mode > 1.5) {
-    a = ffTriplanar(detailA, detailASampler, localPos, dpx, dpy, w, uniforms.uFFDetailScale.x);
-    b = ffTriplanarAT(detailB, detailBSampler, localPos, dpx, dpy, w, uniforms.uFFDetailScale.y, tileBlend);
-    c = ffTriplanar(detailC, detailCSampler, localPos, dpx, dpy, w, uniforms.uFFDetailScale.z);
-  } else {
-    let axis = ffDominantAxis(w);
-    a = ffSampleGrad(detailA, detailASampler, localPos, dpx, dpy, axis, uniforms.uFFDetailScale.x);
-    b = ffAntiTile(detailB, detailBSampler, localPos, dpx, dpy, axis, uniforms.uFFDetailScale.y, tileBlend);
-    c = ffSampleGrad(detailC, detailCSampler, localPos, dpx, dpy, axis, uniforms.uFFDetailScale.z);
-  }
-
   let maxC = max(base.r, max(base.g, base.b));
   let minC = min(base.r, min(base.g, base.b));
   let saturation = (maxC - minC) / max(maxC, 0.001);
@@ -570,12 +557,29 @@ fn ffSurface(vertexColor : vec4f, localPos : vec3f, localNormal : vec3f, worldPo
   }
   wB *= select(1.0, 0.35, uniforms.uFFColorParams.x > 0.0);
 
+  let distanceToCamera = length(uniforms.cameraPosition - worldPos);
+  let fade = 1.0 - smoothstep(uniforms.uFFDetailParams.y, uniforms.uFFDetailParams.z, distanceToCamera);
+  if(fade<=0.0) { return result; }
+  let useA=dot(wA,vec4f(1.0))>0.0;
+  let useB=dot(wB,vec4f(1.0))>0.0;
+  var tileBlend=0.0;
+  if(useB) { tileBlend=smoothstep(.32,.68,ffDetailNoise(worldPos.xz*.045+worldPos.y*.02)); }
+  var a=vec4f(.5);var b=vec4f(.5);var c:vec4f;
+  if(mode>1.5) {
+    if(useA) { a=ffTriplanar(detailA,detailASampler,localPos,dpx,dpy,w,uniforms.uFFDetailScale.x); }
+    if(useB) { b=ffTriplanarAT(detailB,detailBSampler,localPos,dpx,dpy,w,uniforms.uFFDetailScale.y,tileBlend); }
+    c=ffTriplanar(detailC,detailCSampler,localPos,dpx,dpy,w,uniforms.uFFDetailScale.z);
+  } else {
+    let axis=ffDominantAxis(w);
+    if(useA) { a=ffSampleGrad(detailA,detailASampler,localPos,dpx,dpy,axis,uniforms.uFFDetailScale.x); }
+    if(useB) { b=ffAntiTile(detailB,detailBSampler,localPos,dpx,dpy,axis,uniforms.uFFDetailScale.y,tileBlend); }
+    c=ffSampleGrad(detailC,detailCSampler,localPos,dpx,dpy,axis,uniforms.uFFDetailScale.z);
+  }
+
   var value = dot(a, wA) + dot(b, wB) + dot(c, wC);
   let weight = dot(wA, vec4f(1.0)) + dot(wB, vec4f(1.0)) + dot(wC, vec4f(1.0));
   value += 0.5 * (1.0 - clamp(weight, 0.0, 1.0));
 
-  let distanceToCamera = length(uniforms.cameraPosition - worldPos);
-  let fade = 1.0 - smoothstep(uniforms.uFFDetailParams.y, uniforms.uFFDetailParams.z, distanceToCamera);
   let strength = uniforms.uFFDetailParams.x * fade;
   let delta = (value - 0.5) * 2.0 * strength;
   let darkTint = ffShadeTint(base) * 0.8;

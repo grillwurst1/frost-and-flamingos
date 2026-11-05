@@ -10,6 +10,7 @@ import { Color3 } from '@babylonjs/core/Maths/math';
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder';
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture';
@@ -117,7 +118,7 @@ export interface MapVisuals {
   /** The podium mesh at {@link previewStage} (the wardrobe may swap in its own stage). */
   previewStageMesh: Mesh | null;
   /** Destructible element id (blueprint `destructibleId`) → its own mesh. */
-  destructibleMeshes: Map<string, Mesh>;
+  destructibleMeshes: Map<string, AbstractMesh>;
   /**
    * Destructible trees drawn as painted sprites: id → instance handle inside
    * the shared tree mesh (hide with `setVisible(false)`). Empty when the
@@ -624,7 +625,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   const preview = register(previewBatch.toMesh(scene, 'preview-stage', material), staticMeshes);
   if (preview) preview.alwaysSelectAsActiveMesh = true;
 
-  const destructibleMeshes = new Map<string, Mesh>();
+  const destructibleMeshes = new Map<string, AbstractMesh>();
   const destructibleSprites = new Map<string, SpriteInstanceHandle>();
   const destructibleList: Mesh[] = [];
   for (const [id, batch] of destructibleBatches) {
