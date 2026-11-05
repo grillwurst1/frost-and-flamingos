@@ -157,6 +157,8 @@ subprocess.run(['blender','--background','--threads','2','--python',str(Path(__f
     '--',str(head_file),str(head_file)],check=True)
 subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('bake-head-details.py')),
     '--',str(head_file)],check=True)
+subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('sculpt-comic-face.py')),
+    '--',str(head_file)],check=True)
 # Temporary face tiles keep the subsequent hair/arm packing step simple. The
 # final pack discards them: every skin vertex is now colour-independent anatomy.
 Image.new('RGB',(1024,1024),tuple(round(c*255) for c in wardrobe['skinReference'])).save(output/'soldier-head-basecolor.webp',quality=95,method=6)

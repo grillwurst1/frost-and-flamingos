@@ -213,6 +213,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   const joints: number[] = [], weights: number[] = [], cavities: number[] = [];
   const headNormals: number[] = [];
   const nativeFlags: number[] = [];
+  const comicTags = new Map<number, number>();
   try {
     for (const mesh of template.root.getChildMeshes(false)) {
       const name = mesh.name;
@@ -221,6 +222,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       const tags = Array.from(mesh.getVerticesData('uv2') ?? new Float32Array(points.length / 3 * 2));
       const authoredNormals = mesh.getVerticesData('normal')!;
       const tone = Array.from(mesh.getVerticesData('uv') ?? new Float32Array(points.length / 3 * 2));
+      const comic = Array.from(mesh.getVerticesData('uv3') ?? new Float32Array(points.length / 3 * 2));
       let faces = Array.from(mesh.getIndices()!);
       {
         // Bend surfaces, not just their endpoints. Long triangles crossing a knee,
@@ -236,6 +238,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           for (let c = 0; c < 4; c++) paint.push((paint[a * 4 + c]! + paint[b * 4 + c]!) / 2);
           tags.push(tags[a * 2] ?? 0, tags[a * 2 + 1] ?? 0);
           for (let c = 0; c < 2; c++) tone.push((tone[a * 2 + c]! + tone[b * 2 + c]!) / 2);
+          comic.push(comic[a * 2] ?? 0, 0);
           middle.set(key, index);
           return index;
         };
@@ -286,6 +289,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         const mapped = name === 'character-body-mesh' ? body(p, tags[vertex * 2] ?? 0, tags[vertex * 2 + 1] ?? 0)
           : limb(p, name.startsWith('left') ? 'Left' : 'Right', name.includes('arm'), tags[vertex * 2 + 1] ?? 0);
         positions.push(mapped.at.x, mapped.at.y, mapped.at.z);
+        comicTags.set(target, comic[vertex * 2] ?? 0);
         if (name === 'character-body-mesh' && tags[vertex * 2] === 0 && tags[vertex * 2 + 1] === 0)
           measureTorso(mapped.at);
         if (name === 'character-body-mesh' && tags[vertex * 2] === 1)
@@ -527,6 +531,9 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   data.positions = new Float32Array(positions); data.normals = normals;
   data.uvs = new Float32Array(cavities);
   data.uvs2 = new Float32Array(nativeFlags);
+  const paintTags = new Float32Array(positions.length / 3 * 2);
+  for (const [vertex, kind] of comicTags) paintTags[vertex * 2] = kind;
+  data.uvs3 = paintTags;
   data.colors = new Float32Array(colors); data.indices = new Uint32Array(indices);
   data.matricesIndices = new Float32Array(joints); data.matricesWeights = new Float32Array(weights);
   // Conservative per-joint envelopes protect the *selected* headgear, hands

@@ -1,3 +1,4 @@
+import { COMIC_PAINT_GLSL, COMIC_PAINT_WGSL } from './comic-paint';
 import { INSTANCED_WORLD_GLSL, INSTANCED_WORLD_WGSL, INSTANCED_WORLD_WGSL_MAIN, LOOK_FRAGMENT_GLSL, LOOK_FRAGMENT_WGSL } from './look-common';
 
 /**
@@ -46,6 +47,12 @@ attribute vec3 normal;
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
 attribute vec2 uv;
 #endif
+#ifdef FF_SOFT_CHARACTER
+attribute vec2 uv3;
+varying vec3 vPaintRest;
+varying vec3 vPaintNormal;
+varying vec2 vComicPaint;
+#endif
 #ifndef FF_TEXTURED
 attribute vec4 color;
 #endif
@@ -65,6 +72,9 @@ varying vec2 vUV;
 varying vec4 vColor;
 
 void main(void) {
+#ifdef FF_SOFT_CHARACTER
+  vPaintRest = position; vPaintNormal = normal; vComicPaint = uv3;
+#endif
 #ifdef FF_NATIVE_WARDROBE
   vWardrobe = uv2;
   vWardrobeRest = position;
@@ -136,6 +146,7 @@ uniform sampler2D albedoSampler;
 uniform sampler2D normalSampler;
 #endif
 ${LOOK_FRAGMENT_GLSL}
+${COMIC_PAINT_GLSL}
 
 #ifdef FF_PHOTOREAL
 // Photoreal exception: wrapped Lambert sun (soft skin terminator) over the
@@ -206,6 +217,9 @@ vec3 ffSkinBase(vec3 paint, vec3 reference) {
 #endif
 
 void main(void) {
+#ifdef FF_SOFT_CHARACTER
+  vec3 paintDx = dFdx(vPaintRest), paintDy = dFdy(vPaintRest);
+#endif
   vec3 normal = normalize(vWorldNormal);
   if (!gl_FrontFacing) normal = -normal;
 
@@ -262,7 +276,7 @@ void main(void) {
     // sculpted folds and restrained painted creases. Skin stays independent.
     float crease = clamp(dot(original, vec3(.299,.587,.114)) / .52, .88, 1.08);
     float sleeves = (1.0 - smoothstep(.15,.35,abs(vWardrobe.y-4.0))) * uClothPaint.x;
-    base = mix(base, vec3(.88,.86,.77) * crease, sleeves * (1.0-mask.r));
+    base = mix(base, ffComicCloth(vec3(.88,.86,.77), 3.0, vPaintRest, vPaintNormal, paintDx, paintDy), sleeves * (1.0-mask.r));
     vec3 waistcoat = vec3(0.275, 0.365, 0.196) * clamp(dot(original, vec3(0.299, 0.587, 0.114)) / 0.75, 0.4, 1.3);
     float shape = smoothstep(uWardrobeTorso.y + 0.025, uWardrobeTorso.y + 0.09, vWardrobeRest.y)
       * (1.0 - smoothstep(uWardrobeTorso.z - 0.085, uWardrobeTorso.z - 0.015, vWardrobeRest.y))
@@ -297,6 +311,9 @@ void main(void) {
   // Keep its head-atlas category/UVs intact across neighbouring triangles.
   base = mix(base, uSkinColor, step(1.5, vColor.a));
   gloss = mix(gloss, 0.035, step(1.5, vColor.a));
+#endif
+#ifdef FF_SOFT_CHARACTER
+  if (vComicPaint.x > .5 && vColor.a < .5) base = ffComicCloth(base, vComicPaint.x, vPaintRest, vPaintNormal, paintDx, paintDy);
 #endif
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
   base = mix(vec3(luma), base, uPaintParams.y);
@@ -345,6 +362,12 @@ attribute normal : vec3f;
 #if defined(FF_TEXTURED) || defined(FF_SOFT_CHARACTER)
 attribute uv : vec2f;
 #endif
+#ifdef FF_SOFT_CHARACTER
+attribute uv3 : vec2f;
+varying vPaintRest : vec3f;
+varying vPaintNormal : vec3f;
+varying vComicPaint : vec2f;
+#endif
 #ifndef FF_TEXTURED
 attribute color : vec4f;
 #endif
@@ -365,6 +388,9 @@ varying vColor : vec4f;
 
 @vertex
 fn main(input : VertexInputs) -> FragmentInputs {
+#ifdef FF_SOFT_CHARACTER
+  vertexOutputs.vPaintRest = input.position; vertexOutputs.vPaintNormal = input.normal; vertexOutputs.vComicPaint = input.uv3;
+#endif
 #ifdef FF_NATIVE_WARDROBE
   vertexOutputs.vWardrobe = input.uv2;
   vertexOutputs.vWardrobeRest = input.position;
@@ -431,6 +457,7 @@ var normalSamplerSampler : sampler;
 var normalSampler : texture_2d<f32>;
 #endif
 ${LOOK_FRAGMENT_WGSL}
+${COMIC_PAINT_WGSL}
 
 varying vWorldPosition : vec3f;
 varying vWorldNormal : vec3f;
@@ -502,6 +529,9 @@ fn ffSkinBase(paint : vec3f, reference : vec3f) -> vec3f {
 
 @fragment
 fn main(input : FragmentInputs) -> FragmentOutputs {
+#ifdef FF_SOFT_CHARACTER
+  let paintDx = dpdx(input.vPaintRest); let paintDy = dpdy(input.vPaintRest);
+#endif
   var normal = normalize(input.vWorldNormal);
   if (!fragmentInputs.frontFacing) { normal = -normal; }
 
@@ -550,7 +580,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
     base = mix(base, hairPaint, mask.g);
     let crease = clamp(dot(original, vec3f(.299,.587,.114)) / .52, .88, 1.08);
     let sleeves = (1.0 - smoothstep(.15,.35,abs(input.vWardrobe.y-4.0))) * uniforms.uClothPaint.x;
-    base = mix(base, vec3f(.88,.86,.77) * crease, sleeves * (1.0-mask.r));
+    base = mix(base, ffComicCloth(vec3f(.88,.86,.77), 3.0, input.vPaintRest, input.vPaintNormal, paintDx, paintDy), sleeves * (1.0-mask.r));
     let waistcoat = vec3f(0.275, 0.365, 0.196) * clamp(dot(original, vec3f(0.299, 0.587, 0.114)) / 0.75, 0.4, 1.3);
     let shape = smoothstep(uniforms.uWardrobeTorso.y + 0.025, uniforms.uWardrobeTorso.y + 0.09, input.vWardrobeRest.y)
       * (1.0 - smoothstep(uniforms.uWardrobeTorso.z - 0.085, uniforms.uWardrobeTorso.z - 0.015, input.vWardrobeRest.y))
@@ -582,6 +612,9 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
 #ifdef FF_SOFT_CHARACTER
   base = mix(base, uniforms.uSkinColor, step(1.5, input.vColor.a));
   gloss = mix(gloss, 0.035, step(1.5, input.vColor.a));
+#endif
+#ifdef FF_SOFT_CHARACTER
+  if (input.vComicPaint.x > .5 && input.vColor.a < .5) { base = ffComicCloth(base, input.vComicPaint.x, input.vPaintRest, input.vPaintNormal, paintDx, paintDy); }
 #endif
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));
   base = mix(vec3f(luma), base, uniforms.uPaintParams.y);

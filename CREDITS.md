@@ -252,3 +252,19 @@ spoon, cannon, crate panels, lanterns, snow and chimney plume. Shared project
 materials; no additional image textures or third-party models. The owner's
 PHOTO/Gemini images remain visual references. Existing source soldier GLBs,
 rigs, animation clips and selectable skin pigments are unchanged.
+
+Gletscherpass chalet fire: original solid flame-cluster and smoke-puff geometry
+in `reference-fire.ts`, emitted once and animated with fixed instance matrices.
+No new image/particle textures, third-party models or external game assets.
+The fire controller, replicated HP/burning details, roof guard and empty-room
+timer lifecycle are original project implementation work.
+
+
+### Illustrated material sheet and fitted face detail (5 November 2026)
+
+`apps/client/public/art/tex/comic-surfaces.png` is original generated surface art
+created with OpenAI image generation for this game (eight cloth/leather/wood/rock/
+metal swatches; no EA/Battlefield assets). It is a material atlas, not a scene
+background or character sprite. `scripts/sculpt-comic-face.py` authors original
+facial crease ribbons fitted to the project's existing derived closed head.
+The owner's PHOTO references and source Meshy GLBs remain unchanged.

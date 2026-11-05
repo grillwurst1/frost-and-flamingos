@@ -1307,7 +1307,7 @@ zusätzlich im tatsächlichen Renderer kontrolliert. Belege und Aufnahmen:
 
 ## Referenzszene „Gletscherpass“ (4. November 2026)
 
-Im Hauptmenü **„Referenzszene spielen“** wählen oder `/?scene=reference`
+Im Hauptmenü **„Gletscherpass spielen“** wählen oder `/?scene=reference`
 öffnen. Die Figur startet auf dem Schneeausblick über der Hängebrücke. Gehe
 zunächst über die Rampe zurück Richtung Chalet/Vorplatz, um zur Brücke zu
 kommen; das Geländer am Aussichtspunkt begrenzt die Schlucht. A liegt beim
@@ -1327,8 +1327,9 @@ Kuckucksrucksack. Haut, Haare und Kleidung lassen sich weiterhin anpassen.
 Über **„Zurück zu Fjord Fiesta“** im Hauptmenü gelangst du zum normalen Spiel.
 Die beiden Runden teilen weder Spieler noch Fahrzeugplätze oder Punktestand.
 
-Das Chalet ist begehbar; vollständige Gebäudebrände/Zerstörung aus M6 sind
-noch kein Bestandteil dieser Szene. Die Zielbilder bleiben die grafische
+Das Chalet bleibt begehbar. Sein Brand ist mit der Schneekanone löschbar und
+mit dem Sandflammenwerfer erneut entzündbar. Mehrstufiger Einsturz und echte
+Geländezerstörung gehören weiterhin zum vollständigen M6. Die Zielbilder bleiben die grafische
 Referenz. Ein Cloud-Test ersetzt keine Temperatur-/FPS-Messung auf deinem M4.
 
 Die Garderobenkamera hat nun auch nach einem Tod Vorrang vor der Killercam,
@@ -1343,3 +1344,47 @@ Browsercheck mit Fahrt, Kanonenfeuer und F-Ausstieg hat bestanden.
 
 Der ungenutzte Referenzraum wird nach 60 Sekunden freigegeben; diese automatische
 Freigabe wurde über den Serverstatus nach dem Verbindungsende überprüft.
+
+## Chaletbrand im Gletscherpass
+
+Das Chalet brennt an Dach und Fenstern. Rüste die Schneekanone im dritten
+Waffenslot aus (im Ranger-Preset voreingestellt), wähle sie mit **3** und halte
+die linke Maustaste auf das Chalet. Innerhalb der tatsächlichen Waffenreichweite
+löscht anhaltender Schnee den Brand; die Meldung „Chaletbrand gelöscht!“ bestätigt
+das. Der Sandflammenwerfer kann den Brand wieder entzünden. Feuer schadet nahen,
+ungeschützten Figuren; feste Wände schützen, ebenso bleiben Drifter und
+vollständig geschützte Fahrzeugbesatzungen geschützt. Ein neuer Rundenstart
+setzt den Brand zurück. Das Haus bleibt begehbar.
+
+Der Dachverteidiger „RoofSniper77“ hält einen sicheren Posten und nutzt seine
+Waffe tatsächlich. Bots kehren beim Wiedereinstieg an ihre Kampfpositionen zurück.
+Leere Spielräume verbrauchen keine laufende Simulation mehr: der Hauptraum
+pausiert bis zur nächsten Verbindung, der Referenzraum wird nach einer Minute
+freigegeben. Nach dem Update **Client und Server zusammen aktualisieren und die
+Browserseite neu laden**: Protokoll 14 hält Brand und Löschung synchron.
+
+
+### Überarbeitete PHOTO-Grafik (5. November 2026)
+
+Die Kleidung erhält gemalte Stoff- und Lederspuren auf den tatsächlichen
+animierten 3D-Flächen. Die gewählte Hautfarbe bleibt davon getrennt. Augenlider,
+Nase, Wangen und Ohren bekommen zusätzliche angepasste Formdetails. Tannen haben
+unregelmäßige Äste und räumliche Schneeschichten; Holz und Stein zeigen wieder
+mehr ihrer gemalten Texturen. Diese Überarbeitung läuft noch: Die vollständige
+Übereinstimmung mit den PHOTO-Vorlagen ist damit noch nicht bestätigt.
+
+
+Verification of the first illustrated asset increment (5 November 2026): 14 script,
+226 server and 155 client cases pass (395 total), zero strict TypeScript/Svelte
+errors or warnings, production builds pass. The complete nature layer is bounded
+at 577,104 near / 286,908 far triangles. Real Chromium WebGL2 verifies entry,
+walking/jumping, sustained snow-cannon extinguishing through the actual hit/network
+path, late-join visible fire, wardrobe visibility and actual posed 3D inspection.
+No console errors, failed asset requests or context losses. Fire was isolated
+without bots; whole-scene/close views use 1280×800 Medium, controls use 800×500 Low.
+`docs/qa/comic-art-2026-11-05.json` and captures record the result. The visual review
+still rejects PHOTO parity: detailed clothing forms, composition and fire artwork
+need further production. Native Mac M4 performance/heat was not measured.
+
+The new soft/native outfit variants also compile with the WebGPU WGSL compiler.
+Cloud device-loss/restoration warnings prevent a full WebGPU runtime acceptance claim.

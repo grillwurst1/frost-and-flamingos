@@ -70,3 +70,10 @@ objectives, F boarding, driving, shooting and F exit use ordinary server rules.
 This includes sixty real seconds of combined driving/shooting and resource
 checkpoints. Run without that flag and without `FF_NO_BOTS` for the live cast.
 The reference scene itself works without development tools or URL teleports.
+
+`FF_QA_REFERENCE_FIRE=1` adds an isolated real-input chalet extinguishing test
+(requires `FF_NO_BOTS=1 FF_DEV_TOOLS=1`). Development staging arranges position
+and aim; slot 3, mouse fire, weapon range, line of sight, hit processing and the
+binary map-state update are normal gameplay. `FF_QA_REFERENCE_CAPTURE_ONLY=1`
+saves only the public entry/render checkpoint, useful for the live cast at
+Medium. Protocol 14 rejects old connected clients; refresh both build ends.

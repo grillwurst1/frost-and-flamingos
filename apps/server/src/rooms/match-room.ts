@@ -1,4 +1,6 @@
-import { REFERENCE_TOWERS, REFERENCE_VEHICLES, REFERENCE_MARKERS, referenceSpawn, CONQUEST_TOWERS } from '@frost-and-flamingos/shared';
+import { ReferenceChaletFire } from './reference-fire';
+import { REFERENCE_CHALET_FIRE } from '@frost-and-flamingos/shared';
+import { REFERENCE_TOWERS, REFERENCE_VEHICLES, REFERENCE_MARKERS, referenceSpawn, referenceCastSpawn, CONQUEST_TOWERS } from '@frost-and-flamingos/shared';
 import { validatedShotDirection } from '@frost-and-flamingos/shared';
 import {
   CLASS_DEFAULT_LOADOUTS,
@@ -369,7 +371,7 @@ const BOT_NAMES = [
 
 /** Reference cast keeps both factions armed and adds the actual autonomous cow. */
 const REFERENCE_BOTS: readonly { name:string; faction:Faction; classId:ClassId; mascotChance:number }[] = [
-  ...BOT_NAMES.map((entry,i)=>({...entry, name:['GipfelWache','Senn_Koloss','Skipper','Wuzzi'][i]!, mascotChance:0})),
+  ...BOT_NAMES.map((entry,i)=>({...entry, name:['RoofSniper77','Senn_Koloss','Skipper','Wuzzi'][i]!, mascotChance:0})),
   {name:'Angry_Cow_Beta',faction:'alpine',classId:'allrounder',mascotChance:1},
   {name:'StumbleBoi',faction:'lagoon',classId:'allrounder',mascotChance:0},
 ];
@@ -473,6 +475,7 @@ export class MatchRoom {
   private accumulator = 0;
   private readonly startedAt = Date.now();
   /** Climate Conquest: towers, tickets, weather balance and round flow. */
+  private readonly referenceFire: ReferenceChaletFire | null;
   private readonly conquest: ClimateConquest;
   private readonly conquestBots: ConquestBots;
   private readonly towers: typeof CONQUEST_TOWERS;
@@ -485,6 +488,7 @@ export class MatchRoom {
   readonly vehicles: VehicleManager<PlayerConnection>;
 
   private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean, private readonly reference = false) {
+    this.referenceFire = reference ? new ReferenceChaletFire() : null;
     this.towers = reference ? REFERENCE_TOWERS : CONQUEST_TOWERS;
     this.conquest = new ClimateConquest(reference ? { tower_a: 'alpine', tower_b: null, tower_c: 'lagoon' } : undefined);
     this.conquestView = this.conquest.snapshot();
@@ -542,11 +546,14 @@ export class MatchRoom {
     this.timer = setInterval(() => this.update(), 1000 / 120);
   }
 
+  /** Stop empty-room CPU work while retaining the resumable match/physics. */
+  pause(): void {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    this.accumulator = 0;
+  }
+
   stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
+    this.pause();
     this.physics.dispose();
   }
 
@@ -590,6 +597,11 @@ export class MatchRoom {
           ? idleInput(player.lastProcessedInput, player.lastInput.yaw, player.lastInput.pitch, player.activeSlot)
           : this.vehicles.botAdjust(player, this.botInput(player))
         : player.inputQueue.shift() ?? null;
+      // The rooftop defender aims, shoots and reloads through normal bot rules,
+      // while keeping its supported guard post rather than chasing off the roof.
+      if (input && this.reference && player.isBot && player.id === 1) {
+        input.buttons &= ~(InputButton.Forward | InputButton.Backward | InputButton.Left | InputButton.Right | InputButton.Jump | InputButton.Sprint);
+      }
       if (input) {
         this.applyInput(player, input, wind);
       } else if (!player.isBot) {
@@ -623,6 +635,7 @@ export class MatchRoom {
       if (player.alive && player.character.position.y < FALL_RESPAWN_Y) this.respawn(player);
     }
     this.updateProjectiles();
+    if (this.referenceStarted && !this.isCeasefire()) this.stepReferenceFire();
     if (!this.reference || this.referenceStarted) this.stepConquest();
     this.recordLagHistory();
 
@@ -723,6 +736,7 @@ export class MatchRoom {
    */
   private spawnFor(faction: Faction, selfId = 0): { position: Vec3; yaw: number } {
     if (this.reference) {
+      if (this.players.get(selfId)?.isBot) return referenceCastSpawn(selfId-1);
       for (let i = 0; i < 16; i++) { const spawn = referenceSpawn(faction, i); if (!this.isSpawnOccupied(spawn.position, selfId)) return spawn; }
       return referenceSpawn(faction);
     }
@@ -841,6 +855,7 @@ export class MatchRoom {
     this.puddles.length = 0;
     this.conquestBots.reset();
     this.vehicles.resetAll();
+    if (this.referenceFire) { this.referenceFire.reset(); this.broadcastMapState(); }
     for (const player of this.players.values()) {
       player.kills = 0;
       player.deaths = 0;
@@ -1100,7 +1115,10 @@ export class MatchRoom {
       this.critters.kill(critterHit.critterId, player.id, weaponId);
       return;
     }
-    if (!hit) return;
+    if (!hit) {
+      if (worldHit) this.hitReferenceFire(player, weaponId, worldHit.point);
+      return;
+    }
     const target = this.players.get(hit.id);
     if (!target) return;
     this.damagePlayer(target, player, damage, weaponId, hit.headshot);
@@ -2035,10 +2053,7 @@ export class MatchRoom {
         faction: entry.faction,
         loadout: { ...CLASS_DEFAULT_LOADOUTS[classId] },
       };
-      const spawn = this.reference ? (() => {
-        const [x,z] = ([[7,43],[-6,47],[-5,105],[17,116],[1,82],[21,102]][id-1] ?? [0,47]) as [number,number];
-        return { position: { x, y: (id === 5 ? 18.3 - 1.4 * Math.sin((z - 46.5) / 50 * Math.PI) : sampleMapHeight(x, z)) + .05, z }, yaw: entry.faction === 'alpine' ? -.2 : Math.PI };
-      })() : this.spawnFor(entry.faction);
+      const spawn = this.reference ? referenceCastSpawn(id-1) : this.spawnFor(entry.faction);
       const character = this.physics.createCharacter({
         position: spawn.position,
         classId,
@@ -2537,11 +2552,7 @@ export class MatchRoom {
         spawnYaw: spawn.yaw,
         protocolVersion: PROTOCOL_VERSION,
       },
-      mapState: {
-        destructibles: [],
-        bridges: [],
-        craters: [],
-      },
+      mapState: this.mapState(),
       profiles,
     };
   }
@@ -2760,6 +2771,39 @@ export class MatchRoom {
     this.conquestBots.forget(player.id);
     this.broadcastProfile(player);
     if (moved) this.sendProfileNotice(player, 2);
+  }
+
+  private mapState(): MapStateSync {
+    return { destructibles: this.referenceFire ? [this.referenceFire.snapshot()] : [], bridges: [], craters: [] };
+  }
+
+  private broadcastMapState(): void {
+    const packet = encodeMapStateSync(this.mapState());
+    for (const player of this.players.values()) player.socket?.send(packet);
+  }
+
+  private hitReferenceFire(player: PlayerConnection, weapon: WeaponId, point: Vec3): void {
+    const change = this.referenceFire?.hit(weapon, point);
+    if (!change) return;
+    this.broadcastMapState();
+    if (change === 'extinguished') this.broadcastEvent({
+      eventType: 'ENV_EXTINGUISH', actorId: player.id, targetId: REFERENCE_CHALET_FIRE.id,
+      paramX: point.x, paramZ: point.z, paramValue: 0,
+    });
+  }
+
+  private stepReferenceFire(): void {
+    if (!this.referenceFire || this.physicsTick % (PHYSICS_TICK_RATE / 2) !== 0) return;
+    for (const player of this.players.values()) {
+      if (!player.alive || untouchable(player) || this.vehicles.isShielded(player.id)) continue;
+      const fire = this.referenceFire.dangerNear(player.character.position, player.character.stats.height);
+      if (!fire) continue;
+      const from = { x: fire.x, y: fire.y + .5, z: fire.z }, eye = this.eyePosition(player);
+      const dx = eye.x-from.x, dy=eye.y-from.y, dz=eye.z-from.z, distance=Math.hypot(dx,dy,dz);
+      const wall = distance > .001 ? this.physics.raycastStatic(from, { x:dx/distance, y:dy/distance, z:dz/distance }, distance) : null;
+      if (wall && wall.distance < distance-.25) continue;
+      this.damagePlayer(player, null, REFERENCE_CHALET_FIRE.damage, 'sand_flamer', false);
+    }
   }
 
   broadcastEvent(event: GameEvent): void {

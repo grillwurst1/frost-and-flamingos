@@ -13,3 +13,4 @@ export * from './vehicles.js';
 export * from './conquest.js';
 
 export * from './reference-scene.js';
+export * from './reference-fire.js';

@@ -18,6 +18,7 @@ import {
 } from '../../shaders/glb-character';
 import { registerLookMaterial } from '../look-state';
 import { markCharacterLookMaterial, SUN_DIRECTION, type CharacterMaterialState } from '../materials';
+import { comicPaintTexture } from '../comic-paint';
 
 /** Painted texture set shared by every instance of one model. */
 export interface PaintedTextures {
@@ -92,7 +93,7 @@ export function createGlbMaterial(
       fragmentSource: webgpu ? glbCharacterFragmentWGSL : glbCharacterFragmentGLSL,
     },
     {
-      attributes: textured ? ['position', 'normal', 'uv'] : ['position', 'normal', 'color', ...(options.soft ? ['uv'] : []), ...(native ? ['uv2'] : [])],
+      attributes: textured ? ['position', 'normal', 'uv'] : ['position', 'normal', 'color', ...(options.soft ? ['uv', 'uv3'] : []), ...(native ? ['uv2'] : [])],
       uniforms: [
         'world',
         'viewProjection',
@@ -111,7 +112,7 @@ export function createGlbMaterial(
         ...(sharedHead ? ['uHeadSkinReference', 'uHeadHairReference'] : []),
         ...LOOK_UNIFORMS,
       ],
-      samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : native ? ['albedoSampler', 'wardrobeMaskSampler', ...(sharedHead ? ['headPaintSampler', 'headMaskSampler'] : []), ...LOOK_SAMPLERS] : [...LOOK_SAMPLERS],
+      samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : native ? ['albedoSampler', 'wardrobeMaskSampler', 'comicPaintSampler', ...(sharedHead ? ['headPaintSampler', 'headMaskSampler'] : []), ...LOOK_SAMPLERS] : [...(options.soft ? ['comicPaintSampler'] : []), ...LOOK_SAMPLERS],
       defines: textured
         ? ['#define FF_TEXTURED', ...(options.photoreal ? ['#define FF_PHOTOREAL'] : [])]
         : options.soft ? ['#define FF_SOFT_CHARACTER', ...(native ? ['#define FF_NATIVE_WARDROBE'] : []), ...(sharedHead ? ['#define FF_WARDROBE_HEAD'] : [])] : [],
@@ -128,7 +129,10 @@ export function createGlbMaterial(
   material.setVector4('uPaintParams', textured ? PAINT_PARAMS : options.soft ? new Vector4(0, 1, 1, 0) : PROP_PARAMS);
   material.setFloat('uLookMask', options.lookMask ?? LOOK_MASK_CHARACTER);
   material.setFloat('uDither', 0);
-  if (options.soft) material.setColor3('uSkinColor', Color3.FromHexString(options.skin ?? '#fac39c'));
+  if (options.soft) {
+    material.setColor3('uSkinColor', Color3.FromHexString(options.skin ?? '#fac39c'));
+    material.setTexture('comicPaintSampler', comicPaintTexture(scene));
+  }
   if (native && textures && options.wardrobe) {
     const w = options.wardrobe;
     material.setTexture('albedoSampler', textures.albedo); material.setTexture('wardrobeMaskSampler', textures.wardrobeMask!);

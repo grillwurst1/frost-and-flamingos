@@ -1,7 +1,8 @@
 export const en = {
   reference: {
-    title: 'Gletscherpass · Reference scene', enter: 'Play the reference scene', back: 'Back to Fjord Fiesta',
-    lead: 'Capture the chalet, cross the gorge and take the Fondue Crawler. A skirmish in the snow above the lagoon. Move or fire to begin.',
+    extinguished: 'Chalet fire extinguished!',
+    title: 'Gletscherpass · Climate Conquest', enter: 'Play Gletscherpass', back: 'Back to Fjord Fiesta',
+    lead: 'Capture the chalet and bridge, drive the Fondue Crawler and put out the chalet fire with your snow cannon. Move or fire to begin.',
     chalet: 'Chalet approach', bridge: 'Suspension bridge', camp: 'Fondue camp',
   },
   meta: {

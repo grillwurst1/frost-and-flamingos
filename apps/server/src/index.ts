@@ -32,7 +32,7 @@ const port = Number(process.env.PORT ?? NETWORK_PORT);
 const hostname = process.env.HOST ?? '127.0.0.1';
 
 const room = await MatchRoom.create();
-room.start();
+let normalClients = 0;
 
 let referenceRoom: MatchRoom | null = null;
 let referenceLoad: Promise<MatchRoom> | null = null;
@@ -171,6 +171,7 @@ const server = Bun.serve<SocketData>({
     data: {} as SocketData,
     open(ws) {
       if (ws.data.reference) { referenceClients++; if (referenceIdle) clearTimeout(referenceIdle); referenceIdle = null; }
+      else { normalClients++; room.start(); }
       ws.data.helloTimeout = setTimeout(() => {
         if (!ws.data.joined) {
           ws.close(4001, 'Handshake timeout.');
@@ -250,7 +251,7 @@ const server = Bun.serve<SocketData>({
       if (ws.data.reference && --referenceClients === 0) {
         const old = ws.data.room;
         referenceIdle = setTimeout(() => { if (referenceClients === 0 && referenceRoom === old) { old.stop(); referenceRoom = null; referenceLoad = null; } }, 60000);
-      }
+      } else if (!ws.data.reference && --normalClients === 0) room.pause();
     },
   },
 });

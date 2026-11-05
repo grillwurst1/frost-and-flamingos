@@ -34,6 +34,7 @@ import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
 import { sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
 import { createContactShadow } from './contact-shadow';
+import { tagComicPaint } from './comic-paint';
 
 const MODEL_HEIGHT = 1.88;
 const SPINE_Y = 0.88;
@@ -62,6 +63,7 @@ type PartList = Mesh[];
 /** Preserve semantic regions while merging the authored wardrobe parts. */
 function tagParts(parts: readonly Mesh[], tag: number, detail = 0): void {
   for (const part of parts) {
+    tagComicPaint(part, tag === 1);
     const data = new Float32Array(part.getTotalVertices() * 2);
     for (let i = 0; i < data.length; i += 2) { data[i] = tag; data[i + 1] = detail; }
     part.setVerticesData('uv2', data, false, 2);

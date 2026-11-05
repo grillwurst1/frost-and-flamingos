@@ -75,3 +75,18 @@ test('reference cast includes armed soldiers and a living cow at the bridge, wit
     expect(cast.filter(p=>p.character.form===null)).toHaveLength(5);
   }finally {room.stop();}
 });
+
+test('the rooftop defender holds solid snow roof clear of the fire and respawns at its supported post',async()=>{
+  const room=await MatchRoom.create({reference:true,critters:false});
+  try {
+    const cast=internals(room).players,guard=cast.get(1)!;
+    expect(guard.character.position.y).toBeGreaterThan(28);
+    const start={...guard.character.position},human=joinPlayer(room,'alpine');
+    sendInput(room,human,InputButton.Forward);run(room,100);
+    expect(guard.alive).toBe(true);expect(guard.character.position.y).toBeGreaterThan(28);
+    expect(Math.hypot(guard.character.position.x-start.x,guard.character.position.z-start.z)).toBeLessThan(.15);
+    room.devTeleport(1,40,66,-30);run(room,2);
+    expect(guard.character.position.y).toBeGreaterThan(28);
+    expect(Math.hypot(guard.character.position.x-start.x,guard.character.position.z-start.z)).toBeLessThan(.15);
+  }finally {room.stop();}
+});

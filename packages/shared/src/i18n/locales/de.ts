@@ -2,8 +2,9 @@ import type { TranslationDictionary } from '../schema.js';
 
 export const de: TranslationDictionary = {
   reference: {
-    title: 'Gletscherpass · Referenzszene', enter: 'Referenzszene spielen', back: 'Zurück zu Fjord Fiesta',
-    lead: 'Erobere das Chalet, überquere die Schlucht und übernimm den Fonduepanzer. Ein Gefecht im Schnee über der Lagune. Bewegung oder Schießen startet die Runde.',
+    extinguished: 'Chaletbrand gelöscht!',
+    title: 'Gletscherpass · Climate Conquest', enter: 'Gletscherpass spielen', back: 'Zurück zu Fjord Fiesta',
+    lead: 'Erobere Chalet und Brücke, fahre den Fonduepanzer und lösche den Chaletbrand mit der Schneekanone. Bewegung oder Schießen startet die Runde.',
     chalet: 'Chaletzugang', bridge: 'Hängebrücke', camp: 'Fonduelager',
   },
   meta: {

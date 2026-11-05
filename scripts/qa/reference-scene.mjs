@@ -7,6 +7,8 @@ const output=resolve(process.env.FF_QA_OUTPUT || '/tmp/frost-reference');
 const base=process.env.FF_QA_URL || 'http://127.0.0.1:5173';
 const mechanics=process.env.FF_QA_REFERENCE_MECHANICS==='1';
 const low=mechanics||process.env.FF_QA_REFERENCE_LOW==='1';
+const fireCheck=process.env.FF_QA_REFERENCE_FIRE==='1';
+const captureOnly=process.env.FF_QA_REFERENCE_CAPTURE_ONLY==='1';
 await mkdir(output,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,headless:true,
   args:['--no-proxy-server','--disable-dev-shm-usage','--disable-gpu-watchdog',...(process.env.FF_QA_SOFTWARE==='1'?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
@@ -29,6 +31,7 @@ try {
         pendingInputs:g.pendingInputs.length,vehicles:g.vehicles.debugInfo(),names:Array.from(document.querySelectorAll('.player-tag')).map(e=>e.textContent),
         crawlerTriangles:g.scene.meshes.filter(m=>m.name.startsWith('reference-crawler-')).reduce((n,m)=>n+m.getTotalIndices()/3*Math.max(1,m.thinInstanceCount||0),0),
         trackAttribute:g.scene.getMeshByName('reference-crawler-tracks')?.subMeshes[0]?.effect?.getAttributeLocationByName('world0'),
+        fire:{burning:g.referenceFire?.burning,flames:g.scene.getMeshByName('reference-chalet-flames')?.thinInstanceCount,puffs:g.scene.getMeshByName('reference-chalet-fire-smoke')?.thinInstanceCount},
         tracks:g.scene.getMeshByName('reference-crawler-tracks')?.thinInstanceCount,smoke:g.scene.getMeshByName('reference-chimney-smoke')?.thinInstanceCount};});
     assert.equal(value.connected,true);assert.equal(value.contextLosses,0);assert.ok(Object.values(value.feet).every(Number.isFinite));
     assert.ok(value.pendingInputs<=180);assert.equal(value.tracks,80);assert.equal(value.smoke,8);
@@ -39,18 +42,39 @@ try {
   assert.match(await page.locator('.menu-ticket-chip').first().innerText(),/Gletscherpass/i);
   console.log('buttons '+JSON.stringify(await page.locator('button').allTextContents()));
   await page.locator('button.cover-play').focus();await page.keyboard.press('Enter');console.log('play pressed '+await page.evaluate(()=>window.__frostDebug.currentPhase));
-  await wait(()=>window.__frostDebug.currentPhase==='playing');console.log('playing');
+  await wait(()=>window.__frostDebug?.currentPhase==='playing');console.log('playing');
   await wait(()=>window.__frostDebug.localView.root.getChildMeshes().some(m=>m.name==='soldier-modular-detail'));
   console.log('detailed model loaded');await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x-40)<.2&&Math.abs(first.feet.z-66)<.2);
+  if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');
   await page.screenshot({path:resolve(output,'reference-scene.png'),timeout:180000});
+  if(!captureOnly) {
   await page.setViewportSize({width:800,height:500});await page.evaluate(()=>window.__frostDebug.setVisualQuality('low'));await frames(2);
   await page.keyboard.down('w');try {await wait(p=>{const a=window.__frostDebug.localCharacter.position;return Math.hypot(a.x-p.x,a.z-p.z)>.15},first.feet)}finally{await page.keyboard.up('w')}
   const walked=await page.evaluate(()=>({...window.__frostDebug.localCharacter.position}));assert.ok(Math.hypot(walked.x-first.feet.x,walked.z-first.feet.z)>.15);
   await page.keyboard.down('Space');try {await wait(()=>!window.__frostDebug.localCharacter.grounded)}finally{await page.keyboard.up('Space')}
   await frames(2);
   await sample('walk-and-jump');
+  const stage=async(params)=>{const id=await page.evaluate(()=>window.__frostDebug.localId);const response=await page.request.post(base+'/api/dev/teleport?scene=reference&player='+id+'&'+new URLSearchParams(params));assert.equal(response.status(),200);assert.equal((await response.json()).ok,true)};
+  if(fireCheck) {
+    const spot=await page.evaluate(()=>{const g=window.__frostDebug,matrices=g.scene.getMeshByName('reference-chalet-flames').thinInstanceGetWorldMatrices();
+      const target=matrices[3].getTranslation(),other=matrices[4].getTranslation(),dx=other.x-target.x,dz=other.z-target.z,length=Math.hypot(dx,dz);
+      const x=target.x-dz/length*3,z=target.z+dx/length*3;
+      const ground=g.physics.raycast({x,y:150,z},{x:0,y:-1,z:0},200).point.y;
+      return {x,z,y:ground+.06,target:{x:target.x,y:target.y,z:target.z}};});
+    await stage({x:String(spot.x),z:String(spot.z),y:String(spot.y)});await frames(2);
+    await page.keyboard.press('3');
+    await page.evaluate(target=>{const g=window.__frostDebug,p=g.localCharacter.position;
+      const dx=target.x-p.x,dz=target.z-p.z,dy=target.y-(p.y+g.localCharacter.eyeHeight);
+      g.cameraRig.resetAngles(Math.atan2(dx,dz),Math.atan2(dy,Math.hypot(dx,dz)));g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));},spot.target);
+    await frames(3);const before=await sample('chalet-burning');assert.equal(before.fire.burning,true);
+    assert.equal(before.fire.flames,5);assert.equal(before.fire.puffs,15);
+    await page.screenshot({path:resolve(output,'reference-fire-before.png'),timeout:180000});
+    await page.mouse.down();try {await wait(()=>window.__frostDebug.referenceFire.burning===false)}finally{await page.mouse.up()}
+    await frames(2);const after=await sample('chalet-extinguished');assert.equal(after.fire.burning,false);
+    await page.screenshot({path:resolve(output,'reference-fire-after.png'),timeout:180000});
+  }
   if(mechanics) {
-    const stage=async(params)=>{const id=await page.evaluate(()=>window.__frostDebug.localId);const response=await page.request.post(base+'/api/dev/teleport?scene=reference&player='+id+'&'+new URLSearchParams(params));assert.equal(response.status(),200);assert.equal((await response.json()).ok,true)};
+
     await stage({x:'1',z:'71.5',y:'16.98'});await frames();
     await wait(()=>window.__frostDebug.snapshotHistory.at(-1).snapshot.conquest.towers[1].owner==='alpine');
     await sample('bridge-captured');await page.screenshot({path:resolve(output,'reference-bridge.png'),timeout:180000});
@@ -84,12 +108,14 @@ try {
     result.wardrobeProjection=projection;
     await page.screenshot({path:resolve(output,'reference-ranger.png'),timeout:180000});
     if(process.env.FF_QA_REFERENCE_CLOSE==='1') {
+      await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>window.__frostDebug.setVisualQuality('medium'));await frames(2);
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;
         g.setPreviewFacing(.18);const position=p.clone();position.set(p.x+Math.sin(a)*2.7,p.y+1.45,p.z+Math.cos(a)*2.7);
         const target=p.clone();target.y+=1.35;g.devCamera={position,target};
         document.querySelector('.wardrobe-panel').style.visibility='hidden';});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-close.png'),timeout:180000});
     }
+  }
   }
   assert.deepEqual(result.errors,[]);assert.deepEqual(result.failedResponses,[]);result.status='passed';
 } catch(error) {result.status='failed';result.failure=String(error);throw error}

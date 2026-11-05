@@ -11,70 +11,55 @@ function rand(seed: number, salt: number): number {
   return hash3(seed * 1.137, salt * 7.31, seed * 0.173 + salt);
 }
 
-/**
- * Layered fir: drooping star-shaped tiers with snow sitting on every tier.
- * Small variant-3 trees are the stubby young firs from the tree sheet.
+/** Lobed, overlapping boughs with separate rounded snow shelves.
+ * Every tree remains a solid 3D mesh. Broad shapes replace the stacked cones;
+ * no alpha cards, per-needle geometry or additional material draws.
  */
-export function drawFir(batch: GeometryBatch, scale: number, variant: number, snowy: number, seed: number): void {
+export function drawFir(batch: GeometryBatch, scale: number, variant: number, snowy: number, seed: number, far = false, showcase = false): void {
   const young = variant === 3 && scale < 1.05;
   const tiers = young ? 3 : 4 + (variant % 3 === 0 ? 1 : 0);
-  const height = (young ? 5.4 : 8.6 + variant * 0.5) * scale;
-  const trunkHeight = (young ? 1.1 : 1.9) * scale;
-  const segments = 7;
-  batch.lathe(
-    [
-      [0.42 * scale, -0.2],
-      [0.24 * scale, trunkHeight + 0.6],
-    ],
-    5,
-    P.logDark,
-    'wood',
-  );
-  const crownHeight = height - trunkHeight;
-  const tierGap = crownHeight / (tiers + 0.6);
-  const green = mix(P.firDark, P.fir, (variant % 4) / 4);
-  for (let tier = 0; tier < tiers; tier += 1) {
-    const t = tier / tiers;
-    const radius = (young ? 2.1 - t * 1.3 : 2.7 - t * 1.9) * scale * (0.92 + rand(seed, tier) * 0.16);
-    const y0 = trunkHeight + tier * tierGap;
-    const tierHeight = tierGap * 1.75;
-    const lip = 0.45 * scale;
-    const phase = rand(seed, tier + 10) * Math.PI;
-    const tierProfile: [number, number][] = [
-      [radius * 0.8, y0 - lip],
-      [radius, y0 - lip * 0.15],
-      [radius * 0.45, y0 + tierHeight * 0.5],
-      [0.04, y0 + tierHeight],
-    ];
-    batch.lathe(
-      tierProfile,
-      segments,
-      (ring, segment) => {
-        const tip = segment % 2 === 0 ? 1.12 : 0.92;
-        return shade(mix(P.firDark, green, ring / 3), tip);
-      },
-      'foliage',
-      { phase, wobble: 0.13, seed: seed + tier, capBottom: true },
-    );
-    if (snowy > 0.05) {
-      const snowRadius = radius * (0.55 + snowy * 0.35);
-      batch.lathe(
-        [
-          [snowRadius, y0 + 0.1 + lip * 0.2],
-          [snowRadius * 0.45, y0 + tierHeight * 0.45],
-          [0.04, y0 + tierHeight * 0.8 + 0.06],
-        ],
-        segments,
-        (ring) => (ring === 0 ? P.snowMid : P.snow),
-        'snow',
-        { phase: phase + 0.25, wobble: 0.1, seed: seed + tier + 40 },
-      );
+  const height = (young ? 5.4 : 8.6 + variant * .5) * scale;
+  const trunk = (young ? 1.1 : 1.9) * scale;
+  const gap = (height - trunk) / (tiers + .6);
+  batch.lathe([[.37*scale,-.15],[.24*scale,trunk+gap]], 8, P.logDark, 'wood');
+  const segments = far ? 6 : showcase ? 24 : 8;
+  const green = mix(P.firDark, P.firLight, .24 + variant*.035);
+  const shelf = (radius: number, base: number, rise: number, phase: number, snow: boolean, tier: number) => {
+    const profile: readonly (readonly [number, number])[] = far
+      ? [[.72,0],[1,.14],[.025,1]]
+      : snow
+      ? [[.70,-.035],[.94,.13],[.66,.48],[.025,1]]
+      : [[.69,-.14],[1,0],[.57,.48],[.018,1]];
+    const grid: number[][] = [];
+    for (let r=0;r<profile.length;r++) {
+      const [rad,y] = profile[r]!, prev = profile[Math.max(0,r-1)]!, next = profile[Math.min(profile.length-1,r+1)]!;
+      const dr=(next[0]-prev[0])*radius, dy=(next[1]-prev[1])*rise;
+      const row:number[]=[];
+      for (let j=0;j<=segments;j++) {
+        const a=j/segments*Math.PI*2, wave=a*5+phase;
+        const lobe=1+.15*Math.cos(wave)+.045*Math.cos(a*9-phase);
+        const droop=(1-y)*(.12*Math.cos(wave)+.035*Math.sin(a*3+phase))*scale;
+        const rr=radius*rad*lobe, yy=base+y*rise+droop;
+        const nr=dy, ny=-dr, length=Math.hypot(nr,ny)||1;
+        const color=snow ? mix(P.snowMid,P.snow,Math.min(1,.28+y*.95))
+          : shade(green,.78+.18*y+.07*Math.sin(a*3+phase+tier));
+        row.push(batch.vertex(Math.sin(a)*rr,yy,Math.cos(a)*rr,Math.sin(a)*nr/length,ny/length,Math.cos(a)*nr/length,color,snow?'snow':'foliage'));
+      }
+      grid.push(row);
     }
-  }
-  // Snow lump or a little tip on top.
-  const topY = trunkHeight + tiers * tierGap + tierGap * 0.9;
-  if (snowy > 0.05) {
-    batch.blob(0, topY, 0, 0.32 * scale, 0.28 * scale, 0.32 * scale, P.snow, 'snow', { segments: 6, rings: 4 });
+    for(let r=0;r+1<grid.length;r++)for(let j=0;j<segments;j++) {
+      const a=grid[r]![j]!,b=grid[r]![j+1]!,c=grid[r+1]![j+1]!,d=grid[r+1]![j]!;
+      batch.triangle(a,b,c);batch.triangle(a,c,d);
+    }
+    // Close the dark underside, including when viewed from below the bridge.
+    const bottom=batch.vertex(0,base-.10*scale,0,0,-1,0,snow?P.snowShade:P.firDark,snow?'snow':'foliage');
+    for(let j=0;j<segments;j++)batch.triangle(bottom,grid[0]![j+1]!,grid[0]![j]!);
+  };
+  for(let tier=0;tier<tiers;tier++) {
+    const t=tier/tiers, radius=(young?2.1-t*1.3:2.7-t*1.9)*scale*(.91+rand(seed,tier)*.18);
+    const base=trunk+tier*gap, phase=rand(seed,tier+10)*Math.PI*2;
+    shelf(radius,base,gap*1.72,phase,false,tier);
+    if(snowy>.05)shelf(radius*(.72+.26* Math.min(1,snowy)),base+.12*scale,gap*1.56,phase,true,tier);
   }
 }
 

@@ -1,3 +1,5 @@
+import { ReferenceChaletFireView } from '../rendering/reference-fire';
+import { REFERENCE_CHALET_FIRE } from '@frost-and-flamingos/shared';
 import { REFERENCE_MARKERS, REFERENCE_SCENE } from '@frost-and-flamingos/shared';
 import { buildReferenceWorld } from '../rendering/reference-world';
 import { referenceScene } from '../state/scene';
@@ -323,6 +325,7 @@ export class GameClient {
   private readonly canvas: HTMLCanvasElement;
   private engine: AbstractEngine | null = null;
   private scene: Scene | null = null;
+  private referenceFire: ReferenceChaletFireView | null = null;
   private physics: PhysicsWorld | null = null;
   private cameraRig: CameraRig | null = null;
   private input: InputController | null = null;
@@ -637,7 +640,10 @@ export class GameClient {
       if (this.disposed) return;
       const buildStart = performance.now();
       this.visuals = buildFjordFiesta(scene, this.toonMaterial, { sprites, facades });
-      if (referenceScene) buildReferenceWorld(scene, this.toonMaterial);
+      if (referenceScene) {
+        buildReferenceWorld(scene, this.toonMaterial);
+        this.referenceFire = new ReferenceChaletFireView(scene);
+      }
       this.cableBrakeLevers = new CableBrakeLevers(this.visuals.brakeLevers);
       this.bootTimings.map = Math.round(performance.now() - buildStart);
       this.bootTimings.world = Math.round(performance.now() - artStart);
@@ -735,9 +741,8 @@ export class GameClient {
       this.network = new NetworkClient({
         onWelcome: (welcome) => this.handleWelcome(welcome),
         onSnapshot: (snapshot) => this.handleSnapshot(snapshot),
-        onMapState: () => {
-          // M1 has no destructibles, bridges or craters yet. The packet is
-          // decoded and acknowledged so later milestones can extend it.
+        onMapState: (state) => {
+          this.referenceFire?.setBurning(state.destructibles.find(item => item.id === REFERENCE_CHALET_FIRE.id)?.burning ?? false);
         },
         onProfile: (message) => this.handleProfile(message),
         onGameEvent: (event) => this.handleGameEvent(event),
@@ -910,6 +915,8 @@ export class GameClient {
     this.tracers = null;
     this.conquestClient?.dispose();
     audio.setRollRumble(0);
+    this.referenceFire?.dispose();
+    this.referenceFire = null;
     this.physics?.dispose();
     this.look?.dispose();
     this.look = null;
@@ -1246,6 +1253,9 @@ export class GameClient {
   }
 
   private handleGameEvent(event: GameEvent): void {
+    if (referenceScene && event.eventType === 'ENV_EXTINGUISH' && event.targetId === REFERENCE_CHALET_FIRE.id && event.actorId === this.localId) {
+      notify('reference.extinguished'); audio.playUi('confirm');
+    }
     const now = performance.now();
     const latest = this.snapshotHistory[this.snapshotHistory.length - 1]?.snapshot;
     const actor = latest?.players.find((entry) => entry.id === event.actorId);

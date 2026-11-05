@@ -763,7 +763,7 @@ export function decodeGameEvent(source: ArrayBuffer | ArrayBufferView): GameEven
 }
 
 export function encodeMapStateSync(mapState: MapStateSync): ArrayBuffer {
-  const writer = new BinaryWriter(64 + mapState.destructibles.length * 3 + mapState.craters.length * 8);
+  const writer = new BinaryWriter(64 + mapState.destructibles.length * 6 + mapState.craters.length * 8);
   writer.writeUint8(Opcode.S2C_MAP_STATE_SYNC);
   writer.writeUint16(mapState.destructibles.length);
   for (const destructible of mapState.destructibles) {
@@ -783,6 +783,14 @@ export function encodeMapStateSync(mapState: MapStateSync): ArrayBuffer {
       .writeUint16(bridge.id)
       .writeUint8(bridge.stage === 'intact' ? 0 : bridge.stage === 'patched' ? 1 : 2)
       .writeUint16(bridge.hp);
+  }
+  // Protocol 14 retains the old prefix and appends independent HP/fire data.
+  // Empty M5 map-state packets remain byte-for-byte identical.
+  if (mapState.destructibles.length > 0) {
+    writer.writeUint8(1).writeUint16(mapState.destructibles.length);
+    for (const state of mapState.destructibles) {
+      writer.writeUint16(Math.max(0, Math.min(65535, Math.round(state.hp)))).writeUint8(state.burning ? 1 : 0);
+    }
   }
   return writer.finish();
 }
@@ -825,6 +833,18 @@ export function decodeMapStateSync(source: ArrayBuffer | ArrayBufferView): MapSt
         stage: stage === 0 ? 'intact' : stage === 1 ? 'patched' : 'broken',
         hp: reader.readUint16(),
       });
+    }
+    // Legacy-shaped dumps have no detail trailer; retain their old defaults.
+    if (reader.remaining > 0) {
+      if (reader.readUint8() !== 1) throw new RangeError('Unknown map-state details version.');
+      if (reader.readUint16() !== destructibles.length) throw new RangeError('Mismatched map-state details.');
+      for (const state of destructibles) {
+        state.hp = reader.readUint16();
+        const burning = reader.readUint8();
+        if (burning > 1) throw new RangeError('Invalid burning flag.');
+        state.burning = burning === 1;
+      }
+      if (reader.remaining !== 0) throw new RangeError('Unexpected map-state details.');
     }
     return { destructibles, craters, bridges };
   });

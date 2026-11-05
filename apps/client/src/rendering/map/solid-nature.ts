@@ -3,9 +3,8 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import type { Scene } from '@babylonjs/core/scene';
 import { terrainSnowWeight, terrainBiomeAt, terrainSlopeAt, SNOWLINE_Y, terrainSurfaceTagAt, type MapProp } from '@frost-and-flamingos/shared';
 import { excludeFromInk, excludeFromShadows } from '../materials';
-import { GeometryBatch, mix } from './geometry';
+import { GeometryBatch } from './geometry';
 import { drawFir, drawPalm, drawRock } from './nature';
-import { P } from './palette';
 import { referenceFrost } from './reference-frost';
 
 export const SOLID_NATURE_KINDS: ReadonlySet<string> = new Set(['fir', 'palm', 'rock']);
@@ -22,15 +21,7 @@ function snowAt(prop: MapProp): number {
 function farTree(batch: GeometryBatch, prop: MapProp, snow: number): void {
   const s = prop.scale;
   if (prop.kind === 'fir') {
-    const young = prop.variant === 3 && s < 1.05;
-    const height = (young ? 5.4 : 8.6 + prop.variant * 0.5) * s;
-    batch.cylinder(0.35 * s, 0.2 * s, 2.3 * s, 6, P.logDark, 'wood');
-    for (let tier = 0; tier < 3; tier++) {
-      const y = (young ? 0.9 : 1.5) * s + tier * height * 0.22;
-      const radius = (young ? 1.8 : 2.6) * s * (1 - tier * 0.24);
-      batch.lathe([[radius * 0.75, y], [radius, y + 0.22 * s], [0.03, Math.min(height, y + height * 0.52)]],
-        7, snow > 0.3 ? mix(P.fir, P.snowMid, 0.82) : P.fir, snow > 0.3 ? 'snow' : 'foliage', { capBottom: true });
-    }
+    drawFir(batch, s, prop.variant, snow, Math.floor(prop.position.x * 7.3 + prop.position.z * 3.1), true);
   } else {
     // Keep the same leaning trunk/crown as the detailed palm, using fewer fronds.
     drawPalm(batch, s, prop.variant, Math.floor(prop.position.x * 7.3 + prop.position.z * 3.1), undefined, true);
@@ -55,7 +46,7 @@ export function buildSolidNature(scene: Scene, material: Material, props: readon
     const seed = Math.floor(p.x * 7.3 + p.z * 3.1);
     const rockTop = snow > 0.4 ? 'snow' : terrainSurfaceTagAt(p.x, p.z) === 'sand' ? 'beach' : p.y > 30 ? 'bare' : 'moss';
     group.near.at(p.x, p.y, p.z, prop.rotationY, () => {
-      if (prop.kind === 'fir') drawFir(group.near, prop.scale, prop.variant, snow, seed);
+      if (prop.kind === 'fir') drawFir(group.near, prop.scale, prop.variant, snow, seed, false, Math.hypot(p.x,p.z-75)<100);
       else if (prop.kind === 'palm') drawPalm(group.near, prop.scale, prop.variant, seed);
       else drawRock(group.near, prop.scale, prop.variant, rockTop, seed);
     });

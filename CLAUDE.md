@@ -12,6 +12,16 @@ bars on the other. No Battlefield/EA assets, names, maps or audio may be used or
 The project is delivered in milestones. **Only the current milestone may be implemented.**
 Future-milestone code, placeholder gameplay loops and speculative systems are not allowed.
 
+## Active owner priority: PHOTO artwork (5 November 2026)
+
+The owner rejected the current low-detail look and explicitly restored `PHOTO-*.jpg`
+as the visual target. This supersedes the earlier Gemini clean-cel direction below.
+Continue real 3D asset/material production and compare the running browser game
+with those illustrations. No screenshot backgrounds, sprite replacements for solid
+actors, or claims of exact parity based only on tests. Preserve selectable skin,
+outfits, animation, collision and laptop budgets. New gameplay milestones remain
+secondary to this art request. Work solo/serially.
+
 ## Active owner priority: latest visual reference (27 October 2026)
 
 The owner now requires the actual game, players and HUD to follow the latest
@@ -1486,3 +1496,81 @@ Idle-room release is also verified: after the last socket closed, the health
 endpoint changed from a live empty room to `idle` at the 65.453-second polling
 checkpoint (60-second configured grace). See the same QA report. This completes
 the reference core's additional drive/instance/resource/lifetime checks.
+
+### Gletscherpass fire and empty-room CPU finishing — 4 November 2026
+
+The public menu names the playable skirmish **Gletscherpass · Climate Conquest**.
+Its chalet has five actual server-owned fire patches. Sustained snow-cannon
+hits on the real chalet extinguish the fire; the sand flamer can ignite it
+again. Nearby exposed figures take periodic damage with solid-wall occlusion;
+armoured crews and the untouchable drifter keep their existing protection.
+Late joins receive the current state, and a new round restores the fire.
+The house remains structurally intact/walkable: this is the reference scene's
+interactive fire, not completed general M6 collapse/craters/destruction.
+
+The visual is original 3D geometry: five flame clusters and fifteen smoke puffs
+in two instanced draws, one unlit vertex-colour material and zero image textures.
+It reuses fixed matrix arrays, conservative static bounds and a 180 m update
+cutoff. No emitter growth, dynamic lights, additional fullscreen pass or per-frame
+object allocations. Existing chimney smoke remains a separate eight-instance draw.
+
+Map-state codec review found that its old scaffold discarded independent HP and
+burning fields, inferring fire only from structural stage 2. Protocol **14** adds
+a version-1 detail trailer after the unchanged map-state prefix/bridge block:
+u8 version, u16 record count, then u16 HP/u8 burning in the existing record order.
+Empty map packets are unchanged; legacy-shaped dumps retain historical defaults.
+Malformed/truncated trailers fail safely. The connection handshake requires 14,
+so an older browser build must reload rather than entering an invisible hazard.
+This supersedes earlier protocol-13 preservation notes for this fire iteration.
+
+The otherwise unused normal room now pauses its CPU timer without connections
+and resumes its retained physics on the next socket; the reference room still
+releases its entire physics after the existing sixty-second idle grace.
+RoofSniper77 is a real armed bot on supported snow roof clear of the fire, with
+ordinary aiming/shooting/reloading and a held guard post. Reference bots respawn
+back in their authored combat positions instead of crowding the visitor's vista.
+Targeted timer/roof/collider, burning/weapon/late-join/reset, fixed-pool and binary
+compatibility regressions pass. Final complete checks/browser evidence follow.
+
+
+### PHOTO-directed illustrated assets — 5 November 2026
+
+An original 4×2 material sheet (`art/tex/comic-surfaces.png`, 1774×887) supplies
+inked cloth, wool, leather and timber modulation. Semantic `uv3` labels are set
+before wardrobe merging and carried into the cached GPU-skinned body. No skin,
+face pigment or small metal hardware receives the garment pattern. Existing
+selected colours supply the pigment; the sheet supplies luminance creases.
+Rest-pose coordinates keep strokes attached during animation. GLSL/WGSL use
+explicit mip sampling, atlas insets and distance/footprint fading. One shared
+mipmapped texture per scene, no new character draw or fullscreen pass.
+
+Offline `sculpt-comic-face.py` fits eyelid, nose, cheek, ear and forehead ribbons
+to the actual closed head using a BVH. 720 additional triangles keep the complete
+head below the existing 8,000-triangle limit (7,948); skin-relative tints remain
+configurable. All six metadata hashes/cache revisions are updated; source GLBs
+are untouched. The ordinary head bake runs this step reproducibly.
+
+Solid firs now use lobed overlapping boughs and separate snow shelves at near
+and far LODs, replacing the uniform conical tiers without alpha foliage. At most
+1,680 triangles for a nearby reference tree / 300 far per five-tier snowy tree;
+ordinary trees use 560 triangles near. Keep the complete nature layer under
+its existing 600,000-triangle budget. Painted world colour
+strength is restored from .20 to .82; grayscale micro-detail .09 to .24.
+This is an art iteration, not accepted PHOTO parity. Live browser comparison and
+validation results must be recorded before publishing.
+
+
+Verification of the first illustrated asset increment (5 November 2026): 14 script,
+226 server and 155 client cases pass (395 total), zero strict TypeScript/Svelte
+errors or warnings, production builds pass. The complete nature layer is bounded
+at 577,104 near / 286,908 far triangles. Real Chromium WebGL2 verifies entry,
+walking/jumping, sustained snow-cannon extinguishing through the actual hit/network
+path, late-join visible fire, wardrobe visibility and actual posed 3D inspection.
+No console errors, failed asset requests or context losses. Fire was isolated
+without bots; whole-scene/close views use 1280×800 Medium, controls use 800×500 Low.
+`docs/qa/comic-art-2026-11-05.json` and captures record the result. The visual review
+still rejects PHOTO parity: detailed clothing forms, composition and fire artwork
+need further production. Native Mac M4 performance/heat was not measured.
+
+The new soft/native outfit variants also compile with the WebGPU WGSL compiler.
+Cloud device-loss/restoration warnings prevent a full WebGPU runtime acceptance claim.

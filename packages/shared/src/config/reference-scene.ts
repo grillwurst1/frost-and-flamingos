@@ -1,6 +1,7 @@
 /** The playable Gletscherpass slice uses the same map/colliders and binary protocol. */
 import { CONQUEST_TOWERS } from './conquest.js';
-import { sampleMapHeight } from './map-fjord.js';
+import { FJORD_MAP, sampleMapHeight } from './map-fjord.js';
+import { roofBase } from './map/buildings.js';
 import { VEHICLE_SLOTS, type VehicleSlot } from './vehicles.js';
 import type { Faction, TowerDefinition, Vec3, MapProp } from '../types/index.js';
 
@@ -45,3 +46,19 @@ export const REFERENCE_MARKERS: readonly MapProp[] = [...flags, ...[
   rotationY:yaw!,scale:1,variant:0,
   colliders:[{type:'box',halfExtents:{x:.60,y:.60,z:.60},offset:{x:0,y:.60,z:0},surface:'wood'}],
 }))];
+
+/** The live reference cast returns to its combat area; the rooftop guard has
+ * an actual supported snow-roof spawn, clear of the five fire patches. */
+export function referenceCastSpawn(index:number): {position:Vec3;yaw:number} {
+  if(index===0) {
+    const chalet=FJORD_MAP.props.find(p=>p.id==='chalet_north')!,layout=chalet.building!;
+    const x=-layout.width*.38,z=layout.depth*.37;
+    const y=roofBase(layout)+Math.tan(layout.roof.pitch)*(layout.width/2+layout.roof.overhang-Math.abs(x))+.36;
+    const position={x:chalet.position.x+Math.cos(chalet.rotationY)*x+Math.sin(chalet.rotationY)*z,
+      y:chalet.position.y+y,z:chalet.position.z-Math.sin(chalet.rotationY)*x+Math.cos(chalet.rotationY)*z};
+    return {position,yaw:Math.atan2(-position.x,71.5-position.z)};
+  }
+  const [x,z]=([[7,43],[-6,47],[-5,105],[17,116],[1,82],[21,102]][index]??[7,43]) as [number,number];
+  const height=index===4?18.3-1.4*Math.sin((z-46.5)/50*Math.PI):sampleMapHeight(x,z);
+  return {position:{x,y:height+.05,z},yaw:index===1||index===4?-.2:Math.PI};
+}
