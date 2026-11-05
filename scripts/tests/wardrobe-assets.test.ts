@@ -168,3 +168,35 @@ test('shared bare hands have closed anatomical fingers and neutral skin creases'
   expect(parseBodySurfaces({ ...body, hands: { ...hands, weights: hands.weights.map(() => 0) } })).toBeNull();
   expect(parseBodySurfaces({ ...body, hands: { ...hands, regions: hands.regions.map(() => 4) } })).toBeNull();
 });
+
+test('authored shirt and breeches are closed, bounded skinned surfaces rather than loose donor fragments', async () => {
+  const directory = resolve(import.meta.dir, '../../apps/client/public/models');
+  const metadata = await Bun.file(resolve(directory, 'alpine-allrounder-wardrobe.json')).json();
+  for (const key of ['shirt', 'breeches']) {
+    const g = metadata[key] as import('../../apps/client/src/rendering/glb/native-wardrobe').NativeGarment;
+    expect(g).toBeDefined(); expect(g.sourceHash).toBe(metadata.sourceHash);
+    expect(g.indices.length / 3).toBeLessThanOrEqual(9000);
+    const edges = new Map<string, number>();
+    const at = (v: number) => g.positions.slice(v*3,v*3+3).join(',');
+    for(let f=0;f<g.indices.length;f+=3)for(let j=0;j<3;j++) {
+      const a=at(g.indices[f+j]!),b=at(g.indices[f+(j+1)%3]!);
+      expect(a).not.toBe(b);
+      const edge=a<b?a+'|'+b:b+'|'+a;edges.set(edge,(edges.get(edge)??0)+1);
+    }
+    // A few authored folds touch along the same welded edge. Every seam
+    // must be covered in pairs; an open border has odd incidence.
+    expect([...edges.values()].every(n=>n>=2 && n%2===0)).toBe(true);
+    let area=0;
+    for(let f=0;f<g.indices.length;f+=3) {
+      const a=g.positions.slice(g.indices[f]!*3,g.indices[f]!*3+3),b=g.positions.slice(g.indices[f+1]!*3,g.indices[f+1]!*3+3),c=g.positions.slice(g.indices[f+2]!*3,g.indices[f+2]!*3+3);
+      const ab=b.map((q,i)=>q-a[i]!),ac=c.map((q,i)=>q-a[i]!);
+      area+=Math.hypot(ab[1]!*ac[2]!-ab[2]!*ac[1]!,ab[2]!*ac[0]!-ab[0]!*ac[2]!,ab[0]!*ac[1]!-ab[1]!*ac[0]!)/2;
+    }
+    // Closed scraps are insufficient: retain the actual garment coverage.
+    expect(area).toBeGreaterThan(key==='shirt'?.2:.6);
+    for(let v=0;v<g.positions.length/3;v++) {
+      expect(g.weights.slice(v*4,v*4+4).reduce((a,b)=>a+b,0)).toBeCloseTo(1,5);
+      expect(Math.hypot(...g.normals.slice(v*3,v*3+3))).toBeGreaterThan(.8);
+    }
+  }
+});

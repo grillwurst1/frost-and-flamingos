@@ -1388,3 +1388,29 @@ need further production. Native Mac M4 performance/heat was not measured.
 
 The new soft/native outfit variants also compile with the WebGPU WGSL compiler.
 Cloud device-loss/restoration warnings prevent a full WebGPU runtime acceptance claim.
+
+
+### PHOTO-Referenzszene: Kleidung und Anzeige
+
+Im Gletscherpass trägt der Ranger nun die detaillierten 3D-Kleidungsflächen mit
+Falten, Taschen und Stickereien. Hautfarbe, Kleidung und Schuhe lassen sich
+weiterhin getrennt wählen. Der Saum wird über der eigenen Beinhaut dargestellt.
+Die kompakte Punkteanzeige sitzt wie in den PHOTO-Bildern unten, die vier
+Aktionskarten rechts. Dort stehen die tatsächlichen Tasten Q, E, T und 3;
+Lebenspunkte, Schild und aktive Munition bleiben sichtbar. Die Figur bleibt
+horizontal mittig; in der PHOTO-Referenzszene liegt das Fadenkreuz über ihrem Kopf.
+
+Gezeichnete Wolken, Wasserschaum, größere Felsstrukturen und animierte Flammen
+gehören zur neuen Darstellung. Das Chaletfeuer lässt sich weiterhin mit der
+Schneekanone löschen. Die Kuh beginnt auf der tragfähigen Brückenfläche.
+Die vollständige grafische Übereinstimmung mit allen PHOTO-Vorlagen ist weiterhin
+in Arbeit; ein erfolgreicher Funktionstest ersetzt diese Sichtprüfung nicht.
+
+
+Verification / Prüfung (5 November 2026): 15 script + 227 server + 156 client
+checks pass (398), strict diagnostics 0 errors / 0 warnings, production build passes.
+Real Chromium WebGL2 confirms locked mouse input, actual snow-cannon shots,
+server-driven extinguishing, loaded 41,644-triangle ranger and visible wardrobe.
+No page/console errors, failed asset responses or WebGL context losses in the
+isolated run. Evidence: `docs/qa/comic-wearables-2026-11-05.json`.
+This verifies those paths; PHOTO visual parity and native Mac M4 heat/FPS remain open.

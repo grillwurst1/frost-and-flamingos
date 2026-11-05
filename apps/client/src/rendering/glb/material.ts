@@ -82,6 +82,7 @@ export function createGlbMaterial(
   options: GlbMaterialOptions = {},
 ): ShaderMaterial {
   const webgpu = scene.getEngine().isWebGPU;
+  const paintedProp = !textures && !options.soft && name.startsWith('glb-props-');
   const native = Boolean(textures?.wardrobeMask && options.wardrobe);
   const sharedHead = native && Boolean(textures?.head && options.wardrobe?.head);
   const textured = textures !== null && !native;
@@ -112,10 +113,10 @@ export function createGlbMaterial(
         ...(sharedHead ? ['uHeadSkinReference', 'uHeadHairReference'] : []),
         ...LOOK_UNIFORMS,
       ],
-      samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : native ? ['albedoSampler', 'wardrobeMaskSampler', 'comicPaintSampler', ...(sharedHead ? ['headPaintSampler', 'headMaskSampler'] : []), ...LOOK_SAMPLERS] : [...(options.soft ? ['comicPaintSampler'] : []), ...LOOK_SAMPLERS],
+      samplers: textured ? ['albedoSampler', 'normalSampler', ...LOOK_SAMPLERS] : native ? ['albedoSampler', 'wardrobeMaskSampler', 'comicPaintSampler', ...(sharedHead ? ['headPaintSampler', 'headMaskSampler'] : []), ...LOOK_SAMPLERS] : [...(options.soft || paintedProp ? ['comicPaintSampler'] : []), ...LOOK_SAMPLERS],
       defines: textured
         ? ['#define FF_TEXTURED', ...(options.photoreal ? ['#define FF_PHOTOREAL'] : [])]
-        : options.soft ? ['#define FF_SOFT_CHARACTER', ...(native ? ['#define FF_NATIVE_WARDROBE'] : []), ...(sharedHead ? ['#define FF_WARDROBE_HEAD'] : [])] : [],
+        : options.soft ? ['#define FF_SOFT_CHARACTER', ...(native ? ['#define FF_NATIVE_WARDROBE'] : []), ...(sharedHead ? ['#define FF_WARDROBE_HEAD'] : [])] : paintedProp ? ['#define FF_COMIC_PROP'] : [],
       shaderLanguage: webgpu ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
     },
   );
@@ -133,6 +134,7 @@ export function createGlbMaterial(
     material.setColor3('uSkinColor', Color3.FromHexString(options.skin ?? '#fac39c'));
     material.setTexture('comicPaintSampler', comicPaintTexture(scene));
   }
+  if (paintedProp) material.setTexture('comicPaintSampler', comicPaintTexture(scene));
   if (native && textures && options.wardrobe) {
     const w = options.wardrobe;
     material.setTexture('albedoSampler', textures.albedo); material.setTexture('wardrobeMaskSampler', textures.wardrobeMask!);

@@ -31,6 +31,14 @@ try {
     const bake = Bun.spawn(['python3', join(root, 'scripts/bake-soldier-wardrobe.py'), input, output], { stdout: 'inherit', stderr: 'inherit' });
     if (await bake.exited !== 0) throw new Error(`Wardrobe mask bake failed: ${key}`);
     if (key === 'alpine-allrounder') {
+      const metadataFile = join(output, key+'-wardrobe.json');
+      for (const [field, region] of [['breeches',6],['shirt',3]] as const) {
+        const garmentFile = join(temporary, 'closed-'+field+'.json');
+        const garment = Bun.spawn(['python3', join(root, 'scripts/bake-illustrated-clothing.py'), input, metadataFile, garmentFile, String(region)], { stdout: 'inherit', stderr: 'inherit' });
+        if (await garment.exited !== 0) throw new Error('Closed authored clothing bake failed: '+field);
+        const metadata = await Bun.file(metadataFile).json(); metadata[field] = await Bun.file(garmentFile).json();
+        await Bun.write(metadataFile, JSON.stringify(metadata));
+      }
       const hands = Bun.spawn(['blender', '--background', '--factory-startup', '--threads', '2', '--python', join(root, 'scripts/bake-soldier-hands.py'), '--', input, output, join(temporary, 'soldier-hands.json')], { stdout: 'inherit', stderr: 'inherit' });
       if (await hands.exited !== 0) throw new Error('Anatomical hand bake failed');
     }

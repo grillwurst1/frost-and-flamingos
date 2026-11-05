@@ -752,3 +752,25 @@ without bots; whole-scene/close views use 1280×800 Medium, controls use 800×50
 `docs/qa/comic-art-2026-11-05.json` and captures record the result. The visual review
 still rejects PHOTO parity: detailed clothing forms, composition and fire artwork
 need further production. Native Mac M4 performance/heat was not measured.
+
+
+### Reference artwork production continuation — 5 November 2026
+
+Preserved authored shirt/lederhosen geometry and paint, added thin lining/seam
+surfaces, removed duplicate knee skin and kept actual GPU-skinning/wardrobe.
+Reference HUD now follows PHOTO's bottom ribbon/action layout. Added drawn live
+flame animation, bounded billowing 3D smoke, painted cloud/foam assets and broad
+cliff texture scale. The cow's initial bridge support is regression-tested.
+Current work is visual reference production; no new milestone is declared done.
+
+
+5 November verified wearable/effect checkpoint: all 398 automated checks,
+strict diagnostics and production builds pass. Real WebGL2 isolated inputs,
+chalet extinguishing and wardrobe pass; separate 1280×800 Medium public entry
+with all six real cast members passes without console/HTTP/context errors.
+Evidence: `docs/qa/comic-wearables-2026-11-05.json` and
+`docs/qa/comic-reference-live-2026-11-05.json`. Both new prop/fire WGSL variants
+compile without validation errors, but Cloud WebGPU adapter/restoration errors
+keep native runtime acceptance open. Visual review still rejects exact PHOTO
+parity: repeated vegetation, sparse foreground, face/silhouette production and
+composition need further work. Native Mac M4 heat/FPS have not been measured.

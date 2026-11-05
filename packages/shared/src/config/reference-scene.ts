@@ -58,7 +58,10 @@ export function referenceCastSpawn(index:number): {position:Vec3;yaw:number} {
       y:chalet.position.y+y,z:chalet.position.z-Math.sin(chalet.rotationY)*x+Math.cos(chalet.rotationY)*z};
     return {position,yaw:Math.atan2(-position.x,71.5-position.z)};
   }
-  const [x,z]=([[7,43],[-6,47],[-5,105],[17,116],[1,82],[21,102]][index]??[7,43]) as [number,number];
-  const height=index===4?18.3-1.4*Math.sin((z-46.5)/50*Math.PI):sampleMapHeight(x,z);
-  return {position:{x,y:height+.05,z},yaw:index===1||index===4?-.2:Math.PI};
+  const [x,z]=([[7,43],[-6,47],[-5,105],[17,116],[0,87],[21,102]][index]??[7,43]) as [number,number];
+  // Collision uses four straight bridge ramps. Spawning on the smooth sag
+  // curve can put a hoof below a ramp and let the cow fall through on join.
+  const deck=index===4?FJORD_MAP.props.find(p=>p.kind==='bridge_deck'&&p.dimensions&&z>=p.position.z&&z<=p.position.z+p.dimensions.z):undefined;
+  const height=deck?.dimensions?deck.position.y+deck.dimensions.y*(z-deck.position.z)/deck.dimensions.z:sampleMapHeight(x,z);
+  return {position:{x,y:height+(index===4?.15:.05),z},yaw:index===1||index===4?-.2:Math.PI};
 }

@@ -256,9 +256,9 @@ float ffLayerCell(float layer) {
   return layer < 0.5 ? 4.0 : (layer < 1.5 ? 5.0 : (layer < 2.5 ? 6.0 : (layer < 3.5 ? 7.0 : (layer < 4.5 ? 3.0 : 5.0))));
 }
 
-/** Repeats per metre: snow 6 m, sand 5 m, grass 4 m, rock 6.5 m, cobble 2.4 m, mud 3.3 m. */
+/** Repeats per metre: snow 6 m, sand 5 m, grass 4 m, rock 25 m, cobble 2.4 m, mud 3.3 m. */
 float ffLayerScale(float layer) {
-  return layer < 0.5 ? 0.16 : (layer < 1.5 ? 0.2 : (layer < 2.5 ? 0.25 : (layer < 3.5 ? 0.155 : (layer < 4.5 ? 0.42 : 0.3))));
+  return layer < 0.5 ? 0.16 : (layer < 1.5 ? 0.2 : (layer < 2.5 ? 0.25 : (layer < 3.5 ? 0.04 : (layer < 4.5 ? 0.42 : 0.3))));
 }
 
 vec3 ffLayerTile(float layer, vec2 uv, vec2 gx, vec2 gy, float macroMix, bool antiTile) {
@@ -360,7 +360,7 @@ vec3 ffTerrainSurface(vec4 vertexColor, vec4 mixA, vec4 mixB, vec3 worldPos, ino
     }
     vec3 tile = mix(first, second, blend);
     float coverage = clamp(top.x + top.z, 0.0, 1.0);
-    float cliffTexture = mix(1.0, 0.35, mixA.w * (1.0 - smoothstep(0.45, 0.75, normal.y)));
+    float cliffTexture = mix(1.0, 0.70, mixA.w * (1.0 - smoothstep(0.45, 0.75, normal.y)));
     albedo *= mix(vec3(1.0), clamp(tile * 2.0, 0.0, 1.85), uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75) * cliffTexture);
     // Painterly macroMix variation: broad warm/cool patches like brush washes.
     float wash = ffDetailNoise(worldPos.xz * 0.013 + 11.0) - 0.5;
@@ -620,7 +620,7 @@ fn ffLayerScale(layer : f32) -> f32 {
   if (layer < 0.5) { return 0.16; }
   if (layer < 1.5) { return 0.2; }
   if (layer < 2.5) { return 0.25; }
-  if (layer < 3.5) { return 0.155; }
+  if (layer < 3.5) { return 0.04; }
   if (layer < 4.5) { return 0.42; }
   return 0.3;
 }
@@ -719,7 +719,7 @@ fn ffTerrainSurface(vertexColor : vec4f, mixA : vec4f, mixB : vec4f, worldPos : 
     }
     let tile = mix(first, second, blend);
     let coverage = clamp(top.x + top.z, 0.0, 1.0);
-    let cliffTexture = mix(1.0, 0.35, mixA.w * (1.0 - smoothstep(0.45, 0.75, normalIn.y)));
+    let cliffTexture = mix(1.0, 0.70, mixA.w * (1.0 - smoothstep(0.45, 0.75, normalIn.y)));
     albedo = albedo * mix(vec3f(1.0), clamp(tile * 2.0, vec3f(0.0), vec3f(1.85)), uniforms.uFFColorParams.x * coverage * (1.0 - mixA.x * 0.75) * cliffTexture);
     let wash = ffDetailNoise(worldPos.xz * 0.013 + 11.0) - 0.5;
     albedo = albedo * (1.0 + wash * 0.16 * (1.0 - mixA.x * 0.6));

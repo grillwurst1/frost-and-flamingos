@@ -71,7 +71,7 @@ test('reference cast includes armed soldiers and a living cow at the bridge, wit
     const cast=[...internals(room).players.values()].map(p=>({...p,character:p.character as CharacterBody}));
     expect(cast).toHaveLength(6);
     const cow=cast.find(p=>p.profile.faction==='alpine'&&p.character.form==='cow');
-    expect(cow).toBeDefined();expect(cow!.character.position.z).toBe(82);
+    expect(cow).toBeDefined();expect(cow!.character.position.z).toBe(87);
     expect(cast.filter(p=>p.character.form===null)).toHaveLength(5);
   }finally {room.stop();}
 });
@@ -89,4 +89,18 @@ test('the rooftop defender holds solid snow roof clear of the fire and respawns 
     expect(guard.character.position.y).toBeGreaterThan(28);
     expect(Math.hypot(guard.character.position.x-start.x,guard.character.position.z-start.z)).toBeLessThan(.15);
   }finally {room.stop();}
+});
+
+test('the reference cow stays supported by the actual bridge ramps throughout the intro',async()=>{
+  const room=await MatchRoom.create({reference:true,bots:6,critters:false});
+  try {
+    const cow=playerOf(room,5);
+    expect((cow.character as CharacterBody).form).toBe('cow');
+    run(room,600);
+    expect(cow.alive).toBe(true);expect(cow.hp).toBe(260);
+    expect(cow.character.position.x).toBeCloseTo(0,1);
+    expect(cow.character.position.z).toBeCloseTo(87,1);
+    expect(cow.character.position.y).toBeGreaterThan(17.3);
+    expect(cow.character.position.y).toBeLessThan(18.5);
+  }finally{room.stop();}
 });

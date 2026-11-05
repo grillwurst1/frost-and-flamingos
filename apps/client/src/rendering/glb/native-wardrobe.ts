@@ -1,12 +1,21 @@
 import type { Cosmetics, PlayerProfile } from '@frost-and-flamingos/shared';
 import type { PaintedModelAsset } from './library';
 
+export interface NativeGarment {
+  version: 1; sourceHash: string;
+  positions: number[]; normals: number[]; uvs: number[];
+  joints: number[]; weights: number[]; indices: number[]; pigment: number[];
+}
+
 export interface NativeWardrobeData {
   version: 1;
   sourceHash: string;
   /** Optional hash of the separately baked, scene-shared clean head. */
   headHash?: string;
   bodyHash?: string;
+  /** Closed authored leather surface, baked offline from this same rig. */
+  breeches?: NativeGarment;
+  shirt?: NativeGarment;
   afroFaces?: number[];
   vertexCount: number;
   indexCount: number;
@@ -47,7 +56,7 @@ export function nativeWardrobeRecipe(profile: PlayerProfile, asset: PaintedModel
     hat: asset.hatSplit !== null && c.headgear === asset.spec.native.headgear && c.hairStyleIndex === outfit.hair,
     torso, arms: torso,
     hands: c.hands === 'hands_bare' && asset.spec.native.hands === 'hands_bare',
-    legs: c.legs === outfit.legs,
+    legs: c.legs === outfit.legs || (c.legs === 'legs_lederhosen' && Boolean(asset.wardrobe.breeches)),
     feet: c.feet === outfit.feet,
   };
 }
@@ -66,6 +75,26 @@ export function parseNativeWardrobe(value: unknown, vertices: number, indices: n
   if (d.afroFaces !== undefined && (!Array.isArray(d.afroFaces) || !d.afroFaces.every(n => Number.isInteger(n) && n >= 0 && n < indices / 3))) return null;
   if (d.bodyHash !== undefined && (typeof d.bodyHash !== 'string' || !/^[a-f0-9]{64}$/.test(d.bodyHash))) return null;
   if (d.headHash !== undefined && (typeof d.headHash !== 'string' || !/^[a-f0-9]{64}$/.test(d.headHash))) return null;
+  for (const g of [d.breeches, d.shirt]) {
+    if (g === undefined) continue;
+    if (!g || typeof g !== 'object') return null;
+    const count = g.positions?.length / 3;
+    if (g.version !== 1 || g.sourceHash !== d.sourceHash || !Number.isInteger(count) || count < 100 || count > 15000) return null;
+    for (const [a, length] of [[g.positions,count*3],[g.normals,count*3],[g.uvs,count*2],[g.joints,count*4],[g.weights,count*4],[g.pigment,count]] as const)
+      if (!Array.isArray(a) || a.length !== length || !a.every(Number.isFinite)) return null;
+    if (!Array.isArray(g.indices) || g.indices.length < 300 || g.indices.length > 27000 || g.indices.length % 3
+      || !g.indices.every(i => Number.isInteger(i) && i >= 0 && i < count)
+      || !g.pigment.every(i => i === 0 || i === 1)) return null;
+    for (let v=0;v<count;v++) {
+      let sum=0;
+      for(let k=0;k<4;k++) {
+        const j=g.joints[v*4+k]!,w=g.weights[v*4+k]!;
+        if(!Number.isInteger(j)||j<0||j>=512||w<0||w>1)return null;
+        sum+=w;
+      }
+      if(sum<.999||sum>1.001)return null;
+    }
+  }
   for (const reference of [d.skinReference, d.hairReference]) if (!Array.isArray(reference) || reference.length !== 3 || !reference.every(n => Number.isFinite(n) && n > .01 && n <= 1)) return null;
   return d as NativeWardrobeData;
 }

@@ -1574,3 +1574,51 @@ need further production. Native Mac M4 performance/heat was not measured.
 
 The new soft/native outfit variants also compile with the WebGPU WGSL compiler.
 Cloud device-loss/restoration warnings prevent a full WebGPU runtime acceptance claim.
+
+
+### Authored clothing, PHOTO HUD and sky — 5 November 2026
+
+The Alpine Allrounder's selected tracht/lederhosen now reuse the actual authored
+painted clothing surfaces, with an offline 1.5 mm lining and seam walls.
+`bake-illustrated-clothing.py` preserves source UVs, normals and normalized bone
+weights; it trims the shorts and removes donor knee skin so the independent
+anatomical legs cannot intersect a second skin shell. Keep original GLBs unchanged.
+Do not voxel-remesh already-cut clothing: it loses large panels and can leave
+closed scraps. Tests now check coverage area, seam pairing, weights and normals.
+The new surface data lives in optional `shirt`/`breeches` wardrobe metadata;
+validate it and keep the complete fallback. Both layers stay in the existing
+single GPU-skinned body draw/cache. Garment limits: 15,000 vertices / 9,000 triangles
+each. Actual inspected ranger: 41,644 body triangles; all outfit/skin/feet tests pass.
+
+The same shared inked material sheet now gives held weapons/alphorn subtle wood
+and metal marks. Felt, cream cloth and red boot modulation is deliberately lower
+than timber. GLSL/WGSL use identical semantic rules and rest-space sampling.
+
+This supersedes the previous solid fire cones / fifteen-puff description:
+reference fire uses an original eight-frame transparent sheet at 12 fps, five
+camera-facing effect quads and forty lit solid smoke puffs, in two draws / two
+materials / one texture. The smoke forms one bounded billowing roof plume.
+Its state/damage/extinguishing remain the existing authoritative protocol-14 fire.
+No dynamic lights, growing particle pools or new fullscreen pass.
+
+Painted cloud cutouts and water foam load by default; they replace procedural sky
+clouds. The horizon panorama remains opt-in (`paintedSky=1`), `paintedSky=0` skips
+painted sky assets. Cliff paint has a 25 m scale, stronger broad fractures and
+snow restricted on steep faces, with identical terrain/collision geometry.
+
+The reference skirmish now uses PHOTO's bottom ticket ribbon and compact four
+painted action cards. HP/shield, ammo, actual Q/E/T/3 bindings, names and capture
+notices remain live; other rooms retain the field HUD. The reference human camera remains
+horizontally centred, with a 1.95 m pivot to clear the hero's head from the reticle
+while leaving boot/HUD space. Reference cow spawn is on the actual straight
+bridge-ramp surface at z=87 rather than the lower analytic sag curve; a ten-second
+intro test verifies support, position and full health.
+
+
+Verification / Prüfung (5 November 2026): 15 script + 227 server + 156 client
+checks pass (398), strict diagnostics 0 errors / 0 warnings, production build passes.
+Real Chromium WebGL2 confirms locked mouse input, actual snow-cannon shots,
+server-driven extinguishing, loaded 41,644-triangle ranger and visible wardrobe.
+No page/console errors, failed asset responses or WebGL context losses in the
+isolated run. Evidence: `docs/qa/comic-wearables-2026-11-05.json`.
+This verifies those paths; PHOTO visual parity and native Mac M4 heat/FPS remain open.

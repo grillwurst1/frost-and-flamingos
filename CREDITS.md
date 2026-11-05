@@ -268,3 +268,13 @@ metal swatches; no EA/Battlefield assets). It is a material atlas, not a scene
 background or character sprite. `scripts/sculpt-comic-face.py` authors original
 facial crease ribbons fitted to the project's existing derived closed head.
 The owner's PHOTO references and source Meshy GLBs remain unchanged.
+
+
+### Illustrated reference effects and preserved clothing (5 November 2026)
+
+`art/tex/comic-fire.png` is original eight-frame flame-effect artwork generated
+with OpenAI image generation using the owner's burning-chalet PHOTO for style.
+It is used only for the live extinguishable fire effect. The solid smoke plume
+is original 3D geometry. Existing owner-painted clouds and foam are reused.
+`bake-illustrated-clothing.py` preserves/rebinds the owner's existing Alpine
+clothing with original seam/lining geometry; original Meshy GLBs are untouched.

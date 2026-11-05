@@ -1002,3 +1002,30 @@ without bots; whole-scene/close views use 1280×800 Medium, controls use 800×50
 `docs/qa/comic-art-2026-11-05.json` and captures record the result. The visual review
 still rejects PHOTO parity: detailed clothing forms, composition and fire artwork
 need further production. Native Mac M4 performance/heat was not measured.
+
+
+## Authored wearable/effect pass — 5 November 2026
+
+The original shirt/lederhosen paint and folds are now retained as actual skinned
+wearables, rather than smooth replacement columns. An offline lining/seam pass
+preserves native UVs and bone weights and removes duplicate donor knee skin.
+The isolated real-renderer front/back inspection shows the complete garment,
+cleaner hems and independent shoes; the ranger body is 41,644 triangles in one draw.
+
+PHOTO composition now includes bottom ticket/action HUD, painted cloud/foam
+assets, broader dark cliff structures and an illustrated flame flipbook with a
+fixed solid smoke plume. The live cow is supported by its actual bridge ramp.
+Whole-game comparison, interaction validation and final checks follow. Do not
+promote these changes to exact PHOTO acceptance based on the asset inspection.
+
+
+5 November verified wearable/effect checkpoint: all 398 automated checks,
+strict diagnostics and production builds pass. Real WebGL2 isolated inputs,
+chalet extinguishing and wardrobe pass; separate 1280×800 Medium public entry
+with all six real cast members passes without console/HTTP/context errors.
+Evidence: `docs/qa/comic-wearables-2026-11-05.json` and
+`docs/qa/comic-reference-live-2026-11-05.json`. Both new prop/fire WGSL variants
+compile without validation errors, but Cloud WebGPU adapter/restoration errors
+keep native runtime acceptance open. Visual review still rejects exact PHOTO
+parity: repeated vegetation, sparse foreground, face/silhouette production and
+composition need further work. Native Mac M4 heat/FPS have not been measured.

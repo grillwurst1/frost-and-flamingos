@@ -25,7 +25,7 @@ try {
   const sample=async label=>{
     const value=await page.evaluate(()=>{const g=window.__frostDebug;const feet=g.localCharacter.position;
       return {phase:g.currentPhase,frame:g.scene.getFrameId(),tick:g.lastSnapshotTick,connected:g.network.ready,feet:{...feet},
-        camera:g.cameraRig.camera.position.asArray(),profile:g.localProfile,heroTriangles:g.localView.root.getChildMeshes().find(m=>m.name==='soldier-modular-detail')?.getTotalIndices()/3,contextLosses:window.__qaContextLosses,
+        controls:{locked:g.input?.isLocked,buttons:g.input?.buttons(),slot:g.input?.currentWeaponSlot(),shots:window.__qaHandShots,lastShot:window.__qaLastHandShot},camera:g.cameraRig.camera.position.asArray(),profile:g.localProfile,heroTriangles:g.localView.root.getChildMeshes().find(m=>m.name==='soldier-modular-detail')?.getTotalIndices()/3,contextLosses:window.__qaContextLosses,
         stats:window.__ffMap.stats(),meshes:g.scene.meshes.length,materials:g.scene.materials.length,textures:g.scene.textures.length,
         geometries:g.scene.geometries.length,gpuTextures:g.engine.getLoadedTexturesCache().length,heap:performance.memory?.usedJSHeapSize,
         pendingInputs:g.pendingInputs.length,vehicles:g.vehicles.debugInfo(),names:Array.from(document.querySelectorAll('.player-tag')).map(e=>e.textContent),
@@ -47,7 +47,16 @@ try {
   console.log('detailed model loaded');await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x-40)<.2&&Math.abs(first.feet.z-66)<.2);
   if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');
   await page.screenshot({path:resolve(output,'reference-scene.png'),timeout:180000});
+  if(process.env.FF_QA_REFERENCE_VIEWS==='1') {
+    for(const yaw of [-1.35,-1.5]) {
+      await page.evaluate(yaw=>{const g=window.__frostDebug,p=g.localCharacter.position;g.cameraRig.resetAngles(yaw,-.30);g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));},yaw);
+      await frames(2);await page.screenshot({path:resolve(output,'reference-view-'+String(yaw)+'.png'),timeout:180000});
+    }
+    await page.evaluate(()=>{const g=window.__frostDebug,p=g.localCharacter.position;g.cameraRig.resetAngles(-1.2,-.30);g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));});await frames(2);
+  }
   if(!captureOnly) {
+  if(!await page.evaluate(()=>window.__frostDebug.input.isLocked))await page.locator('canvas.game-canvas').click({position:{x:400,y:250}});
+  await wait(()=>window.__frostDebug.input.isLocked);
   await page.setViewportSize({width:800,height:500});await page.evaluate(()=>window.__frostDebug.setVisualQuality('low'));await frames(2);
   await page.keyboard.down('w');try {await wait(p=>{const a=window.__frostDebug.localCharacter.position;return Math.hypot(a.x-p.x,a.z-p.z)>.15},first.feet)}finally{await page.keyboard.up('w')}
   const walked=await page.evaluate(()=>({...window.__frostDebug.localCharacter.position}));assert.ok(Math.hypot(walked.x-first.feet.x,walked.z-first.feet.z)>.15);
@@ -56,20 +65,22 @@ try {
   await sample('walk-and-jump');
   const stage=async(params)=>{const id=await page.evaluate(()=>window.__frostDebug.localId);const response=await page.request.post(base+'/api/dev/teleport?scene=reference&player='+id+'&'+new URLSearchParams(params));assert.equal(response.status(),200);assert.equal((await response.json()).ok,true)};
   if(fireCheck) {
-    const spot=await page.evaluate(()=>{const g=window.__frostDebug,matrices=g.scene.getMeshByName('reference-chalet-flames').thinInstanceGetWorldMatrices();
-      const target=matrices[3].getTranslation(),other=matrices[4].getTranslation(),dx=other.x-target.x,dz=other.z-target.z,length=Math.hypot(dx,dz);
-      const x=target.x-dz/length*3,z=target.z+dx/length*3;
-      const ground=g.physics.raycast({x,y:150,z},{x:0,y:-1,z:0},200).point.y;
-      return {x,z,y:ground+.06,target:{x:target.x,y:target.y,z:target.z}};});
+    const spot=await page.evaluate(async module=>{
+      const {referenceCastSpawn}=await import(module),pose=referenceCastSpawn(0);
+      const g=window.__frostDebug,matrices=g.scene.getMeshByName('reference-chalet-flames').thinInstanceGetWorldMatrices();
+      const target=matrices[1].getTranslation();target.y-=.35;
+      return {...pose.position,target:{x:target.x,y:target.y,z:target.z}};
+    },'/@fs'+resolve(import.meta.dirname,'../../packages/shared/src/index.ts'));
     await stage({x:String(spot.x),z:String(spot.z),y:String(spot.y)});await frames(2);
     await page.keyboard.press('3');
     await page.evaluate(target=>{const g=window.__frostDebug,p=g.localCharacter.position;
-      const dx=target.x-p.x,dz=target.z-p.z,dy=target.y-(p.y+g.localCharacter.eyeHeight);
+      const dx=target.x-p.x,dz=target.z-p.z,dy=target.y-(p.y+1.95);
       g.cameraRig.resetAngles(Math.atan2(dx,dz),Math.atan2(dy,Math.hypot(dx,dz)));g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));},spot.target);
     await frames(3);const before=await sample('chalet-burning');assert.equal(before.fire.burning,true);
-    assert.equal(before.fire.flames,5);assert.equal(before.fire.puffs,15);
+    assert.equal(before.fire.flames,5);assert.equal(before.fire.puffs,40);
     await page.screenshot({path:resolve(output,'reference-fire-before.png'),timeout:180000});
-    await page.mouse.down();try {await wait(()=>window.__frostDebug.referenceFire.burning===false)}finally{await page.mouse.up()}
+    await page.evaluate(()=>{const g=window.__frostDebug,send=g.network.sendFire.bind(g.network);window.__qaHandShots=0;g.network.sendFire=(shot)=>{window.__qaHandShots++;window.__qaLastHandShot=shot;return send(shot)}});
+    await page.mouse.down();try {await wait(()=>window.__qaHandShots>=2);await sample('snow-cannon-fired');await wait(()=>window.__frostDebug.referenceFire.burning===false)}catch(error){await sample('fire-check-failed');throw error}finally{await page.mouse.up()}
     await frames(2);const after=await sample('chalet-extinguished');assert.equal(after.fire.burning,false);
     await page.screenshot({path:resolve(output,'reference-fire-after.png'),timeout:180000});
   }
@@ -110,10 +121,12 @@ try {
     if(process.env.FF_QA_REFERENCE_CLOSE==='1') {
       await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>window.__frostDebug.setVisualQuality('medium'));await frames(2);
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;
-        g.setPreviewFacing(.18);const position=p.clone();position.set(p.x+Math.sin(a)*2.7,p.y+1.45,p.z+Math.cos(a)*2.7);
-        const target=p.clone();target.y+=1.35;g.devCamera={position,target};
+        g.setPreviewFacing(.18);const position=p.clone();position.set(p.x+Math.sin(a)*2.7,p.y+1.10,p.z+Math.cos(a)*2.7);
+        const target=p.clone();target.y+=.95;g.devCamera={position,target};
         document.querySelector('.wardrobe-panel').style.visibility='hidden';});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-close.png'),timeout:180000});
+      await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;const position=p.clone().set(p.x+Math.sin(a)*1.35,p.y+1.58,p.z+Math.cos(a)*1.35),target=p.clone();target.y+=1.51;g.devCamera={position,target};});
+      await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-face.png'),timeout:180000});
     }
   }
   }

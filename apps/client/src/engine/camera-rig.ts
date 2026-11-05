@@ -11,8 +11,7 @@ const MAX_DISTANCE = 8.2;
 /** Centred follow view: the owner now wants the controlled player on the
  * horizontal centre line, rather than the old 1.9 m painting-style offset. */
 const SHOULDER_OFFSET = 0;
-// Upper torso framing keeps the full silhouette above the bottom HUD. A
-// head-height target put the boots behind the action tiles at normal zoom.
+// Full-body field framing retains room for the larger field HUD.
 const PLAYER_PIVOT_HEIGHT = 1.50;
 const PLAYER_DISTANCE = 3.60;
 /** Vertical FOV while playing (62 deg); menu, wardrobe and killer cam keep the tele framing. */
@@ -32,6 +31,8 @@ export interface CameraProfile {
 }
 
 export const HUMAN_CAMERA: CameraProfile = { pivotHeight: PLAYER_PIVOT_HEIGHT, distance: PLAYER_DISTANCE, shoulder: SHOULDER_OFFSET };
+/** PHOTO HUD has more boot room; aim above the centred ranger's head. */
+export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.95 };
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
 /** Vehicles: centred, higher and further back (pivot above the vehicle base). */

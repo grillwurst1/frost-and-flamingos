@@ -1173,7 +1173,7 @@ export class GameClient {
       classId,
       faction: profile.faction,
     });
-    this.cameraRig?.setProfile(cameraProfileFor(form));
+    this.cameraRig?.setProfile(cameraProfileFor(form, referenceScene));
     this.pendingInputs.length = 0;
     this.lastAcknowledged = null;
     this.latestLocalState = null;
@@ -1868,7 +1868,7 @@ export class GameClient {
       const character = this.localCharacter;
       if (this.physics && this.vehicles?.updateCamera(delta, camera, this.physics, this.localProfile)) return;
       if (character && this.physics) {
-        camera.setProfile(cameraProfileFor(character.form));
+        camera.setProfile(cameraProfileFor(character.form, referenceScene));
         if (character.form === 'cow' && this.currentPhase === 'playing') {
           const velocity = character.velocity;
           camera.followHeading(delta, character.heading, Math.hypot(velocity.x, velocity.z));

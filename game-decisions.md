@@ -2698,3 +2698,32 @@ need further production. Native Mac M4 performance/heat was not measured.
 
 The new soft/native outfit variants also compile with the WebGPU WGSL compiler.
 Cloud device-loss/restoration warnings prevent a full WebGPU runtime acceptance claim.
+
+
+### Preserve authored wearables and illustrated reference composition
+
+For the current PHOTO priority, retain original clothing sculpture/paint/rig data
+instead of approximating all folds with smooth primitive garments. An offline
+1.5 mm inner lining closes the visible borders, and donor knee surfaces are
+removed above the separately selected skin base. The runtime remains one skinned
+body draw with bounded appearance caches. Garment data is hash-bound to its rig,
+validated, and optional; source GLBs remain intact. Area/coverage checks matter in
+addition to closed edges, because closed fragments do not make a complete shirt.
+
+PHOTO's compact bottom tickets and action cards apply to Gletscherpass. Keep real
+controls/health/ammo available, with no screenshot values or decorative player
+names. The follow camera stays horizontally centred and aims above the character.
+Cloud/foam art uses existing supplied assets; the scene still uses real terrain,
+buildings, actors and vehicles. Fire is the existing server-owned effect, now
+with an original eight-frame illustrated sheet and a fixed forty-puff solid plume.
+The cow's intro position derives from a real bridge segment, avoiding a start
+below its collision surface. These changes do not complete general M6 destruction.
+
+
+Verification / Prüfung (5 November 2026): 15 script + 227 server + 156 client
+checks pass (398), strict diagnostics 0 errors / 0 warnings, production build passes.
+Real Chromium WebGL2 confirms locked mouse input, actual snow-cannon shots,
+server-driven extinguishing, loaded 41,644-triangle ranger and visible wardrobe.
+No page/console errors, failed asset responses or WebGL context losses in the
+isolated run. Evidence: `docs/qa/comic-wearables-2026-11-05.json`.
+This verifies those paths; PHOTO visual parity and native Mac M4 heat/FPS remain open.

@@ -37,9 +37,9 @@ beforeAll(async () => {
 });
 afterAll(() => { scene.dispose(); scene.getEngine().dispose(); });
 
-function build(changes: Partial<Cosmetics> = {}, detailedHead = false): { view: GlbCharacterView; mesh: Mesh } {
+function build(changes: Partial<Cosmetics> = {}, detailedHead = false, bodyAsset = asset): { view: GlbCharacterView; mesh: Mesh } {
   const profile = createDefaultProfile('Native wardrobe'); Object.assign(profile.cosmetics, changes);
-  const view = new GlbCharacterView(scene, new StandardMaterial('native-shadow', scene), profile, asset, detailedHead ? { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } } : textures);
+  const view = new GlbCharacterView(scene, new StandardMaterial('native-shadow', scene), profile, bodyAsset, detailedHead ? { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } } : textures);
   const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
   return { view, mesh };
 }
@@ -323,8 +323,9 @@ test('the default beard and hat use the same anatomical skin head as a clean war
   } finally { a.view.dispose(); b.view.dispose(); }
 });
 
-test('the tailored waistcoat is not pierced by sleeve-labelled shirt fragments at the chest centre', () => {
-  const { view, mesh } = build({}, true);
+test('the fallback tailored waistcoat is not pierced by sleeve-labelled shirt fragments at the chest centre', () => {
+  const fallback = { ...asset, wardrobe: { ...asset.wardrobe!, shirt: undefined } };
+  const { view, mesh } = build({}, true, fallback);
   try {
     const p = mesh.getVerticesData('position')!, flags = mesh.getVerticesData('uv2')!;
     const chest = asset.bindPositions.get('Spine2')!;
@@ -336,6 +337,23 @@ test('the tailored waistcoat is not pierced by sleeve-labelled shirt fragments a
     }
     expect(sleeves).toBeGreaterThan(1000);
   } finally { view.dispose(); }
+});
+
+test('the authored shirt keeps its collar and replaces the overlapping generated vest shell', () => {
+  const {view,mesh}=build({},true);
+  try {
+    const flags=mesh.getVerticesData('uv2')!,paint=mesh.getVerticesData('uv3')!;
+    const joints=mesh.getVerticesData('matricesIndices')!;
+    const head=mesh.skeleton!.bones.find(b=>jointName(b.name)==='Head')!.getIndex();
+    let collar=0,shirt=0,duplicateShell=0;
+    for(let v=0;v<mesh.getTotalVertices();v++) {
+      if(flags[v*2]===1&&flags[v*2+1]===3)shirt++;
+      if(flags[v*2]===1&&flags[v*2+1]===4)collar++;
+      if(flags[v*2]===0&&paint[v*2]===4&&joints[v*4]!==head)duplicateShell++;
+    }
+    expect(shirt).toBeGreaterThan(2000);expect(collar).toBeGreaterThan(1000);
+    expect(duplicateShell).toBe(0);expect(mesh.subMeshes).toHaveLength(1);
+  } finally {view.dispose();}
 });
 
 test.each(['feet_sandals_socks', 'feet_dive_flippers'] as const)('native Infiltrator trousers keep a complete calf above %s', async feet => {

@@ -2,6 +2,7 @@
   import { WEAPON_STATS, skillsForClass, weaponSlotForId, type TranslationKey, type WeaponId } from '@frost-and-flamingos/shared';
   import { localPlayer } from '../../state/game';
   import { t } from '../../state/locale';
+  import { referenceScene } from '../../state/scene';
   import { weaponNameKeyForSlot } from '../../state/labels';
   import Pictogram from '../icons/Pictogram.svelte';
   const skillKeys=['Q','E','T'];
@@ -18,12 +19,12 @@
     {#each skills as skill,index}
       {@const cooldown=player?.skillCooldowns[index]??0}
       <div class="field-action" class:is-ready={cooldown<=0} title={`${$t(skill.nameKey)} — ${$t(skill.descriptionKey)}`}>
-        <Pictogram skill={skill.id}/>
+        <Pictogram skill={skill.id} painted={referenceScene}/>
         {#if cooldown>0}<span class="action-cooldown">{Math.ceil(cooldown)}</span>{/if}
         <kbd>{skillKeys[index]}</kbd>
       </div>
     {/each}
-    <div class="field-action is-gimmick" title={$t(name(weapons[2]??'snow_cannon'))}><Pictogram weapon={weapons[2]??'snow_cannon'}/><kbd>3</kbd></div>
+    <div class="field-action is-gimmick" title={$t(name(weapons[2]??'snow_cannon'))}><Pictogram weapon={weapons[2]??'snow_cannon'} painted={referenceScene}/><kbd>3</kbd></div>
     <div class="field-action is-tool" title={$t('vehicles.hud.repair')}><Pictogram tile="wrench"/><kbd>{$t('vehicles.keys.repair')}</kbd></div>
   </div>
   <div class="field-loadout" aria-label={$t('combat.weapon')}>

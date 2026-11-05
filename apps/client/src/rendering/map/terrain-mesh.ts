@@ -161,7 +161,9 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
   // Rock outcrops breaking through the snow on the high alps (relief for the NE massif).
   const ridge = Math.sin(x * 0.11 + Math.sin(z * 0.07) * 2) * Math.sin(z * 0.09 + Math.sin(x * 0.05) * 2);
   const outcrop = height > SNOWLINE_Y + 9 ? smooth((ridge - 0.3) / 0.25) * smooth((slope - 0.24) / 0.16) : 0;
-  const rockWeight = Math.max(biome.rock, outcrop);
+  // Bare cliff faces and snow shelves have distinct volumes in the PHOTO art.
+  const cliff = smooth((slope - .9) / .8);
+  const rockWeight = Math.max(biome.rock, outcrop, cliff * .98);
   if (rockWeight > 0) {
     // Broad colour strata support the actual cliff facets. Rapid height stripes
     // alias against the heightfield cells and make whole walls look cracked/noisy.
@@ -178,7 +180,7 @@ function paintTerrain(x: number, z: number, height: number, slope: number, coast
   const alpine = smooth((height - (SNOWLINE_Y + 10)) / 16);
   const streak = fine > 0.62 || patch > 0.8 ? 1 : 0;
   const rockForSnow = rockWeight * (1 - alpine * (streak ? 0.25 : 0.75));
-  const snow = height >= WATER_LEVEL ? Math.max(terrainSnowWeight(height, biome.snowBias, rockForSnow, SNOWLINE_Y), referenceFrost(x,z,height)*(1-rockWeight*.8)) : 0;
+  const snow = height >= WATER_LEVEL ? Math.max(terrainSnowWeight(height, biome.snowBias, rockForSnow, SNOWLINE_Y), referenceFrost(x,z,height)*(1-rockWeight*.8)) * (1-cliff*.94) : 0;
   if (snow > 0) {
     // Steeper, wind-blown slopes read cooler and bluer than the sheltered flats.
     const windBlown = smooth((slope - 0.16) / 0.34) * 0.6;

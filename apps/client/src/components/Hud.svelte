@@ -2,6 +2,7 @@
   import { connection, damageFlash, deathState, interactionPrompt, localPlayer, wardrobeOpen } from '../state/game';
   import { t } from '../state/locale';
   import { conquest } from '../state/conquest';
+  import { referenceScene } from '../state/scene';
   import CaptureBar from './hud/CaptureBar.svelte';
   import ClockMedallion from './hud/ClockMedallion.svelte';
   import ComicEvents from './hud/ComicEvents.svelte';
@@ -45,7 +46,7 @@
 
 <!-- The wardrobe can open from the pause menu: hide (not unmount) the HUD so it keeps its
      timers and probes but never shows through the fitting room. -->
-<div class="hud-root" class:is-dead={dead} class:is-covered={$wardrobeOpen} aria-live="polite">
+<div class="hud-root" class:photo-reference={referenceScene} class:is-dead={dead} class:is-covered={$wardrobeOpen} aria-live="polite">
   <!-- Comic ink vignettes: hit flash, low-health pulse and the death wash. -->
   <div class="hud-vignette hud-vignette-damage" style={`opacity:${Math.min(1, $damageFlash * 0.95)}`} aria-hidden="true"></div>
   <div class="hud-vignette hud-vignette-low" class:is-active={lowHealth} aria-hidden="true"></div>

@@ -1191,3 +1191,23 @@ need further production. Native Mac M4 performance/heat was not measured.
 
 The new soft/native outfit variants also compile with the WebGPU WGSL compiler.
 Cloud device-loss/restoration warnings prevent a full WebGPU runtime acceptance claim.
+
+
+### PHOTO-directed reference update (5 November 2026)
+
+The Gletscherpass ranger now wears detailed authored 3D shirt/leather surfaces
+with preserved folds, pockets and embroidery. Skin and shoes remain independently
+configurable. The reference HUD follows the PHOTO bottom ribbon/action-card
+layout, using real tickets, HP, ammo and bindings. The centred camera clears the
+head from the aim point. Broad rock faces, painted clouds/water foam and drawn
+animated chalet flames continue the illustrated scene direction. The real cow
+starts safely on the bridge. Full PHOTO visual acceptance is still open.
+
+
+Verification / Prüfung (5 November 2026): 15 script + 227 server + 156 client
+checks pass (398), strict diagnostics 0 errors / 0 warnings, production build passes.
+Real Chromium WebGL2 confirms locked mouse input, actual snow-cannon shots,
+server-driven extinguishing, loaded 41,644-triangle ranger and visible wardrobe.
+No page/console errors, failed asset responses or WebGL context losses in the
+isolated run. Evidence: `docs/qa/comic-wearables-2026-11-05.json`.
+This verifies those paths; PHOTO visual parity and native Mac M4 heat/FPS remain open.

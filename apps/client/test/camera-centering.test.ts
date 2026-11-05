@@ -3,13 +3,22 @@ import { NullEngine } from '@babylonjs/core/Engines/nullEngine';
 import { Scene } from '@babylonjs/core/scene';
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math';
 import { PhysicsWorld } from '@frost-and-flamingos/shared';
-import { CameraRig, CABLE_CAR_CAMERA } from '../src/engine/camera-rig';
+import { CameraRig, CABLE_CAR_CAMERA, HUMAN_CAMERA, REFERENCE_HUMAN_CAMERA } from '../src/engine/camera-rig';
 
 test('human follow camera keeps the controlled player horizontally centred across yaw, zoom and shoulder key', async () => {
   const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720, textureSize: 256, deterministicLockstep: false, lockstepMaxSteps: 4 });
   const scene = new Scene(engine), physics = await PhysicsWorld.create();
   try {
     const rig = new CameraRig(scene), feet = new Vector3(0, 150, 0);
+    rig.setProfile(REFERENCE_HUMAN_CAMERA);rig.resetAngles(0,-.30);rig.snapToPlayer(feet);
+    for(let f=0;f<90;f++)rig.updatePlayer(1/60,feet,physics);
+    scene.updateTransformMatrix(true);
+    const screen=rig.camera.viewport.toGlobal(1280,720);
+    const head=Vector3.Project(feet.add(new Vector3(0,1.70,0)),Matrix.Identity(),scene.getTransformMatrix(),screen);
+    const soles=Vector3.Project(feet,Matrix.Identity(),scene.getTransformMatrix(),screen);
+    expect(head.y).toBeGreaterThan(375); // Reticle at 360 stays above the hero.
+    expect(soles.y).toBeLessThan(685); // Leave room for the bottom HUD.
+    rig.setProfile(HUMAN_CAMERA);
     for (const yaw of [0, .8, -2, Math.PI]) {
       rig.resetAngles(yaw); rig.zoom(450); rig.swapShoulder();
       rig.snapToPlayer(feet);

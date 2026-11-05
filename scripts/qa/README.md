@@ -73,7 +73,16 @@ The reference scene itself works without development tools or URL teleports.
 
 `FF_QA_REFERENCE_FIRE=1` adds an isolated real-input chalet extinguishing test
 (requires `FF_NO_BOTS=1 FF_DEV_TOOLS=1`). Development staging arranges position
-and aim; slot 3, mouse fire, weapon range, line of sight, hit processing and the
+on the supported roof guard pad and aim; slot 3, mouse fire, weapon range, line of sight, hit processing and the
 binary map-state update are normal gameplay. `FF_QA_REFERENCE_CAPTURE_ONLY=1`
 saves only the public entry/render checkpoint, useful for the live cast at
 Medium. Protocol 14 rejects old connected clients; refresh both build ends.
+
+The input run acquires pointer lock before sending mouse input and records
+the actual control bits, selected slot, outgoing fire count and last fire packet.
+It requires at least two ordinary shots before waiting for extinguishing.
+The fire checkpoint also checks the fixed five flame quads / forty smoke puffs.
+Do not edit client code/assets during a run: Vite hot reload invalidates it.
+The close option saves both full-body and face views of the actual loaded,
+posed 3D wardrobe model at 1280×800 Medium. These are diagnostic inspection
+views; `reference-scene.png` remains the unchanged public gameplay camera.
