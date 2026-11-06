@@ -1080,3 +1080,6 @@ reference-intro regression checks Wuzzi remains alive and supported. All seven
 initial live labels are verified in the actual Medium renderer. The updated
 nine-case reference suite, strict diagnostics and production build pass.
 Evidence: `docs/qa/comic-final-reference-2026-11-05.json` and its PNG.
+
+
+6 November: compact independent physical arena implemented and checked; see REFERENCE_ARENA_WORK.md. Owner uploaded gameplay video c5d0006; latest art direction and remaining acceptance are in VIDEO_REFERENCE_WORK.md. Continue actual art/layout work, with recurring browser screenshots.

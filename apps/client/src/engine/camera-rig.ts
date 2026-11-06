@@ -28,11 +28,12 @@ export interface CameraProfile {
   pivotHeight: number;
   distance: number;
   shoulder: number;
+  fov?: number;
 }
 
 export const HUMAN_CAMERA: CameraProfile = { pivotHeight: PLAYER_PIVOT_HEIGHT, distance: PLAYER_DISTANCE, shoulder: SHOULDER_OFFSET };
-/** PHOTO HUD has more boot room; aim above the centred ranger's head. */
-export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.95 };
+/** Close full-body framing follows the owner's latest gameplay video. */
+export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.60, distance:3.6, fov:.85 };
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
 /** Vehicles: centred, higher and further back (pivot above the vehicle base). */
@@ -187,7 +188,7 @@ export class CameraRig {
 
   updatePlayer(dt: number, feet: Vector3, physics: PhysicsWorld): void {
     const clampedDt = Math.min(0.05, Math.max(0.001, dt));
-    this.easeFov(PLAYER_FOV, clampedDt);
+    this.easeFov(this.profile.fov ?? PLAYER_FOV, clampedDt);
     const yawAlpha = 1 - Math.exp(-clampedDt * 22);
     const pitchAlpha = 1 - Math.exp(-clampedDt * 20);
     this.yaw += shortestAngle(this.yaw, this.targetYaw) * yawAlpha;
@@ -270,7 +271,7 @@ export class CameraRig {
   /** A vehicle passenger's eye socket; mouse look remains independent of the hull. */
   updatePassengerEyes(dt: number, eyes: Vec3): void {
     const step = Math.min(0.05, Math.max(0.001, dt));
-    this.easeFov(PLAYER_FOV, step);
+    this.easeFov(this.profile.fov ?? PLAYER_FOV, step);
     this.yaw += shortestAngle(this.yaw, this.targetYaw) * (1 - Math.exp(-step * 22));
     this.pitch += (this.targetPitch - this.pitch) * (1 - Math.exp(-step * 20));
     this.camera.position.set(eyes.x, eyes.y, eyes.z);
@@ -382,7 +383,7 @@ export class CameraRig {
 
   snapToPlayer(feet: Vector3): void {
     this.initialized = false;
-    this.camera.fov = PLAYER_FOV;
+    this.camera.fov = this.profile.fov ?? PLAYER_FOV;
     const shoulder = this.profile.shoulder * this.shoulderSide;
     this.pivotSpring.value.set(feet.x + Math.cos(this.yaw) * shoulder,
       feet.y + this.profile.pivotHeight, feet.z - Math.sin(this.yaw) * shoulder);

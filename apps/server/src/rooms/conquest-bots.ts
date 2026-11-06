@@ -15,6 +15,7 @@ import {
   type Faction,
   type Vec3,
   type TowerDefinition,
+  type NavGraph,
 } from '@frost-and-flamingos/shared';
 
 /** Seconds between objective reviews (sooner when the target tower is secured). */
@@ -30,14 +31,14 @@ function horizontal(a: Vec3, b: Vec3): number {
 }
 
 /** Land waypoints inside each zone (wire order A, B, C). */
-const buildHoldNodes = (towers: readonly TowerDefinition[]): Vec3[][] => towers.map((tower) => {
-  const inside = FJORD_MAP.nav.nodes.filter(
+const buildHoldNodes = (towers: readonly TowerDefinition[], nav:NavGraph=FJORD_MAP.nav): Vec3[][] => towers.map((tower) => {
+  const inside = nav.nodes.filter(
     (node) =>
       !node.water &&
       horizontal(node.position, tower.position) <= tower.captureRadius - HOLD_MARGIN &&
       Math.abs(node.position.y - tower.position.y) < 6,
   );
-  const nodes = inside.length > 0 ? inside : FJORD_MAP.nav.nodes.filter((node) => !node.water && horizontal(node.position, tower.position) <= tower.captureRadius + 6);
+  const nodes = inside.length > 0 ? inside : nav.nodes.filter((node) => !node.water && horizontal(node.position, tower.position) <= tower.captureRadius + 6);
   return nodes.map((node) => ({ ...node.position }));
 });
 
@@ -71,7 +72,7 @@ export function towerSecured(state: ConquestSnapshot['towers'][number] | undefin
 
 export class ConquestBots {
   private readonly nodes: Vec3[][];
-  constructor(private readonly towers: readonly TowerDefinition[] = CONQUEST_TOWERS) { this.nodes = towers === CONQUEST_TOWERS ? HOLD_NODES : buildHoldNodes(towers); }
+  constructor(private readonly towers: readonly TowerDefinition[] = CONQUEST_TOWERS,nav:NavGraph=FJORD_MAP.nav) { this.nodes = towers === CONQUEST_TOWERS && nav===FJORD_MAP.nav ? HOLD_NODES : buildHoldNodes(towers,nav); }
   private readonly memory = new Map<number, BotObjective>();
 
   forget(botId: number): void {

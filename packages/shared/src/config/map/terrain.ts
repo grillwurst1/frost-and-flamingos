@@ -8,7 +8,8 @@
  */
 import { MAP_HALF_SIZE, MAP_SEGMENTS, MAP_SIZE, WATER_LEVEL } from '../../constants.js';
 import type { Vec2, Vec3 } from '../../types/index.js';
-import type { SurfaceTag } from '../../types/map.js';
+import type { HeightfieldData, SurfaceTag } from '../../types/map.js';
+import { sampleHeightfield } from './heightfield.js';
 import {
   COASTAL_RAMP_POINTS,
   COASTAL_RAMP_WIDTH,
@@ -591,6 +592,7 @@ function buildHeights(): Float32Array {
  * column = X index, row = Z index. Craters later copy and edit this.
  */
 export const BASE_HEIGHTS: Float32Array = buildHeights();
+const baseGrid:HeightfieldData={size:MAP_SIZE,segments:MAP_SEGMENTS,heights:BASE_HEIGHTS};
 
 export function gridHeight(column: number, row: number): number {
   const c = Math.min(GRID_POINTS - 1, Math.max(0, column));
@@ -604,18 +606,7 @@ export function gridHeight(column: number, row: number): number {
  * the rendered surface and this query agree.
  */
 export function sampleMapHeight(x: number, z: number): number {
-  const normalizedX = clamp01((x + MAP_HALF_SIZE) / MAP_SIZE) * MAP_SEGMENTS;
-  const normalizedZ = clamp01((z + MAP_HALF_SIZE) / MAP_SIZE) * MAP_SEGMENTS;
-  const column = Math.min(MAP_SEGMENTS - 1, Math.floor(normalizedX));
-  const row = Math.min(MAP_SEGMENTS - 1, Math.floor(normalizedZ));
-  const fx = normalizedX - column;
-  const fz = normalizedZ - row;
-  const h00 = BASE_HEIGHTS[column * GRID_POINTS + row] ?? 0;
-  const h10 = BASE_HEIGHTS[(column + 1) * GRID_POINTS + row] ?? 0;
-  const h01 = BASE_HEIGHTS[column * GRID_POINTS + row + 1] ?? 0;
-  const h11 = BASE_HEIGHTS[(column + 1) * GRID_POINTS + row + 1] ?? 0;
-  if (fx + fz <= 1) return h00 + fx * (h10 - h00) + fz * (h01 - h00);
-  return h11 + (1 - fx) * (h01 - h11) + (1 - fz) * (h10 - h11);
+  return sampleHeightfield(baseGrid,x,z);
 }
 
 export function terrainNormalAt(x: number, z: number): Vec3 {

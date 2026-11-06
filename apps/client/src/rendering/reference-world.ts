@@ -6,7 +6,7 @@ import '@babylonjs/core/Meshes/thinInstanceMesh';
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math';
 import type { Scene } from '@babylonjs/core/scene';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
-import { FJORD_MAP, REFERENCE_MARKERS, roofBase, sampleMapHeight } from '@frost-and-flamingos/shared';
+import { ARENA_CHALET, REFERENCE_MARKERS, roofBase, arenaHeightAt as sampleMapHeight } from '@frost-and-flamingos/shared';
 import { excludeFromInk, excludeFromShadows } from './materials';
 import { Affine, GeometryBatch, mix, type RGB, type V3 } from './map/geometry';
 import { P } from './map/palette';
@@ -48,13 +48,13 @@ export function buildReferenceWorld(scene: Scene, material: ShaderMaterial) {
   // below the normal step height; never bridge the ravine or cover a doorway.
   const banks = new GeometryBatch(); banks.jitter = 0;
   for(let i=0;i<36;i++) {
-    const z=40+(i%18)*4.1, x=i<18?31+Math.sin(i*2.3)*3:-33+Math.sin(i*1.9)*3;
+    const z=-19+(i%18)*3.2, x=i<18?30+Math.sin(i*2.3)*1.2:-32+Math.sin(i*1.9)*1.2;
     const y=sampleMapHeight(x,z);
     if(y<17 || [[x-.9,z],[x+.9,z],[x,z-.65],[x,z+.65]].some(([px,pz])=>Math.abs(sampleMapHeight(px!,pz!)-y)>.15))continue;
     banks.blob(x,y-.08,z,.55+(i%3)*.18,.16,.32+(i%4)*.1,snow,'snow',{segments:12,rings:5,seed:i,wobble:.08});
   }
   // Small golden ironwork and a deep door lintel, attached to the real chalet.
-  const chalet=FJORD_MAP.props.find(p=>p.id==='chalet_north')!,layout=chalet.building!;
+  const chalet=ARENA_CHALET,layout=chalet.building!;
   details.with(Affine.translation(chalet.position.x,chalet.position.y,chalet.position.z).rotateY(chalet.rotationY),()=>{
     for(const side of [-1,1]) {
       const x=side*(layout.width/2-.15), z=layout.depth/2+.12;

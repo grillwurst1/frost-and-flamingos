@@ -4,6 +4,7 @@
  * player through the authoritative server, pin the camera for overview shots
  * and read draw-call statistics.
  */
+import { referenceScene } from '../state/scene';
 import { Vector3 } from '@babylonjs/core/Maths/math';
 import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine';
 import type { Scene } from '@babylonjs/core/scene';
@@ -53,6 +54,7 @@ export function installMapDevTools(host: MapDevHost): void {
       const id = host.localId();
       if (id === null) return { ok: false, reason: 'not connected' };
       const query = new URLSearchParams({ player: String(id), x: String(x), z: String(z) });
+      if(referenceScene)query.set('scene','reference');
       if (y !== undefined) query.set('y', String(y));
       const response = await fetch(`/api/dev/teleport?${query.toString()}`, { method: 'POST' });
       return response.json();

@@ -16,7 +16,9 @@ test('human follow camera keeps the controlled player horizontally centred acros
     const screen=rig.camera.viewport.toGlobal(1280,720);
     const head=Vector3.Project(feet.add(new Vector3(0,1.70,0)),Matrix.Identity(),scene.getTransformMatrix(),screen);
     const soles=Vector3.Project(feet,Matrix.Identity(),scene.getTransformMatrix(),screen);
-    expect(head.y).toBeGreaterThan(375); // Reticle at 360 stays above the hero.
+    expect(head.y).toBeGreaterThan(250); // Close video framing: large head/body, fully in view.
+    expect(head.y).toBeLessThan(360);
+    expect(soles.y-head.y).toBeGreaterThan(300);
     expect(soles.y).toBeLessThan(685); // Leave room for the bottom HUD.
     rig.setProfile(HUMAN_CAMERA);
     for (const yaw of [0, .8, -2, Math.PI]) {

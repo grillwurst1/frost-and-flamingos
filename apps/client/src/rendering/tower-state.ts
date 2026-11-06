@@ -193,7 +193,7 @@ class TowerFlag {
     this.root = new TransformNode(`${visual.id}-flag`, scene);
     this.root.parent = anchor;
     this.root.position.set(referenceScene ? 0 : mount.offset.x, referenceScene ? 0 : mount.offset.y, referenceScene ? 0 : mount.offset.z);
-    this.root.scaling.setAll(FLAG_SCALE);
+    this.root.scaling.setAll(referenceScene ? .55 : FLAG_SCALE);
     this.phase = visual.id.length * 1.7 + (visual.id.endsWith('b') ? 1.1 : visual.id.endsWith('c') ? 2.3 : 0);
 
     const poleBatch = new GeometryBatch();
@@ -300,7 +300,7 @@ export class TowerStateView {
     this.rings = sceneTowers.map((tower) => new CaptureRing(scene, tower, probe));
     this.visuals = sceneTowers.flatMap((tower) => {
       let visual = visuals.towers.get(tower.id);
-      if (referenceScene) {
+      if (referenceScene && !visual) {
         const root = new TransformNode(`reference-${tower.id}`, scene); root.position.copyFromFloats(tower.position.x, tower.position.y, tower.position.z);
         visual = { id: tower.id, root, mesh: null, dressing: { alpine: null, lagoon: null }, pads: { alpine: null, lagoon: null, neutral: null }, attach: new Map() };
       }

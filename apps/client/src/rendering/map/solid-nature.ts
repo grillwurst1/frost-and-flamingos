@@ -16,6 +16,7 @@ export const FIR_DETAIL_DISTANCE = 75;
 const CHUNK = 120;
 
 function snowAt(prop: MapProp): number {
+  if (prop.surface) return prop.surface==='snow'?1:0;
   const p = prop.position;
   const biome = terrainBiomeAt(p.x, p.z, p.y, terrainSlopeAt(p.x, p.z));
   return Math.max(terrainSnowWeight(p.y, biome.snowBias, biome.rock, SNOWLINE_Y), referenceFrost(p.x, p.z, p.y));
@@ -82,7 +83,7 @@ export function buildSolidNature(scene: Scene, material: Material, props: readon
       group.near.jitter = group.far.jitter = 0;
       groups.set(key, group);
     }
-    const rockTop = snow > 0.4 ? 'snow' : terrainSurfaceTagAt(p.x, p.z) === 'sand' ? 'beach' : p.y > 30 ? 'bare' : 'moss';
+    const rockTop = snow > 0.4 ? 'snow' : (prop.surface ?? terrainSurfaceTagAt(p.x, p.z)) === 'sand' ? 'beach' : p.y > 30 ? 'bare' : 'moss';
     group.near.at(p.x, p.y, p.z, prop.rotationY, () => {
       if (prop.kind === 'palm') drawPalm(group.near, prop.scale, prop.variant, seed);
       else drawRock(group.near, prop.scale, prop.variant, rockTop, seed);

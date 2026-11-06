@@ -21,6 +21,21 @@ export type SurfaceTag =
   | 'rock_cliff'
   | 'wood';
 
+/** Column-major samples shared by terrain meshes and Rapier heightfields. */
+export interface HeightfieldData {
+  readonly size: number;
+  readonly segments: number;
+  readonly heights: Float32Array;
+}
+
+/** Static geometry and queries belonging to one room's actual map. */
+export interface StaticWorldDefinition extends HeightfieldData {
+  readonly props: readonly MapProp[];
+  readonly heightAt: (x: number, z: number) => number;
+  readonly surfaceAt: (x: number, z: number, feetY?: number) => SurfaceTag;
+  readonly cableCar?: CableCarRoute;
+}
+
 export type TowerId = 'tower_a' | 'tower_b' | 'tower_c';
 
 export type ZoneId =

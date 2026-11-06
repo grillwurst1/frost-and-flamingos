@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { FJORD_MAP, PROTOCOL_VERSION, decodeMapStateSync, encodeMapStateSync, REFERENCE_CHALET_FIRE, WEAPON_TABLE, createDefaultProfile, type CharacterBody } from '@frost-and-flamingos/shared';
+import { ARENA_CHALET, PROTOCOL_VERSION, decodeMapStateSync, encodeMapStateSync, REFERENCE_CHALET_FIRE, WEAPON_TABLE, createDefaultProfile, type CharacterBody } from '@frost-and-flamingos/shared';
 import { ReferenceChaletFire } from '../src/rooms/reference-fire';
 import { MatchRoom } from '../src/rooms/match-room';
 import { RecordingSocket, internals, joinPlayer, placePlayer, playerOf, run, sendInput, InputButton } from './vehicle-helpers';
@@ -38,7 +38,7 @@ test('authoritative snow-cannon wall hits extinguish the chalet, sync a late joi
     const joined=room.join(socket,{protocolVersion:PROTOCOL_VERSION,profile});if(!joined.ok)throw new Error(joined.reason);
     expect(joined.mapState.destructibles[0]!.burning).toBe(true);
     expect(decodeMapStateSync(encodeMapStateSync(joined.mapState))!.destructibles[0]).toEqual(joined.mapState.destructibles[0]);
-    const id=joined.welcome.playerId,chalet=FJORD_MAP.props.find(p=>p.id==='chalet_north')!,layout=chalet.building!;
+    const id=joined.welcome.playerId,chalet=ARENA_CHALET,layout=chalet.building!;
     const world=(x:number,y:number,z:number)=>({x:chalet.position.x+Math.cos(chalet.rotationY)*x+Math.sin(chalet.rotationY)*z,
       y:chalet.position.y+y,z:chalet.position.z-Math.sin(chalet.rotationY)*x+Math.cos(chalet.rotationY)*z});
     const outside=world(-layout.width*.42,.06,layout.depth/2+2.3),target=world(-layout.width*.42,layout.floors[1]!.elevation+1.2,layout.depth/2);

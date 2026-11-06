@@ -11,7 +11,7 @@
  *    integrated layout keeps the number.
  */
 // 12 revised terrain; 13 added the field vest; 14 transmits independent map HP/fire state.
-export const PROTOCOL_VERSION = 14;
+export const PROTOCOL_VERSION = 15;
 
 /** Authoritative snapshot frequency. */
 export const SERVER_TICK_RATE = 30;

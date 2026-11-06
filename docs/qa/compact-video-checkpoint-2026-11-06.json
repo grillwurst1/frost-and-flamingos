@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-06",
+  "status": "verified structural checkpoint; video visual acceptance open",
+  "sourceVideo": {
+    "path": "gemini_generated_video_e01d97e8.mp4",
+    "upstreamCommit": "c5d0006",
+    "sha256": "14800c959e18a83bef41c785bcdbc97f138e4df25e64dc3b880734ea97879b38",
+    "duration": 10.026667,
+    "resolution": [
+      1280,
+      720
+    ],
+    "fps": 24,
+    "inspectedSeconds": [
+      0,
+      3,
+      7
+    ]
+  },
+  "automated": {
+    "script": 15,
+    "serverTests": 222,
+    "serverSrc": 21,
+    "client": 157,
+    "totalCases": 415,
+    "note": "One pre-existing 30-second exhaustive wardrobe batch timeout; isolated unchanged case passes in 24.14s. Latest changed camera/terrain/room/route focused suite:21pass; latest strict0errors0warnings; productionbuildpass."
+  },
+  "mediumBrowser": {
+    "artifact": "compact-arena-2026-11-06.png",
+    "allSevenLabels": true,
+    "pageErrors": [],
+    "contextLosses": 0,
+    "mapVertices": 163391,
+    "previousMapVertices": 1420595,
+    "firInstances": 17
+  },
+  "latestVideoPass": [
+    "top live score and round clock",
+    "round minimap from actual room grid",
+    "bald orange-bearded heavy preset, brown boots; saved profiles preserved",
+    "close centred3.6m/.85FOV profile retained during updates",
+    "small actual heightfield/collision snow drifts"
+  ],
+  "pending": [
+    "latest camera/HUD browser capture and corrected semi-automatic repeated-click tank check running",
+    "Alpine snow basin composition, illustrated character/art/FX fidelity to the source video",
+    "native MacM4 thermals/throughput",
+    "full native WebGPU diagnostics"
+  ],
+  "notClaimed": [
+    "exact video parity",
+    "all milestones finished",
+    "native GPU performance or heat acceptance"
+  ]
+}

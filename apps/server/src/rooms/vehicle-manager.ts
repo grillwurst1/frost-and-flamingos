@@ -3,7 +3,6 @@ import {
   FIXED_DT,
   AIRCRAFT_RULES,
   CABLE_CAR_RULES,
-  FJORD_MAP,
   GRAVITY,
   InputButton,
   NO_TOWERS_HELD,
@@ -30,7 +29,6 @@ import {
   mayEnterVehicle,
   rayVehicleHull,
   rowingBeat,
-  sampleMapHeight,
   vehicleLocalToWorld,
   vehicleEyeDrop,
   vehicleSlotActive,
@@ -755,7 +753,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     const spawn = record.slot.spawn.position;
     if (record.definition.chassis === 'ride') return { ...spawn };
     if (record.definition.chassis === 'boat') return { x: spawn.x, y: 0, z: spawn.z };
-    if (record.definition.chassis === 'aircraft' && sampleMapHeight(spawn.x,spawn.z)<WATER_LEVEL-0.4) return { ...spawn, y: WATER_LEVEL-0.25 };
+    if (record.definition.chassis === 'aircraft' && this.physics.heightAt(spawn.x,spawn.z)<WATER_LEVEL-0.4) return { ...spawn, y: WATER_LEVEL-0.25 };
     const hit = this.physics.raycast({ x: spawn.x, y: spawn.y + 3, z: spawn.z }, { x: 0, y: -1, z: 0 }, 8);
     return { x: spawn.x, y: (hit ? hit.point.y : spawn.y) + 0.04, z: spawn.z };
   }
@@ -892,7 +890,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   private nearCableLever(player: P): boolean {
     const feet = player.character.position;
     const eyes = { x: feet.x, y: feet.y + player.character.eyeHeight, z: feet.z };
-    return FJORD_MAP.routes.cableCar.stations.some(({ brakeLever: lever }) => {
+    return this.physics.cableCarRoute.stations.some(({ brakeLever: lever }) => {
       const length = Math.hypot(eyes.x - lever.x, eyes.y - lever.y, eyes.z - lever.z);
       if (length > CABLE_CAR_RULES.leverRange) return false;
       const direction = normalizeDirection({ x: lever.x - eyes.x, y: lever.y - eyes.y, z: lever.z - eyes.z });
@@ -903,7 +901,7 @@ export class VehicleManager<P extends VehicleOccupant> {
 
   raycastBrakeLever(origin: Vec3, direction: Vec3, maxDistance: number): number | null {
     let closest: number | null = null;
-    for (const { brakeLever: lever } of FJORD_MAP.routes.cableCar.stations) {
+    for (const { brakeLever: lever } of this.physics.cableCarRoute.stations) {
       const x = origin.x - lever.x, y = origin.y - lever.y, z = origin.z - lever.z;
       const b = x * direction.x + y * direction.y + z * direction.z;
       const c = x*x + y*y + z*z - CABLE_CAR_RULES.leverRadius ** 2;
@@ -1027,7 +1025,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     if (record.slot.kind === 'cable_car' && record.body) {
       const body = record.body, anchor = record.definition.seats[seat]?.anchor;
       if (!anchor) return;
-      const station = seat < 2 ? FJORD_MAP.routes.cableCar.stations.find(station =>
+      const station = seat < 2 ? this.physics.cableCarRoute.stations.find(station =>
         Math.hypot(body.position.x - station.platform.x, body.position.z - station.platform.z) < 3.5
         && Math.abs(body.position.y - station.platform.y) < .2 && body.speed < .5) : undefined;
       if (station) {
@@ -1371,7 +1369,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       };
       const spot = vehicleLocalToWorld(body.position, body.yaw, target);
       // Terrain: stand on it, but never inside a bank higher than a step.
-      const ground = sampleMapHeight(spot.x, spot.z);
+      const ground = this.physics.heightAt(spot.x, spot.z);
       if (ground > feetY + PUSH_OUT_MAX_RISE) continue;
       spot.y = Math.max(feetY, ground + 0.02);
       const blocked = this.physics.world.intersectionWithShape(

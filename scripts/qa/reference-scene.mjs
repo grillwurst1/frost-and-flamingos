@@ -25,7 +25,7 @@ try {
   const sample=async label=>{
     const value=await page.evaluate(()=>{const g=window.__frostDebug;const feet=g.localCharacter.position;
       return {phase:g.currentPhase,frame:g.scene.getFrameId(),tick:g.lastSnapshotTick,connected:g.network.ready,feet:{...feet},
-        controls:{locked:g.input?.isLocked,buttons:g.input?.buttons(),slot:g.input?.currentWeaponSlot(),shots:window.__qaHandShots,lastShot:window.__qaLastHandShot},camera:g.cameraRig.camera.position.asArray(),profile:g.localProfile,heroTriangles:g.localView.root.getChildMeshes().find(m=>m.name==='soldier-modular-detail')?.getTotalIndices()/3,contextLosses:window.__qaContextLosses,
+        controls:{locked:g.input?.isLocked,buttons:g.input?.buttons(),slot:g.input?.currentWeaponSlot(),shots:window.__qaHandShots,cannonShots:window.__qaCannonShots,serverCannonShots:window.__qaServerCannonShots,lastShot:window.__qaLastHandShot},camera:g.cameraRig.camera.position.asArray(),profile:g.localProfile,heroTriangles:g.localView.root.getChildMeshes().find(m=>m.name==='soldier-modular-detail')?.getTotalIndices()/3,contextLosses:window.__qaContextLosses,
         stats:window.__ffMap.stats(),meshes:g.scene.meshes.length,materials:g.scene.materials.length,textures:g.scene.textures.length,
         geometries:g.scene.geometries.length,gpuTextures:g.engine.getLoadedTexturesCache().length,heap:performance.memory?.usedJSHeapSize,
         pendingInputs:g.pendingInputs.length,vehicles:g.vehicles.debugInfo(),names:Array.from(document.querySelectorAll('.player-tag')).map(e=>e.textContent),
@@ -39,7 +39,7 @@ try {
         tracks:g.scene.getMeshByName('reference-crawler-tracks')?.thinInstanceCount,smoke:g.scene.getMeshByName('reference-chimney-smoke')?.thinInstanceCount};});
     assert.equal(value.connected,true);assert.equal(value.contextLosses,0);assert.ok(Object.values(value.feet).every(Number.isFinite));
     assert.ok(value.pendingInputs<=180);assert.equal(value.tracks,80);assert.equal(value.smoke,8);
-    assert.equal(value.firInstances,720);assert.ok(value.firInstanceAttribute>=0,'shared fir transforms must be active in the actual GPU shader');
+    assert.equal(value.firInstances,17);assert.ok(value.firInstanceAttribute>=0,'shared fir transforms must be active in the actual GPU shader');
     if(value.fire.burning)assert.ok(value.fireSmokeAttribute>=0,'solid smoke transforms must be active in the actual GPU shader');
     result.checkpoints.push({label,...value});console.log(JSON.stringify({label,...value}));return value;
   };
@@ -51,7 +51,7 @@ try {
   await page.locator('button.cover-play').focus();await page.keyboard.press('Enter');console.log('play pressed '+await page.evaluate(()=>window.__frostDebug.currentPhase));
   await wait(()=>window.__frostDebug?.currentPhase==='playing');console.log('playing');
   await wait(()=>window.__frostDebug.localView.root.getChildMeshes().some(m=>m.name==='soldier-modular-detail'));
-  console.log('detailed model loaded');await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x-40)<.2&&Math.abs(first.feet.z-66)<.2);
+  console.log('detailed model loaded');if(process.env.FF_QA_REFERENCE_VIDEO==='1'){await page.keyboard.press('3');await frames(3)}await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x)<.2&&Math.abs(first.feet.z+20)<.2);
   if(process.env.FF_QA_REFERENCE_CAST==='1')for(const name of ['RoofSniper77','Senn_Koloss','Skipper','Wuzzi','Angry_Cow_Beta','StumbleBoi','GipfelRanger'])
     assert.ok(first.names.includes(name),name+' must be labelled in the initial view');
   if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');
@@ -95,7 +95,7 @@ try {
   }
   if(mechanics) {
 
-    await stage({x:'1',z:'71.5',y:'16.98'});await frames();
+    await stage({x:'.7',z:'0',y:'17.06'});await frames();
     await wait(()=>window.__frostDebug.snapshotHistory.at(-1).snapshot.conquest.towers[1].owner==='alpine');
     await sample('bridge-captured');await page.screenshot({path:resolve(output,'reference-bridge.png'),timeout:180000});
     const tankPad=await page.evaluate(async module=>{const {REFERENCE_VEHICLES}=await import(module),spawn=REFERENCE_VEHICLES.find(v=>v.id===201).spawn,p=spawn.position;return {x:String(p.x+Math.sin(spawn.rotationY)*3),z:String(p.z+Math.cos(spawn.rotationY)*3),y:String(p.y+.05)}},'/@fs'+resolve(import.meta.dirname,'../../packages/shared/src/index.ts'));
@@ -104,12 +104,12 @@ try {
     if(!await page.evaluate(()=>window.__frostDebug.vehicles.localSeat?.driver)) {
       await page.keyboard.down('c');try{await wait(()=>window.__frostDebug.vehicles.localSeat?.driver===true)}finally{await page.keyboard.up('c')}
     }
-    await page.evaluate(()=>{const g=window.__frostDebug;window.__qaCannonShots=0;const fire=g.vehicles.localShot.bind(g.vehicles);g.vehicles.localShot=(...a)=>{window.__qaCannonShots++;return fire(...a)}});
-    const before=await sample('tank-boarded');assert.equal(before.vehicles.seat.driver,true);assert.ok(before.trackAttribute>=0,'track matrices must be active in the actual GPU shader');await page.keyboard.down('w');await page.mouse.down();
+    await page.evaluate(()=>{const g=window.__frostDebug;window.__qaCannonShots=0;window.__qaServerCannonShots=0;const handle=g.handleGameEvent.bind(g);g.handleGameEvent=e=>{if(e.eventType==='TANK_CANNON_FIRE'&&e.actorId===g.localId)window.__qaServerCannonShots++;return handle(e)};const fire=g.vehicles.localShot.bind(g.vehicles);g.vehicles.localShot=(...a)=>{window.__qaCannonShots++;return fire(...a)}});
+    const before=await sample('tank-boarded');assert.equal(before.vehicles.seat.driver,true);assert.ok(before.trackAttribute>=0,'track matrices must be active in the actual GPU shader');await page.keyboard.down('w');
     const deadline=Date.now()+60000;
-    while(Date.now()<deadline){await page.waitForTimeout(10000);await sample('drive-fire')}
+    while(Date.now()<deadline){await page.mouse.down();await frames(2);await page.mouse.up();await frames(2);await sample('drive-fire')}
     await page.mouse.up();await page.keyboard.up('w');await frames();
-    const after=await sample('tank-driven');assert.ok(await page.evaluate(()=>window.__qaCannonShots)>=2);
+    const after=await sample('tank-driven');assert.ok(await page.evaluate(()=>window.__qaServerCannonShots)>=2,'real authoritative semi-automatic cannon shots must arrive');
     const a=before.vehicles.vehicles.find(v=>v.id===201),b=after.vehicles.vehicles.find(v=>v.id===201);
     assert.ok(Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z)>.5);
     const warm=result.checkpoints.filter(p=>p.label==='drive-fire').at(-3);

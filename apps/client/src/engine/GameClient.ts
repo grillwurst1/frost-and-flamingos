@@ -1,7 +1,7 @@
 import { ReferenceChaletFireView } from '../rendering/reference-fire';
 import { REFERENCE_CHALET_FIRE } from '@frost-and-flamingos/shared';
-import { REFERENCE_MARKERS, REFERENCE_SCENE } from '@frost-and-flamingos/shared';
-import { buildReferenceWorld } from '../rendering/reference-world';
+import { REFERENCE_WORLD, REFERENCE_SCENE } from '@frost-and-flamingos/shared';
+import { buildReferenceArena } from '../rendering/reference-arena';
 import { referenceScene } from '../state/scene';
 import { CableBrakeLevers } from '../rendering/cable-brake-levers';
 import { frameLimit } from '../state/graphics';
@@ -615,7 +615,7 @@ export class GameClient {
       setLoadingStep('world', 'active');
       // Painted sprite atlas loads while Rapier initialises; null keeps procedural props.
       const artStart = performance.now();
-      const spriteAtlas = loadSpriteAtlas(scene).then((atlas) => {
+      const spriteAtlas = (referenceScene ? Promise.resolve(null) : loadSpriteAtlas(scene)).then((atlas) => {
         this.bootTimings.spriteAtlas = Math.round(performance.now() - artStart);
         return atlas;
       }).catch((error: unknown) => {
@@ -629,7 +629,7 @@ export class GameClient {
         console.warn('[frost-and-flamingos] painted facades unavailable, using procedural buildings', error);
         return null;
       });
-      const physics = await PhysicsWorld.create(referenceScene ? REFERENCE_MARKERS : []);
+      const physics = await PhysicsWorld.create([],referenceScene ? REFERENCE_WORLD : undefined);
       if (this.disposed) {
         physics.dispose();
         return;
@@ -639,12 +639,11 @@ export class GameClient {
       const [sprites, facades] = await Promise.all([spriteAtlas, facadeAtlas]);
       if (this.disposed) return;
       const buildStart = performance.now();
-      this.visuals = buildFjordFiesta(scene, this.toonMaterial, { sprites, facades });
+      this.visuals = referenceScene ? buildReferenceArena(scene,this.toonMaterial) : buildFjordFiesta(scene, this.toonMaterial, { sprites, facades });
       if (referenceScene) {
-        buildReferenceWorld(scene, this.toonMaterial);
         this.referenceFire = new ReferenceChaletFireView(scene);
       }
-      this.cableBrakeLevers = new CableBrakeLevers(this.visuals.brakeLevers);
+      this.cableBrakeLevers = new CableBrakeLevers(this.visuals.brakeLevers,physics.cableCarRoute.stations);
       this.bootTimings.map = Math.round(performance.now() - buildStart);
       this.bootTimings.world = Math.round(performance.now() - artStart);
       this.wardrobeStage = new WardrobeStage(scene, this.toonMaterial, this.visuals.previewStage.position);
@@ -1670,7 +1669,7 @@ export class GameClient {
         || !!this.latestLocalState?.dazed || (this.latestLocalState?.launchSeconds ?? 0) > 0,
       position: at, heading: mascot?.heading ?? 0, speed: Math.hypot(character.velocity.x, character.velocity.z), stamina: mascot?.stamina ?? 0,
       selfId: this.localId, players: this.snapshotHistory.at(-1)?.snapshot.players ?? [],
-      canGraze: () => surfaceTagAt(at.x, at.z, at.y) === 'grass_mud',
+      canGraze: () => physics?.surfaceAt(at.x, at.z, at.y) === 'grass_mud',
       visible: target => {
         if (!physics) return false;
         const direction = { x: target.x - at.x, y: target.y - at.y, z: target.z - at.z };
@@ -2122,7 +2121,7 @@ export class GameClient {
         if (remote.stepDistance >= stride) {
           remote.stepDistance = 0;
           audio.playFootstep(
-            surfaceTagAt(position.x, position.z, position.y),
+            this.physics?.surfaceAt(position.x, position.z, position.y) ?? surfaceTagAt(position.x, position.z, position.y),
             position,
             player.sprinting,
             this.profiles.get(player.id)?.cosmetics.feet === 'feet_dive_flippers',

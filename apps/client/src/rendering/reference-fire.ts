@@ -57,7 +57,7 @@ export class ReferenceChaletFireView {
     this.flames=CreatePlane('reference-chalet-flames',{size:1},scene);
     this.flames.bakeTransformIntoVertices(Matrix.Translation(0,.5,0));this.flames.material=this.fireMaterial;
     const smoke=new GeometryBatch();smoke.jitter=0;
-    smoke.blob(0,0,0,1,1,1,ny=>[.44+ny*.09,.46+ny*.09,.48+ny*.10],'plain',{segments:10,rings:6,wobble:.1,seed:17});
+    smoke.blob(0,0,0,1,1,1,ny=>[.62+ny*.08,.65+ny*.08,.68+ny*.09],'plain',{segments:10,rings:6,wobble:.1,seed:17});
     this.smoke=smoke.toMesh(scene,'reference-chalet-fire-smoke',this.material)!;
     this.flames.thinInstanceSetBuffer('matrix',this.flameMatrices,16,false);
     this.smoke.thinInstanceSetBuffer('matrix',this.smokeMatrices,16,false);
@@ -90,10 +90,10 @@ export class ReferenceChaletFireView {
       this.matrix.setTranslationFromFloats(point.x,point.y,point.z);this.matrix.copyToArray(this.flameMatrices,i*16);
       for(let puff=0;puff<PUFFS_PER_FIRE;puff++) {
         const age=(this.time+(i*PUFFS_PER_FIRE+puff)*(5.8/40))%5.8,t=age/5.8;
-        const scale=(.42+t*1.65)*Math.min(1,age*4,(5.8-age)*2);
+        const scale=(.30+t*1.0)*Math.min(1,age*4,(5.8-age)*2);
         Matrix.ScalingToRef(scale,scale*1.13,scale,this.matrix);
         const roof=REFERENCE_CHALET_FIRE.points[1]!;
-        this.matrix.setTranslationFromFloats(roof.x+age*.32+Math.sin(puff*2.1+i+age)*t*1.15,roof.y+1.3+age*.93,roof.z+Math.cos(puff*1.7+i+age*.8)*t*1.1);
+        this.matrix.setTranslationFromFloats(roof.x+age*.48+Math.sin(puff*2.1+i+age)*t*1.15,roof.y+1.0+age*.62,roof.z+Math.cos(puff*1.7+i+age*.8)*t*1.1);
         this.matrix.copyToArray(this.smokeMatrices,(i*PUFFS_PER_FIRE+puff)*16);
       }
     }

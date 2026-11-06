@@ -84,7 +84,7 @@ describe('profile updates', () => {
     expect(TORSO_TABLE.byCode[8]).toBe('torso_field_vest');
     const profile = createDefaultProfile('Reference Heavy', 'heavy');
     const decoded = decodeHello(encodeHello({ profile, protocolVersion: PROTOCOL_VERSION }));
-    expect(decoded?.protocolVersion).toBe(14);
+    expect(decoded?.protocolVersion).toBe(15);
     expect(decoded?.profile.cosmetics.torso).toBe('torso_field_vest');
     expect(decoded?.profile.cosmetics.hairStyleIndex).toBe(6);
     expect(decoded?.profile.cosmetics.bodyType).toBeCloseTo(.08, 2);

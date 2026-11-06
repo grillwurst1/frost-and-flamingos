@@ -11,7 +11,6 @@ import {
   type DrivableVehicleKind,
   type VehicleDefinition,
 } from '../config/vehicles.js';
-import { sampleMapHeight, surfaceTagAt } from '../config/map-fjord.js';
 import { FIXED_DT, GRAVITY, WATER_LEVEL } from '../constants.js';
 import type { SurfaceTag } from '../types/map.js';
 import { InputButton, type InputButtonMask, type Vec3 } from '../types/index.js';
@@ -224,7 +223,7 @@ export class VehicleBody {
     const half = this.definition.halfExtents;
     this.base = { ...position };
     this.heading = wrapAngle(yaw);
-    if (kind === 'cable_car') this.cableCabin = cableCabinAt(position);
+    if (kind === 'cable_car') this.cableCabin = cableCabinAt(position, this.physics.cableCarRoute);
 
     const boat = this.definition.chassis === 'boat';
     // The boat hull floats: its collider starts above the keel so sand under
@@ -398,7 +397,7 @@ export class VehicleBody {
     this.base = { ...position };
     this.heading = wrapAngle(yaw);
     this.flightPitch = 0; this.flightRoll = 0;
-    if (this.kind === 'cable_car') { this.cableTick = 0; this.cableCabin = cableCabinAt(position); this.cableBrakeTicks = 0; }
+    if (this.kind === 'cable_car') { this.cableTick = 0; this.cableCabin = cableCabinAt(position, this.physics.cableCarRoute); this.cableBrakeTicks = 0; }
     this.linear = { x: 0, y: 0, z: 0 };
     this.turnRate = 0;
     this.steerAngle = 0;
@@ -479,21 +478,21 @@ export class VehicleBody {
       this.events.push({ type: 'boost' });
     }
 
-    const surface = chassis === 'boat' ? 'water' : surfaceTagAt(this.base.x, this.base.z, this.base.y);
+    const surface = chassis === 'boat' ? 'water' : this.physics.surfaceAt(this.base.x, this.base.z, this.base.y);
     const traction = chassis === 'boat' ? { grip: 1, speed: 1 } : tractionFor(chassis, surface);
     const boostScale = this.boost > 0 && boostDefinition ? boostDefinition.speedScale : 1;
     const maxForward = definition.maxForwardSpeed * traction.speed * boostScale;
     const maxReverse = definition.maxReverseSpeed * traction.speed;
     // A boat that has just nosed onto the beach, with water still under its
     // middle, can rudder and back off (no forward thrust onto the sand).
-    const centreGround = chassis === 'boat' ? sampleMapHeight(this.base.x, this.base.z) : 0;
+    const centreGround = chassis === 'boat' ? this.physics.heightAt(this.base.x, this.base.z) : 0;
     const shallows = chassis === 'boat' && !this.isAfloat && centreGround < WATER_LEVEL;
     // In the shallows only thrust toward deeper water works (bow or stern
     // end, whichever lies lower than the middle of the hull).
     let shallowThrust = false;
     if (shallows && throttle !== 0) {
       const end = this.definition.halfExtents.z * throttle;
-      const endGround = sampleMapHeight(this.base.x + Math.sin(this.heading) * end, this.base.z + Math.cos(this.heading) * end);
+      const endGround = this.physics.heightAt(this.base.x + Math.sin(this.heading) * end, this.base.z + Math.cos(this.heading) * end);
       shallowThrust = endGround < centreGround;
     }
     const driving = chassis === 'boat' ? this.isAfloat || shallowThrust : this.isGrounded;
@@ -573,7 +572,7 @@ export class VehicleBody {
       const bowX = this.base.x + (vx / planar) * reach;
       const bowZ = this.base.z + (vz / planar) * reach;
       const floor = WATER_LEVEL - definition.fordDepth;
-      if (sampleMapHeight(bowX, bowZ) < floor) {
+      if (this.physics.heightAt(bowX, bowZ) < floor) {
         const drop = definition.stepHeight + 1.5;
         const support = this.physics.raycast({ x: bowX, y: this.base.y + definition.stepHeight, z: bowZ }, { x: 0, y: -1, z: 0 }, drop, this.collider.handle);
         const supported = support !== null && support.point.y >= floor;
@@ -692,7 +691,7 @@ export class VehicleBody {
 
   private simulateAircraft(driver: VehicleControlInput | null, gunner: VehicleControlInput | null, trackButtons: boolean): void {
     const dt = FIXED_DT;
-    const terrain = sampleMapHeight(this.base.x,this.base.z);
+    const terrain = this.physics.heightAt(this.base.x,this.base.z);
     const support = this.physics.raycast({x:this.base.x,y:this.base.y+0.7,z:this.base.z},{x:0,y:-1,z:0},6,this.collider.handle);
     const floor = Math.max(terrain,WATER_LEVEL-BOAT_DRAFT,support?.point.y ?? -Infinity);
     const onSurface = this.isGrounded && this.base.y <= floor+1.4 && this.linear.y <= 0.3
@@ -716,7 +715,7 @@ export class VehicleBody {
       if(normal.y<0.65) impact=Math.max(impact,closing>12?closing:0);
       else if(!onSurface && -velocity.y>AIRCRAFT_RULES.safeLandingSpeed) impact=Math.max(impact,-velocity.y);
     }
-    const nextTerrain=sampleMapHeight(next.x,next.z), waterFloor=WATER_LEVEL-BOAT_DRAFT;
+    const nextTerrain=this.physics.heightAt(next.x,next.z), waterFloor=WATER_LEVEL-BOAT_DRAFT;
     const landingFloor=Math.max(nextTerrain,waterFloor);
     this.isGrounded=!step.takingOff && this.controller.computedGrounded();
     if(next.y<=landingFloor+0.035 && velocity.y<=0) {
@@ -750,7 +749,7 @@ export class VehicleBody {
     this.braking = this.cableBrakeTicks > 0;
     if (this.braking) this.cableBrakeTicks--;
     else this.cableTick++;
-    const pose = sampleCableCar(this.cableTick, this.cableCabin);
+    const pose = sampleCableCar(this.cableTick, this.cableCabin, this.physics.cableCarRoute);
     this.base = pose.position;
     this.heading = pose.yaw;
     const decay = this.cableBrakeTicks / brakeTicks;
@@ -778,7 +777,7 @@ export class VehicleBody {
     const speed = Math.hypot(vx, vz);
     if (speed < 1e-4) return { x: vx, z: vz };
     const floor = WATER_LEVEL - BOAT_DRAFT;
-    const ground = (x: number, z: number): number => Math.max(floor, sampleMapHeight(x, z));
+    const ground = (x: number, z: number): number => Math.max(floor, this.physics.heightAt(x, z));
     const reach = this.definition.halfExtents.z * 0.8 + speed * dt;
     const bowX = this.base.x + (vx / speed) * reach;
     const bowZ = this.base.z + (vz / speed) * reach;
@@ -810,7 +809,7 @@ export class VehicleBody {
 
   /** Boat height: the waterline, or the sand under a beached hull. */
   private settleBoat(): void {
-    const ground = sampleMapHeight(this.base.x, this.base.z);
+    const ground = this.physics.heightAt(this.base.x, this.base.z);
     this.isAfloat = ground < WATER_LEVEL - BOAT_BEACH_DEPTH;
     this.isBeached = !this.isAfloat;
     this.isGrounded = this.isBeached;

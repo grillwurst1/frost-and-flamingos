@@ -12,6 +12,16 @@ bars on the other. No Battlefield/EA assets, names, maps or audio may be used or
 The project is delivered in milestones. **Only the current milestone may be implemented.**
 Future-milestone code, placeholder gameplay loops and speculative systems are not allowed.
 
+## Active owner priority: supplied gameplay video (6 November 2026)
+
+The owner uploaded `gemini_generated_video_e01d97e8.mp4` (c5d0006) and now
+requires its look in the actual browser demo, with recurring real screenshots.
+Read `VIDEO_REFERENCE_WORK.md`. This supersedes the bridge scene composition,
+while preserving original solid models, configurable outfits/skin, physical
+world, movement and bounded resources. Keep working serially. Exact visual
+acceptance is OPEN; the current compact arena is a structural checkpoint.
+Do not represent decoded video frames as screenshots of implemented gameplay.
+
 ## Active owner priority: PHOTO artwork (5 November 2026)
 
 The owner rejected the current low-detail look and explicitly restored `PHOTO-*.jpg`
@@ -89,7 +99,7 @@ In this build:
   during the results, otherwise at the next respawn (with a notice); leaving the drifter class
   may move you to the smaller team at respawn (toast). Rules in `packages/shared/src/config/conquest.ts`
   and `apps/server/src/rooms/conquest.ts`; full text in `game-decisions.md` §14.1 / §10.6.
-- Protocol version **14**; EN/DE keys for every new surface; `bun run test` runs the script,
+- Protocol version **15**; EN/DE keys for every new surface; `bun run test` runs the script,
   server and client suites.
 
 Deliberately **not** in this build:
@@ -1674,3 +1684,34 @@ reference-intro regression checks Wuzzi remains alive and supported. All seven
 initial live labels are verified in the actual Medium renderer. The updated
 nine-case reference suite, strict diagnostics and production build pass.
 Evidence: `docs/qa/comic-final-reference-2026-11-05.json` and its PNG.
+
+
+## Compact physical reference arena and new video target — 6 November 2026
+
+The default reference room now owns a 128 m / 0.5 m heightfield, compact
+horizontal suspension bridge, enterable chalet, four continuous stair flights,
+solid foreground/stair rails and three operating gondola stations. Prediction,
+authority, visible terrain, vehicle motors, surface queries and bot navigation
+use that room's blueprint. The full field remains at `?scene=field`.
+Actual Medium WebGL2 capture: 163,391 map vertices versus 1,420,595 previously
+(88.5% fewer stored vertices), 17 shared fir instances and all seven live labels.
+This is geometry evidence, not measured native Mac M4 throughput/heat.
+Protocol 15 rejects stale clients after the physical-world change.
+
+The owner then supplied `gemini_generated_video_e01d97e8.mp4` on master. It is
+now the visual target; see `VIDEO_REFERENCE_WORK.md`. The reference HUD moves
+its live score/clock to the top and restores a round minimap generated from the
+actual compact grid. New reference profiles use the broader bald/bearded heavy,
+brown mountain boots and the existing independent outfit/skin settings; saved
+profiles retain their selections. Scene/art parity with the video remains OPEN.
+
+Verification includes 15 script cases, 243 server cases and 157 client cases.
+One existing exhaustive wardrobe case exceeded its 30-second Cloud timeout in
+the client batch; its isolated rerun passes (24.14s, unchanged assertions).
+Focused real-route tests cover all four stair climbs/descents without jumping,
+foreground collision, normal F boarding/exiting at all three stops and emergency
+braking. Rendered terrain rays match actual Rapier triangles on cliff/snow/beach.
+Strict checks/builds pass for the compact checkpoint. Record subsequent video
+HUD validation separately; do not use this record as proof of visual acceptance.
+
+6 November video pass: closer centred full-body camera (3.6 m, FOV .85), terrain/collision snow drifts, actual-room surface queries for cow grazing and remote footsteps. Camera update now retains the selected reference FOV. Existing field and vehicle camera defaults remain.

@@ -1449,3 +1449,24 @@ Die abschließende Ansicht zeigt alle sechs tatsächlichen Mitspieler und den
 Ranger mit ihren Beschriftungen. Wuzzi steht auf einem begehbaren Brückenstück;
 seine Bodenhaftung wird zusätzlich über zehn Sekunden Simulationszeit geprüft.
 Bild und Bericht: `docs/qa/comic-final-reference-2026-11-05.png` / `.json`.
+
+
+## Kompakte Referenzarena und neue Videovorlage – 6. November 2026
+
+Der Standardeinstieg lädt eine eigene kleine 3D-Karte. Die große Karte bleibt
+unter `?scene=field` erreichbar. Links und rechts führen Treppen vom Startplatz
+zur Hängebrücke. Zwei weitere Treppen mit einem durchgehenden Absatz führen
+zum Strand. Geländer, Brückendeck, Chalet und Gelände besitzen reale Kollisionen.
+Die drei Gondelstationen lassen sich mit F benutzen; H wechselt die Sitze und
+F steigt wieder aus. Die sichtbaren Bremshebel stoppen beide Kabinen kurzzeitig.
+
+Dein neues Gameplay-Video ist jetzt die maßgebliche Grafikvorlage. Tickets und
+Rundenuhr wandern nach oben, rechts erscheint die runde Minimap der tatsächlichen
+Arena. Neue Referenzprofile beginnen als kräftiger, bärtiger Heavy mit Glatze
+und braunen Bergschuhen. Gespeicherte Kleidungs- und Hautauswahlen bleiben erhalten.
+Die Grafik entspricht dem Video noch nicht vollständig; echte Demoaufnahmen
+zeigen den Arbeitsstand. Die reduzierte Kartengeometrie ist kein Messnachweis
+für Temperatur oder Bildrate auf deinem MacBook M4. Protokoll 15 benötigt einen
+aktuellen Client und Server.
+
+Videopass vom 6. November: nähere, mittige Ganzkörperkamera (3,6 m, Blickwinkel .85), echte Schneeverwehungen im Gelände samt Kollision sowie passende Oberflächen für Kuh-Grasen und Schritte. Der gewählte Blickwinkel bleibt auch während des Spielens erhalten.

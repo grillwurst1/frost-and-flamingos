@@ -1,8 +1,9 @@
 /** The reference chalet's real extinguishable fire; no terrain/collision changes. */
+import { ARENA_CHALET } from './reference-arena.js';
 import { FJORD_MAP } from './map-fjord.js';
 import { roofBase } from './map/buildings.js';
 import type { Vec3 } from '../types/index.js';
-const chalet=FJORD_MAP.props.find(prop=>prop.id==='chalet_north')!;
+const chalet=ARENA_CHALET;
 const layout=chalet.building!;
 const transform=(x:number,y:number,z:number):Vec3=>({
   x:chalet.position.x+Math.cos(chalet.rotationY)*x+Math.sin(chalet.rotationY)*z,
@@ -11,7 +12,7 @@ const transform=(x:number,y:number,z:number):Vec3=>({
 });
 const ridge=roofBase(layout)+Math.tan(layout.roof.pitch)*(layout.width/2+layout.roof.overhang);
 export const REFERENCE_CHALET_FIRE={
-  id:FJORD_MAP.destructibles.buildings.find(building=>building.propId===chalet.id)!.netId,
+  id:FJORD_MAP.destructibles.buildings.find(building=>building.id==='building_chalet_north')!.netId,
   maxHp:500,
   cooling:100,
   damage:8,

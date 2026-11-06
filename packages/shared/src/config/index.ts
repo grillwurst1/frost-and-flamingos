@@ -14,3 +14,5 @@ export * from './conquest.js';
 
 export * from './reference-scene.js';
 export * from './reference-fire.js';
+
+export * from './reference-arena.js';

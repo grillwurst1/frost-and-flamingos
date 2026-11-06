@@ -5,7 +5,6 @@ import type { Scene } from '@babylonjs/core/scene';
 import {
   GRAVITY,
   CABLE_CAR_RULES,
-  FJORD_MAP,
   CLASS_STATS,
   InputButton,
   VEHICLE_ENTER_HEIGHT,
@@ -650,7 +649,7 @@ export class VehicleClient {
     let repair = false;
     // Same rule as the server seat gate: alive, on foot, a class that may ride (classMayUseVehicles).
     if (onFoot && onFoot.alive && classMayUseVehicles(onFoot.classId) && !this.seat) {
-      const lever = FJORD_MAP.routes.cableCar.stations.find(station => Math.hypot(onFoot.position.x - station.brakeLever.x,
+      const lever = this.physics.cableCarRoute.stations.find(station => Math.hypot(onFoot.position.x - station.brakeLever.x,
         onFoot.position.y + onFoot.eyeHeight - station.brakeLever.y, onFoot.position.z - station.brakeLever.z) <= CABLE_CAR_RULES.leverRange);
       const eyes = { ...onFoot.position, y: onFoot.position.y + onFoot.eyeHeight };
       const reach = lever ? Math.hypot(eyes.x - lever.brakeLever.x, eyes.y - lever.brakeLever.y, eyes.z - lever.brakeLever.z) : 0;

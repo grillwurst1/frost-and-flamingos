@@ -1,15 +1,15 @@
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
-import { CABLE_CAR_RULES, FJORD_MAP, type Vec3 } from '@frost-and-flamingos/shared';
+import { CABLE_CAR_RULES, FJORD_MAP, type CableCarStation, type Vec3 } from '@frost-and-flamingos/shared';
 
 /** Three existing handles, animated only while the authoritative brake runs. */
 export class CableBrakeLevers {
   private readonly active = new Map<string, { start: number; shown: boolean }>();
-  constructor(private readonly meshes: ReadonlyMap<string, Mesh>) {}
+  constructor(private readonly meshes: ReadonlyMap<string, Mesh>, private readonly stations: readonly CableCarStation[] = FJORD_MAP.routes.cableCar.stations) {}
 
   pullNearest(operator: Vec3, now: number): void {
-    let nearest = FJORD_MAP.routes.cableCar.stations[0]!;
+    let nearest = this.stations[0];if(!nearest)return;
     const distance = (p: Vec3) => Math.hypot(p.x - operator.x, p.y - operator.y, p.z - operator.z);
-    for (const station of FJORD_MAP.routes.cableCar.stations) {
+    for (const station of this.stations) {
       if (distance(station.brakeLever) < distance(nearest.brakeLever)) nearest = station;
     }
     const mesh = this.meshes.get(nearest.id);

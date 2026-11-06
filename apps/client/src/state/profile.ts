@@ -72,7 +72,7 @@ function withPlayableClass(value: PlayerProfile): PlayerProfile {
 
 function loadProfile(): PlayerProfile {
   const fallback = createDefaultProfile(referenceScene ? 'GipfelRanger' : randomCallsign());
-  if (referenceScene) { Object.assign(fallback.cosmetics, { skinToneIndex: 2, hairColorIndex: 1, torso: 'torso_tracht_shirt', legs: 'legs_lederhosen', back: 'back_cuckoo_clock', headgear: 'head_tirol', face: 'face_full_beard' }); fallback.loadout.gimmick = 'snow_cannon'; }
+  if (referenceScene) { Object.assign(fallback.cosmetics, { classId:'heavy', bodyType:.72, skinToneIndex: 2, hairColorIndex: 1, hairStyleIndex:6, feet:'feet_mountain_boots', torso: 'torso_tracht_shirt', legs: 'legs_lederhosen', back: 'back_cuckoo_clock', headgear: 'head_none', face: 'face_full_beard' }); fallback.loadout.gimmick = 'snow_cannon'; }
   if (typeof window === 'undefined') return fallback;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);

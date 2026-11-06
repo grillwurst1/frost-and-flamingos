@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { referenceScene } from '../../state/scene';
   import { conquest } from '../../state/conquest';
   import { connection, localPlayer } from '../../state/game';
   import { t } from '../../state/locale';
@@ -11,13 +12,16 @@
 <section class="match-hud" aria-label={$t('combat.towerControl')}>
   <div class="ticket-display">
     <div class="ticket-wing is-blue" role="meter" aria-label={$t('hud.ticketsAlps')} aria-valuemin="0" aria-valuemax="50" aria-valuenow={$connection.ticketsAlpine}>
+      {#if referenceScene}<span class="video-team-name">{$t('factions.alpine.short')}</span>{/if}
       {#each pips as pip}<i class:is-lit={pip<Math.ceil($connection.ticketsAlpine/5)}></i>{/each}
     </div>
     <strong><span>{$connection.ticketsAlpine}</span> {$t('hud.versus')} <span class="ticket-red">{$connection.ticketsLagoon}</span></strong>
     <div class="ticket-wing is-red" role="meter" aria-label={$t('hud.ticketsBeach')} aria-valuemin="0" aria-valuemax="50" aria-valuenow={$connection.ticketsLagoon}>
+      {#if referenceScene}<span class="video-team-name">{$t('factions.lagoon.short')}</span>{/if}
       {#each pips as pip}<i class:is-lit={pip<Math.ceil($connection.ticketsLagoon/5)}></i>{/each}
     </div>
   </div>
+  {#if referenceScene}<div class="video-round-time">{Math.floor($conquest.secondsLeft/60)}:{String(Math.floor($conquest.secondsLeft%60)).padStart(2,'0')}</div>{/if}
   <div class="objective-discs">
     {#each towers as letter,index}
       {@const tower=$conquest.towers[index]}

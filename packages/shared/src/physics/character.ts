@@ -1,7 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { classStatsFor, drifterFormOf, mascotFormOf, type ClassStats } from '../config/classes.js';
 import { DRIFTER_TUNING } from '../config/drifter.js';
-import { sampleMapHeight, surfaceTagAt } from '../config/map-fjord.js';
 import {
   COCONUT_TUNING,
   COW_TUNING,
@@ -42,7 +41,7 @@ import type {
 } from '../types/index.js';
 import { InputButton, ParachuteState as Parachute } from '../types/index.js';
 import { collidesWithVehicles } from './vehicle.js';
-import { DRIFTER_COLLISION_GROUP, PLAYER_COLLISION_GROUP, colliderHeightAt, type PhysicsWorld } from './world.js';
+import { DRIFTER_COLLISION_GROUP, PLAYER_COLLISION_GROUP, type PhysicsWorld } from './world.js';
 
 export interface CharacterBodyOptions {
   position: Vec3;
@@ -636,7 +635,7 @@ export class CharacterBody {
   }
 
   private measureGroundClearance(): number {
-    const terrainFloor = Math.max(sampleMapHeight(this.feet.x, this.feet.z), WATER_LEVEL);
+    const terrainFloor = Math.max(this.physics.heightAt(this.feet.x, this.feet.z), WATER_LEVEL);
     const terrainClearance = Math.max(0, this.feet.y - terrainFloor);
     const hit = this.physics.raycast(
       { x: this.feet.x, y: this.feet.y + 0.2, z: this.feet.z },
@@ -788,8 +787,8 @@ export class CharacterBody {
     const forwardAxis = normalizedZ;
     const hasMovement = magnitude > 0.001;
 
-    this.surface = surfaceTagAt(this.feet.x, this.feet.z, this.feet.y);
-    const groundHeight = sampleMapHeight(this.feet.x, this.feet.z);
+    this.surface = this.physics.surfaceAt(this.feet.x, this.feet.z, this.feet.y);
+    const groundHeight = this.physics.heightAt(this.feet.x, this.feet.z);
     const deepWater = groundHeight < WATER_LEVEL - 1.1;
     const wasSwimming = this.isSwimming;
     this.isSwimming =
@@ -1071,16 +1070,14 @@ export class CharacterBody {
 
   /**
    * Feet height of the water surface she hovers on, or null where the
-   * terrain collider under her is clearly dry land. It asks the collider's
-   * own height (colliderHeightAt): sampleMapHeight splits each cell along
-   * the other diagonal and is metres off on steep cells (up to ~3.7 m), where
-   * she used to wade under the surface and then pop up. The floor is only
-   * ever a minimum (the ground wins wherever it is higher), so holding it
+   * terrain collider under her is clearly dry land. Use this world's sampler,
+   * with the same triangle diagonal as its Rapier heightfield. The floor is
+   * only ever a minimum (the ground wins wherever it is higher), so holding it
    * DRIFTER_SHORE_MARGIN longer never lifts her above real ground.
    */
   private drifterWaterFloor(): number | null {
     const floor = WATER_LEVEL + DRIFTER_TUNING.waterHoverHeight;
-    if (colliderHeightAt(this.feet.x, this.feet.z) >= floor + DRIFTER_SHORE_MARGIN) return null;
+    if (this.physics.heightAt(this.feet.x, this.feet.z) >= floor + DRIFTER_SHORE_MARGIN) return null;
     return floor;
   }
 
@@ -1125,7 +1122,7 @@ export class CharacterBody {
     const desiredX = (forwardX * normalizedZ + rightX * normalizedX) * speed;
     const desiredZ = (forwardZ * normalizedZ + rightZ * normalizedX) * speed;
 
-    this.surface = surfaceTagAt(this.feet.x, this.feet.z, this.feet.y);
+    this.surface = this.physics.surfaceAt(this.feet.x, this.feet.z, this.feet.y);
     const waterFloor = this.drifterWaterFloor();
     const onWater = waterFloor !== null && this.feet.y <= waterFloor + 0.04;
     const supported = this.isGrounded || onWater;
@@ -1243,8 +1240,8 @@ export class CharacterBody {
     this.canopyBlend = 0;
     this.groundClearance = 0;
 
-    this.surface = surfaceTagAt(this.feet.x, this.feet.z, this.feet.y);
-    const groundHeight = sampleMapHeight(this.feet.x, this.feet.z);
+    this.surface = this.physics.surfaceAt(this.feet.x, this.feet.z, this.feet.y);
+    const groundHeight = this.physics.heightAt(this.feet.x, this.feet.z);
     const deepWater = groundHeight < WATER_LEVEL - 1.1;
 
     if (this.form === 'cow') {

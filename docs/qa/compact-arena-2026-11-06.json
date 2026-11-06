@@ -1,0 +1,184 @@
+{
+  "status": "passed",
+  "entry": "default",
+  "softwareRenderer": true,
+  "mechanics": false,
+  "errors": [],
+  "failedResponses": [],
+  "checkpoints": [
+    {
+      "label": "public-entry",
+      "phase": "playing",
+      "frame": 39,
+      "tick": 2955,
+      "connected": true,
+      "feet": {
+        "x": 0,
+        "y": 23.020000076293947,
+        "z": -20
+      },
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 1
+      },
+      "camera": [
+        0,
+        26.299841006269975,
+        -24.299014201065226
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "allrounder",
+          "bodyType": 0.14901960784313725,
+          "skinToneIndex": 2,
+          "hairColorIndex": 1,
+          "hairStyleIndex": 0,
+          "headgear": "head_tirol",
+          "face": "face_full_beard",
+          "torso": "torso_tracht_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_ski_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 41644,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 155,
+        "activeMeshes": 80,
+        "meshes": 167,
+        "materials": 65,
+        "mapVertices": 163391,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_spriteAtlas": 48,
+        "boot_facadeAtlas": 48,
+        "boot_map": 325,
+        "boot_world": 494
+      },
+      "meshes": 167,
+      "materials": 65,
+      "textures": 57,
+      "geometries": 140,
+      "gpuTextures": 59,
+      "heap": 139205237,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 7,
+        "seat": null,
+        "passengerView": false,
+        "predicted": 0,
+        "pending": 0,
+        "correction": 0,
+        "lastCameraYaw": 0,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 18,
+              "y": 18.425,
+              "z": 7
+            },
+            "yaw": -1.4999684768570178
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.2125,
+              "y": 23.025,
+              "z": -22.025
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -0.7973516949152821,
+              "y": 28.186970338983055,
+              "z": 37.113559322033886
+            },
+            "yaw": 1.0924027373160021
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 3.0478813559322253,
+              "y": 28.175,
+              "z": 40.35211864406777
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [
+        "RoofSniper77",
+        "Senn_Koloss",
+        "Skipper",
+        "Wuzzi",
+        "Angry_Cow_Beta",
+        "StumbleBoi",
+        "GipfelRanger"
+      ],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": true,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "fireSmokeAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    }
+  ]
+}

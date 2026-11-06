@@ -1,6 +1,6 @@
 import { ReferenceChaletFire } from './reference-fire';
 import { REFERENCE_CHALET_FIRE } from '@frost-and-flamingos/shared';
-import { REFERENCE_TOWERS, REFERENCE_VEHICLES, REFERENCE_MARKERS, referenceSpawn, referenceCastSpawn, CONQUEST_TOWERS } from '@frost-and-flamingos/shared';
+import { REFERENCE_TOWERS, REFERENCE_VEHICLES, REFERENCE_WORLD, ARENA_NAV, referenceSpawn, referenceCastSpawn, CONQUEST_TOWERS } from '@frost-and-flamingos/shared';
 import { validatedShotDirection } from '@frost-and-flamingos/shared';
 import {
   CLASS_DEFAULT_LOADOUTS,
@@ -42,7 +42,6 @@ import {
   encodeSnapshot,
   normalizeProfile,
   resolveClassForFaction,
-  sampleMapHeight,
   selectConquestSpawn,
   spawnYawToWire,
   towerOwnerBits,
@@ -74,11 +73,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import {
   createBotRoute,
-  engagementBlocked,
-  routeTowards,
-  steerAlongRoute,
-  swimExitYaw,
-  swimWatchdog,
+  createBotNavigator,
   type BotRoute,
 } from './bot-nav.js';
 import {
@@ -478,6 +473,7 @@ export class MatchRoom {
   private readonly referenceFire: ReferenceChaletFire | null;
   private readonly conquest: ClimateConquest;
   private readonly conquestBots: ConquestBots;
+  private readonly botNav: ReturnType<typeof createBotNavigator>;
   private readonly towers: typeof CONQUEST_TOWERS;
   private readonly spawnFacing: SpawnFacingCache;
   /** Conquest state as of the last tick (bots read it without re-snapshotting). */
@@ -492,7 +488,8 @@ export class MatchRoom {
     this.towers = reference ? REFERENCE_TOWERS : CONQUEST_TOWERS;
     this.conquest = new ClimateConquest(reference ? { tower_a: 'alpine', tower_b: null, tower_c: 'lagoon' } : undefined);
     this.conquestView = this.conquest.snapshot();
-    this.conquestBots = new ConquestBots(this.towers);
+    this.botNav = createBotNavigator(reference ? ARENA_NAV : undefined,physics.heightAt,this.towers);
+    this.conquestBots = new ConquestBots(this.towers,reference ? ARENA_NAV : undefined);
     this.physics = physics;
     // Static geometry only: a parked vehicle or a player must not bend a cached facing.
     this.spawnFacing = new SpawnFacingCache({
@@ -529,7 +526,7 @@ export class MatchRoom {
   }
 
   static async create(options: MatchRoomOptions = {}): Promise<MatchRoom> {
-    const physics = await PhysicsWorld.create(options.reference ? REFERENCE_MARKERS : []);
+    const physics = await PhysicsWorld.create([],options.reference ? REFERENCE_WORLD : undefined);
     const testRun = process.env.NODE_ENV === 'test';
     const critters = options.critters ?? (!testRun || options.critterSeed !== undefined);
     // Tests are reproducible: a fixed seed unless one is given.
@@ -752,7 +749,7 @@ export class MatchRoom {
     const side = faction === 'alpine' ? -1 : 1;
     const x = this.arena.x + side * 9 + (Math.random() - 0.5) * 6;
     const z = this.arena.z + (Math.random() - 0.5) * 6;
-    return { position: { x, y: sampleMapHeight(x, z) + 0.4, z }, yaw: side < 0 ? Math.PI / 2 : -Math.PI / 2 };
+    return { position: { x, y: this.physics.heightAt(x, z) + 0.4, z }, yaw: side < 0 ? Math.PI / 2 : -Math.PI / 2 };
   }
 
   private respawn(player: PlayerConnection): void {
@@ -1547,7 +1544,7 @@ export class MatchRoom {
       { x: 0, y: -1, z: 0 },
       MASCOT_STATUS.puddleDropReach,
     );
-    const groundY = ground ? ground.point.y : sampleMapHeight(position.x, position.z);
+    const groundY = ground ? ground.point.y : this.physics.heightAt(position.x, position.z);
     this.puddles.push({
       ownerId: player.id,
       faction: player.profile.faction,
@@ -2190,8 +2187,8 @@ export class MatchRoom {
           !route.seesTarget && (this.botHoldingZone(player) || distance > BOT_OBJECTIVE_CHASE_RANGE)
             ? this.botObjectiveGoal(player)
             : null;
-        routeTowards(route, feet, objective ?? live.character.position, this.physicsTick);
-        const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
+        this.botNav.routeTowards(route, feet, objective ?? live.character.position, this.physicsTick);
+        const steer = this.botNav.steerAlongRoute(route, feet, this.physicsTick, Math.random);
         let chaseButtons = InputButton.Forward;
         if (steer.sprint) chaseButtons |= InputButton.Sprint;
         if (steer.jump) chaseButtons |= InputButton.Jump;
@@ -2267,7 +2264,7 @@ export class MatchRoom {
       // detour flips side); no net progress for two seconds escalates to the
       // waypoint graph, which then owns the stuck handling.
       if (charging || detouring) {
-        if (engagementBlocked(route, feet, this.physicsTick)) {
+        if (this.botNav.engagementBlocked(route, feet, this.physicsTick)) {
           route.chaseUntilTick = this.physicsTick + 300;
           bot.detourUntilTick = 0;
           bot.stuckTicks = 0;
@@ -2294,8 +2291,8 @@ export class MatchRoom {
       bot.stuckTicks = 0;
       bot.detourUntilTick = 0;
       const goal = this.botObjectiveGoal(player);
-      if (goal) routeTowards(route, feet, goal, this.physicsTick);
-      const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
+      if (goal) this.botNav.routeTowards(route, feet, goal, this.physicsTick);
+      const steer = this.botNav.steerAlongRoute(route, feet, this.physicsTick, Math.random);
       yaw = steer.yaw;
       bot.patrolYaw = yaw;
       pitch = -0.05;
@@ -2360,10 +2357,10 @@ export class MatchRoom {
           !route.seesTarget && (this.botHoldingZone(player) || distance > BOT_OBJECTIVE_CHASE_RANGE)
             ? this.botObjectiveGoal(player)
             : null;
-        routeTowards(route, feet, objective ?? target.character.position, this.physicsTick);
+        this.botNav.routeTowards(route, feet, objective ?? target.character.position, this.physicsTick);
         pursue = null;
       } else if (Math.hypot(dx, dz) > 6) {
-        if (engagementBlocked(route, feet, this.physicsTick)) {
+        if (this.botNav.engagementBlocked(route, feet, this.physicsTick)) {
           route.chaseUntilTick = this.physicsTick + 300;
         }
       } else {
@@ -2377,14 +2374,14 @@ export class MatchRoom {
     if (!pursue) {
       if (!target) {
         const goal = this.botObjectiveGoal(player);
-        if (goal) routeTowards(route, feet, goal, this.physicsTick);
+        if (goal) this.botNav.routeTowards(route, feet, goal, this.physicsTick);
       }
-      const steer = steerAlongRoute(route, feet, this.physicsTick, Math.random);
+      const steer = this.botNav.steerAlongRoute(route, feet, this.physicsTick, Math.random);
       bot.patrolYaw = steer.yaw;
       if (steer.jump) routeButtons |= InputButton.Jump;
       // Long legs of an out-of-sight chase at a gallop (the coconut ignores it).
       if (steer.sprint && target) routeButtons |= InputButton.Sprint;
-      if (swimWatchdog(route, feet, swimming, this.physicsTick, Math.random)) {
+      if (this.botNav.swimWatchdog(route, feet, swimming, this.physicsTick, Math.random)) {
         // Gave up on that exit: back out and head for the next one.
         if (player.character.form === 'cow') {
           bot.mascot.steerBias = Math.random() < 0.5 ? -1 : 1;
@@ -2392,7 +2389,7 @@ export class MatchRoom {
         }
       } else if ((swimming || feet.y < WATER_LEVEL) && player.character.form === 'cow') {
         // Swimming or wading, the cow turns too slowly to pivot onto a stair at its toe: line it up.
-        const exitYaw = swimExitYaw(route, feet, swimming);
+        const exitYaw = this.botNav.swimExitYaw(route, feet, swimming);
         if (exitYaw !== null) {
           bot.patrolYaw = exitYaw;
           // Far off the stair heading: pivot on the spot instead of looping wide.
@@ -2401,7 +2398,7 @@ export class MatchRoom {
         }
       }
     } else {
-      swimWatchdog(route, feet, false, this.physicsTick, Math.random);
+      this.botNav.swimWatchdog(route, feet, false, this.physicsTick, Math.random);
     }
     const command = mascotBotButtons(
       player.character,

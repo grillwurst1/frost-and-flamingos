@@ -126,3 +126,21 @@
   .photo-reference .field-action { width:2.45rem; height:2.45rem; }
   .photo-reference .field-loadout { bottom:4.7rem; }
 }
+
+/* Latest owner gameplay video: live score at the top, round tactical map. */
+.photo-reference .match-hud { top:.55rem; bottom:auto; width:min(48vw,34rem); }
+.photo-reference .ticket-display { grid-template-columns:1fr 9.5rem 1fr; gap:.1rem; }
+.photo-reference .ticket-wing { position:relative; height:2.05rem; background:#29394b; border:2px solid #172730; border-radius:.18rem; }
+.photo-reference .ticket-wing::before { display:none; }
+.photo-reference .ticket-wing i { display:none; }
+.video-team-name { position:absolute; inset:0; display:grid; place-items:center; font-weight:800; font-size:1.25rem; color:#9ed2ed; -webkit-text-stroke:.08rem #203039; paint-order:stroke fill; white-space:nowrap; }
+.is-red .video-team-name { color:#e99b9e; }
+.photo-reference .ticket-display>strong { font-size:1.15rem; }
+.photo-reference .ticket-display>strong span { min-width:2.65rem; font-size:1.75rem; }
+.photo-reference .match-hud::before,.photo-reference .match-hud::after { display:none; }
+.video-round-time { margin:.12rem auto; width:3.3rem; padding:.12rem; color:#fff; background:#263640e8; border-radius:.2rem; font-weight:800; font-size:.85rem; text-align:center; }
+.photo-reference .tactical-map { display:block; top:.6rem; right:.65rem; width:11rem; height:11rem; overflow:hidden; border-radius:50%; border:.25rem solid #37434c; box-shadow:0 2px 3px #0006,inset 0 0 0 2px #c1ced3; }
+.photo-reference .player-status { left:1rem; bottom:1.1rem; }
+.photo-reference .kill-feed { top:12.2rem; }
+.photo-reference .capture-plate { top:5rem; }
+@media(max-width:900px){.photo-reference .tactical-map{width:7.2rem;height:7.2rem}.photo-reference .match-hud{width:55vw}.video-team-name{font-size:.8rem}.photo-reference .kill-feed{top:8.3rem}}

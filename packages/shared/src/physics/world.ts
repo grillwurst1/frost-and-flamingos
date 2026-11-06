@@ -1,9 +1,9 @@
 import RAPIER from '@dimforge/rapier3d-compat';
-import { FIXED_DT, GRAVITY, MAP_HALF_SIZE, MAP_SEGMENTS, MAP_SIZE } from '../constants.js';
-import { FJORD_MAP, sampleMapHeight } from '../config/map-fjord.js';
+import { FIXED_DT, GRAVITY } from '../constants.js';
+import { FJORD_MAP, sampleMapHeight, surfaceTagAt } from '../config/map-fjord.js';
 import { quaternionFromYawPitchRoll } from '../config/map/math.js';
 import type { Vec3 } from '../types/index.js';
-import type { MapProp, PropCollider } from '../types/map.js';
+import type { CableCarRoute, MapProp, PropCollider, StaticWorldDefinition } from '../types/map.js';
 import { CharacterBody, type CharacterBodyOptions } from './character.js';
 import { VehicleBody } from './vehicle.js';
 import type { DrivableVehicleKind } from '../config/vehicles.js';
@@ -14,6 +14,12 @@ export const WORLD_COLLISION_GROUP = 0x00010007;
 export const PLAYER_COLLISION_GROUP = 0x00020003;
 /** Ray groups that see only the static world (membership bit 1, filter bit 1). */
 const STATIC_WORLD_RAY_GROUPS = 0x00010001;
+
+export const FJORD_STATIC_WORLD: StaticWorldDefinition = {
+  size: FJORD_MAP.size, segments: FJORD_MAP.segments, heights: FJORD_MAP.heights,
+  props: FJORD_MAP.props, heightAt: FJORD_MAP.heightAt, surfaceAt: surfaceTagAt,
+  cableCar: FJORD_MAP.routes.cableCar,
+};
 
 /**
  * Membership bit 3 = untouchable drifter bodies, filter accepts the world
@@ -66,6 +72,9 @@ function add(a: Vec3, b: Vec3): Vec3 {
  */
 export class PhysicsWorld {
   readonly world: RAPIER.World;
+  readonly heightAt: StaticWorldDefinition['heightAt'];
+  readonly surfaceAt: StaticWorldDefinition['surfaceAt'];
+  readonly cableCarRoute: CableCarRoute;
   private readonly characters = new Map<number, CharacterBody>();
   private readonly playerColliderHandles = new Set<number>();
   private readonly pieceColliders = new Map<string, number[]>();
@@ -75,15 +84,21 @@ export class PhysicsWorld {
   private nextCharacterHandle = 1;
   private nextVehicleHandle = 1;
 
-  private constructor(world: RAPIER.World) {
+  private constructor(world: RAPIER.World, private readonly definition: StaticWorldDefinition) {
     this.world = world;
+    // Cache pure map queries directly: hot motor paths need no forwarding
+    // method or repeated descriptor/route lookup for each probe.
+    this.heightAt=definition.heightAt;this.surfaceAt=definition.surfaceAt;
+    this.cableCarRoute=definition.cableCar??FJORD_MAP.routes.cableCar;
   }
 
-  static async create(extraProps: readonly MapProp[] = []): Promise<PhysicsWorld> {
+  static async create(extraProps: readonly MapProp[] = [], definition: StaticWorldDefinition = FJORD_STATIC_WORLD): Promise<PhysicsWorld> {
+    if(!Number.isFinite(definition.size)||definition.size<=0||!Number.isInteger(definition.segments)||definition.segments<1
+      ||definition.heights.length!==(definition.segments+1)**2)throw new Error('Invalid static world dimensions');
     await initializeRapier();
     const world = new RAPIER.World({ x: 0, y: GRAVITY, z: 0 });
     world.timestep = FIXED_DT;
-    const physics = new PhysicsWorld(world);
+    const physics = new PhysicsWorld(world, definition);
     physics.createTerrainCollider();
     physics.createPropColliders();
     for (const prop of extraProps) physics.createPropCollider(prop);
@@ -94,18 +109,18 @@ export class PhysicsWorld {
   }
 
   private createTerrainCollider(): void {
-    const points = MAP_SEGMENTS + 1;
+    const points = this.definition.segments + 1;
     const heights = new Float32Array(points * points);
     for (let column = 0; column < points; column += 1) {
       for (let row = 0; row < points; row += 1) {
-        heights[column * points + row] = FJORD_MAP.heights[column * points + row] ?? 0;
+        heights[column * points + row] = this.definition.heights[column * points + row] ?? 0;
       }
     }
     const description = RAPIER.ColliderDesc.heightfield(
-      MAP_SEGMENTS,
-      MAP_SEGMENTS,
+      this.definition.segments,
+      this.definition.segments,
       heights,
-      { x: MAP_SIZE, y: 1, z: MAP_SIZE },
+      { x: this.definition.size, y: 1, z: this.definition.size },
     )
       .setFriction(0.92)
       .setRestitution(0)
@@ -114,7 +129,7 @@ export class PhysicsWorld {
   }
 
   private createPropColliders(): void {
-    for (const prop of FJORD_MAP.props) {
+    for (const prop of this.definition.props) {
       this.createPropCollider(prop);
     }
   }
@@ -200,12 +215,12 @@ export class PhysicsWorld {
    */
   private createBoundaryColliders(): void {
     const halfThickness = 2;
-    const wallDistance = MAP_HALF_SIZE - 0.5 + halfThickness;
+    const wallDistance = this.definition.size / 2 - 0.5 + halfThickness;
     const bottom = -40;
     const top = 200;
     const centerY = (bottom + top) / 2;
     const halfHeight = (top - bottom) / 2;
-    const halfLength = MAP_HALF_SIZE + 8;
+    const halfLength = this.definition.size / 2 + 8;
     const walls: Array<{ position: Vec3; halfExtents: Vec3 }> = [
       {
         position: { x: wallDistance, y: centerY, z: 0 },
