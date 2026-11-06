@@ -23,3 +23,9 @@ The owner has now supplied the gameplay video on upstream master c5d0006.
 It supersedes the bridge composition: continue from VIDEO_REFERENCE_WORK.md.
 This scene is structural progress, NOT accepted visual parity or completed M5.
 Native M4 thermal/FPS measurement and full WebGPU diagnostics remain open.
+
+
+The bridge composition above is historical. The current protocol16 basin has
+continuous actual terrain, two enterable log chalets and gabled gondola roofs
+with matching physical ramps. Current camera:3.9m/.85FOV,pivot1.45,pitch-.16.
+Follow VIDEO_REFERENCE_WORK.md; no video parity acceptance implied.

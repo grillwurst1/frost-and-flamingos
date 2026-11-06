@@ -289,3 +289,8 @@ existing owner-supplied horizon/sky assets remain credited above.
 
 
 6 November 2026: owner-uploaded `gemini_generated_video_e01d97e8.mp4` is the latest visual reference (upstream c5d0006). Original source retained unchanged. Decoded reference frames are not game-render evidence. Compact arena, rails, shared-world configuration and HUD cartography are original project geometry/code.
+
+6 November2026 video pass: cream Alpine wardrobe geometry, golden snow-cannon
+variant and pooled solid snow-stream clouds are original project geometry/code.
+The owner-supplied MP4 remains unmodified and is a reference, not a rendered
+gameplay background.

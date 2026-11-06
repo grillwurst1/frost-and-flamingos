@@ -2,6 +2,7 @@ import type { TranslationDictionary } from '../schema.js';
 
 export const de: TranslationDictionary = {
   reference: {
+    basin: 'Schneekessel',
     extinguished: 'Chaletbrand gelöscht!',
     title: 'Gletscherpass · Climate Conquest', enter: 'Gletscherpass spielen', back: 'Zurück zu Fjord Fiesta',
     lead: 'Erobere Chalet und Brücke, fahre den Fonduepanzer und lösche den Chaletbrand mit der Schneekanone. Bewegung oder Schießen startet die Runde.',
@@ -193,6 +194,7 @@ export const de: TranslationDictionary = {
       face_sunscreen: 'Sonnencreme-Streifen',
     },
     torso: {
+      torso_alpine_shirt: 'Alpenhemd mit Hosenträgern',
       torso_tracht_shirt: 'Trachtenhemd mit Weste',
       torso_dirndl_vest: 'Dirndl-Weste',
       torso_loden_coat: 'Lodenmantel',

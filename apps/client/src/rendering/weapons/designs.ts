@@ -91,7 +91,7 @@ const BRASS_DARK = '#bf7f28';
 const BLUE_STEEL = '#4f78a8';
 const OLIVE = '#6e8b3d';
 const MAROON = '#8b3a2a';
-const SNOW_BLUE = '#79b9dc';
+const SNOW_GOLD = '#e8b633';
 const FLAMER_COPPER = '#d36b2c';
 const TANK_RED = '#e0482f';
 const TANK_GREEN = '#56a54a';
@@ -550,10 +550,11 @@ const DESIGNS: Record<string, WeaponDesign> = {
   snow_cannon: {
     hold: {
       pose: 'hip',
-      shoulder: [0.28, -0.32, 0.1],
+      shoulder: [0.16, -0.50, 0.12],
       tilt: 0.1,
       yaw: -0.04,
-      support: [0, 0.36, 0.06],
+      support: [0.13, 0.22, 0.22],
+      supportBack: [0.13, 0.22, -0.07],
       gripAxis: [0, -1, -0.2],
       supportAxis: [1, 0, 0],
       muzzle: [0, 0.2, 0.52],
@@ -563,9 +564,9 @@ const DESIGNS: Record<string, WeaponDesign> = {
     build: (kit) => {
       kit.lathe(
         [
-          { z: -0.26, r: 0.06, hex: shadeHex(SNOW_BLUE, 0.82) },
+          { z: -0.26, r: 0.06, hex: shadeHex(SNOW_GOLD, 0.82) },
           { z: -0.24, r: 0.1 },
-          { z: -0.22, r: 0.115, hex: SNOW_BLUE },
+          { z: -0.22, r: 0.115, hex: SNOW_GOLD },
           { z: 0.26, r: 0.13 },
           { z: 0.26, r: 0.155, hard: true, hex: STEEL_LIGHT },
           { z: 0.3, r: 0.165 },
@@ -574,7 +575,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
           { z: 0.5, r: 0.13, hard: true, hex: STEEL_DARK },
           { z: 0.44, r: 0.12 },
         ],
-        { at: [0, 0.2, 0], segments: 18, capStart: true, capEnd: true },
+        { at: [0, 0.2, 0], segments: 22, capStart: true, capEnd: true },
       );
       // Fan blades and spinner.
       for (let blade = 0; blade < 6; blade += 1) {
@@ -586,7 +587,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
         });
       }
       kit.lathe([{ z: 0.43, r: 0.045, hex: STEEL_LIGHT }, { z: 0.49, r: 0.032 }, { z: 0.52, r: 0.0 }], { at: [0, 0.2, 0], segments: 10, capStart: true });
-      // Reference blue drum / red saddle, dark grip, carry handle and hose.
+      // Gameplay-video golden drum / red saddle, dark grip, carry handle and hose.
       kit.extrude(
         TANK_RED,
         [
@@ -604,7 +605,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
       pistolGrip(kit, BLACK, 0.1, 0.19, 0.056);
       triggerGuard(kit, BLACK, 0.09, 0.03, 0.1);
       kit.tube(BLACK, [[0, 0.31, -0.1], [0, 0.38, -0.04], [0, 0.385, 0.12], [0, 0.32, 0.18]], 0.018, { segments: 6, samples: 8 });
-      kit.tube(BLACK, [[0, 0.2, -0.27], [0, 0.16, -0.34], [0, 0.06, -0.36]], 0.03, { segments: 8, samples: 5, capEnd: true });
+      kit.tube(shadeHex(SNOW_GOLD,.82), [[0,.2,-.27],[-.13,-.04,-.43],[-.12,-.28,-.28],[.12,-.28,-.04],[.13,.04,.12]],.035,{segments:10,samples:18,capEnd:true});
       kit.box(STEEL_DARK, [0.05, 0.03, 0.12], { at: [0.0, 0.32, 0.36], bevel: 0.01 });
     },
   },

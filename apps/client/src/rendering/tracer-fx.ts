@@ -1,3 +1,4 @@
+import { SnowStream } from './snow-stream';
 import { Color3, Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { CreateCylinder } from '@babylonjs/core/Meshes/Builders/cylinderBuilder';
@@ -35,11 +36,13 @@ export class TracerFx {
   private readonly material: StandardMaterial;
   private readonly tracers: Tracer[] = [];
   private disposed = false;
+  private readonly snow:SnowStream;
 
   constructor(
     scene: Scene,
     private readonly ray: WorldRay,
   ) {
+    this.snow=new SnowStream(scene,ray);
     const material = new StandardMaterial('tracer-material', scene);
     const colour = Color3.FromHexString('#fff1b0');
     material.diffuseColor = colour;
@@ -61,6 +64,7 @@ export class TracerFx {
   /** One shot from an eye position along yaw/pitch (hitscan and pellet weapons only). */
   shot(weaponId: WeaponId, eye: Vec3, yaw: number, pitch: number): void {
     if (this.disposed) return;
+    if(weaponId==='snow_cannon'){this.snow.shot(eye,yaw,pitch);return;}
     const stats = WEAPON_STATS[weaponId];
     if (stats.fireMode !== 'hitscan') return;
     const cosPitch = Math.cos(pitch);
@@ -110,6 +114,7 @@ export class TracerFx {
 
   update(delta: number): void {
     if (this.disposed) return;
+    this.snow.update(delta);
     for (const tracer of this.tracers) {
       if (!tracer.active) continue;
       // At low frame rates a whole frame can outlast LIFE: every streak is
@@ -134,5 +139,6 @@ export class TracerFx {
     this.disposed = true;
     for (const tracer of this.tracers) tracer.mesh.dispose();
     this.material.dispose();
+    this.snow.dispose();
   }
 }

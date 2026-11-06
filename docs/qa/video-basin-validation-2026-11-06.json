@@ -1,0 +1,35 @@
+{
+  "status": "passed across batch and isolated runs",
+  "tests": {
+    "scripts": 15,
+    "serverTests": 223,
+    "serverSrc": 21,
+    "client": 158,
+    "total": 417
+  },
+  "clientBatch": {
+    "passed": 156,
+    "wallClockTimeouts": 2
+  },
+  "isolatedReruns": [
+    {
+      "case": "both Allrounder rigs retain clear idle soles with selected feet_mountain_boots",
+      "status": "passed",
+      "durationMs": 849.6
+    },
+    {
+      "case": "every headgear choice changes actual detailed geometry or colour",
+      "status": "passed",
+      "durationMs": 13650.43
+    }
+  ],
+  "fixedRegression": "Snow-cannon side support was on wrong side; six Heavy grip cases now pass.",
+  "strict": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "productionBuild": "passed",
+  "browser": "See video-basin-browser-2026-11-06.json; snow capture rejected, repeat pending.",
+  "visualAcceptance": "OPEN",
+  "nativeMacM4Performance": "unmeasured"
+}

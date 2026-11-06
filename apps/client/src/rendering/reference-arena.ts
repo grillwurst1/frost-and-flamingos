@@ -5,7 +5,7 @@ import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
-import { ARENA_ANCHORS, ARENA_BRIDGE, ARENA_CABLE, ARENA_CHALET, ARENA_GRID, ARENA_NATURE, ARENA_FENCE, ARENA_HANDRAILS, ARENA_SOLID_PROPS, ARENA_STATION_PROPS, REFERENCE_MARKERS, REFERENCE_TOWERS, arenaHeightAt, } from '@frost-and-flamingos/shared';
+import { ARENA_ANCHORS, ARENA_REAR_CHALET, ARENA_CABLE, ARENA_CHALET, ARENA_GRID, ARENA_NATURE, ARENA_FENCE, ARENA_HANDRAILS, ARENA_SOLID_PROPS, ARENA_STATION_PROPS, REFERENCE_MARKERS, REFERENCE_TOWERS, arenaHeightAt, } from '@frost-and-flamingos/shared';
 import type { MapVisuals, TowerVisual } from './map';
 import { createSkyMaterial, createToonMaterial, createWaterMaterial, TERRAIN_MIX_A_ATTRIBUTE, TERRAIN_MIX_B_ATTRIBUTE } from './materials';
 import { Affine, GeometryBatch, mix, type RGB } from './map/geometry';
@@ -14,7 +14,7 @@ import { SURFACE_ATTRIBUTE, surfaceId } from './map/surfaces';
 import { TERRAIN_BARE_COLOR_ATTRIBUTE, TERRAIN_SNOW_BIAS_ATTRIBUTE } from './map/terrain-mesh';
 import { drawBuilding } from './map/buildings';
 import { drawBuildingExtras, BRAKE_LEVER_HINGE, drawBrakeLeverBase, drawBrakeLeverHandle } from './map/extras';
-import { drawBridgeDeck, drawRouteCable } from './map/landmarks';
+import { drawRouteCable } from './map/landmarks';
 import { drawClosedStairs } from './map/stairs';
 import { buildSolidNature } from './map/solid-nature';
 import { buildReferenceWorld } from './reference-world';
@@ -109,7 +109,7 @@ export function buildReferenceArena(scene: Scene, material: ShaderMaterial): Map
   const house = new GeometryBatch();
   house.jitter = 0;
   house.at(ARENA_CHALET.position.x, ARENA_CHALET.position.y, ARENA_CHALET.position.z, ARENA_CHALET.rotationY, () => {
-    drawBuilding(house, ARENA_CHALET.building!, { variant: 3, seed: 43, snowy: true, facade: false });
+    drawBuilding(house, ARENA_CHALET.building!, { variant: ARENA_CHALET.variant, seed: 43, snowy: true, facade: false });
     drawBuildingExtras(house, ARENA_CHALET, false);
   });
   const houseMesh = house.toMesh(scene, 'reference-chalet', material);
@@ -117,8 +117,6 @@ export function buildReferenceArena(scene: Scene, material: ShaderMaterial): Map
     destructibleMeshes.set(ARENA_CHALET.destructibleId!, houseMesh);
   const routes = new GeometryBatch();
   routes.jitter = 0;
-  for (const prop of ARENA_BRIDGE)
-    routes.at(prop.position.x, prop.position.y, prop.position.z, prop.rotationY, () => drawBridgeDeck(routes, prop));
   for (const prop of ARENA_SOLID_PROPS.filter(p => p.kind === 'stairs')) {
     if (prop.path) {
       const a = prop.path[0]!, b = prop.path[1]!;
@@ -144,11 +142,17 @@ export function buildReferenceArena(scene: Scene, material: ShaderMaterial): Map
       for (const side of [-1, 1])
         for (const end of [-1, 1]) {
           routes.log([side * 4.6, 0, end * 2.5], [side * 4.6, 5.2, end * 2.5], .14, P.logDark, 'wood', { segments: 12 });
-          routes.box(0, 5.25, end * 2.5, 9.5, .25, .3, P.alpineRed, 'metal', .04);
+          routes.box(0, 5.25, end * 2.5, 9.5, .25, .3, P.logDark, 'wood', .04);
         }
       for (const side of [-1, 1])
         routes.box(side * 2.2, 4.12, 0, .16, .3, 5.8, P.metalDark, 'metal', .03);
-      routes.box(0, 5.52, 0, 10, .24, 6.6, P.snow, 'snow', .07);
+      // Each roof half is convex: the batch triangulator uses a triangle fan.
+      routes.extrude([[-5.25,5.45],[0,6.7],[0,6.45],[-5.15,5.2]],6.7,P.snow,'snow');
+      routes.extrude([[0,6.7],[5.25,5.45],[5.15,5.2],[0,6.45]],6.7,P.snow,'snow');
+      for(const end of [-1,1])for(const side of [-1,1]){
+        routes.log([side*5.15,5.25,end*3.35],[0,6.5,end*3.35],.09,P.logDark,'wood',{segments:8});
+        routes.log([side*4.6,3.9,end*2.5],[side*3.8,5.2,end*2.5],.09,P.log,'wood',{segments:8});
+      }
     });
     const station = ARENA_CABLE.stations.find(s => `arena_station_${s.id}` === prop.id)!;
     routes.at(station.brakeBase.x, station.platform.y, station.brakeBase.z, prop.rotationY, () => drawBrakeLeverBase(routes));
@@ -174,23 +178,11 @@ export function buildReferenceArena(scene: Scene, material: ShaderMaterial): Map
         routes.log([a.x, a.y + h, a.z], [b.x, b.y + h, b.z], .08, P.plank, 'wood', { segments: 8 });
     }
   }
-  // A ribbon follows the actual cliff profile; its spring mouth and toe meet the terrain/sea.
-  const left: [
-    number,
-    number,
-    number
-  ][] = [], right: [
-    number,
-    number,
-    number
-  ][] = [];
-  for (let i = 0; i <= 24; i++) {
-    const z = 29.4 - i * .07, y = Math.max(.055, arenaHeightAt(0, z) + .09);
-    left.push([-1.9, y, z]);
-    right.push([1.9, y, z]);
-  }
-  routes.ribbon(left, right, t => mix(P.waterfall, P.foam, t * .7), 'water');
   add(routes, 'reference-solid-routes');
+  const village=new GeometryBatch();village.jitter=0;
+  const rear=ARENA_REAR_CHALET;
+  village.at(rear.position.x,rear.position.y,rear.position.z,rear.rotationY,()=>{drawBuilding(village,rear.building!,{variant:1,seed:64,snowy:true,facade:false});drawBuildingExtras(village,rear,false)});
+  add(village,'reference-rear-chalet');
   const nature = buildSolidNature(scene, material, ARENA_NATURE);
   staticMeshes.push(...nature.meshes);
   staticMeshes.push(...buildReferenceWorld(scene, material));

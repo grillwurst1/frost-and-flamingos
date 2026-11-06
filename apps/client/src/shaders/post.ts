@@ -391,8 +391,8 @@ void main(void) {
 
   // Bold character silhouette (see the mask contract above).
   float char0 = ffCharOf(texture2D(textureSampler, uv).a);
-  vec2 sx = vec2(uTexel.x * 1.1, 0.0);
-  vec2 sy = vec2(0.0, uTexel.y * 1.1);
+  vec2 sx = vec2(uTexel.x * 1.65, 0.0);
+  vec2 sy = vec2(0.0, uTexel.y * 1.65);
   float silhouette = max(max(ffSilhouetteTap(uv, char0, d0, sx), ffSilhouetteTap(uv, char0, d0, -sx)),
     max(ffSilhouetteTap(uv, char0, d0, sy), ffSilhouetteTap(uv, char0, d0, -sy)));
   if (detailed) {

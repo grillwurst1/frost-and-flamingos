@@ -1,5 +1,5 @@
 import { referenceScene } from '../state/scene';
-import { ARENA_GRID, ARENA_SOLID_PROPS, ARENA_BRIDGE_POINTS, ARENA_CABLE, FJORD_MAP, MAP_SIZE, GRID_POINTS, FjordLayout } from '@frost-and-flamingos/shared';
+import { ARENA_GRID, ARENA_SOLID_PROPS, ARENA_CABLE, FJORD_MAP, MAP_SIZE, GRID_POINTS, FjordLayout } from '@frost-and-flamingos/shared';
 import { contourPath, heightContours } from './map-contours';
 
 let cached: string | null = null;
@@ -17,7 +17,7 @@ export function minimapArtwork(): string {
   const levels = referenceScene?[.2,3,17,24,30]:[.2, 3, 17, 30, 48];
   const grid=referenceScene?ARENA_GRID:{heights:FJORD_MAP.heights,segments:GRID_POINTS-1,size:MAP_SIZE};
   let shapes = levels.map((level, i) => `<path fill="${colours[i + 1]}" fill-rule="evenodd" stroke="${i < 2 ? '#91a7ac' : '#a6bbc6'}" stroke-width="${i < 2 ? 1 : .7}" d="${contourPath(heightContours(grid.heights, grid.segments+1, grid.size, level))}"/>`).join('');
-  if(referenceScene){shapes+=line(ARENA_BRIDGE_POINTS,3,'#8d6952')+line(ARENA_CABLE.gondolaPath.points,.5,'#48545b');}
+  if(referenceScene){shapes+=line(ARENA_CABLE.gondolaPath.points,.5,'#48545b');}
   else {
   shapes += line(FJORD_MAP.routes.tankRoad.points, 9, '#7c8e98') + line(FJORD_MAP.routes.tankRoad.points, 5, '#eff5f1');
   shapes += line([FjordLayout.BRIDGE_SOUTH, FjordLayout.BRIDGE_NORTH], 7, '#8d6952');

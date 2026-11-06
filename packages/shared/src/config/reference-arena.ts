@@ -9,7 +9,7 @@ import { CABLE_BRAKE_HANDLE } from './map/layout.js';
 export const ARENA_SIZE = 128;
 export const ARENA_SEGMENTS = 256;
 export const ARENA_LEVELS = { foreground: 23, bank: 18.4, north: 28, beach: 1.8, seaFloor: -6 } as const;
-export const ARENA_ANCHORS = { alpine: { x: 0, z: -20 }, lagoon: { x: 23, z: 9 }, preview: { x: 0, z: -24 }, chalet: { x: -20, z: 14 }, crawler: { x: 18, z: 7 }, sidecar: { x: 10, z: -22 } } as const;
+export const ARENA_ANCHORS = { alpine: { x: 0, z: -20 }, lagoon: { x: 23, z: 9 }, preview: { x: 0, z: -24 }, chalet: { x: -20, z: 14 }, crawler: { x: -9.5, z: -5 }, sidecar: { x: 10, z: -22 } } as const;
 const smooth = (a: number, b: number, value: number) => { const t = Math.max(0, Math.min(1, (value - a) / (b - a))); return t * t * (3 - 2 * t); };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 /** Positive inside a rounded shelf. Overlapping shelves keep route seams solid. */
@@ -24,16 +24,19 @@ function peak(x: number, z: number, cx: number, cz: number, radius: number, heig
 function bankTop(x: number, z: number): number {
   // Straight grades match the two long stair ramps, including their landings.
   const grade = lerp(ARENA_LEVELS.foreground, ARENA_LEVELS.bank, Math.max(0, Math.min(1, (z + 20) / 14)));
-  const low = z < -15 ? lerp(ARENA_LEVELS.foreground, grade, smooth(8, 12, Math.abs(x))) : grade;
+  const axisDistance=Math.min(Math.abs(x+18),Math.abs(x-20));
+  const stairBlend=1-smooth(1.7,3.2,axisDistance);
+  const low=lerp(lerp(ARENA_LEVELS.foreground,ARENA_LEVELS.bank,smooth(-20,-6,z)),grade,stairBlend);
   const plateau = lerp(low, ARENA_LEVELS.north, smooth(x < -21 ? 31 : 24, x < -21 ? 45 : 40, z));
-  const clearRoute = Math.abs(x+18)<3 || Math.abs(x-20)<3 || (Math.abs(x+20)<9&&Math.abs(z-14)<8);
+  const clearRoute = Math.abs(x+18)<3 || Math.abs(x-20)<3 || (Math.abs(x+20)<9&&Math.abs(z-14)<8)||(Math.abs(x+6)<6&&Math.abs(z-21.5)<5);
   const drifts=clearRoute?0:peak(x,z,7,-26,5,1.2)+peak(x,z,-10,-25,5,1.1)+peak(x,z,27,-20,5,1.4)
     +peak(x,z,-30,-9,4,1.2)+peak(x,z,31,-1,3.5,1.5)+peak(x,z,-6,32,3,1.4);
-  return plateau + drifts + peak(x, z, -31, 42, 6, 12) + peak(x, z, -15, 42, 8, 9) + peak(x, z, 29, 35, 7, 10);
+  const basinSnow=clearRoute?0:peak(x,z,7,8,6,1.5)+peak(x,z,-8,11,5,.8)+peak(x,z,10,22,5,1.4)+peak(x,z,14,6,8,3.5)+peak(x,z,4,-13,5,.6)+peak(x,z,-8,-14,6,.8);
+  return plateau + drifts + basinSnow + peak(x, z, -31, 42, 6, 12) + peak(x, z, -15, 42, 8, 9) + peak(x, z, 29, 35, 7, 10);
 }
 function analyticHeight(x: number, z: number): number {
   const wave = Math.sin(z * .31) * .55 * smooth(3, 8, Math.abs(z));
-  const d = Math.max(shelfDistance(x, z, -35, 35, -30, -16), shelfDistance(x, z, -35, -10 + wave, -20, 38), shelfDistance(x, z, 10 + wave, 34, -20, 38), shelfDistance(x, z, -35, 35, 28, 47));
+  const d = Math.max(shelfDistance(x, z, -35, 35, -30, -16), shelfDistance(x, z, -35, -10 + wave, -20, 38), shelfDistance(x, z, 10 + wave, 34, -20, 38), shelfDistance(x, z, -35, 35, 28, 47),shelfDistance(x,z,-13,13,-25,40));
   const land = lerp(ARENA_LEVELS.seaFloor, bankTop(x, z), smooth(0, 1.25, d));
   const coast = lerp(ARENA_LEVELS.seaFloor, ARENA_LEVELS.beach, smooth(0, 1.5, shelfDistance(x, z, 32, 51, 3, 35)));
   return Math.max(land, coast);
@@ -44,28 +47,15 @@ for (let col = 0; col <= ARENA_SEGMENTS; col++)
     heights[col * (ARENA_SEGMENTS + 1) + row] = analyticHeight(-ARENA_SIZE / 2 + col * ARENA_SIZE / ARENA_SEGMENTS, -ARENA_SIZE / 2 + row * ARENA_SIZE / ARENA_SEGMENTS);
 export const ARENA_GRID: HeightfieldData = { size: ARENA_SIZE, segments: ARENA_SEGMENTS, heights };
 export function arenaHeightAt(x: number, z: number): number { return sampleHeightfield(ARENA_GRID, x, z); }
-export const ARENA_BRIDGE_POINTS: readonly Vec3[] = [{ x: -12, y: 18.4, z: 0 }, { x: -6, y: 17.4, z: 0 }, { x: 0, y: 16.9, z: 0 }, { x: 6, y: 17.4, z: 0 }, { x: 12, y: 18.4, z: 0 }];
-export const ARENA_BRIDGE_WIDTH = 4.6;
-export const ARENA_BRIDGE: readonly MapProp[] = ARENA_BRIDGE_POINTS.slice(0, -1).map((a, i) => {
-  const b = ARENA_BRIDGE_POINTS[i + 1]!, length = b.x - a.x, dy = b.y - a.y;
-  return { id: `arena_bridge_${i}`, kind: 'bridge_deck', position: a, rotationY: Math.PI / 2, scale: 1, variant: i,
-    dimensions: { x: ARENA_BRIDGE_WIDTH, y: dy, z: length },
-    colliders: [rampCollider({ x: 0, y: 0, z: 0 }, { x: 0, y: dy, z: length }, ARENA_BRIDGE_WIDTH, .35, { surface: 'wood' })] };
-});
-export function arenaBridgeHeightAt(x: number, z: number): number | null {
-  if (Math.abs(z) > ARENA_BRIDGE_WIDTH / 2 || x < -12 || x > 12)
-    return null;
-  for (let i = 0; i < ARENA_BRIDGE_POINTS.length - 1; i++) {
-    const a = ARENA_BRIDGE_POINTS[i]!, b = ARENA_BRIDGE_POINTS[i + 1]!;
-    if (x >= a.x && x <= b.x)
-      return lerp(a.y, b.y, (x - a.x) / (b.x - a.x));
-  }
-  return null;
-}
 const baseLayout = chaletLayout({ style: 'log_chalet', width: 13, depth: 10, snow: true, doorOffset: -2.2, nameKey: 'world.buildings.bakery' });
 const layout = { ...baseLayout, balcony: { ...baseLayout.balcony!, sides: ['front', 'right'] as const } };
-export const ARENA_CHALET: MapProp = { id: 'arena_chalet', kind: 'chalet', position: { ...ARENA_ANCHORS.chalet, y: ARENA_LEVELS.bank }, rotationY: Math.PI, scale: 1, variant: 3,
+export const ARENA_CHALET: MapProp = { id: 'arena_chalet', kind: 'chalet', position: { ...ARENA_ANCHORS.chalet, y: ARENA_LEVELS.bank }, rotationY: Math.PI, scale: 1, variant: 1,
   building: layout, destructibleId: 'building_chalet_north', colliders: buildingColliders(layout, 'building_chalet_north') };
+const rearLayout=chaletLayout({style:'log_chalet',width:9,depth:7,snow:true,doorOffset:1.2,nameKey:'world.buildings.milkHut'});
+export const ARENA_REAR_CHALET:MapProp={id:'arena_rear_chalet',kind:'chalet',position:{x:-6,y:18.4,z:21.5},rotationY:Math.PI,scale:1,variant:1,building:rearLayout,colliders:buildingColliders(rearLayout)};
+export const ARENA_BUILDINGS:readonly MapProp[]=[ARENA_CHALET,ARENA_REAR_CHALET];
+const rearStep:MapProp={id:'arena_rear_step',kind:'stairs',position:{x:-7.2,y:18.4,z:17.45},rotationY:0,scale:1,variant:0,dimensions:{x:2.4,y:.225,z:1.1},colliders:[boxCollider(1.2,.1125,.55,0,.1125,0,{surface:'cobblestone'})]};
+
 /** Render these explicit solid steps from their dimensions, including side door. */
 const chaletSteps: MapProp[] = [{ x: 2.2, z: -5.55, width: 2.4, depth: 1.1 }, { x: -7.05, z: -3, width: 1.1, depth: 2.4 }].map((p, i) => ({
   id: `arena_chalet_step_${i}`, kind: 'stairs', position: { x: ARENA_CHALET.position.x + p.x, y: ARENA_LEVELS.bank, z: ARENA_CHALET.position.z + p.z },
@@ -91,12 +81,16 @@ export const ARENA_HANDRAILS: readonly MapProp[] = ARENA_ACCESS_FLIGHTS.flatMap(
   });
 });
 export function arenaSurfaceAt(x: number, z: number, feetY = arenaHeightAt(x, z)): SurfaceTag {
-  const bridge = arenaBridgeHeightAt(x, z);
-  if (bridge !== null && Math.abs(feetY - bridge) < 1)
-    return 'wood';
-  const p = ARENA_CHALET.position;
-  if (Math.abs(x - p.x) < layout.width / 2 + .1 && Math.abs(z - p.z) < layout.depth / 2 + .1 && feetY > p.y + .2)
-    return feetY >= p.y + roofBase(layout) ? 'snow' : 'wood';
+  for(const house of ARENA_BUILDINGS){
+    const p=house.position,shape=house.building!;
+    if(Math.abs(x-p.x)<shape.width/2+.1&&Math.abs(z-p.z)<shape.depth/2+.1&&feetY>p.y+.2)
+      return feetY>=p.y+roofBase(shape)?'snow':'wood';
+  }
+  for(const station of ARENA_STATION_PROPS){
+    if(Math.abs(feetY-station.position.y)>.4)continue;
+    const dx=x-station.position.x,dz=z-station.position.z,c=Math.cos(station.rotationY),s=Math.sin(station.rotationY);
+    if(Math.abs(c*dx-s*dz)<5&&Math.abs(s*dx+c*dz)<3)return 'wood';
+  }
   for (const f of ARENA_ACCESS_FLIGHTS) {
     const dx = f.to.x - f.from.x, dz = f.to.z - f.from.z, length2 = dx * dx + dz * dz;
     const t = ((x - f.from.x) * dx + (z - f.from.z) * dz) / length2;
@@ -134,7 +128,7 @@ export const ARENA_CABLE: CableCarRoute = {
 export const ARENA_STATION_PROPS: readonly MapProp[] = ARENA_CABLE.stations.map((station, i) => {
   const a = stops[i === 2 ? 1 : i]!, b = stops[i === 2 ? 2 : i + 1]!;
   return { id: `arena_station_${station.id}`, kind: 'cable_station', position: station.platform, rotationY: Math.atan2(b.x - a.x, b.z - a.z), scale: 1, variant: i,
-    dimensions: { x: 10, y: 0, z: 6 }, colliders: [boxCollider(5, .18, 3, 0, -.18, 0, { surface: 'wood' }), boxCollider(5, .12, 3.3, 0, 5.52, 0, { surface: 'wood' }),
+    dimensions: { x: 10, y: 0, z: 6 }, colliders: [boxCollider(5, .18, 3, 0, -.18, 0, { surface: 'wood' }), rampCollider({x:-5.25,y:5.45,z:0},{x:0,y:6.7,z:0},6.7,.25,{surface:'snow'}),rampCollider({x:0,y:6.7,z:0},{x:5.25,y:5.45,z:0},6.7,.25,{surface:'snow'}),
       ...[-1, 1].flatMap(side => [-1, 1].map(end => boxCollider(.14, 2.6, .14, side * 4.6, 2.6, end * 2.5, { surface: 'wood' })))] };
 });
 const trees: MapProp[] = [];
@@ -144,14 +138,14 @@ for (const [kind, points] of [['fir', [[-31, -20], [-27, -9], [-32, 0], [-29, 7]
     surface: kind === 'fir' ? 'snow' : 'sand', colliders: [{ type: 'cylinder', radius: kind === 'fir' ? .28 : .22, halfHeight: kind === 'fir' ? 2.8 : 3.5, offset: { x: 0, y: kind === 'fir' ? 2.8 : 3.5, z: 0 }, surface: 'wood' }] }));
 }
 export const ARENA_NATURE: readonly MapProp[] = trees;
-const fencePath = Array.from({ length: 11 }, (_, i) => { const x = -12 + i * 2.4, z = -17.7; return { x, y: arenaHeightAt(x, z), z }; });
+const fencePath = Array.from({ length: 11 }, (_, i) => { const x = -33, z = -17+i*2.4; return { x, y: arenaHeightAt(x, z), z }; });
 export const ARENA_FENCE: MapProp = { id: 'arena_foreground_fence', kind: 'fence', position: { x: 0, y: 0, z: 0 }, rotationY: 0, scale: 1, variant: 0, path: fencePath, colliders: [...fencePath.map(p => ({ type: 'cylinder' as const, radius: .105, halfHeight: .67, offset: { ...p, y: p.y + .55 }, surface: 'wood' as const })), ...fencePath.slice(0, -1).flatMap((a, i) => { const b = fencePath[i + 1]!; return [.45, 1.08].map(height => rampCollider({ ...a, y: a.y + height }, { ...b, y: b.y + height }, .16, .16, { surface: 'wood' })); })] };
 const landing: MapProp = { id: 'arena_coast_landing', kind: 'stairs', position: { x: 46.5, y: 9.85, z: 14 }, rotationY: 0, scale: 1, variant: 0, dimensions: { x: 3, y: .25, z: 3 }, colliders: [boxCollider(1.5, .125, 1.5, 0, .125, 0, { surface: 'wood' })] };
-export const ARENA_SOLID_PROPS: readonly MapProp[] = [ARENA_CHALET, ARENA_FENCE, ...ARENA_HANDRAILS, landing, ...chaletSteps, ...ARENA_BRIDGE, ...access, ...ARENA_STATION_PROPS, ...trees];
+export const ARENA_SOLID_PROPS: readonly MapProp[] = [ARENA_CHALET,ARENA_REAR_CHALET,rearStep, ARENA_FENCE, ...ARENA_HANDRAILS, landing, ...chaletSteps, ...access, ...ARENA_STATION_PROPS, ...trees];
 export const ARENA_GEOMETRY: StaticWorldDefinition = { ...ARENA_GRID, props: ARENA_SOLID_PROPS, heightAt: arenaHeightAt, surfaceAt: arenaSurfaceAt, cableCar: ARENA_CABLE };
 // Every edge follows ground, a bridge segment or one explicit stair flight.
 const navCoordinates = [[-18, -20], [0, -20], [20, -20], [-18, -19], [20, -19], [-18, -6], [20, -6], [-12, 0], [-6, 0], [0, 0], [6, 0], [12, 0],
-  [-18, 6], [-28, 7], [-27, 26], [-28, 24], [-18, 24], [-10, 24], [-10, 34], [0, 40], [10, 34], [20, 24], [28, 24], [27, 18], [20, 8], [32, 14],
-  [46.5, 14], [46.5, 28], [40, 28], [40, 12]] as const;
-export const ARENA_NAV: NavGraph = { nodes: navCoordinates.map(([x, z], id) => ({ id, position: { x, y: arenaBridgeHeightAt(x, z) ?? (id === 26 ? 10.1 : arenaHeightAt(x, z)), z }, zone: 'village' })),
-  edges: [[0, 1], [1, 2], [0, 3], [2, 4], [3, 5], [4, 6], [5, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 6], [5, 12], [12, 13], [13, 14], [14, 15], [15, 16], [16, 17], [17, 18], [18, 19], [19, 20], [20, 21], [21, 22], [22, 23], [23, 24], [24, 6], [24, 25], [25, 26], [26, 27], [27, 28], [28, 29]] };
+  [-18, 6], [-30, 7], [-27, 26], [-28, 24], [-18, 24], [-12, 24], [-10, 34], [0, 40], [10, 34], [20, 24], [28, 24], [27, 18], [20, 8], [32, 14],
+  [46.5, 14], [46.5, 28], [40, 28], [40, 12],[-30,23]] as const;
+export const ARENA_NAV: NavGraph = { nodes: navCoordinates.map(([x, z], id) => ({ id, position: { x, y: (id === 26 ? 10.1 : arenaHeightAt(x, z)), z }, zone: 'village' })),
+  edges: [[0, 1], [1, 2], [0, 3], [2, 4], [3, 5], [4, 6], [5, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 6], [5, 12], [12, 13], [13,30],[30,14], [14, 15], [15, 16], [16, 17], [17, 18], [18, 19], [19, 20], [20, 21], [21, 22], [22, 23], [23, 24], [24, 6], [24, 25], [25, 26], [26, 27], [27, 28], [28, 29]] };

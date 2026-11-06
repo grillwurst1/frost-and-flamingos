@@ -2371,6 +2371,7 @@ export class GameClient {
       const riding = this.vehicles?.occupantPose(player.id)?.riding;
       candidates.push({
         id: player.id, name: profile.displayName, feet,
+        health:Math.max(0,Math.min(1,player.hp/classStatsFor(player.classId,player.faction).maxHp)),
         height: height * (riding === 'wing' ? .93 : riding ? .82 : 1),
         friendly: player.faction === this.localFaction, local, cloaked: player.cloaked,
       });

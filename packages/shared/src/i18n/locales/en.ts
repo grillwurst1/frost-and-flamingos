@@ -1,5 +1,6 @@
 export const en = {
   reference: {
+    basin: 'Snow basin',
     extinguished: 'Chalet fire extinguished!',
     title: 'Gletscherpass · Climate Conquest', enter: 'Play Gletscherpass', back: 'Back to Fjord Fiesta',
     lead: 'Capture the chalet and bridge, drive the Fondue Crawler and put out the chalet fire with your snow cannon. Move or fire to begin.',
@@ -191,6 +192,7 @@ export const en = {
       face_sunscreen: 'Sunscreen stripes',
     },
     torso: {
+      torso_alpine_shirt: 'Rolled-sleeve Alpine shirt',
       torso_tracht_shirt: 'Alpine shirt & waistcoat',
       torso_dirndl_vest: 'Dirndl vest',
       torso_loden_coat: 'Loden coat',

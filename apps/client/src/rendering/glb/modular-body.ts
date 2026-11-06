@@ -24,7 +24,10 @@ const MAX_CACHED_BODIES = 12;
 
 export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset, native = false, sharedHead = false): PaintedModelAsset['spec']['head'] {
   const head = asset.spec.head;
-  if (native && sharedHead && asset.wardrobeHead) return { ...head, radius: profile.cosmetics.classId === 'heavy' ? .16 : profile.cosmetics.classId === 'infiltrator' ? .125 : .15 };
+  // The original Alpine heavy's head marker was calibrated for its large pot
+  // helmet. A bare anatomical head needs to sit above, rather than inside, the
+  // shoulders; use one frame for skull, eyes, hair and every selected headpiece.
+  if (native && sharedHead && asset.wardrobeHead) return { ...head, y: asset.spec.key === 'alpine-heavy' ? 1.36 : head.y, radius: profile.cosmetics.classId === 'heavy' ? .16 : profile.cosmetics.classId === 'infiltrator' ? .125 : .15 };
   if (native && nativeWardrobeRecipe(profile, asset).head) return head;
   return { ...head, radius: head.radius * (profile.cosmetics.classId === 'heavy' ? .80 : .90) };
 }
@@ -80,33 +83,34 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   };
   const shoulder = Math.abs(bind('LeftArm').x - bind('RightArm').x) / 2;
   const bodyScaleX = shoulder / 0.30;
-  const headScale = modularHeadFrame(profile, asset, native, sharedHead).radius / 0.21;
+  const selectedHeadFrame = modularHeadFrame(profile, asset, native, sharedHead);
+  const headScale = selectedHeadFrame.radius / 0.21;
   const anchors = [
     [0.75, bind('Hips').y - 0.12 * size], [0.88, bind('Hips').y],
     [1.03, bind('Spine').y], [1.15, bind('Spine1').y], [1.28, bind('Spine2').y],
-    [1.48, bind('Neck').y], [1.66, asset.spec.head.y],
+    [1.48, bind('Neck').y], [1.66, selectedHeadFrame.y],
   ] as const;
   const bodyY = (y: number): number => {
     for (let i = 0; i + 1 < anchors.length; i++) {
       const a = anchors[i]!, b = anchors[i + 1]!;
       if (y <= b[0]) return a[1] + (b[1] - a[1]) * (y - a[0]) / (b[0] - a[0]);
     }
-    return asset.spec.head.y + (y - 1.66) * headScale;
+    return selectedHeadFrame.y + (y - 1.66) * headScale;
   };
   const body = (p: Vector3, tag: number, detail = 0) => {
     const y = p.y + 0.88;
     const head = tag === 1;
-    const at = new Vector3(-p.x * (head ? headScale : bodyScaleX), head ? asset.spec.head.y + (y - 1.66) * headScale : bodyY(y),
-      p.z * (head ? headScale : size) + (head ? asset.spec.head.z : bind('Spine2').z));
+    const at = new Vector3(-p.x * (head ? headScale : bodyScaleX), head ? selectedHeadFrame.y + (y - 1.66) * headScale : bodyY(y),
+      p.z * (head ? headScale : size) + (head ? selectedHeadFrame.z : bind('Spine2').z));
     if (head && cleanHead && detail === 3 && profile.cosmetics.hairStyleIndex === 1 && asset.wardrobeHead?.afro) {
       // A small inner cap closes any area hidden by the donor's goggles. The
       // visible silhouette and curls come from the actual artist geometry.
-      at.x *= .82; at.y = asset.spec.head.y + (at.y - asset.spec.head.y) * .82;
-      at.z = asset.spec.head.z + (at.z - asset.spec.head.z) * .82;
+      at.x *= .82; at.y = selectedHeadFrame.y + (at.y - selectedHeadFrame.y) * .82;
+      at.z = selectedHeadFrame.z + (at.z - selectedHeadFrame.z) * .82;
     }
     if (head && cleanHead && detail === 3 && profile.cosmetics.hairStyleIndex !== 1) {
       at.x *= .9;
-      at.z = asset.spec.head.z + (at.z - asset.spec.head.z) * .82;
+      at.z = selectedHeadFrame.z + (at.z - selectedHeadFrame.z) * .82;
     }
     if (head && cleanHead && (detail === 2 || detail === 8)) {
       // Map the old eye (+.035) and mouth (-.105) landmarks onto the
@@ -114,9 +118,9 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       // Compressing the whole face left beards and pipes above the real mouth.
       const faceScale = headScale * .21 / asset.wardrobeHead!.frame.radius;
       const eyeToMouth = (y - 1.66 + .105) / .14;
-      at.y = asset.spec.head.y + (-.073 + .09 * eyeToMouth) * faceScale;
+      at.y = selectedHeadFrame.y + (-.073 + .09 * eyeToMouth) * faceScale;
       if (profile.cosmetics.classId === 'heavy') at.x *= 1.10;
-      at.z = asset.spec.head.z + p.z * headScale * .86;
+      at.z = selectedHeadFrame.z + p.z * headScale * .86;
     }
     if (head) return { at, ...weight(['Head'], 0) };
     if (tag === 2) {
@@ -274,6 +278,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           replaced = detail === 3 || detail === 4 ? recipe.hands : recipe.arms || surfaces.arms;
         } else {
           replaced = detail === 2 ? recipe.feet : recipe.legs;
+          if(detail===5)replaced=false; // Independent selected knee sock over the native foot/leg.
           // Authored breeches sit over an independent anatomical leg. Keep
           // exposed knees/calves for every selected shoe, including short boots.
           if (breeches && [faces[f]!,faces[f+1]!,faces[f+2]!].every(v => paint[v*4+3]! > .5)) replaced = false;

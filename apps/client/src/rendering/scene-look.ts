@@ -1,3 +1,4 @@
+import { referenceScene } from '../state/scene';
 import '@babylonjs/core/Engines/Extensions/engine.multiRender';
 import '@babylonjs/core/Engines/WebGPU/Extensions/engine.multiRender';
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
@@ -331,9 +332,9 @@ export class SceneLook {
     this.quality = tier;
     const profile = QUALITY[tier];
     const values = this.context.values;
-    values.detailParams.set(0.24, 35, 120, profile.detailMode);
+    values.detailParams.set(referenceScene ? .12 : .24, 35, 120, profile.detailMode);
     // Painted colour tiles on wood, logs, shingles and cobbles (~1 repeat per 2 m).
-    values.colorParams.set(0.82, 0.5, 0, 0);
+    values.colorParams.set(referenceScene ? .55 : .82, 0.5, 0, 0);
     values.toonParams.w = 0;
     this.gradeExtra.y = 0;
     this.inkParams.w = 0;

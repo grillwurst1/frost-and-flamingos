@@ -1,0 +1,314 @@
+{
+  "status": "passed",
+  "entry": "default",
+  "softwareRenderer": true,
+  "mechanics": false,
+  "errors": [],
+  "failedResponses": [],
+  "checkpoints": [
+    {
+      "label": "public-entry",
+      "phase": "playing",
+      "frame": 33,
+      "tick": 3062,
+      "connected": true,
+      "feet": {
+        "x": 0,
+        "y": 23.020000839233397,
+        "z": -20
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 23163,
+            "triangles": 39578
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": true,
+          "position": [
+            0,
+            23.02,
+            -20
+          ],
+          "weapon": "snow_cannon",
+          "hatHidden": true,
+          "drawCalls": 3,
+          "yaw": 0,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.147058856302794,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "holdOffset": [
+              0.16,
+              -0.5,
+              0.12
+            ],
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.22519229047873768,
+              1.2037064153764545,
+              -0.06603520896714621
+            ],
+            "leftArm": [
+              0.24592276096160998,
+              1.2306946766347642,
+              0.014030467361250507
+            ],
+            "grip": [
+              -0.225,
+              0.953,
+              0.239
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.225,
+              0.953,
+              0.239
+            ],
+            "leftHand": [
+              -0.006,
+              1.159,
+              0.292
+            ],
+            "chest": [
+              0.011,
+              0.95,
+              0.023
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 3
+      },
+      "camera": [
+        0,
+        25.091341845028957,
+        -23.850186405164944
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 39578,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 156,
+        "activeMeshes": 78,
+        "meshes": 172,
+        "materials": 66,
+        "mapVertices": 202925,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 0,
+        "boot_spriteAtlas": 35,
+        "boot_facadeAtlas": 35,
+        "boot_map": 390,
+        "boot_world": 546
+      },
+      "meshes": 172,
+      "materials": 66,
+      "textures": 57,
+      "geometries": 145,
+      "gpuTextures": 59,
+      "heap": 141854472,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 7,
+        "seat": null,
+        "passengerView": false,
+        "predicted": 0,
+        "pending": 0,
+        "correction": 0,
+        "lastCameraYaw": 0,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": -9.5,
+              "y": 18.45,
+              "z": -5
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.05,
+              "z": -22
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -1.3875,
+              "y": 28.0625,
+              "z": 38.3
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 1.3875,
+              "y": 28.0625,
+              "z": 41.7
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [
+        "RoofSniper77",
+        "Senn_Koloss",
+        "Skipper",
+        "Wuzzi",
+        "Angry_Cow_Beta",
+        "StumbleBoi"
+      ],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    }
+  ],
+  "snowStream": {
+    "instances": 64,
+    "enabled": false,
+    "attribute": 3
+  },
+  "review": {
+    "visualParity": "OPEN",
+    "acceptedCaptures": [
+      "video-basin-2026-11-06.png",
+      "video-heavy-pose-2026-11-06.png",
+      "video-heavy-face-2026-11-06.png"
+    ],
+    "poseAndFaceCamera": "dev camera override for actual asset inspection; face uses normal SMG selection",
+    "rejectedCapture": {
+      "file": "reference-snow-stream.png",
+      "reason": "Player died during long pose inspection; disabled cloud pool passed insufficient legacy assertion. Screenshot is not evidence of snow-cannon visuals. Repeat with stricter helper."
+    },
+    "nativeM4ThermalsAndFPS": "unmeasured",
+    "fullWebGPU": "unverified"
+  }
+}

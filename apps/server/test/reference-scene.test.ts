@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { PhysicsWorld, REFERENCE_TOWERS, REFERENCE_MARKERS, REFERENCE_WORLD, REFERENCE_SCENE, referenceSpawn, InputButton, PHYSICS_TICK_RATE, INTERMISSION_TICKS, type CharacterBody } from '@frost-and-flamingos/shared';
+import { PhysicsWorld, REFERENCE_TOWERS, REFERENCE_MARKERS, REFERENCE_WORLD, REFERENCE_SCENE, arenaHeightAt, referenceSpawn, InputButton, PHYSICS_TICK_RATE, INTERMISSION_TICKS, type CharacterBody } from '@frost-and-flamingos/shared';
 import { MatchRoom } from '../src/rooms/match-room';
 import { joinPlayer, internals, playerOf, placePlayer, run, sendInput } from './vehicle-helpers';
 import { ClimateConquest, countTowerPresence } from '../src/rooms/conquest';
 
-test('reference room joins at the authored vista, captures the actual bridge and respawns locally',async()=>{
+test('reference room joins at the authored vista, captures the snow basin and respawns locally',async()=>{
   const room=await MatchRoom.create({reference:true,bots:0,critters:false});
   try {
     const player=joinPlayer(room,'alpine'),body=playerOf(room,player.id),spawn=referenceSpawn('alpine').position;
@@ -15,7 +15,7 @@ test('reference room joins at the authored vista, captures the actual bridge and
     run(room,3*PHYSICS_TICK_RATE);
     expect(player.socket.latest!.ticketsAlpine).toBe(50);expect(player.socket.latest!.ticketsLagoon).toBe(50);
     sendInput(room,player,InputButton.Forward);
-    placePlayer(room,player.id,{x:.7,y:17.06,z:0});
+    placePlayer(room,player.id,{x:.7,y:arenaHeightAt(.7,0)+.06,z:0});
     run(room,9*PHYSICS_TICK_RATE);
     expect(player.socket.latest!.conquest.towers[1]!.owner).toBe('alpine');
     placePlayer(room,player.id,{x:1,y:-30,z:0});run(room,8*PHYSICS_TICK_RATE);
@@ -24,7 +24,7 @@ test('reference room joins at the authored vista, captures the actual bridge and
   }finally {room.stop();}
 });
 
-test('reference crate cover is solid and the bridge still walks end to end',async()=>{
+test('reference crate cover is solid and the snow basin walks end to end',async()=>{
   const room=await MatchRoom.create({reference:true,bots:0,critters:false});
   try {
     const player=joinPlayer(room,'alpine'),body=playerOf(room,player.id);
@@ -84,7 +84,7 @@ test('reference tank drives and fires continuously through its normal authoritat
   }finally {room.stop();}
 });
 
-test('reference cast includes armed soldiers and a living cow at the bridge, without changing the regular cast',async()=>{
+test('reference cast includes armed soldiers and a living cow in the basin, without changing the regular cast',async()=>{
   const room=await MatchRoom.create({reference:true,critters:false});
   try {
     const cast=[...internals(room).players.values()].map(p=>({...p,character:p.character as CharacterBody}));
@@ -110,7 +110,7 @@ test('the rooftop defender holds solid snow roof clear of the fire and respawns 
   }finally {room.stop();}
 });
 
-test('the reference cow stays supported by the actual bridge ramps throughout the intro',async()=>{
+test('the reference cow stays supported by the actual basin terrain throughout the intro',async()=>{
   const room=await MatchRoom.create({reference:true,bots:6,critters:false});
   try {
     const cow=playerOf(room,5);
@@ -119,19 +119,19 @@ test('the reference cow stays supported by the actual bridge ramps throughout th
     expect(cow.alive).toBe(true);expect(cow.hp).toBe(260);
     expect(cow.character.position.x).toBeCloseTo(4,1);
     expect(cow.character.position.z).toBeCloseTo(0,1);
-    expect(cow.character.position.y).toBeGreaterThan(17.05);
-    expect(cow.character.position.y).toBeLessThan(17.8);
+    expect(cow.character.position.y).toBeGreaterThan(arenaHeightAt(4,0)-.1);
+    expect(cow.character.position.y).toBeLessThan(arenaHeightAt(4,0)+.5);
   }finally{room.stop();}
 });
 
-test('the bridge defender holds its actual deck throughout the reference intro',async()=>{
+test('the basin defender holds its actual ground throughout the reference intro',async()=>{
   const room=await MatchRoom.create({reference:true,bots:6,critters:false});
   try {
     const defender=playerOf(room,4);run(room,600);
     expect(defender.alive).toBe(true);
-    expect(defender.character.position.x).toBeCloseTo(-4,1);
+    expect(defender.character.position.x).toBeCloseTo(7,1);
     expect(defender.character.position.z).toBeCloseTo(0,1);
     expect(defender.character.position.y).toBeGreaterThan(16);
-    expect(defender.character.position.y).toBeLessThan(18);
+    expect(defender.character.position.y).toBeLessThan(arenaHeightAt(7,0)+.4);
   }finally{room.stop();}
 });

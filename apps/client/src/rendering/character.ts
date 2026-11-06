@@ -73,7 +73,7 @@ function tagParts(parts: readonly Mesh[], tag: number, detail = 0): void {
 function shapedPart(scene: Scene, name: string, width: number, height: number, depth: number): Mesh {
   const batch = new GeometryBatch();
   batch.jitter = 0;
-  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock|hand-palm)$/.test(name);
+  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock|hand-palm)$/.test(name);
   if (name === 'tirol-felt-crown' || name === 'tirol-curled-brim') {
     const crown = name === 'tirol-felt-crown';
     batch.lathe(crown ? [
@@ -131,8 +131,8 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
       }
     }
   } else if (organic) {
-    const torso = /^(chest|waist|hip|ranger-waistcoat|field-waistcoat)$/.test(name);
-    const profile: Array<[number, number]> = /^(ranger|field)-waistcoat$/.test(name) ? [
+    const torso = /^(chest|waist|hip|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$/.test(name);
+    const profile: Array<[number, number]> = /^((ranger|field)-waistcoat|alpine-shirt-body)$/.test(name) ? [
       [.38 * width, -height / 2], [.40 * width, -height * .35], [.46 * width, -height * .05],
       [.5 * width, height * .20], [.47 * width, height * .4], [.37 * width, height / 2],
     ] : name.endsWith('-arm-sculpt') ? [
@@ -150,7 +150,7 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
       [width * 0.49, -height * 0.35], [width * 0.5, height * 0.12],
       [width * 0.47, height * 0.4], [width * 0.42, height / 2],
     ];
-    const garment = /waistcoat$|-sleeve-sculpt$|-lederhosen$|-boardshort$/.test(name);
+    const garment = /waistcoat$|alpine-shirt-body$|-sleeve-sculpt$|-lederhosen$|-boardshort$/.test(name);
     batch.with(Affine.scaling(1, 1, depth / width), () =>
       batch.lathe(profile, garment ? 32 : 20, [1, 1, 1], 'plain', { capTop: true, capBottom: true }));
     if (garment) {
@@ -433,7 +433,7 @@ export class CharacterView {
     // Torso silhouette morphs continuously with bodyType.
     // Closed waistcoats form the complete torso surface. An enclosed second
     // chest can cut through the garment during a spine bend.
-    if (cosmetics.torso !== 'torso_field_vest' && cosmetics.torso !== 'torso_tracht_shirt') {
+    if (cosmetics.torso !== 'torso_field_vest' && cosmetics.torso !== 'torso_tracht_shirt' && cosmetics.torso !== 'torso_alpine_shirt') {
       box(scene, body, 'chest', shoulderWidth * 0.88, 0.36, chestDepth, 0, 0.36, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
       box(scene, body, 'waist', waistWidth, 0.24, chestDepth * 0.9, 0, 0.1, 0, bareArms ? skinColor : torsoPrimary, { skin: bareArms });
     }
@@ -525,7 +525,7 @@ export class CharacterView {
     this.rightShoulder.rotation.z = -0.07;
 
     const limbBulk = lerp(1.30, 0.96, bodyType);
-    const rolledSleeves = cosmetics.torso === 'torso_tracht_shirt' || cosmetics.torso === 'torso_hawaii_shirt';
+    const rolledSleeves = cosmetics.torso === 'torso_alpine_shirt' || cosmetics.torso === 'torso_tracht_shirt' || cosmetics.torso === 'torso_hawaii_shirt';
     const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', limbBulk, rolledSleeves);
     leftArm.parent = this.leftShoulder;
     const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', limbBulk, rolledSleeves);
@@ -637,6 +637,17 @@ export class CharacterView {
         box(scene, body, 'field-shoulder-tab', .075, .11, .12, side * shoulderWidth * .32, .49, 0, torsoSecondary, { rotationZ: side * .15 });
       }
       box(scene, body, 'field-waist-hem', waistWidth + .035, .045, chestDepth, 0, .045, 0, torsoSecondary);
+    } else if (torso === 'torso_alpine_shirt') {
+      box(scene,body,'alpine-shirt-body',shoulderWidth*.94,.56,chestDepth+.02,0,.23,0,torsoPrimary);
+      box(scene,body,'alpine-shirt-placket',.065,.42,.018,0,.29,front+.025,torsoPrimary);
+      for(let button=0;button<4;button++)sphere(scene,body,'alpine-shirt-button',.016,0,.15+button*.10,front+.038,torsoSecondary,{segments:8});
+      for(const side of [-1,1]){
+        box(scene,body,'alpine-shirt-collar',.105,.10,.025,side*.06,.48,front+.025,torsoPrimary,{rotationZ:side*.46});
+        box(scene,body,'alpine-shirt-brace-buckle',.036,.038,.024,side*.14,.20,front+.025,torsoAccent);
+      }
+      box(scene,body,'alpine-brace-bridge',.29,.055,.018,0,.24,front+.028,torsoSecondary);
+      for(let petal=0;petal<8;petal++)box(scene,body,'alpine-edelweiss-petal',.012,.048,.008,Math.sin(petal*Math.PI/4)*.014,.25+Math.cos(petal*Math.PI/4)*.014,front+.043,WHITE,{rotationZ:-petal*Math.PI/4});
+      sphere(scene,body,'alpine-edelweiss-centre',.016,0,.25,front+.050,torsoAccent,{segments:8});
     } else if (torso === 'torso_tracht_shirt') {
       const vest = hexToColor4('#465d32');
       // A curved shell follows the chest instead of three flat boards floating on the shirt.
@@ -747,7 +758,7 @@ export class CharacterView {
         segments: 14,
       });
     }
-    if (torso === 'torso_tracht_shirt' || torso === 'torso_field_vest') {
+    if (torso === 'torso_alpine_shirt' || torso === 'torso_tracht_shirt' || torso === 'torso_field_vest') {
       const leather = hexToColor4('#60452f'), thread = hexToColor4('#a88a5e');
       const vestWidth = shoulderWidth * (torso === 'torso_field_vest' ? .93 : .91);
       const vestDepth = chestDepth + (torso === 'torso_field_vest' ? .04 : .03);
@@ -769,7 +780,7 @@ export class CharacterView {
             const z = back * (vestDepth * radius * Math.sqrt(Math.max(0, 1 - (x / (vestWidth * radius)) ** 2)) + .010);
             path.push(new Vector3(x, y, z));
           }
-          const strap = torso === 'torso_tracht_shirt';
+          const strap = torso === 'torso_tracht_shirt' || torso === 'torso_alpine_shirt';
           body.push(tailoredStrip(scene, strap ? 'fitted-leather-harness' : 'vest-tailored-seam', path, strap ? .038 : .008, .009, strap ? leather : torsoSecondary));
           if (strap) body.push(tailoredStrip(scene, 'harness-edge-stitch', path.map(p => p.add(new Vector3(side * .013, 0, back * .006))), .003, .003, thread));
         }
@@ -788,7 +799,7 @@ export class CharacterView {
     if (back === 'back_cuckoo_clock') {
       box(scene, body, 'cuckoo-house', 0.34, 0.42, 0.14, 0, 0.28, backZ, primary);
       for (const side of [-1, 1]) {
-        box(scene, body, 'cuckoo-roof-panel', 0.25, 0.065, 0.23, side * 0.105, 0.54, backZ, secondary,
+        box(scene, body, 'cuckoo-roof-panel', 0.25, 0.065, 0.23, side * 0.105, 0.54, backZ, hexToColor4('#a64a39'),
           { rotationZ: -side * 0.55 });
         box(scene, body, 'cuckoo-corner-trim', 0.022, 0.39, 0.018, side * 0.15, 0.28, backZ - 0.08, secondary);
         box(scene, body, 'cuckoo-weight-chain', 0.008, 0.18, 0.008, side * 0.085, -0.015, backZ - 0.03, GOLD);
@@ -1254,10 +1265,16 @@ export class CharacterView {
       sphere(scene, parts, `${side}-cargo-fastener`, .014, outside * .139, -.23, .02, accent, { segments: 6 });
       if (!peg && !coveredCuffs) box(scene, parts, `${side}-cuff`, 0.155, 0.05, 0.17, 0, -0.73, 0, accent);
     } else if (legs === 'legs_lederhosen') {
-      box(scene, parts, `${side}-lederhosen`, 0.18, 0.30, 0.20, 0, -0.15, 0, primary);
+      box(scene, parts, `${side}-lederhosen`, 0.18, 0.36, 0.20, 0, -0.18, 0, primary);
       if (!peg && feet !== 'feet_ski_boots') {
-        box(scene, parts, `${side}-sock`, 0.15, ankleBoot ? .04 : .12, 0.16, 0, ankleBoot ? -.68 : -.72, 0, secondary);
-        box(scene, parts, `${side}-sock-stripe`, 0.155, 0.03, 0.165, 0, -0.66, 0, accent);
+        if(ankleBoot){
+          // A separate closed white wool layer; the skin remains underneath.
+          box(scene,parts,`${side}-alpine-sock`,.17,.27,.19,0,-.565,0,WHITE);
+          torus(scene,parts,`${side}-alpine-sock-cuff`,.16,.02,0,-.447,0,WHITE,{segments:24,scaleZ:1.10});
+        }else{
+          box(scene, parts, `${side}-sock`, .15,.12,.16,0,-.72,0,secondary);
+          box(scene,parts,`${side}-sock-stripe`,.155,.03,.165,0,-.66,0,accent);
+        }
       }
       for (const x of [-0.05, 0.05]) {
         box(scene, parts, `${side}-embroidered-seam`, 0.009, 0.22, 0.012, x, -0.15, 0.105, accent);
@@ -1322,7 +1339,7 @@ export class CharacterView {
 
     for (const part of parts) { part.position.x *= bulk; part.position.z *= bulk; part.scaling.x *= bulk; part.scaling.z *= bulk; }
     for (const part of parts) if (/-(ski-|boot|flipper|sandal)/.test(part.name)) { part.position.x *= .84; part.scaling.x *= .84; }
-    parts.forEach((part, i) => tagParts([part], 0, i >= footStart || /-(shin|sock|sock-stripe|cuff|longjohn-cuff)$/.test(part.name) ? 2 : 1));
+    parts.forEach((part, i) => tagParts([part], 0, part.name.includes('-alpine-sock') ? 5 : i >= footStart || /-(shin|sock|sock-stripe|cuff|longjohn-cuff)$/.test(part.name) ? 2 : 1));
     const merged = mergeParts(scene, `${side}-leg-mesh`, parts, this.material);
     if (!merged) throw new Error('Failed to build character leg.');
     merged.parent = side === 'left' ? this.leftHip : this.rightHip;

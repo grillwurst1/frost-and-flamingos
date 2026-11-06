@@ -4,9 +4,10 @@ import { REFERENCE_CHALET_FIRE, insideReferenceChalet } from '@frost-and-flaming
 /** Reference-only environmental state. Existing map-sync carries its burning flag. */
 export class ReferenceChaletFire {
   private cooling=0;
-  private burning=true;
+  private burning:boolean;
+  constructor(private readonly initialBurning=true){this.burning=initialBurning;}
   snapshot():DestructibleState {return {id:REFERENCE_CHALET_FIRE.id,stage:0,hp:REFERENCE_CHALET_FIRE.maxHp,burning:this.burning};}
-  reset():void {this.burning=true;this.cooling=0;}
+  reset():void {this.burning=this.initialBurning;this.cooling=0;}
   hit(weapon:WeaponId,point:Vec3):'extinguished'|'ignited'|null {
     if(!insideReferenceChalet(point))return null;
     if(this.burning&&weapon==='snow_cannon') {

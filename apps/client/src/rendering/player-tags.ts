@@ -3,7 +3,7 @@ import type { Scene } from '@babylonjs/core/scene';
 import type { PhysicsWorld, Vec3 } from '@frost-and-flamingos/shared';
 import type { PlayerTag } from '../state/tactical';
 
-export interface TagCandidate { id:number; name:string; feet:Vec3; height:number; friendly:boolean; local:boolean; cloaked?:boolean }
+export interface TagCandidate { id:number; name:string; feet:Vec3; height:number; friendly:boolean; local:boolean; cloaked?:boolean; health?:number }
 const identity = Matrix.Identity();
 
 /** Keep crowded names readable without moving their world anchors or hiding players. */
@@ -47,7 +47,7 @@ export function projectPlayerTags(scene:Scene,physics:PhysicsWorld,candidates:re
     const projected=Vector3.Project(new Vector3(head.x,head.y+candidate.height*.15,head.z),identity,transform,viewport);
     const x=projected.x/width*100,y=projected.y/height*100;
     if(projected.z<0||projected.z>1||x<0||x>100||y<0||y>100)continue;
-    output.push({id:candidate.id,name:candidate.name,x,y,friendly:candidate.friendly,local:candidate.local});
+    output.push({id:candidate.id,name:candidate.name,x,y,friendly:candidate.friendly,local:candidate.local,...(candidate.health===undefined?{}:{health:candidate.health})});
   }
   const canvas = engine.getRenderingCanvas();
   return separatePlayerTags(output, canvas?.clientWidth || width, canvas?.clientHeight || height);

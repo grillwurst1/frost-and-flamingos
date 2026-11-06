@@ -81,7 +81,7 @@ test('compact emergency lever brakes both moving cabins and releases on the same
     room.stop();
   }
 });
-test('foreground guardrail physically stops a human before the ravine', async () => {
+test('the video basin is open continuous snow instead of an impassable foreground fence', async () => {
   const world = await PhysicsWorld.create([], REFERENCE_WORLD);
   try {
     const body = world.createCharacter({ position: { x: 0, y: 23.05, z: -20 }, classId: 'allrounder', faction: 'alpine' });
@@ -89,9 +89,9 @@ test('foreground guardrail physically stops a human before the ravine', async ()
       body.simulate({ ...idle, buttons: InputButton.Forward });
       world.step();
     }
-    expect(body.position.z).toBeLessThan(-18);
-    expect(body.position.z).toBeGreaterThan(-19);
-    expect(body.position.y).toBeGreaterThan(22.9);
+    expect(body.position.z).toBeGreaterThan(0);
+    expect(body.position.z).toBeLessThan(10);
+    expect(body.position.y).toBeGreaterThan(18.3);
   }
   finally {
     world.dispose();

@@ -303,6 +303,7 @@ export class GlbCharacterView implements AvatarView {
   private readonly jointIndex = new Map<string, number>();
   private readonly bindRotations: Float32Array;
   private readonly bindHips: Vector3;
+  private readonly bindHeadRotation: Quaternion | null;
   private readonly accumulator: Float32Array;
   private readonly hipsAccumulator = new Vector3();
   private readonly bindings = new Map<BindingRole, ClipBinding>();
@@ -522,6 +523,7 @@ export class GlbCharacterView implements AvatarView {
     });
     this.accumulator = new Float32Array(ordered.length * 4);
     this.bindHips = asset.bindPose.get('Hips')?.position.clone() ?? Vector3.Zero();
+    this.bindHeadRotation = bindWorldTransform(asset, 'Head')?.rotation.clone() ?? null;
     const hipsNode = nodes.get('Hips');
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
@@ -649,6 +651,10 @@ export class GlbCharacterView implements AvatarView {
       clips,
       weights,
       probe: {
+        scale:this.scale, assetHeight:this.asset.height, previewing:this.previewing,
+        holdOffset:this.weapon?.hold.offset,
+        shoulderLocal:this.shoulderLocal?.asArray(),
+        rightArm:this.rig.position('RightArm')?.asArray(),leftArm:this.rig.position('LeftArm')?.asArray(),
         grip: this.weaponAnchor.position.asArray().map((value) => Math.round(value * 1000) / 1000),
         weaponRot: this.weaponAnchor.rotationQuaternion?.asArray().map((value) => Math.round(value * 1000) / 1000),
         rightHand: this.rig.position('RightHand')?.asArray().map((value) => Math.round(value * 1000) / 1000),
@@ -1425,6 +1431,17 @@ export class GlbCharacterView implements AvatarView {
         rig.rotateWorld('Spine2', Quaternion.RotationAxis(AXIS_X, breath));
         rig.refresh();
       }
+    }
+
+    // Retargeted idles can nod strongly into a hip-held weapon. Armed soldiers
+    // look along their aim independently of that chest/neck motion; roll and
+    // unarmed emotes retain their animation, and deliberate stare runs later.
+    const headAim = this.armed * blend * (1 - this.rollTuck);
+    const headRotation = rig.rotation('Head');
+    if (this.sharedWardrobeHead && this.bindHeadRotation && headRotation && headAim > .001) {
+      const target = Quaternion.RotationAxis(AXIS_X, -this.pitch * .45).multiply(this.bindHeadRotation);
+      rig.setWorldRotation('Head', Quaternion.Slerp(headRotation, target, headAim));
+      rig.refresh();
     }
 
     // Weapon frame in front of the chest, hands pulled onto the grips.

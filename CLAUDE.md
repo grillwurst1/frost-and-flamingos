@@ -99,7 +99,7 @@ In this build:
   during the results, otherwise at the next respawn (with a notice); leaving the drifter class
   may move you to the smaller team at respawn (toast). Rules in `packages/shared/src/config/conquest.ts`
   and `apps/server/src/rooms/conquest.ts`; full text in `game-decisions.md` §14.1 / §10.6.
-- Protocol version **15**; EN/DE keys for every new surface; `bun run test` runs the script,
+- Protocol version **16**; EN/DE keys for every new surface; `bun run test` runs the script,
   server and client suites.
 
 Deliberately **not** in this build:
@@ -1715,3 +1715,49 @@ Strict checks/builds pass for the compact checkpoint. Record subsequent video
 HUD validation separately; do not use this record as proof of visual acceptance.
 
 6 November video pass: closer centred full-body camera (3.6 m, FOV .85), terrain/collision snow drifts, actual-room surface queries for cow grazing and remote footsteps. Camera update now retains the selected reference FOV. Existing field and vehicle camera defaults remain.
+
+
+## Gameplay-video graphics pass — 6 November 2026
+
+The active reference scene is now a continuous snowy basin with two enterable
+log chalets, rounded terrain banks, left-hand fondue crawler, six live cast
+members and three working gondola stops. It supersedes the compact bridge
+composition above. Both terrain and gabled station roofs have matching physical
+surfaces; the full field is still available at `?scene=field`. Protocol16 requires
+matching current client/server.
+
+New reference profiles use a broad Alpine heavy with a bald anatomical head,
+ginger beard, cream Alpine shirt/brown suspenders, lederhosen, independent white
+knee socks, mountain boots and red-roof clock backpack. `torso_alpine_shirt` is a
+real wardrobe selection; saved selections remain intact. The shared heavy head
+frame clears the shoulders consistently for every headgear selection. Golden
+snow cannon is held at hip height. The snow stream uses a fixed64-puff pool and
+two instanced draws, without per-shot mesh/material/texture allocation. Reference
+camera is centred, 3.9m/.85FOV, pivot1.45, pitch-.16. Live HP bars and the round
+minimap use actual players/arena data.
+
+These are visual improvements, not accepted video parity. Character sculpt,
+clothing, environment composition and effects still need comparison against the
+owner's video. Native Mac M4 heat/FPS and full WebGPU compilation diagnostics
+remain unverified. See `VIDEO_REFERENCE_WORK.md` for current evidence.
+
+
+Validation for this basin checkpoint:15 script cases,223 server/test cases,
+21 server/src cases and158 client cases pass across batch and isolated runs.
+The first client run exposed an actual snow-cannon support grip on the wrong
+side; corrected to the holder's left and all six Heavy grip cases pass. The
+subsequent client batch passed156 cases; two wardrobe cases hit Cloud wall-clock
+timeouts. Unchanged isolated reruns pass: mountain-boot idle soles849.60ms and
+all headgear13.650s. Strict diagnostics:0errors/0warnings; production builds pass.
+The new head regression checks shoulder clearance, unchanged anatomy across
+headgear choices and forward-facing aim after the actual animation updates.
+These checks establish behavior, not accepted visual quality.
+
+Actual1280×720Medium WebGL2 basin/front/face captures and review are retained
+in docs/qa/video-basin-2026-11-06.png, video-heavy-pose-2026-11-06.png,
+video-heavy-face-2026-11-06.png and video-basin-browser-2026-11-06.json.
+0page/HTTP/context failures,156draws,202925stored map vertices,17shared firs.
+Face/pose are labelled dev-camera asset inspection; default scene is ordinary
+public entry. A later cloud screenshot was rejected because the player died;
+the helper now requires live HP and an enabled GPU pool before accepting it.
+Do not use that rejected capture as FX evidence.

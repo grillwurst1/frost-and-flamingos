@@ -228,7 +228,7 @@ function expectedBytes(value: WorldSnapshot): number {
   return HEADER_BYTES + value.players.length * PLAYER_BYTES + 1 + vehicleBlock + 1 + value.critters.length * 12 + CONQUEST_BYTES;
 }
 
-describe('merged protocol 15 snapshot codec', () => {
+describe('merged protocol 16 snapshot codec', () => {
   test('cow grazing uses a spare mascot flag without growing packets or changing jump bits', () => {
     const state = { heading: 0, yawRate: 0, stamina: 1, boostSeconds: 0, actionSeconds: 0, hopSeconds: 0,
       coyoteSeconds: 0, cooldownTicks: [0,0,0] as [number,number,number], pounding: false, skidding: false,
@@ -241,7 +241,7 @@ describe('merged protocol 15 snapshot codec', () => {
     expect(decodeSnapshot(idle)?.players[0]?.mascot).toEqual(state);
   });
   test('protocol 10 extends vehicle pose with signed aircraft pitch and bank', () => {
-    expect(PROTOCOL_VERSION).toBe(15);
+    expect(PROTOCOL_VERSION).toBe(16);
   });
 
   test('an aircraft with three crew and signed pitch/bank precedes ordinary hulls without shifting their fields', () => {
@@ -343,7 +343,7 @@ describe('merged protocol 15 snapshot codec', () => {
     const decoded = decodeWelcome(encodeWelcome(welcome));
     expect(decoded?.spawnYaw).toBe(welcome.spawnYaw);
     expect(decoded?.spawn).toEqual(welcome.spawn);
-    expect(decoded?.protocolVersion).toBe(15);
+    expect(decoded?.protocolVersion).toBe(16);
   });
 
   test('an empty vehicle list and an empty critter trailer (conquest block still present) round-trip', () => {

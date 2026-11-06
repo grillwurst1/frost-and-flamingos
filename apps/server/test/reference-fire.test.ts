@@ -32,7 +32,7 @@ test('only a burning patch is dangerous at an actual nearby body height',()=>{
 });
 
 test('authoritative snow-cannon wall hits extinguish the chalet, sync a late join, and reset with the round',async()=>{
-  const room=await MatchRoom.create({reference:true,bots:0,critters:false});
+  const room=await MatchRoom.create({reference:true,initialReferenceFire:true,bots:0,critters:false});
   try {
     const socket=new RecordingSocket(),profile=createDefaultProfile('Firefighter');profile.loadout.gimmick='snow_cannon';
     const joined=room.join(socket,{protocolVersion:PROTOCOL_VERSION,profile});if(!joined.ok)throw new Error(joined.reason);
@@ -60,7 +60,7 @@ test('authoritative snow-cannon wall hits extinguish the chalet, sync a late joi
 });
 
 test('exposed players burn near a real roof patch while the drifter remains immune',async()=>{
-  const room=await MatchRoom.create({reference:true,bots:0,critters:false});
+  const room=await MatchRoom.create({reference:true,initialReferenceFire:true,bots:0,critters:false});
   try {
     const human=joinPlayer(room,'alpine'),drifter=joinPlayer(room,'alpine','drifter');
     const humanBody=playerOf(room,human.id),ghost=playerOf(room,drifter.id),p=REFERENCE_CHALET_FIRE.points[1]!;
@@ -69,4 +69,16 @@ test('exposed players burn near a real roof patch while the drifter remains immu
     placePlayer(room,human.id,{...p,y:p.y+.15});placePlayer(room,drifter.id,{...p,y:p.y+.15});run(room,60);
     expect(humanBody.hp).toBeLessThan(initialHuman);expect(ghost.hp).toBe(initialGhost);
   }finally {room.stop();}
+});
+
+
+test('the video village starts intact and round reset restores its initial cold state',async()=>{
+  const room=await MatchRoom.create({reference:true,bots:0,critters:false});
+  try{
+    const socket=new RecordingSocket(),joined=room.join(socket,{protocolVersion:PROTOCOL_VERSION,profile:createDefaultProfile('Village visitor')});
+    expect(joined.ok).toBe(true);if(!joined.ok)throw new Error(joined.reason);
+    expect(joined.mapState.destructibles[0]!.burning).toBe(false);
+    const fire=new ReferenceChaletFire(false);expect(fire.hit('sand_flamer',point)).toBe('ignited');expect(fire.snapshot().burning).toBe(true);
+    fire.reset();expect(fire.snapshot().burning).toBe(false);
+  }finally{room.stop();}
 });

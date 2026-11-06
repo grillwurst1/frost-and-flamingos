@@ -3,14 +3,14 @@ import { resolve } from 'node:path';
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine';
 import { Scene } from '@babylonjs/core/scene';
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera';
-import { Vector3 } from '@babylonjs/core/Maths/math';
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { createDefaultProfile, LEGS_PALETTES, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
 import { GlbCharacterView } from '../src/rendering/glb-character';
-import { jointName, paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
+import { bindWorldTransform, jointName, paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
 import { modularHeadFrame, modularTorsoFrame } from '../src/rendering/glb/modular-body';
 import { closestOnSegment } from '../src/rendering/glb/hold';
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode';
@@ -426,6 +426,13 @@ test('the bald heavy uses the detailed face without importing the original winte
   const profile = createDefaultProfile('Senn_Koloss', 'heavy');
   Object.assign(profile.cosmetics, { headgear: 'head_none', face: 'face_none', hairStyleIndex: 6, torso: 'torso_field_vest', legs: 'legs_olive_pants' });
   expect(nativeWardrobeRecipe(profile, heavy!).legs).toBe(false);
+  const headFrame = modularHeadFrame(profile, heavy!, true, true);
+  // A bare head must clear the shoulders; the helmet marker used to put the
+  // eyes at shoulder height. Changing hats must not move the anatomical head.
+  const shoulderY = Math.max(heavy!.bindPositions.get('LeftArm')!.y, heavy!.bindPositions.get('RightArm')!.y);
+  expect(headFrame.y - shoulderY).toBeGreaterThan(.18);
+  expect(headFrame.y - shoulderY).toBeLessThan(.30);
+  for (const headgear of HEADGEAR_IDS) expect(modularHeadFrame({ ...profile, cosmetics: { ...profile.cosmetics, headgear } }, heavy!, true, true)).toEqual(headFrame);
   const view = new GlbCharacterView(scene, new StandardMaterial('heavy-qa', scene), profile, heavy!, { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } });
   try {
     const mesh = view.root.getChildMeshes().find(m => m.name === 'soldier-modular-detail') as Mesh;
@@ -439,6 +446,11 @@ test('the bald heavy uses the detailed face without importing the original winte
       expect(flags[v * 2]! === 1 && flags[v * 2 + 1] === 6).toBe(false);
     }
     expect(head).toBeGreaterThan(3000); expect(mesh.subMeshes).toHaveLength(1);
+    for(let i=0;i<100;i++)view.update(1/45,{position:{x:0,y:0,z:0},velocity:{x:0,y:0,z:0},yaw:0,pitch:-.16,grounded:true,alive:true,crouched:false,swimming:false,weaponId:'snow_cannon'});
+    const rig=(view as unknown as {rig:GlbRig}).rig;rig.refresh();
+    const facing = Vector3.Forward().rotateByQuaternionToRef(rig.rotation('Head')!.multiply(Quaternion.Inverse(bindWorldTransform(heavy!,'Head')!.rotation)),new Vector3());
+    expect(Math.abs(facing.y)).toBeLessThan(.2);
+    expect(facing.z).toBeGreaterThan(.96);
   } finally { view.dispose(); }
 });
 

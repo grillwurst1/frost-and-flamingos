@@ -109,7 +109,8 @@ export type TorsoId =
   | 'torso_bathrobe'
   | 'torso_bare_suspenders'
   | 'torso_barrel_armor'
-  | 'torso_field_vest';
+  | 'torso_field_vest'
+  | 'torso_alpine_shirt';
 
 export type BackId =
   | 'back_none'

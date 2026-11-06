@@ -55,6 +55,7 @@ export const TORSO_IDS = [
   'torso_bare_suspenders',
   'torso_barrel_armor',
   'torso_field_vest',
+  'torso_alpine_shirt',
 ] as const satisfies readonly TorsoId[];
 
 export const BACK_IDS = [
@@ -160,6 +161,7 @@ export const FACE_PALETTES: Record<FaceId, CosmeticPalette> = {
 };
 
 export const TORSO_PALETTES: Record<TorsoId, CosmeticPalette> = {
+  torso_alpine_shirt: { primary: '#f2ecdf', secondary: '#68462e', accent: '#d2b179' },
   torso_tracht_shirt: { primary: '#f3f6f8', secondary: '#5a3b2a', accent: '#f4c95d' },
   torso_dirndl_vest: { primary: '#c62f45', secondary: '#3f5d3a', accent: '#f3f6f8' },
   torso_loden_coat: { primary: '#3f5d3a', secondary: '#2a3d27', accent: '#c9a227' },

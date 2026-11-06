@@ -1,6 +1,6 @@
 /** The playable Gletscherpass slice uses the same map/colliders and binary protocol. */
 import { CONQUEST_TOWERS } from './conquest.js';
-import { ARENA_ANCHORS, ARENA_CABLE, ARENA_CHALET, ARENA_GEOMETRY, arenaBridgeHeightAt, arenaHeightAt as sampleMapHeight } from './reference-arena.js';
+import { ARENA_ANCHORS, ARENA_CABLE, ARENA_CHALET, ARENA_GEOMETRY, arenaHeightAt as sampleMapHeight } from './reference-arena.js';
 import { sampleCableCar } from '../physics/cable-car.js';
 import { roofBase } from './map/buildings.js';
 import { type VehicleSlot } from './vehicles.js';
@@ -8,14 +8,14 @@ import type { Faction, TowerDefinition, Vec3, MapProp } from '../types/index.js'
 
 export const REFERENCE_SCENE = {
   id: 'reference',
-  view: { yaw: 0, pitch: -.30 },
+  view: { yaw: 0, pitch: -.16 },
   focus: { x: 0, z: 0 },
   spawn: { alpine: ARENA_ANCHORS.alpine, lagoon: ARENA_ANCHORS.lagoon },
 } as const;
-const points = [{ x: -17, y: 18.4, z: 5 }, { x: 0, y: 16.9, z: 0 }, { x: 22, y: 18.4, z: 6 }];
+const points = [{ x: -17, y: 18.4, z: 5 }, { x: 0, y: sampleMapHeight(0,0), z: 0 }, { x: 22, y: 18.4, z: 6 }];
 export const REFERENCE_TOWERS: readonly TowerDefinition[] = CONQUEST_TOWERS.map((tower, i) => ({
-  ...tower, position: points[i]!, captureRadius: i === 1 ? 2.5 : 7, homeFaction: i === 0 ? 'alpine' : i === 2 ? 'lagoon' : null,
-  labelKey: (['reference.chalet', 'reference.bridge', 'reference.camp'] as const)[i]!,
+  ...tower, position: points[i]!, captureRadius: i === 1 ? 6 : 7, homeFaction: i === 0 ? 'alpine' : i === 2 ? 'lagoon' : null,
+  labelKey: (['reference.chalet', 'reference.basin', 'reference.camp'] as const)[i]!,
   spawnPads: [], attachPoints: [],
 }));
 export function referenceSpawn(faction: Faction, index = 0): { position: Vec3; yaw: number } {
@@ -29,13 +29,13 @@ const vehicle = (id: number, kind: VehicleSlot['kind'], x: number, z: number, ya
     rotationY: yaw, faction: null, trigger: 'map' },
 });
 export const REFERENCE_VEHICLES: readonly VehicleSlot[] = [
-  vehicle(201, 'fondue_crawler', ARENA_ANCHORS.crawler.x, ARENA_ANCHORS.crawler.z, -1.5), vehicle(202, 'sidecar', ARENA_ANCHORS.sidecar.x, ARENA_ANCHORS.sidecar.z, -1.4),
+  vehicle(201, 'fondue_crawler', ARENA_ANCHORS.crawler.x, ARENA_ANCHORS.crawler.z, 1.4), vehicle(202, 'sidecar', ARENA_ANCHORS.sidecar.x, ARENA_ANCHORS.sidecar.z, -1.4),
   ...([0,1] as const).map(cabin=>{const pose=sampleCableCar(0,cabin,ARENA_CABLE);return {id:100+cabin,kind:'cable_car' as const,spawn:{id:`reference_cabin_${cabin}`,vehicle:'cable_car' as const,position:pose.position,rotationY:pose.yaw,faction:null,trigger:'map' as const}}}),
 ];
 
 /** Solid marker bases/poles; identical on server and local prediction. */
 const flags: MapProp[] = REFERENCE_TOWERS.map(tower => ({
-  id: `reference_${tower.id}`, kind: 'flag', position: {...tower.position,z:tower.position.z+2}, rotationY: 0, scale: 1, variant: 0,
+  id: `reference_${tower.id}`, kind: 'flag', position: {...tower.position,x:tower.position.x+(tower.id==='tower_b'?-4:0),z:tower.position.z+(tower.id==='tower_b'?3:2)}, rotationY: 0, scale: 1, variant: 0,
   colliders: [{ type: 'cylinder', radius: .12, halfHeight: 1.22, offset: { x: 0, y: 1.22, z: 0 }, surface: 'wood' }],
 }));
 
@@ -82,9 +82,9 @@ export function referenceCastSpawn(index:number): {position:Vec3;yaw:number} {
       y:chalet.position.y+y,z:chalet.position.z-Math.sin(chalet.rotationY)*x+Math.cos(chalet.rotationY)*z};
     return {position,yaw:Math.atan2(-position.x,-position.z)};
   }
-  const [x,z]=([[-20,14],[-14,-1],[13,-4],[-4,0],[4,0],[14,5]][index]??[-14,-1]) as [number,number];
-  const height=arenaBridgeHeightAt(x,z)??sampleMapHeight(x,z);
-  return {position:{x,y:height+(index===4?.15:.05),z},yaw:index===1||index===4?-.2:Math.PI};
+  const [x,z]=([[-20,14],[-5,-5],[10,8],[7,0],[4,0],[14,5]][index]??[-14,-1]) as [number,number];
+  const height=sampleMapHeight(x,z);
+  return {position:{x,y:height+(index===4?.15:.05),z},yaw:index===1?1.2:index===4?-.2:Math.PI};
 }
 
 export const REFERENCE_WORLD={...ARENA_GEOMETRY,props:[...ARENA_GEOMETRY.props,...REFERENCE_MARKERS]};

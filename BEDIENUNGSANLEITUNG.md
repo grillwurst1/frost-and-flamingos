@@ -1470,3 +1470,33 @@ für Temperatur oder Bildrate auf deinem MacBook M4. Protokoll 15 benötigt eine
 aktuellen Client und Server.
 
 Videopass vom 6. November: nähere, mittige Ganzkörperkamera (3,6 m, Blickwinkel .85), echte Schneeverwehungen im Gelände samt Kollision sowie passende Oberflächen für Kuh-Grasen und Schritte. Der gewählte Blickwinkel bleibt auch während des Spielens erhalten.
+
+
+## Grafikstand zur Gameplay-Videovorlage – 6. November 2026
+
+Die Referenzszene ist nun ein durchgehendes Schneebecken mit zwei betretbaren
+Blockhäusern, Schneehügeln und links platziertem Fonduepanzer. Die Hängebrücke des
+vorherigen Zwischenstands wurde entfernt. Die drei Gondelstationen und die Wege
+zum Strand bleiben benutzbar. Protokoll16 benötigt aktuellen Client und Server.
+
+Neue Referenzprofile tragen ein helles Alpenhemd mit braunen Hosenträgern,
+Lederhosen, weiße Kniestrümpfe und Bergschuhe. Das Alpenhemd ist in der Garderobe
+separat auswählbar; gespeicherte Profile behalten ihre Auswahl. Der orange Bart,
+Haut und Kleidungsstücke bleiben unabhängig einstellbar. Die goldene
+Schneekanone erhält räumliche Schneewolken aus einem begrenzten Instanzpool.
+Runde Minimap und Lebensbalken zeigen den tatsächlichen Spielzustand.
+
+Die Übereinstimmung mit deinem Gameplay-Video ist weiterhin offen. Die
+Browseraufnahmen zeigen echte Zwischenergebnisse; eine Messung der Temperatur
+und Bildrate auf deinem MacBook M4 steht weiterhin aus.
+
+Die Funktionsprüfungen umfassen417 Fälle über Sammelläufe und gezielte
+Wiederholungen. Zwei Kleidungsprüfungen überschritten im Sammellauf das
+Cloud-Zeitlimit und bestehen einzeln mit unveränderten Assertions. Ein dabei
+gefundener falscher Stützgriff der Schneekanone wurde korrigiert. Typprüfung
+und Produktionsbuild bestehen. Das ist keine visuelle Abnahme und keine
+Messung der MacBook-Temperatur.
+
+Echte Aufnahmen: docs/qa/video-basin-2026-11-06.png und
+video-heavy-face-2026-11-06.png. Die Gesichtsaufnahme verwendet eine ausdrücklich
+als Modellprüfung bezeichnete Kameraposition. Die Grafikabnahme bleibt offen.

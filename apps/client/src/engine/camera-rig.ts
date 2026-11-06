@@ -33,7 +33,7 @@ export interface CameraProfile {
 
 export const HUMAN_CAMERA: CameraProfile = { pivotHeight: PLAYER_PIVOT_HEIGHT, distance: PLAYER_DISTANCE, shoulder: SHOULDER_OFFSET };
 /** Close full-body framing follows the owner's latest gameplay video. */
-export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.60, distance:3.6, fov:.85 };
+export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.45, distance:3.9, fov:.85 };
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
 /** Vehicles: centred, higher and further back (pivot above the vehicle base). */

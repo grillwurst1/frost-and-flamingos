@@ -287,6 +287,8 @@ export interface JoinError {
 
 export interface MatchRoomOptions {
   reference?: boolean;
+  /** Explicit burning start for fire fixtures; the video village starts intact. */
+  initialReferenceFire?:boolean;
   /** Number of AI bots (default 4). Tests use 0 for a quiet room. */
   bots?: number;
   /** Seed of the critter simulation (default: random per server start; fixed under tests). */
@@ -483,8 +485,8 @@ export class MatchRoom {
   /** Drivable vehicles (package 4V); see vehicle-manager.ts. */
   readonly vehicles: VehicleManager<PlayerConnection>;
 
-  private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean, private readonly reference = false) {
-    this.referenceFire = reference ? new ReferenceChaletFire() : null;
+  private constructor(physics: PhysicsWorld, critterSeed: number, critters: boolean, private readonly reference = false, initialFire=false) {
+    this.referenceFire = reference ? new ReferenceChaletFire(initialFire) : null;
     this.towers = reference ? REFERENCE_TOWERS : CONQUEST_TOWERS;
     this.conquest = new ClimateConquest(reference ? { tower_a: 'alpine', tower_b: null, tower_c: 'lagoon' } : undefined);
     this.conquestView = this.conquest.snapshot();
@@ -531,7 +533,7 @@ export class MatchRoom {
     const critters = options.critters ?? (!testRun || options.critterSeed !== undefined);
     // Tests are reproducible: a fixed seed unless one is given.
     const seed = options.critterSeed ?? (testRun ? 0x3e9 : Math.floor(Math.random() * 0xffffffff));
-    const room = new MatchRoom(physics, seed, critters, options.reference);
+    const room = new MatchRoom(physics, seed, critters, options.reference,options.initialReferenceFire);
     // Local capture tooling: FF_NO_BOTS=1 starts an empty resort (no AI vacationers).
     if (process.env.FF_NO_BOTS !== '1') room.spawnBots(options.bots ?? (options.reference ? REFERENCE_BOTS.length : BOT_COUNT));
     return room;
@@ -2045,6 +2047,8 @@ export class MatchRoom {
       const name = entry.name;
       const base = createDefaultProfile(name, classId);
       if (this.reference && entry.faction === 'lagoon') Object.assign(base.cosmetics, { torso: 'torso_hawaii_shirt', legs: 'legs_boardshorts', feet: 'feet_sandals_socks', headgear: 'head_none', hairStyleIndex: 1 });
+      if(this.reference&&name==='Wuzzi')Object.assign(base.cosmetics,{torso:'torso_field_vest',legs:'legs_lederhosen',feet:'feet_mountain_boots',skinToneIndex:5,hairStyleIndex:0,face:'face_none'});
+      if(this.reference&&name==='StumbleBoi')Object.assign(base.cosmetics,{torso:'torso_tracht_shirt',legs:'legs_olive_pants',feet:'feet_mountain_boots',skinToneIndex:7,hairStyleIndex:0,face:'face_none'});
       const profile: PlayerProfile = {
         ...base,
         faction: entry.faction,
