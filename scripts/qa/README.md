@@ -59,7 +59,7 @@ Use the same Playwright/Chromium/output/software environment variables above.
 The public-entry capture uses 1280×800 at Medium; subsequent input checks and
 the isolated mechanics flow use 800×500 Low. `FF_QA_REFERENCE_LOW=1` also makes
 the public capture Low. `FF_QA_REFERENCE_CLOSE=1` adds a posed real 3D avatar
-inspection with the wardrobe panel hidden only for that diagnostic capture. Do not infer native GPU throughput from
+inspection with the wardrobe overlay hidden only for that diagnostic capture. Do not infer native GPU throughput from
 Cloud SwiftShader timings.
 
 For an isolated capture/board/drive/fire/exit flow, start a fresh stack with
@@ -112,7 +112,7 @@ For current video-format art inspection, set `FF_QA_REFERENCE_VIDEO=1` for
 1280×720 Medium. `FF_QA_REFERENCE_WARDROBE_ONLY=1 FF_QA_REFERENCE_CLOSE=1`
 records the ordinary public view, opens the real wardrobe and captures posed
 full-body, face and boot detail. The close views use a labelled diagnostic camera
-and hide the panel; they are asset inspection, not live combat screenshots.
+and hide the overlay; they are asset inspection, not live combat screenshots.
 This avoids a combat death invalidating a lengthy Cloud pose session.
 
 `FF_QA_REFERENCE_SNOW=1` checks ordinary slot-3 firing before any pose inspection.

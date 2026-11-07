@@ -70,10 +70,29 @@ function tagParts(parts: readonly Mesh[], tag: number, detail = 0): void {
   }
 }
 
+/** Shared cross-section for rounded hips, boots and their fitted trim. */
+function roundedProfile(width: number, height: number, torso = false): Array<[number, number]> {
+  return [[width * (torso ? .43 : .34), -height / 2],
+    [width * .49, -height * .35], [width * .5, height * .12],
+    [width * .47, height * .4], [width * .42, height / 2]];
+}
+
+/** Front of the same boot surface used below, in the leg's template space. */
+function bootLacePoint(x: number, y: number): Vector3 {
+  const width=.19, height=.17, depth=.28, localY=y+.79;
+  const profile=roundedProfile(width,height);
+  let radius=profile[profile.length-1]![0];
+  for(let i=0;i+1<profile.length;i++){
+    const a=profile[i]!,b=profile[i+1]!;
+    if(localY<=b[1]){radius=a[0]+(b[0]-a[0])*Math.max(0,Math.min(1,(localY-a[1])/(b[1]-a[1])));break;}
+  }
+  return new Vector3(x,y,.04+depth/width*Math.sqrt(Math.max(0,radius*radius-x*x))+.0025);
+}
+
 function shapedPart(scene: Scene, name: string, width: number, height: number, depth: number): Mesh {
   const batch = new GeometryBatch();
   batch.jitter = 0;
-  const organic = /^(chest|waist|hip|dirndl-blouse|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock|hand-palm)$/.test(name);
+  const organic = /^(chest|waist|hip|hip-facing|waist-belt|dirndl-blouse|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock|hand-palm)$/.test(name);
   if (name === 'tirol-felt-crown' || name === 'tirol-curled-brim') {
     const crown = name === 'tirol-felt-crown';
     batch.lathe(crown ? [
@@ -131,7 +150,7 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
       }
     }
   } else if (organic) {
-    const torso = /^(chest|waist|hip|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$/.test(name);
+    const torso = /^(chest|waist|hip|hip-facing|waist-belt|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$/.test(name);
     const profile: Array<[number, number]> = /^((ranger|field)-waistcoat|alpine-shirt-body)$/.test(name) ? [
       [.38 * width, -height / 2], [.40 * width, -height * .35], [.46 * width, -height * .05],
       [.5 * width, height * .20], [.47 * width, height * .4], [.37 * width, height / 2],
@@ -145,11 +164,7 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
     ] : name.endsWith('-sleeve-sculpt') ? [
       [.4 * width, -height / 2], [.47 * width, -height * .25], [.5 * width, height * .1],
       [.48 * width, height * .32], [.43 * width, height / 2], [.28 * width, height / 2 + .025], [.03 * width, height / 2 + .045],
-    ] : [
-      [width * (torso ? 0.43 : 0.34), -height / 2],
-      [width * 0.49, -height * 0.35], [width * 0.5, height * 0.12],
-      [width * 0.47, height * 0.4], [width * 0.42, height / 2],
-    ];
+    ] : roundedProfile(width,height,torso);
     const garment = /waistcoat$|alpine-shirt-body$|-sleeve-sculpt$|-lederhosen$|-boardshort$/.test(name);
     batch.with(Affine.scaling(1, 1, depth / width), () =>
       batch.lathe(profile, garment ? 32 : 20, [1, 1, 1], 'plain', { capTop: true, capBottom: true }));
@@ -489,9 +504,10 @@ export class CharacterView {
       waistWidth,
     });
     const belt = hexToColor4(LEGS_PALETTES[cosmetics.legs].secondary);
-    box(scene, body, 'waist-belt', waistWidth + 0.025, 0.05, chestDepth + 0.025, 0, 0.015, 0, belt);
-    box(scene, body, 'belt-buckle', 0.075, 0.06, 0.018, 0, 0.015, chestDepth / 2 + 0.025, GOLD);
-    box(scene, body, 'belt-buckle-inset', 0.042, 0.032, 0.022, 0, 0.015, chestDepth / 2 + 0.035, belt);
+    const beltDepth=chestDepth*.96;
+    box(scene, body, 'waist-belt', waistWidth + 0.025, 0.05, beltDepth, 0, 0.015, 0, belt);
+    box(scene, body, 'belt-buckle', 0.075, 0.06, 0.018, 0, 0.015, beltDepth / 2 + 0.008, GOLD);
+    box(scene, body, 'belt-buckle-inset', 0.042, 0.032, 0.022, 0, 0.015, beltDepth / 2 + 0.012, belt);
     const backStart = body.length;
     this.buildBackItem(scene, body, cosmetics.back);
     tagParts(body.slice(backStart), 2);
@@ -760,9 +776,12 @@ export class CharacterView {
     }
     if (torso === 'torso_alpine_shirt' || torso === 'torso_tracht_shirt' || torso === 'torso_field_vest') {
       const leather = hexToColor4('#60452f'), thread = hexToColor4('#a88a5e');
-      const vestWidth = shoulderWidth * (torso === 'torso_field_vest' ? .93 : .91);
-      const vestDepth = chestDepth + (torso === 'torso_field_vest' ? .04 : .03);
-      const vestHeight = torso === 'torso_field_vest' ? .49 : .47;
+      const alpine = torso === 'torso_alpine_shirt';
+      const field = torso === 'torso_field_vest';
+      const vestWidth = shoulderWidth * (alpine ? .94 : field ? .93 : .91);
+      const vestDepth = chestDepth + (alpine ? .02 : field ? .04 : .03);
+      const vestHeight = alpine ? .56 : field ? .49 : .55;
+      const vestCentre = field ? .27 : .23;
       const section = [[-.5, .38], [-.35, .40], [-.05, .46], [.20, .50], [.40, .47], [.50, .37]] as const;
       for (const side of [-1, 1]) {
         // Back seams remain visible when the selected backpack is absent.
@@ -771,7 +790,7 @@ export class CharacterView {
           for (let step = 0; step <= 10; step++) {
             const y = .08 + step / 10 * .44;
             const x = side * shoulderWidth * (.22 + .035 * Math.sin(step / 10 * Math.PI));
-            const u = Math.max(-.5, Math.min(.5, (y - .27) / vestHeight));
+            const u = Math.max(-.5, Math.min(.5, (y - vestCentre) / vestHeight));
             let radius = .37;
             for (let i = 0; i + 1 < section.length; i++) {
               const a = section[i]!, b = section[i + 1]!;
@@ -1331,9 +1350,12 @@ export class CharacterView {
       box(scene, parts, `${side}-boot`, 0.19, 0.17, 0.28, 0, -0.79, 0.04, footPrimary);
       box(scene, parts, `${side}-boot-sole`, 0.2, 0.05, 0.3, 0, -0.89, 0.04, footSecondary);
       box(scene, parts, `${side}-boot-cuff`, 0.2, 0.04, 0.2, 0, -0.7, 0.01, footAccent);
-      for (let lace = 0; lace < 4; lace++) {
-        for (const direction of [-1, 1]) box(scene, parts, `${side}-boot-lace`, 0.09, 0.012, 0.012,
-          0, -0.735 - lace * 0.029, 0.185, footAccent, { rotationZ: direction * 0.32 });
+      for (let lace = 0; lace < 4; lace++) for (const direction of [-1, 1]) {
+        const path=Array.from({length:5},(_,step)=>{
+          const t=step/4;
+          return bootLacePoint((t-.5)*.074,-.747-lace*.024+direction*(t-.5)*.024);
+        });
+        parts.push(tailoredStrip(scene,`${side}-boot-lace`,path,.006,.004,footAccent));
       }
     }
 

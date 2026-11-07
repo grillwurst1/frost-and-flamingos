@@ -833,3 +833,8 @@ Evidence: `docs/qa/comic-final-reference-2026-11-05.json` and its PNG.
 head/wardrobe geometry, cabin styling and close follow framing; compare real
 public-entry and protected wardrobe screenshots. Do not mark visual acceptance
 or M5–M8 complete from functional tests.
+
+Fitted trim checkpoint: boot lace contact and rounded waist are visually checked
+in the real wardrobe; 71 selected cases and strict/build checks pass. Overall
+video likeness remains open, especially body/neck/sleeve silhouette, expression,
+beard volume, vehicles and landscape composition. Continue actual model art.

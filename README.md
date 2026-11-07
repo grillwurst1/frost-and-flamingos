@@ -1336,7 +1336,7 @@ These checks establish behavior, not accepted visual quality.
 Actual1280×720Medium WebGL2 basin/front/face captures and review are retained
 in docs/qa/video-basin-2026-11-06.png, video-heavy-pose-2026-11-06.png,
 video-heavy-face-2026-11-06.png and video-basin-browser-2026-11-06.json.
-0page/HTTP/context failures,156draws,202925stored map vertices,17shared firs.
+0 page/HTTP/context failures,156draws,202925stored map vertices,17shared firs.
 Face/pose are labelled dev-camera asset inspection; default scene is ordinary
 public entry. A later cloud screenshot was rejected because the player died;
 the helper now requires live HP and an enabled GPU pool before accepting it.
@@ -1364,15 +1364,45 @@ Visual acceptance against the owner video remains OPEN. Do not equate more
 readable face details or passing tests with final sculpt quality. Native Mac M4
 heat/FPS and full WebGPU shader diagnostics remain unverified.
 
-7 November validation: strict diagnostics report0errors/0warnings and production
+7 November validation: strict diagnostics report 0 errors / 0 warnings and production
 build passes. Both posed-roll ground-clearance cases also pass. A wardrobe
-helper's former400px assertion was specific to800px input tests; it now checks
-the actual responsive stage bounds at1280px. Inspection captures remain separate
+helper's former 400 px assertion was specific to 800 px input tests; it now checks
+the actual responsive stage bounds at 1280 px. Inspection captures remain separate
 from the ordinary public-entry screenshot.
 
-Actual Medium1280×720 public capture and protected wardrobe body/face/boot
+Actual Medium 1280×720 public capture and protected wardrobe body/face/boot
 inspection pass without page,HTTP or context errors. Evidence:
 `docs/qa/video-detail-2026-11-07.json` and `video-detail-*-2026-11-07.png`.
 Face crease gaps are reduced, but overall video parity remains open. The boot
 close-up exposes floating straight lace bars; the waist facing/belt are too
 rectangular. These are findings to fix, not accepted final footwear/clothing.
+
+
+## Fitted clothing trim — 7 November 2026
+
+Actual boot inspection exposed straight lace bars floating above curved leather.
+Laces now follow the same rounded boot cross-section as closed, bevelled ribbons
+with five fitted samples. They retain plain lace pigment rather than a leather
+texture. Rounded hip facing/belt shells replace protruding rectangular corners;
+buckle depth and fitted suspender paths follow the selected shirt dimensions.
+These surfaces stay in the existing cached skinned draw, with no new textures,
+per-frame fitting or separate trim meshes in the final actor.
+
+Cotton/wool paint modulation is quieter (.17/.14 in both shader definitions),
+so modelled folds remain readable. The real wardrobe stage no longer receives
+a dark/white colour veil; the panel side keeps its background shade. Diagnostic
+close captures hide the entire wardrobe overlay after recording the real UI.
+
+All 69 native/modular wardrobe and independently animated footwear cases pass,
+plus both ground-clearance roll cases (71 selected checks). Strict diagnostics
+report 0 errors / 0 warnings and the production build passes. Final browser/build review is recorded below. Video parity
+and native Mac M4 thermal/FPS acceptance remain open.
+
+Final fitted-trim browser review passes: actual public entry and responsive
+wardrobe at 1280×720 Medium WebGL2, six cast labels,0 page/HTTP/context errors.
+The boot close-up confirms laces follow the surface and waist corners are rounded.
+40,986 hero triangles (+1,408 over the preceding body), 156 initial draws and
+193,634 stored map vertices. No throughput/thermal claim from SwiftShader.
+Evidence: `docs/qa/video-fitted-2026-11-07.json` and `video-fitted-*.png`.
+Ordinary UI capture retains controls; diagnostic body/face/boots hide the overlay
+after opening the real wardrobe. Overall video visual acceptance remains OPEN.

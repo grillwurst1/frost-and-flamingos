@@ -299,3 +299,6 @@ gameplay background.
 owner head, with unchanged topology. Heavy eye/torso adjustments and the quiet
 reference log-cabin palette are original project changes; source GLBs and the
 owner video are unchanged.
+
+The fitted boot laces, rounded waist facing/belt and adjusted suspender paths
+are original project geometry, using existing wardrobe palettes/paint.

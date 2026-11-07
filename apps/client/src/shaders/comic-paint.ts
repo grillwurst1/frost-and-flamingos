@@ -23,7 +23,7 @@ vec3 ffComicCloth(vec3 base, float kind, vec3 p, vec3 n, vec3 gx, vec3 gy) {
   float mean = cell < .5 ? .46 : cell < 1.5 ? .40 : cell < 2.5 ? .78 : cell < 3.5 ? .21 : cell < 4.5 ? .25 : cell < 5.5 ? .25 : cell < 6.5 ? .40 : .78;
   float value = clamp(dot(paint, vec3(.299,.587,.114)) / mean, .38, 1.4);
   float fade = 1.0 - smoothstep(3.0, 5.0, lod);
-  float strength = cell < .5 ? .55 : cell < 2.5 ? .35 : cell < 3.5 ? .24 : cell < 4.5 ? .40 : cell < 5.5 ? .28 : .35;
+  float strength = cell < .5 ? .55 : cell < 1.5 ? .35 : cell < 2.5 ? .17 : cell < 3.5 ? .24 : cell < 4.5 ? .40 : cell < 5.5 ? .28 : cell > 6.5 ? .14 : .35;
   return base * mix(1.0, value, strength * fade);
 }
 #endif
@@ -54,7 +54,7 @@ fn ffComicCloth(base : vec3f, kind : f32, p : vec3f, n : vec3f, gx : vec3f, gy :
   let value = clamp(dot(paint, vec3f(.299,.587,.114)) / mean, .38, 1.4);
   let fade = 1.0 - smoothstep(3.0, 5.0, lod);
   var strength = .35;
-  if(cell < .5) {strength=.55;} else if(cell < 3.5 && cell > 2.5) {strength=.24;} else if(cell < 4.5 && cell > 3.5) {strength=.40;} else if(cell < 5.5 && cell > 4.5) {strength=.28;}
+  if(cell < .5) {strength=.55;} else if(cell > 1.5 && cell < 2.5) {strength=.17;} else if(cell > 6.5) {strength=.14;} else if(cell < 3.5 && cell > 2.5) {strength=.24;} else if(cell < 4.5 && cell > 3.5) {strength=.40;} else if(cell < 5.5 && cell > 4.5) {strength=.28;}
   return base * mix(1.0, value, strength * fade);
 }
 #endif

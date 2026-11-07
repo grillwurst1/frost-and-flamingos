@@ -30,7 +30,7 @@ export function tagComicPaint(part: Mesh, head: boolean): void {
     else if (/boot|lederhosen|belt|suspender|harness|leather/.test(name)) kind = 5;
     else if (/waistcoat|vest|loden|felt-crown|curled-brim/.test(name)) kind = 4;
     else if (/shirt|sleeve|collar|placket|blouse/.test(name)) kind = 3;
-    if (/dial|clock-face|clock-hand|clock-tick|buckle|clasp|button/.test(name)) kind = 0;
+    if (/dial|clock-face|clock-hand|clock-tick|buckle|clasp|button|boot-lace/.test(name)) kind = 0;
     if (head && !/felt-crown|curled-brim/.test(name)) kind = 0;
   }
   const data = new Float32Array(part.getTotalVertices() * 2);

@@ -1523,3 +1523,24 @@ Die neue Browserprüfung besteht ohne Seiten-,HTTP- oder Kontextfehler. Bilder
 liegen unter docs/qa/video-detail-*-2026-11-07.png. Die Stiefelnahaufnahme zeigt
 noch schwebende Schnürsenkelbalken; dieser Befund wird im nächsten Schritt
 korrigiert. Die Grafikabnahme ist weiterhin offen.
+
+
+## Angepasste Kleiderdetails – 7. November 2026
+
+Die Schnürsenkel folgen jetzt der gewölbten Stiefelfläche. Taillenblende und
+Gürtel sind gerundet; Schnalle und Hosenträger folgen den Abmessungen des
+gewählten Hemds. Stoff- und Strickmuster treten schwächer hervor. Die normale
+Garderobenvorschau zeigt die ausgewählten Farben ohne zusätzlichen dunklen
+Farbschleier über der Figur. Diese Änderungen bleiben Teil des bestehenden
+Figurenmodells und benötigen keine zusätzlichen Texturen.
+
+71 gezielte Kleidungs-, Fuß- und Rollprüfungen bestehen. Der weitere Vergleich
+mit deinem Video bleibt offen; einzelne verbesserte Details sind keine Abnahme
+der gesamten Figurengrafik.
+
+Die abschließende Browserprüfung bestätigt anliegende Schnürsenkel und eine
+gerundete Taille. Sie besteht ohne Seiten-,HTTP- oder Grafik-Kontextfehler.
+Spielansicht und Garderobe: docs/qa/video-fitted-2026-11-07.json sowie die
+zugehörigen Bilder. Die vergrößerten Modellbilder verwenden eine Prüfkamera
+bei ausgeblendeter Oberfläche; das normale Garderobenbild zeigt die echte UI.
+Die gesamte Figur und Landschaft sind noch nicht als videogleich abgenommen.

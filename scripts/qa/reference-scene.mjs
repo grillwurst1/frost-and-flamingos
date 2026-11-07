@@ -159,7 +159,7 @@ try {
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;
         g.setPreviewFacing(.18);const position=p.clone();position.set(p.x+Math.sin(a)*2.7,p.y+1.10,p.z+Math.cos(a)*2.7);
         const target=p.clone();target.y+=.95;g.devCamera={position,target};
-        document.querySelector('.wardrobe-panel').style.visibility='hidden';});
+        document.querySelector('.wardrobe-screen').style.visibility='hidden';});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-close.png'),timeout:180000});
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;const position=p.clone().set(p.x+Math.sin(a)*1.35,p.y+1.58,p.z+Math.cos(a)*1.35),target=p.clone();target.y+=1.51;g.devCamera={position,target};});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-face.png'),timeout:180000});
