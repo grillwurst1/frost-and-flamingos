@@ -1500,3 +1500,26 @@ Messung der MacBook-Temperatur.
 Echte Aufnahmen: docs/qa/video-basin-2026-11-06.png und
 video-heavy-face-2026-11-06.png. Die Gesichtsaufnahme verwendet eine ausdrücklich
 als Modellprüfung bezeichnete Kameraposition. Die Grafikabnahme bleibt offen.
+
+
+## Figuren- und Hüttenüberarbeitung – 7. November 2026
+
+Die Gesichtslinien sind breiter und weiter von der Hautoberfläche abgesetzt;
+die Polygonzahl bleibt gleich. Der Heavy erhält einen breiteren Hemdtorso und
+weniger weit geöffnete Augen. Haut, Bartfarbe und Kleidung bleiben separat
+wählbar. Beide Blockhäuser verwenden dunkle Holzrahmen und ruhigere Fassaden.
+Die Kamera folgt näher mit 3,35 m Abstand bei weiterhin mittigem Spieler.
+
+Die Grafik ist weiter in Arbeit und noch nicht als Übereinstimmung mit deinem
+Video abgenommen. Neue Nahaufnahmen stammen aus der tatsächlichen 3D-Garderobe;
+sie sind Modellprüfungen, keine Aufnahme einer laufenden Kampfsituation.
+
+88 gezielte Prüfungen der geänderten Bereiche bestehen, ebenso Typprüfung
+(keine Fehler oder Warnungen) und Produktionsbuild. Vergrößerte Garderobenbilder
+prüfen die Modelle; die normale Spielaufnahme dokumentiert separat die
+tatsächliche Kameraperspektive. Eine Messung auf dem MacBook M4 steht noch aus.
+
+Die neue Browserprüfung besteht ohne Seiten-,HTTP- oder Kontextfehler. Bilder
+liegen unter docs/qa/video-detail-*-2026-11-07.png. Die Stiefelnahaufnahme zeigt
+noch schwebende Schnürsenkelbalken; dieser Befund wird im nächsten Schritt
+korrigiert. Die Grafikabnahme ist weiterhin offen.

@@ -19,10 +19,10 @@ minimap upper right, four illustrated action slots bottom right, live health
 bars over players. Do not ship fake chat, invented network players or scripted
 scores to resemble the generated video. Real Conquest rules remain authoritative.
 
-Current compact bridge arena is a structural checkpoint, not video parity. Its
-shared world definition makes a genuinely authored compact Alpine basin possible
-without loading the full field. Complete/publish its validated geometry/routes
-and retain screenshots, then continue real art/layout work toward the video.
+The published basin checkpoint is 92acf50 on master. Its shared world definition
+supports an authored compact Alpine basin without loading the full field.
+The 7 November pass below continues actual character/cabin art and real browser
+comparison; publication of a structural checkpoint is not visual acceptance.
 No screenshot background or flat replacement for actors; keep selectable skin
 and outfits, articulated animation, solid collision and bounded laptop resources.
 
@@ -58,7 +58,7 @@ Evidence in /workspace/visual-reference/video-basin-first (first layout/FX),
 video-character-pose (latest gameplay + front/face detail, camera override explicitly
 for asset inspection). Do not call first-layout capture the final current appearance.
 The old compact checkpoint6241995 is already on master, source video merged from
-c5d0006. Latest basin/asset pass is not yet pushed; finish visual review/full checks,
+c5d0006. The basin/asset pass was pushed as92acf50; subsequent passes require visual review/checks,
 update4mandatory docs and save real artifacts before publishing. Exact video
 acceptance remains OPEN. Continue actual clothing/character art if needed after
 review; adding polygons alone does not prove fidelity.
@@ -101,3 +101,38 @@ Face/pose are labelled dev-camera asset inspection; default scene is ordinary
 public entry. A later cloud screenshot was rejected because the player died;
 the helper now requires live HP and an enabled GPU pool before accepting it.
 Do not use that rejected capture as FX evidence.
+
+
+## Video character and cabin refinement — 7 November 2026
+
+The shared face's feathered crease ribbons are 2.2 times wider and offset 1.25 mm
+from the fitted skin instead of 0.55 mm, retaining exactly 4,251 vertices / 7,948 triangles.
+This addresses the subpixel dash pattern seen in actual close-up captures without
+adding geometry, textures or draws. Head hash and all six wardrobe/cache revisions
+are refreshed; original owner GLBs and MP4 remain untouched. Heavy eye geometry
+is 15% less open, with corrected normals, and generated Heavy torso shells are 20%
+wider to meet the shoulders. Skin and outfit selections remain independent.
+
+Both reference cabins now use quiet brown round-log facades with dark timber
+frames and no flower-box/heart decoration. Field variants remain unchanged.
+The reference follow camera is 3.35 m, pivot 1.35, FOV .85, pitch -.16; control stays
+horizontally centred and the camera projection test retains visible soles.
+
+Selected validation: 88 cases pass across asset/hash validation (5), camera (1),
+native wardrobe (38) and outfit/footwear/terrain/reference route checks (42) plus two dodge-roll cases.
+Visual acceptance against the owner video remains OPEN. Do not equate more
+readable face details or passing tests with final sculpt quality. Native Mac M4
+heat/FPS and full WebGPU shader diagnostics remain unverified.
+
+7 November validation: strict diagnostics report0errors/0warnings and production
+build passes. Both posed-roll ground-clearance cases also pass. A wardrobe
+helper's former400px assertion was specific to800px input tests; it now checks
+the actual responsive stage bounds at1280px. Inspection captures remain separate
+from the ordinary public-entry screenshot.
+
+Actual Medium1280×720 public capture and protected wardrobe body/face/boot
+inspection pass without page,HTTP or context errors. Evidence:
+`docs/qa/video-detail-2026-11-07.json` and `video-detail-*-2026-11-07.png`.
+Face crease gaps are reduced, but overall video parity remains open. The boot
+close-up exposes floating straight lace bars; the waist facing/belt are too
+rectangular. These are findings to fix, not accepted final footwear/clothing.

@@ -30,12 +30,14 @@ def stroke(points,width=.0008,dark=.27):
         dx=2*u*(points[1][0]-points[0][0])+2*t*(points[2][0]-points[1][0])
         dy=2*u*(points[1][1]-points[0][1])+2*t*(points[2][1]-points[1][1])
         length=math.hypot(dx,dy) or 1
-        w=width*(.12+.88*math.sin(math.pi*t)**.6)
+        # Subpixel ribbons broke into isolated dark dashes in the real 720p view.
+        # Broaden the feathered stroke without adding triangles or runtime work.
+        w=width*2.2*(.20+.80*math.sin(math.pi*t)**.6)
         for c in range(cols):
             a=c-1; xx=x-dy/length*w*a; yy=y+dx/length*w*a
             hit,n,_,_=bvh.ray_cast(Vector((xx,yy,.5)),Vector((0,0,-1)),1.)
             if hit is None:raise RuntimeError('Comic anatomy misses face: '+str((xx,yy)))
-            at=hit+n*.00055
+            at=hit+n*.00125
             h['positions'].extend(round(float(v),7) for v in at)
             h['normals'].extend(round(float(v),7) for v in n)
             h['uvs'].extend([0,0]); h['painted'].append(3)

@@ -181,7 +181,7 @@ export function buildReferenceArena(scene: Scene, material: ShaderMaterial): Map
   add(routes, 'reference-solid-routes');
   const village=new GeometryBatch();village.jitter=0;
   const rear=ARENA_REAR_CHALET;
-  village.at(rear.position.x,rear.position.y,rear.position.z,rear.rotationY,()=>{drawBuilding(village,rear.building!,{variant:1,seed:64,snowy:true,facade:false});drawBuildingExtras(village,rear,false)});
+  village.at(rear.position.x,rear.position.y,rear.position.z,rear.rotationY,()=>{drawBuilding(village,rear.building!,{variant:rear.variant,seed:64,snowy:true,facade:false});drawBuildingExtras(village,rear,false)});
   add(village,'reference-rear-chalet');
   const nature = buildSolidNature(scene, material, ARENA_NATURE);
   staticMeshes.push(...nature.meshes);

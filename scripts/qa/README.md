@@ -76,7 +76,7 @@ The reference scene itself works without development tools or URL teleports.
 on the supported roof guard pad and aim; slot 3, mouse fire, weapon range, line of sight, hit processing and the
 binary map-state update are normal gameplay. `FF_QA_REFERENCE_CAPTURE_ONLY=1`
 saves only the public entry/render checkpoint, useful for the live cast at
-Medium. Protocol 14 rejects old connected clients; refresh both build ends.
+Medium. Protocol 16 rejects old connected clients; refresh both build ends.
 
 The input run acquires pointer lock before sending mouse input and records
 the actual control bits, selected slot, outgoing fire count and last fire packet.
@@ -90,8 +90,7 @@ views; `reference-scene.png` remains the unchanged public gameplay camera.
 Gletscherpass is now the default at `/`; `FF_QA_REFERENCE_ROOT=1` verifies that
 entry instead of the explicit reference alias. The menu must link to
 `/?scene=field`, which the full-field playability script uses explicitly.
-`FF_QA_REFERENCE_CAST=1` additionally requires all six live cast labels and the
-local ranger in the starting view (run with bots enabled). Driver staging uses
+`FF_QA_REFERENCE_CAST=1` additionally requires all six live cast labels in the starting view (run with bots enabled). Driver staging uses
 the shared crawler spawn/yaw; F and, if necessary, C select the actual driver.
 
 ## Painted material equivalence
@@ -107,3 +106,19 @@ On slow Cloud hosts, long existing physics cases can exceed Bun's default
 five-second wall-clock test budget. Preserve their assertions and run the complete
 server coverage with `bun test --timeout 15000 ./apps/server/src ./apps/server/test`.
 The source directory contains 21 additional critter cases and must be included.
+
+
+For current video-format art inspection, set `FF_QA_REFERENCE_VIDEO=1` for
+1280×720 Medium. `FF_QA_REFERENCE_WARDROBE_ONLY=1 FF_QA_REFERENCE_CLOSE=1`
+records the ordinary public view, opens the real wardrobe and captures posed
+full-body, face and boot detail. The close views use a labelled diagnostic camera
+and hide the panel; they are asset inspection, not live combat screenshots.
+This avoids a combat death invalidating a lengthy Cloud pose session.
+
+`FF_QA_REFERENCE_SNOW=1` checks ordinary slot-3 firing before any pose inspection.
+It now requires positive real HP, an enabled 64-instance cloud pool and an
+active GPU transform attribute, rejecting the earlier disabled-pool false pass.
+The legacy `FF_QA_REFERENCE_FIRE=1` expects an initially burning test fixture;
+the current public village starts cold. Its old capture is not verification of
+that newer default. Authoritative cold-start, ignition and extinguishing/reset
+behavior is covered in `apps/server/test/reference-fire.test.ts`.

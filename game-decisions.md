@@ -2856,3 +2856,38 @@ Face/pose are labelled dev-camera asset inspection; default scene is ordinary
 public entry. A later cloud screenshot was rejected because the player died;
 the helper now requires live HP and an enabled GPU pool before accepting it.
 Do not use that rejected capture as FX evidence.
+
+
+## Video character and cabin refinement — 7 November 2026
+
+The shared face's feathered crease ribbons are 2.2 times wider and offset 1.25 mm
+from the fitted skin instead of 0.55 mm, retaining exactly 4,251 vertices / 7,948 triangles.
+This addresses the subpixel dash pattern seen in actual close-up captures without
+adding geometry, textures or draws. Head hash and all six wardrobe/cache revisions
+are refreshed; original owner GLBs and MP4 remain untouched. Heavy eye geometry
+is 15% less open, with corrected normals, and generated Heavy torso shells are 20%
+wider to meet the shoulders. Skin and outfit selections remain independent.
+
+Both reference cabins now use quiet brown round-log facades with dark timber
+frames and no flower-box/heart decoration. Field variants remain unchanged.
+The reference follow camera is 3.35 m, pivot 1.35, FOV .85, pitch -.16; control stays
+horizontally centred and the camera projection test retains visible soles.
+
+Selected validation: 88 cases pass across asset/hash validation (5), camera (1),
+native wardrobe (38) and outfit/footwear/terrain/reference route checks (42) plus two dodge-roll cases.
+Visual acceptance against the owner video remains OPEN. Do not equate more
+readable face details or passing tests with final sculpt quality. Native Mac M4
+heat/FPS and full WebGPU shader diagnostics remain unverified.
+
+7 November validation: strict diagnostics report0errors/0warnings and production
+build passes. Both posed-roll ground-clearance cases also pass. A wardrobe
+helper's former400px assertion was specific to800px input tests; it now checks
+the actual responsive stage bounds at1280px. Inspection captures remain separate
+from the ordinary public-entry screenshot.
+
+Actual Medium1280×720 public capture and protected wardrobe body/face/boot
+inspection pass without page,HTTP or context errors. Evidence:
+`docs/qa/video-detail-2026-11-07.json` and `video-detail-*-2026-11-07.png`.
+Face crease gaps are reduced, but overall video parity remains open. The boot
+close-up exposes floating straight lace bars; the waist facing/belt are too
+rectangular. These are findings to fix, not accepted final footwear/clothing.

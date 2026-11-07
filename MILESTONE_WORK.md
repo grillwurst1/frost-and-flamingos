@@ -828,3 +828,8 @@ Evidence: `docs/qa/comic-final-reference-2026-11-05.json` and its PNG.
 
 
 6 November: compact reference arena and per-world physics/nav/cable queries are a verified M5/art checkpoint; no future milestone is declared complete. The uploaded gameplay video supersedes bridge composition. Continue VIDEO_REFERENCE_WORK.md and retain recurring actual demo screenshots.
+
+7 November 2026: video graphics remain the active owner priority. Refine actual
+head/wardrobe geometry, cabin styling and close follow framing; compare real
+public-entry and protected wardrobe screenshots. Do not mark visual acceptance
+or M5–M8 complete from functional tests.

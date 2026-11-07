@@ -38,6 +38,9 @@ function styleFor(layout: BuildingLayout, variant: number): BuildingStyle {
   const shutter = shutters[variant % shutters.length] ?? P.shutterRed;
   switch (layout.style) {
     case 'log_chalet':
+      // Video-reference cabins keep rounded timber and quiet brown joinery.
+      if (variant === 4) return { ground:'logs',upper:'logs',wood:[.48,.33,.22],
+        trim:P.logDark,shutter:P.logDark,roof:P.shingleDark,roofKind:'shingle',flowers:false,hearts:false,plinthStone:true };
       if (variant === 3) return { ground:'lapBoards',upper:'lapBoards',wood:[.45,.35,.26],
         trim:P.logDark,shutter:P.logDark,roof:P.shingleDark,roofKind:'shingle',flowers:false,hearts:false,plinthStone:true };
       return { ground:'logs',upper:'logs',wood:P.log,trim:P.trim,shutter,roof:P.shingle,roofKind:'shingle',flowers:true,hearts:true,plinthStone:true };

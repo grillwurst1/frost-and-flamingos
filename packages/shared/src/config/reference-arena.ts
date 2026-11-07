@@ -49,10 +49,10 @@ export const ARENA_GRID: HeightfieldData = { size: ARENA_SIZE, segments: ARENA_S
 export function arenaHeightAt(x: number, z: number): number { return sampleHeightfield(ARENA_GRID, x, z); }
 const baseLayout = chaletLayout({ style: 'log_chalet', width: 13, depth: 10, snow: true, doorOffset: -2.2, nameKey: 'world.buildings.bakery' });
 const layout = { ...baseLayout, balcony: { ...baseLayout.balcony!, sides: ['front', 'right'] as const } };
-export const ARENA_CHALET: MapProp = { id: 'arena_chalet', kind: 'chalet', position: { ...ARENA_ANCHORS.chalet, y: ARENA_LEVELS.bank }, rotationY: Math.PI, scale: 1, variant: 1,
+export const ARENA_CHALET: MapProp = { id: 'arena_chalet', kind: 'chalet', position: { ...ARENA_ANCHORS.chalet, y: ARENA_LEVELS.bank }, rotationY: Math.PI, scale: 1, variant: 4,
   building: layout, destructibleId: 'building_chalet_north', colliders: buildingColliders(layout, 'building_chalet_north') };
 const rearLayout=chaletLayout({style:'log_chalet',width:9,depth:7,snow:true,doorOffset:1.2,nameKey:'world.buildings.milkHut'});
-export const ARENA_REAR_CHALET:MapProp={id:'arena_rear_chalet',kind:'chalet',position:{x:-6,y:18.4,z:21.5},rotationY:Math.PI,scale:1,variant:1,building:rearLayout,colliders:buildingColliders(rearLayout)};
+export const ARENA_REAR_CHALET:MapProp={id:'arena_rear_chalet',kind:'chalet',position:{x:-6,y:18.4,z:21.5},rotationY:Math.PI,scale:1,variant:4,building:rearLayout,colliders:buildingColliders(rearLayout)};
 export const ARENA_BUILDINGS:readonly MapProp[]=[ARENA_CHALET,ARENA_REAR_CHALET];
 const rearStep:MapProp={id:'arena_rear_step',kind:'stairs',position:{x:-7.2,y:18.4,z:17.45},rotationY:0,scale:1,variant:0,dimensions:{x:2.4,y:.225,z:1.1},colliders:[boxCollider(1.2,.1125,.55,0,.1125,0,{surface:'cobblestone'})]};
 

@@ -82,7 +82,9 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     if (x < .08 * size && y < .06 * size) torsoBack = Math.min(torsoBack, at.z);
   };
   const shoulder = Math.abs(bind('LeftArm').x - bind('RightArm').x) / 2;
-  const bodyScaleX = shoulder / 0.30;
+  // Heavy shoulders were wide, but their selected shirts kept a scout-width
+  // chest. Give the complete torso shell room to meet those upper arms.
+  const bodyScaleX = shoulder / 0.30 * (profile.cosmetics.classId === 'heavy' ? 1.20 : 1);
   const selectedHeadFrame = modularHeadFrame(profile, asset, native, sharedHead);
   const headScale = selectedHeadFrame.radius / 0.21;
   const anchors = [
@@ -493,11 +495,12 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     for (let f = 0; f < h.indices.length; f += 3) indices.push(first + h.indices[f]!, first + h.indices[f + 2]!, first + h.indices[f + 1]!);
     const eyes = sculptedEyes(), eyeBase = positions.length / 3;
+    const eyeHeight = profile.cosmetics.classId === 'heavy' ? .85 : 1;
     for (let v = 0; v < eyes.positions.length / 3; v++) {
       positions.push(eyes.positions[v * 3]! * scale * broad,
-        frame.y + (eyes.positions[v * 3 + 1]! - h.frame.y) * scale,
+        frame.y + (1.438 + (eyes.positions[v * 3 + 1]! - 1.438) * eyeHeight - h.frame.y) * scale,
         frame.z + (eyes.positions[v * 3 + 2]! - h.frame.z) * scale);
-      const normal = new Vector3(eyes.normals[v * 3]! / broad, eyes.normals[v * 3 + 1]!, eyes.normals[v * 3 + 2]!).normalize();
+      const normal = new Vector3(eyes.normals[v * 3]! / broad, eyes.normals[v * 3 + 1]! / eyeHeight, eyes.normals[v * 3 + 2]!).normalize();
       headNormals.push(eyeBase + v, normal.x, normal.y, normal.z);
       colors.push(...eyes.colors.slice(v * 4, v * 4 + 4)); cavities.push(0, 0); nativeFlags.push(0, 0);
       const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);

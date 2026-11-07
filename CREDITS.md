@@ -294,3 +294,8 @@ existing owner-supplied horizon/sky assets remain credited above.
 variant and pooled solid snow-stream clouds are original project geometry/code.
 The owner-supplied MP4 remains unmodified and is a reference, not a rendered
 gameplay background.
+
+7 November 2026: refined face creases are rebaked from the existing derived
+owner head, with unchanged topology. Heavy eye/torso adjustments and the quiet
+reference log-cabin palette are original project changes; source GLBs and the
+owner video are unchanged.

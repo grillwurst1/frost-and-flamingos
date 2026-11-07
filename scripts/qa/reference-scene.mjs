@@ -9,6 +9,7 @@ const mechanics=process.env.FF_QA_REFERENCE_MECHANICS==='1';
 const low=mechanics||process.env.FF_QA_REFERENCE_LOW==='1';
 const fireCheck=process.env.FF_QA_REFERENCE_FIRE==='1';
 const captureOnly=process.env.FF_QA_REFERENCE_CAPTURE_ONLY==='1';
+const wardrobeOnly=process.env.FF_QA_REFERENCE_WARDROBE_ONLY==='1';
 await mkdir(output,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,headless:true,
   args:['--no-proxy-server','--disable-dev-shm-usage','--disable-gpu-watchdog',...(process.env.FF_QA_SOFTWARE==='1'?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
@@ -81,7 +82,8 @@ try {
     }
     await page.evaluate(async module=>{const {REFERENCE_SCENE}=await import(module),g=window.__frostDebug,p=g.localCharacter.position;g.cameraRig.resetAngles(REFERENCE_SCENE.view.yaw,REFERENCE_SCENE.view.pitch);g.cameraRig.snapToPlayer(g.localView.root.getAbsolutePosition().clone().set(p.x,p.y,p.z));},'/@fs'+resolve(import.meta.dirname,'../../packages/shared/src/index.ts'));await frames(2);
   }
-  if(!captureOnly) {
+  if(!captureOnly||wardrobeOnly) {
+  if(!wardrobeOnly) {
   if(!await page.evaluate(()=>window.__frostDebug.input.isLocked))await page.locator('canvas.game-canvas').click({position:{x:400,y:250}});
   await wait(()=>window.__frostDebug.input.isLocked);
   await page.setViewportSize({width:800,height:500});await page.evaluate(()=>window.__frostDebug.setVisualQuality('low'));await frames(2);
@@ -136,6 +138,7 @@ try {
     await page.screenshot({path:resolve(output,'reference-crawler.png'),timeout:180000});
     await page.keyboard.down('f');await wait(()=>window.__frostDebug.vehicles.localSeat===null);await page.keyboard.up('f');await sample('tank-exited');
   }
+  }
   {
     await page.evaluate(()=>document.exitPointerLock());await wait(()=>window.__frostDebug.currentPhase==='paused');
     await page.getByRole('button',{name:/Wardrobe & Armory/i}).focus();await page.keyboard.press('Enter');
@@ -145,12 +148,14 @@ try {
       const x=p.x,y=p.y+1,z=p.z,w=m[3]*x+m[7]*y+m[11]*z+m[15];
       return {x:((m[0]*x+m[4]*y+m[8]*z+m[12])/w*.5+.5)*innerWidth,
         y:(.5-(m[1]*x+m[5]*y+m[9]*z+m[13])/w*.5)*innerHeight,w,
-        visible:g.previewView.root.isEnabled(),wardrobeOpen:g.wardrobeIsOpen,deathAt:g.deathAt};});
-    assert.ok(projection.visible&&projection.wardrobeOpen&&projection.w>0);assert.ok(projection.x>0&&projection.x<400);
+        visible:g.previewView.root.isEnabled(),wardrobeOpen:g.wardrobeIsOpen,deathAt:g.deathAt,
+        stage:(()=>{const r=document.querySelector('.wardrobe-stage').getBoundingClientRect();return r.width>0?{left:r.left,right:r.right}:{left:0,right:innerWidth/2}})()};});
     result.wardrobeProjection=projection;
     await page.screenshot({path:resolve(output,'reference-ranger.png'),timeout:180000});
+    assert.ok(projection.visible&&projection.wardrobeOpen&&projection.w>0);
+    assert.ok(projection.x>projection.stage.left&&projection.x<projection.stage.right,'preview actor must project inside the actual responsive wardrobe stage');
     if(process.env.FF_QA_REFERENCE_CLOSE==='1') {
-      await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>window.__frostDebug.setVisualQuality('medium'));await frames(2);
+      await page.setViewportSize({width:1280,height:process.env.FF_QA_REFERENCE_VIDEO==='1'?720:800});await page.evaluate(()=>window.__frostDebug.setVisualQuality('medium'));await frames(2);
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;
         g.setPreviewFacing(.18);const position=p.clone();position.set(p.x+Math.sin(a)*2.7,p.y+1.10,p.z+Math.cos(a)*2.7);
         const target=p.clone();target.y+=.95;g.devCamera={position,target};
@@ -158,6 +163,8 @@ try {
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-close.png'),timeout:180000});
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;const position=p.clone().set(p.x+Math.sin(a)*1.35,p.y+1.58,p.z+Math.cos(a)*1.35),target=p.clone();target.y+=1.51;g.devCamera={position,target};});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-face.png'),timeout:180000});
+      await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle,position=p.clone().set(p.x+Math.sin(a)*1.1,p.y+.38,p.z+Math.cos(a)*1.1),target=p.clone();target.y+=.29;g.devCamera={position,target}});
+      await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-boots.png'),timeout:180000});
     }
   }
   }
