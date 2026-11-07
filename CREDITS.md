@@ -302,3 +302,7 @@ owner video are unchanged.
 
 The fitted boot laces, rounded waist facing/belt and adjusted suspender paths
 are original project geometry, using existing wardrobe palettes/paint.
+
+The fitted cream-shirt collar/details and rebaked fuller closed beard are
+original project geometry derived from the existing owner-supplied rig/head.
+No source GLB or supplied video is modified.

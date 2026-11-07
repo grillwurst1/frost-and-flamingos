@@ -1826,3 +1826,34 @@ The boot close-up confirms laces follow the surface and waist corners are rounde
 Evidence: `docs/qa/video-fitted-2026-11-07.json` and `video-fitted-*.png`.
 Ordinary UI capture retains controls; diagnostic body/face/boots hide the overlay
 after opening the real wardrobe. Overall video visual acceptance remains OPEN.
+
+
+## Shoulder, collar and beard pass — 7 November 2026
+
+The cream Alpine shirt previously stopped below the rig's neck joint, exposing
+an elongated bare neck between separate sleeve caps. Its shell now reaches the
+neck/shoulder line. Collar, placket, buttons, suspender bridge, buckles and
+edelweiss use fitted positions on that same cloth profile. Sleeve caps are less
+pointed; the shirt profile is shared with fitted-trim calculations so dimensions
+stay consistent. Skin/head position and other clothing selections remain intact.
+
+The existing closed beard is rebaked with a broader chin, fuller side mass and
+larger modelled clumps. It retains 774 vertices / 1,536 triangles and stays in the
+shared skinned draw; no hair sprites or additional textures. All six head hashes
+and wardrobe cache revisions are refreshed. Original owner GLBs/video remain
+unchanged.
+
+77 selected checks pass: five asset/source/topology cases, 69 native/modular/
+animated-footwear cases, two roll-clearance cases and a new regression verifying
+that the actual cream-shirt spine vertices reach the Heavy neck without covering
+the face. Strict diagnostics: 0 errors / 0 warnings. Production builds pass.
+Actual Medium WebGL2 public/wardrobe screenshots are under review. Exact video
+likeness, native Mac M4 thermals/FPS and full WebGPU validation remain open.
+
+Shoulder-pass browser review passes at Medium1280×720: six live cast labels,
+actual wardrobe projection inside its responsive stage and0page/HTTP/context
+errors. The exposed back-neck strip is substantially closed. Body now has
+41,134triangles (+148), with156initial draws. Evidence:
+`docs/qa/video-shoulder-2026-11-07.json` and its scene/body/face PNGs.
+Front expression and narrow beard chin still differ from the video; continue
+actual model art rather than claiming final visual acceptance.

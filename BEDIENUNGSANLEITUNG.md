@@ -1544,3 +1544,21 @@ Spielansicht und Garderobe: docs/qa/video-fitted-2026-11-07.json sowie die
 zugehörigen Bilder. Die vergrößerten Modellbilder verwenden eine Prüfkamera
 bei ausgeblendeter Oberfläche; das normale Garderobenbild zeigt die echte UI.
 Die gesamte Figur und Landschaft sind noch nicht als videogleich abgenommen.
+
+
+## Schulter, Kragen und Bart – 7. November 2026
+
+Das helle Alpenhemd reicht jetzt bis zum Halsansatz. Kragen, Knopfleiste,
+Hosenträger und Abzeichen folgen der Hemdoberfläche. Die Ärmelkappen sind
+weniger spitz. Der vorhandene 3D-Bart erhält ein volleres Kinn und größere
+modellierte Haarbüschel, bei unveränderter Bart-Polygonzahl. Hautfarbe,
+Bartfarbe und Kleidungsstücke bleiben unabhängig wählbar.
+
+77 gezielte Prüfungen einschließlich einer neuen Halsansatz-Prüfung bestehen,
+ebenso Typprüfung und Produktionsbuild. Die Bildprüfung ist weiterhin nötig;
+die gesamte Figur ist noch nicht als Übereinstimmung mit dem Video abgenommen.
+
+Die Browseraufnahme bestätigt den deutlich kleineren Hautstreifen am Rücken
+und die geschlossenen Schulterübergänge. Spiel- und Modellaufnahmen liegen
+unter docs/qa/video-shoulder-2026-11-07.json und den zugehörigen Bildern.
+Gesichtsausdruck und Kinnform des Barts sind noch nicht auf dem Niveau der Vorlage.

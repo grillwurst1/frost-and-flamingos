@@ -70,6 +70,22 @@ function tagParts(parts: readonly Mesh[], tag: number, detail = 0): void {
   }
 }
 
+const SHIRT_PROFILE: readonly (readonly [number, number])[] = [
+  [.38,-.5],[.40,-.35],[.46,-.05],[.50,.20],[.47,.40],[.37,.50],
+];
+
+function shirtFront(x:number,y:number,width:number,height:number,depth:number,centre:number,offset=.006):Vector3 {
+  const u=Math.max(-.5,Math.min(.5,(y-centre)/height));
+  let radius=SHIRT_PROFILE[SHIRT_PROFILE.length-1]![0];
+  for(let i=0;i+1<SHIRT_PROFILE.length;i++){
+    const a=SHIRT_PROFILE[i]!,b=SHIRT_PROFILE[i+1]!;
+    if(u<=b[1]){radius=a[0]+(b[0]-a[0])*(u-a[1])/(b[1]-a[1]);break;}
+  }
+  const angle=Math.asin(Math.max(-.99,Math.min(.99,x/(radius*width))));
+  const fold=Math.sin(angle*7+u*4)*.009*Math.max(0,1-Math.abs(u*2));
+  return new Vector3(x,y,Math.cos(angle)*(depth*radius+fold)+offset);
+}
+
 /** Shared cross-section for rounded hips, boots and their fitted trim. */
 function roundedProfile(width: number, height: number, torso = false): Array<[number, number]> {
   return [[width * (torso ? .43 : .34), -height / 2],
@@ -151,10 +167,7 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
     }
   } else if (organic) {
     const torso = /^(chest|waist|hip|hip-facing|waist-belt|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$/.test(name);
-    const profile: Array<[number, number]> = /^((ranger|field)-waistcoat|alpine-shirt-body)$/.test(name) ? [
-      [.38 * width, -height / 2], [.40 * width, -height * .35], [.46 * width, -height * .05],
-      [.5 * width, height * .20], [.47 * width, height * .4], [.37 * width, height / 2],
-    ] : name.endsWith('-arm-sculpt') ? [
+    const profile: Array<[number, number]> = /^((ranger|field)-waistcoat|alpine-shirt-body)$/.test(name) ? SHIRT_PROFILE.map(([radius,y])=>[radius*width,y*height] as [number,number]) : name.endsWith('-arm-sculpt') ? [
       [.23 * width, -height / 2], [.245 * width, -height * .45], [.315 * width, -height * .32],
       [.385 * width, -height * .15], [.365 * width, 0], [.4 * width, height * .12],
       [.44 * width, height * .27], [.5 * width, height * .42], [.44 * width, height / 2], [.27 * width, height / 2 + .035], [.03 * width, height / 2 + .065],
@@ -163,7 +176,7 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
       [.49 * width, height * .25], [.44 * width, height / 2],
     ] : name.endsWith('-sleeve-sculpt') ? [
       [.4 * width, -height / 2], [.47 * width, -height * .25], [.5 * width, height * .1],
-      [.48 * width, height * .32], [.43 * width, height / 2], [.28 * width, height / 2 + .025], [.03 * width, height / 2 + .045],
+      [.48 * width, height * .32], [.43 * width, height / 2], [.30 * width, height / 2 + .012], [.08 * width, height / 2 + .025],
     ] : roundedProfile(width,height,torso);
     const garment = /waistcoat$|alpine-shirt-body$|-sleeve-sculpt$|-lederhosen$|-boardshort$/.test(name);
     batch.with(Affine.scaling(1, 1, depth / width), () =>
@@ -654,16 +667,27 @@ export class CharacterView {
       }
       box(scene, body, 'field-waist-hem', waistWidth + .035, .045, chestDepth, 0, .045, 0, torsoSecondary);
     } else if (torso === 'torso_alpine_shirt') {
-      box(scene,body,'alpine-shirt-body',shoulderWidth*.94,.56,chestDepth+.02,0,.23,0,torsoPrimary);
-      box(scene,body,'alpine-shirt-placket',.065,.42,.018,0,.29,front+.025,torsoPrimary);
-      for(let button=0;button<4;button++)sphere(scene,body,'alpine-shirt-button',.016,0,.15+button*.10,front+.038,torsoSecondary,{segments:8});
-      for(const side of [-1,1]){
-        box(scene,body,'alpine-shirt-collar',.105,.10,.025,side*.06,.48,front+.025,torsoPrimary,{rotationZ:side*.46});
-        box(scene,body,'alpine-shirt-brace-buckle',.036,.038,.024,side*.14,.20,front+.025,torsoAccent);
+      const width=shoulderWidth*.94,height=.65,depth=chestDepth+.02,centre=.27;
+      const point=(x:number,y:number,offset=.006)=>shirtFront(x,y,width,height,depth,centre,offset);
+      box(scene,body,'alpine-shirt-body',width,height,depth,0,centre,0,torsoPrimary);
+      body.push(tailoredStrip(scene,'alpine-shirt-placket',Array.from({length:9},(_,i)=>point(0,.09+i/8*.44)),.05,.006,torsoPrimary));
+      for(let button=0;button<4;button++){
+        const p=point(0,.14+button*.115,.013);
+        sphere(scene,body,'alpine-shirt-button',.016,p.x,p.y,p.z,torsoSecondary,{segments:8});
       }
-      box(scene,body,'alpine-brace-bridge',.29,.055,.018,0,.24,front+.028,torsoSecondary);
-      for(let petal=0;petal<8;petal++)box(scene,body,'alpine-edelweiss-petal',.012,.048,.008,Math.sin(petal*Math.PI/4)*.014,.25+Math.cos(petal*Math.PI/4)*.014,front+.043,WHITE,{rotationZ:-petal*Math.PI/4});
-      sphere(scene,body,'alpine-edelweiss-centre',.016,0,.25,front+.050,torsoAccent,{segments:8});
+      for(const side of [-1,1]){
+        const collar=Array.from({length:5},(_,i)=>{const t=i/4;return point(side*(.11-.045*t),.59-.065*t,.012)});
+        body.push(tailoredStrip(scene,'alpine-shirt-collar',collar,.07,.009,torsoPrimary));
+        const p=point(side*.14,.20,.014);
+        box(scene,body,'alpine-shirt-brace-buckle',.036,.038,.018,p.x,p.y,p.z,torsoAccent);
+      }
+      body.push(tailoredStrip(scene,'alpine-brace-bridge',Array.from({length:9},(_,i)=>point((i/8-.5)*.29,.24,.013)),.045,.009,torsoSecondary));
+      for(let petal=0;petal<8;petal++){
+        const p=point(Math.sin(petal*Math.PI/4)*.014,.25+Math.cos(petal*Math.PI/4)*.014,.023);
+        box(scene,body,'alpine-edelweiss-petal',.012,.048,.008,p.x,p.y,p.z,WHITE,{rotationZ:-petal*Math.PI/4});
+      }
+      const flower=point(0,.25,.031);
+      sphere(scene,body,'alpine-edelweiss-centre',.016,flower.x,flower.y,flower.z,torsoAccent,{segments:8});
     } else if (torso === 'torso_tracht_shirt') {
       const vest = hexToColor4('#465d32');
       // A curved shell follows the chest instead of three flat boards floating on the shirt.
@@ -780,15 +804,15 @@ export class CharacterView {
       const field = torso === 'torso_field_vest';
       const vestWidth = shoulderWidth * (alpine ? .94 : field ? .93 : .91);
       const vestDepth = chestDepth + (alpine ? .02 : field ? .04 : .03);
-      const vestHeight = alpine ? .56 : field ? .49 : .55;
-      const vestCentre = field ? .27 : .23;
-      const section = [[-.5, .38], [-.35, .40], [-.05, .46], [.20, .50], [.40, .47], [.50, .37]] as const;
+      const vestHeight = alpine ? .65 : field ? .49 : .55;
+      const vestCentre = alpine || field ? .27 : .23;
+      const section = SHIRT_PROFILE.map(([radius,y])=>[y,radius] as const);
       for (const side of [-1, 1]) {
         // Back seams remain visible when the selected backpack is absent.
         for (const back of [-1, 1]) {
           const path: Vector3[] = [];
           for (let step = 0; step <= 10; step++) {
-            const y = .08 + step / 10 * .44;
+            const y = .08 + step / 10 * (alpine ? .52 : .44);
             const x = side * shoulderWidth * (.22 + .035 * Math.sin(step / 10 * Math.PI));
             const u = Math.max(-.5, Math.min(.5, (y - vestCentre) / vestHeight));
             let radius = .37;

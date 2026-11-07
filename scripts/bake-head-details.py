@@ -27,18 +27,18 @@ for layer in range(1):
             angle = -1.85 + 3.7*col/sides
             side = abs(math.sin(angle))
             upper = 1.356 + .073*side**2
-            lower = 1.260 + .063*side**1.6
+            lower = 1.258 + .054*side**2.8
             y = lower + (upper-lower)*t
             direction = Vector((math.sin(angle), 0, math.cos(angle)))
             origin = Vector((0, max(y, 1.302), -.030)) + direction*.5
             hit, _, _, _ = bvh.ray_cast(origin, -direction, 1.)
             if hit is None: raise RuntimeError('Beard misses the closed jaw')
             radius = max(.02, (hit-Vector((0, max(y, 1.302), -.030))).dot(direction))
-            taper = min(1., max(.28, (y-1.260)/.045))
-            groove = .0017*math.cos(angle*23+t*1.6)*math.sin(math.pi*t)
-            radius = radius*taper + .006 + .007*math.sin(math.pi*t) + groove - layer*.009
+            taper = .64 + .36*min(1., t/.35)
+            groove = (.0035*math.cos(angle*17+t*1.6)+.002*math.sin(angle*9-t*2))*math.sin(math.pi*t)
+            radius = radius*taper + .010 + .012*math.sin(math.pi*t) + groove - layer*.009
             vertex((math.sin(angle)*radius, y, -.030+math.cos(angle)*radius),
-                   .025 + .065*(1-t) + .035*(1-math.cos(angle*23))*math.sin(math.pi*t))
+                   .025 + .065*(1-t) + .035*(1-math.cos(angle*17))*math.sin(math.pi*t))
             if row and col:
                 a = layer*(rows+1)*(sides+1)+(row-1)*(sides+1)+col-1
                 b, c, d = a+1, a+sides+2, a+sides+1
@@ -57,7 +57,7 @@ for sign in [-1,1]:
         t=row/steps; x=sign*(.003+.053*t); y=1.370-.013*t+.002*math.sin(math.pi*t)
         hit,_,_,_=bvh.ray_cast(Vector((x,y,.5)),Vector((0,0,-1)),1.)
         if hit is None: raise RuntimeError('Moustache misses upper lip')
-        radius=.0013+.005*math.sin(math.pi*(.12+.84*t))**.7
+        radius=.0013+.0065*math.sin(math.pi*(.12+.84*t))**.7
         for col in range(sections):
             a=col/sections*2*math.pi
             vertex((x,y+math.sin(a)*radius,hit.z+.004+math.cos(a)*radius),.03)

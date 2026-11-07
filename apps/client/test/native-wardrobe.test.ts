@@ -420,6 +420,29 @@ test('the replacement skull is a closed surface with outward faces and finite at
   expect(parseWardrobeHead({ ...head, normals: [NaN] })).toBeNull();
 });
 
+test('the cream Alpine shirt reaches the Heavy neck rather than exposing a long bare stalk', async () => {
+  const heavy=(await paintedModelLibrary(scene).load('alpine-heavy'))!;
+  const profile=createDefaultProfile('Shirt shoulder contact','heavy');
+  Object.assign(profile.cosmetics,{torso:'torso_alpine_shirt',headgear:'head_none',face:'face_full_beard',hairStyleIndex:6});
+  const view=new GlbCharacterView(scene,new StandardMaterial('shirt-contact-shadow',scene),profile,heavy,
+    {...textures,head:{albedo:textures.albedo,mask:textures.wardrobeMask}});
+  try {
+    const mesh=view.root.getChildMeshes().find(m=>m.name==='soldier-modular-detail') as Mesh;
+    const p=mesh.getVerticesData('position')!,c=mesh.getVerticesData('color')!;
+    const j=mesh.getVerticesData('matricesIndices')!,w=mesh.getVerticesData('matricesWeights')!;
+    const spine=new Set(mesh.skeleton!.bones.filter(b=>['Spine2','Neck'].includes(jointName(b.name))).map(b=>b.getIndex()));
+    let top=-Infinity,vertices=0;
+    for(let v=0;v<mesh.getTotalVertices();v++) {
+      if(Math.abs(p[v*3]!)>.08||c[v*4]!<.9||c[v*4+1]!<.85||c[v*4+2]!<.8||c[v*4+3]!>.5)continue;
+      if(![0,1,2,3].some(k=>spine.has(j[v*4+k]!)&&w[v*4+k]!>.25))continue;
+      vertices++;top=Math.max(top,p[v*3+1]!);
+    }
+    expect(vertices).toBeGreaterThan(20);
+    expect(top).toBeGreaterThan(heavy.bindPositions.get('Neck')!.y-.025);
+    expect(top).toBeLessThan(modularHeadFrame(profile,heavy,true,true).y-.10);
+  } finally {view.dispose();}
+});
+
 test('the bald heavy uses the detailed face without importing the original winter coat hem', async () => {
   const heavy = await paintedModelLibrary(scene).load('alpine-heavy'); expect(heavy?.wardrobeHead).toBeDefined();
   expect(heavy!.wardrobeHead).toBe(asset.wardrobeHead);
