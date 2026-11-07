@@ -12,7 +12,7 @@
         "headMask": "soldier-head-mask.webp"
       },
       "wardrobe": "alpine-allrounder-wardrobe.json",
-      "wardrobeRevision": "33af63b4de6499450922ac5ae486bd68722f29edfd6cfb6912ad59f743300cca"
+      "wardrobeRevision": "5649ae96fd14a77d0415863bd3d67be05cd022f043023d0adab8b0862af25a84"
     },
     "alpine-ghostgirl": {
       "file": "alpine-ghostgirl.glb",
@@ -32,7 +32,7 @@
         "headMask": "soldier-head-mask.webp"
       },
       "wardrobe": "alpine-heavy-wardrobe.json",
-      "wardrobeRevision": "33af63b4de6499450922ac5ae486bd68722f29edfd6cfb6912ad59f743300cca"
+      "wardrobeRevision": "5649ae96fd14a77d0415863bd3d67be05cd022f043023d0adab8b0862af25a84"
     },
     "alpine-infiltrator": {
       "file": "alpine-infiltrator.glb",
@@ -45,7 +45,7 @@
         "headMask": "soldier-head-mask.webp"
       },
       "wardrobe": "alpine-infiltrator-wardrobe.json",
-      "wardrobeRevision": "33af63b4de6499450922ac5ae486bd68722f29edfd6cfb6912ad59f743300cca"
+      "wardrobeRevision": "5649ae96fd14a77d0415863bd3d67be05cd022f043023d0adab8b0862af25a84"
     },
     "hen": {
       "file": "hen.glb",
@@ -65,7 +65,7 @@
         "headMask": "soldier-head-mask.webp"
       },
       "wardrobe": "lagoon-allrounder-wardrobe.json",
-      "wardrobeRevision": "33af63b4de6499450922ac5ae486bd68722f29edfd6cfb6912ad59f743300cca"
+      "wardrobeRevision": "5649ae96fd14a77d0415863bd3d67be05cd022f043023d0adab8b0862af25a84"
     },
     "lagoon-beachgirl": {
       "file": "lagoon-beachgirl.glb",
@@ -86,7 +86,7 @@
         "headMask": "soldier-head-mask.webp"
       },
       "wardrobe": "lagoon-heavy-wardrobe.json",
-      "wardrobeRevision": "33af63b4de6499450922ac5ae486bd68722f29edfd6cfb6912ad59f743300cca"
+      "wardrobeRevision": "5649ae96fd14a77d0415863bd3d67be05cd022f043023d0adab8b0862af25a84"
     },
     "lagoon-infiltrator": {
       "file": "lagoon-infiltrator.glb",
@@ -99,7 +99,7 @@
         "headMask": "soldier-head-mask.webp"
       },
       "wardrobe": "lagoon-infiltrator-wardrobe.json",
-      "wardrobeRevision": "33af63b4de6499450922ac5ae486bd68722f29edfd6cfb6912ad59f743300cca"
+      "wardrobeRevision": "5649ae96fd14a77d0415863bd3d67be05cd022f043023d0adab8b0862af25a84"
     },
     "vehicle-biplane": {
       "file": "vehicle-biplane.glb",

@@ -27,7 +27,7 @@ export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsse
   // The original Alpine heavy's head marker was calibrated for its large pot
   // helmet. A bare anatomical head needs to sit above, rather than inside, the
   // shoulders; use one frame for skull, eyes, hair and every selected headpiece.
-  if (native && sharedHead && asset.wardrobeHead) return { ...head, y: asset.spec.key === 'alpine-heavy' ? 1.36 : head.y, radius: profile.cosmetics.classId === 'heavy' ? .16 : profile.cosmetics.classId === 'infiltrator' ? .125 : .15 };
+  if (native && sharedHead && asset.wardrobeHead) return { ...head, y: asset.spec.key === 'alpine-heavy' ? 1.30 : head.y, radius: profile.cosmetics.classId === 'heavy' ? .16 : profile.cosmetics.classId === 'infiltrator' ? .125 : .15 };
   if (native && nativeWardrobeRecipe(profile, asset).head) return head;
   return { ...head, radius: head.radius * (profile.cosmetics.classId === 'heavy' ? .80 : .90) };
 }

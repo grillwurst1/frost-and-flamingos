@@ -2952,3 +2952,29 @@ errors. The exposed back-neck strip is substantially closed. Body now has
 `docs/qa/video-shoulder-2026-11-07.json` and its scene/body/face PNGs.
 Front expression and narrow beard chin still differ from the video; continue
 actual model art rather than claiming final visual acceptance.
+
+
+## Focused expression and rounded beard chin — 7 November 2026
+
+The lower beard has a broader rounded floor instead of a narrow centre point.
+Inner brow ends are lowered and refitted onto the actual closed skull while
+retaining their original skin clearance; normals follow the changed slope.
+Brow source samples are retained in derived bake metadata, so repeated offline
+runs do not accumulate deformation. Two consecutive bakes are byte-identical.
+No source GLB is modified, and head/beard vertex and triangle counts are unchanged.
+
+Five asset/topology cases, all 39 native wardrobe cases and both roll-clearance
+cases pass (46 selected cases); production builds pass. The Alpine Heavy head frame is recalibrated from 1.36 to 1.30 in donor coordinates
+after reviewing the animated neck/shoulder gap. Skull, eyes, face accessories
+and headgear share that frame. All 39 native cases and both roll cases pass after
+this correction; strict checks report 0 errors / 0 warnings and the build passes.
+Actual public/wardrobe browser review is pending. The exact video look, native M4 measurements
+and full WebGPU validation remain open.
+
+Final expression/neck browser review passes: ordinary public entry and actual
+wardrobe at Medium1280×720, six live cast labels and0page/HTTP/context errors.
+The posed neck gap is shorter, brows are more focused and beard chin broader.
+The hero retains41,134triangles and the initial view156draws. Evidence:
+`docs/qa/video-expression-2026-11-07.json` and its scene/body/face PNGs.
+Overall modelling and painted detail remain substantially below the owner video
+target; visual acceptance is OPEN. Native M4 measurements remain unperformed.

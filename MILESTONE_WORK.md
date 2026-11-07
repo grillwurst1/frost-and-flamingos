@@ -838,3 +838,9 @@ Fitted trim checkpoint: boot lace contact and rounded waist are visually checked
 in the real wardrobe; 71 selected cases and strict/build checks pass. Overall
 video likeness remains open, especially body/neck/sleeve silhouette, expression,
 beard volume, vehicles and landscape composition. Continue actual model art.
+
+7 November shoulder/expression pass: fitted cream shirt closes the back-neck
+gap; fuller closed beard and focused brows retain topology. Heavy head-frame
+calibration follows animated pose inspection. Exact video acceptance remains
+open. Review the original Heavy donor face as a possible basis for a larger
+likeness improvement before more small generic-head parameter adjustments.

@@ -306,3 +306,6 @@ are original project geometry, using existing wardrobe palettes/paint.
 The fitted cream-shirt collar/details and rebaked fuller closed beard are
 original project geometry derived from the existing owner-supplied rig/head.
 No source GLB or supplied video is modified.
+
+Focused brow fitting and the rounded beard floor are offline sculpt changes
+to the project's existing derived anatomy; original owner GLBs remain intact.

@@ -1562,3 +1562,22 @@ Die Browseraufnahme bestätigt den deutlich kleineren Hautstreifen am Rücken
 und die geschlossenen Schulterübergänge. Spiel- und Modellaufnahmen liegen
 unter docs/qa/video-shoulder-2026-11-07.json und den zugehörigen Bildern.
 Gesichtsausdruck und Kinnform des Barts sind noch nicht auf dem Niveau der Vorlage.
+
+
+## Gesichtsausdruck und Bartkinn – 7. November 2026
+
+Das Bartkinn erhält eine breitere Rundung. Die inneren Brauenenden sind tiefer
+und an die Hautoberfläche angepasst, für einen konzentrierteren Gesichtsausdruck.
+Die Geometrieanzahl bleibt unverändert. 46 gezielte Modell- und Animationsprüfungen
+sowie der Produktionsbuild bestehen. Die weitere Bildprüfung gegen dein Video
+bleibt erforderlich; das ist noch keine Abnahme der gesamten Grafik.
+
+Zusätzlich ist die Heavy-Kopfhöhe anhand der animierten Pose korrigiert.
+Schädel, Augen, Bart und Kopfbedeckungen bleiben dabei zueinander ausgerichtet.
+Alphornkontakt, Halsansatz und Rollbewegung bestehen weiterhin ihre Prüfungen.
+
+Die abschließende Bildprüfung besteht ohne Seiten-,HTTP- oder Grafikfehler.
+Die Figur behält41.134Dreiecke; die Startansicht benötigt156Zeichenaufrufe.
+Echte Aufnahmen und Bericht: docs/qa/video-expression-2026-11-07.json und
+zugehörige Spiel-,Ganzkörper- und Gesichtsaufnahmen. Die Gesamtgrafik weicht
+noch deutlich vom Video ab; ein Dauertest auf dem MacBook M4 steht weiterhin aus.

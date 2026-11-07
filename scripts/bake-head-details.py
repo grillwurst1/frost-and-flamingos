@@ -27,7 +27,7 @@ for layer in range(1):
             angle = -1.85 + 3.7*col/sides
             side = abs(math.sin(angle))
             upper = 1.356 + .073*side**2
-            lower = 1.258 + .054*side**2.8
+            lower = 1.258 + .030*side**4
             y = lower + (upper-lower)*t
             direction = Vector((math.sin(angle), 0, math.cos(angle)))
             origin = Vector((0, max(y, 1.302), -.030)) + direction*.5
@@ -37,6 +37,7 @@ for layer in range(1):
             taper = .64 + .36*min(1., t/.35)
             groove = (.0035*math.cos(angle*17+t*1.6)+.002*math.sin(angle*9-t*2))*math.sin(math.pi*t)
             radius = radius*taper + .010 + .012*math.sin(math.pi*t) + groove - layer*.009
+            radius = max(radius,.068*(1-t)**2)
             vertex((math.sin(angle)*radius, y, -.030+math.cos(angle)*radius),
                    .025 + .065*(1-t) + .035*(1-math.cos(angle*17))*math.sin(math.pi*t))
             if row and col:
@@ -75,5 +76,19 @@ mesh.calc_loop_triangles()
 h['beard']={'positions':[round(float(c),7) for v in mesh.vertices for c in v.co],
  'normals':[round(float(c),7) for v in mesh.vertices for c in v.normal],
  'indices':[v for f in mesh.loop_triangles for v in f.vertices], 'cavities':[round(s,6) for s in shade]}
+# Preserve the donor brow samples so repeated bakes never accumulate a frown.
+# Fit the focused brow back onto the closed skin after lowering its inner end.
+if 'browExpressionBase' not in h:
+    h['browExpressionBase']=[[i]+h['positions'][i*3:i*3+3]+h['normals'][i*3:i*3+3]
+                             for i,kind in enumerate(h['painted']) if kind==2]
+for i,x,y,z,nx,ny,nz in h['browExpressionBase']:
+    delta=.008*min(1.,abs(x)/.083)-.007
+    old,_,_,_=bvh.ray_cast(Vector((x,y,.5)),Vector((0,0,-1)),1.)
+    new,_,_,_=bvh.ray_cast(Vector((x,y+delta,.5)),Vector((0,0,-1)),1.)
+    if old is None or new is None:raise RuntimeError('Focused brow misses closed skin')
+    h['positions'][i*3:i*3+3]=[round(x,7),round(y+delta,7),round(float(new.z)+z-float(old.z),7)]
+    normal=Vector((nx-(.008/.083)*(1 if x>=0 else -1)*ny,ny,nz)).normalized()
+    h['normals'][i*3:i*3+3]=[round(float(v),7)for v in normal]
+
 path.write_text(json.dumps(h,separators=(',',':'),allow_nan=False))
 print('Fitted closed beard:',len(mesh.vertices),'vertices',len(mesh.loop_triangles),'triangles')
