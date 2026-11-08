@@ -1,0 +1,72 @@
+{
+  "baseCommit": "7763c426fecbebe18a0b909dc8e44cb20e5c2b4f",
+  "headHash": "523dfeff18d3b72df0aac5c04b5327c1d4cc453a8e45ac736374882d56c0f804",
+  "wardrobeRevision": "b43797dcb6b6c69102afa9401115ec4aae65bf37acd8310c178e5fd1d9429ae0",
+  "tests": [
+    {
+      "command": "bun run test",
+      "scriptPassed": 15,
+      "serverPassed": 243,
+      "serverFailed": 1,
+      "clientNotRun": true,
+      "failure": "One boat simulation exceeded the default 5000 ms timeout (5389.52 ms); no gameplay assertion failure."
+    },
+    {
+      "command": "bun test --timeout 15000 apps/server/test/vehicle-boat.test.ts",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "command": "bun run --cwd apps/client test",
+      "passed": 159,
+      "failed": 0
+    },
+    {
+      "command": "bun test scripts/tests/wardrobe-assets.test.ts apps/client/test/native-wardrobe.test.ts (final compact UV layout)",
+      "passed": 44,
+      "failed": 0
+    },
+    {
+      "command": "bun test apps/client/test/painted-views.test.ts -t roll",
+      "passed": 2,
+      "failed": 0
+    },
+    {
+      "command": "bun test scripts/tests (final 1x1 mask)",
+      "passed": 15,
+      "failed": 0
+    }
+  ],
+  "typecheck": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "finalBuild": "passed; copied production assets are byte-identical to checked sources",
+  "bake": "Fresh bake from previous unpainted head and repeat packing produce byte-identical head/paint/mask",
+  "skinBuffersUnchangedFrom": "8abd0ee",
+  "sourcePaint": {
+    "triangles": 954,
+    "projectedTexels": 85351,
+    "neutralChannelError": 1,
+    "paintSize": [
+      1024,
+      1024
+    ],
+    "maskSize": [
+      1,
+      1
+    ],
+    "beardTile": [
+      512,
+      256
+    ]
+  },
+  "resources": {
+    "heroTriangles": 44374,
+    "sceneDrawCalls": 156,
+    "extraRGBA8MipStorageMiBApprox": 2,
+    "additionalTextures": 0,
+    "nativeM4Measured": false
+  },
+  "actualBrowser": "Medium 1280x720 WebGL2 SwiftShader; six cast labels, actual wardrobe projection, zero page/HTTP/context errors"
+}

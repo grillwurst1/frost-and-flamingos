@@ -661,7 +661,13 @@ test('sculpted beard locks retain neutral shading for every selected hair colour
       const authored = asset.wardrobeHead!.beard!;
       let beard = 0, bottom = Infinity;
       for (let v = 0; v < mesh.getTotalVertices(); v++) {
-        if (flags[v * 2] !== 0 || flags[v * 2 + 1] !== 9) continue;
+        if (flags[v * 2 + 1] !== 9) continue;
+        // Every class samples the shared beard tile, never its body atlas.
+        expect(flags[v * 2]).toBe(2);
+        const uv = mesh.getVerticesData('uv')!, paint = mesh.getVerticesData('uv3')!;
+        expect(uv[v * 2]!).toBeCloseTo(authored.uvs![beard * 2]!, 6);
+        expect(uv[v * 2 + 1]!).toBeCloseTo(authored.uvs![beard * 2 + 1]!, 6);
+        expect(paint[v * 2 + 1]!).toBeCloseTo(authored.cavities[beard]!, 6);
         expect(c[v * 4 + 3]).toBe(0);
         const shade = authored.shades![beard]!;
         for (let channel = 0; channel < 3; channel++) expect(c[v * 4 + channel]!).toBeCloseTo(rgb[channel]! * shade, 5);

@@ -58,6 +58,8 @@ try {
     entry.wardrobe = `${key}-wardrobe.json`;
     entry.textures.wardrobeMask = `${key}-wardrobe-mask.webp`;
   }
+  const beard = Bun.spawn(['python3', join(root, 'scripts/bake-beard-paint.py'), join(temporary, 'alpine-heavy.json'), output], { stdout: 'inherit', stderr: 'inherit' });
+  if (await beard.exited !== 0) throw new Error('Original beard paint bake failed');
   const headHash = new Bun.CryptoHasher('sha256').update(await Bun.file(join(output, 'soldier-head.json')).arrayBuffer()).digest('hex');
   const bodyHash = new Bun.CryptoHasher('sha256').update(await Bun.file(join(output, 'soldier-body.json')).arrayBuffer()).digest('hex');
   for (const faction of ['alpine', 'lagoon']) for (const role of ['allrounder', 'heavy', 'infiltrator']) {

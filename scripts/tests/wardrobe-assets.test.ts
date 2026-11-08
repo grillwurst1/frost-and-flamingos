@@ -45,6 +45,15 @@ test('the shared closed head and curls match their original sources and every cl
   expect(parseWardrobeHead({...h,ambientOcclusion:[0]})).toBeNull();
   expect(parseWardrobeHead({...h,ambientOcclusion:undefined})).not.toBeNull();
   expect(h!.beard).toBeDefined();
+  expect(h!.beardPaintAtlas).toBe(1);
+  expect(h!.beard!.sourceHash).toBe(await sourceHash('alpine-heavy'));
+  expect(h!.hairReference).toEqual([.5, .5, .5]);
+  expect(h!.beard!.uvs).toHaveLength(h!.beard!.positions.length / 3 * 2);
+  expect(h!.beard!.uvs!.every((n, i) => n >= 0 && n <= (i % 2 ? .25 : .5))).toBe(true);
+  expect(h!.afro!.uvs.every((n, i) => n >= (i % 2 ? 0 : .5) && n <= 1)).toBe(true);
+  expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, uvs: [NaN] } })).toBeNull();
+  expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, sourceHash: 'invalid' } })).toBeNull();
+  expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, uvs: undefined, sourceHash: undefined } })).not.toBeNull();
   // Flowing sculpted locks and the full moustache share the original body
   // draw. Keep the whole closed accessory below 5k triangles.
   expect(h!.beard!.indices.length / 3).toBeLessThan(5000);
@@ -87,7 +96,7 @@ test('the shared closed head and curls match their original sources and every cl
   const mask = new Uint8Array(await Bun.file(resolve(directory, 'soldier-head-mask.webp')).arrayBuffer());
   expect(new TextDecoder().decode(mask.subarray(12, 16))).toBe('VP8L');
   const dimensions = new DataView(mask.buffer).getUint32(21, true);
-  expect((dimensions & 0x3fff) + 1).toBe(256); expect(((dimensions >>> 14) & 0x3fff) + 1).toBe(512);
+  expect((dimensions & 0x3fff) + 1).toBe(1); expect(((dimensions >>> 14) & 0x3fff) + 1).toBe(1);
 });
 
 

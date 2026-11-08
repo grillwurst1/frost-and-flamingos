@@ -516,7 +516,12 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
         headNormals.push(base + v, normal.x, normal.y, normal.z);
         const shade = beard.shades?.[v] ?? 1;
         colors.push(hairRGB[0]! * shade, hairRGB[1]! * shade, hairRGB[2]! * shade, 0);
-        cavities.push(beard.cavities[v]!, 0); nativeFlags.push(0, 9);
+        if (beard.uvs) {
+          cavities.push(beard.uvs[v * 2]!, beard.uvs[v * 2 + 1]!); nativeFlags.push(2, 9);
+          headOcclusion.set(base + v, beard.cavities[v]!);
+        } else {
+          cavities.push(beard.cavities[v]!, 0); nativeFlags.push(0, 9);
+        }
         const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
       }
       for (let f = 0; f < beard.indices.length; f += 3) indices.push(base + beard.indices[f]!, base + beard.indices[f + 2]!, base + beard.indices[f + 1]!);

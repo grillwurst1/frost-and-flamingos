@@ -309,3 +309,13 @@ No source GLB or supplied video is modified.
 
 Focused brow fitting and the rounded beard floor are offline sculpt changes
 to the project's existing derived anatomy; original owner GLBs remain intact.
+
+
+### Configurable beard surface — 8 November 2026
+
+The shared wardrobe beard is an original closed procedural sculpt, fitted to the
+existing derived anatomical head. Its painted strands are projected offline from
+the owner's unchanged `alpine-heavy.glb` / `alpine-heavy-basecolor.webp`; source
+checksum is retained in the beard geometry. Only neutral painted value is reused,
+so every selected hair colour remains independent of skin. The original Lagoon
+Allrounder curl paint shares the existing atlas. Tool: `scripts/bake-beard-paint.py`.

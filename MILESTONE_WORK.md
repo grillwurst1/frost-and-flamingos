@@ -844,3 +844,17 @@ gap; fuller closed beard and focused brows retain topology. Heavy head-frame
 calibration follows animated pose inspection. Exact video acceptance remains
 open. Review the original Heavy donor face as a possible basis for a larger
 likeness improvement before more small generic-head parameter adjustments.
+
+
+### 8 November 2026 — owner-priority beard modelling and original paint
+
+Published the closed beard/inner-jaw/flowing-lock checkpoint 7763c42 after actual
+browser review; the complete bald skin head stays unchanged. Follow-up projects
+the owner's original Heavy beard value onto that sculpt and repacks original curls
+beside it, preserving all eight hair colours and the one scene-shared texture pair.
+No new gameplay milestone is claimed. Full video visual acceptance, face/body/world
+modelling and native M4 measurements remain open. Actual Medium 1280×720 WebGL2 review passes with 156 draws and 0 page/HTTP/context
+errors. Evidence: docs/qa/video-painted-beard-2026-11-08.json, companion validation
+JSON and actual scene/body/face/wardrobe PNGs. Full functional coverage and final
+UV/mask rechecks pass; one default 5-second boat timeout passed the documented
+isolated 15-second retry. Skin/head buffers remain unchanged from 8abd0ee.

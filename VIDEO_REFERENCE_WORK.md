@@ -190,7 +190,7 @@ the face. Strict diagnostics: 0 errors / 0 warnings. Production builds pass.
 Actual Medium WebGL2 public/wardrobe screenshots are under review. Exact video
 likeness, native Mac M4 thermals/FPS and full WebGPU validation remain open.
 
-Shoulder-pass browser review passes at Medium1280×720: six live cast labels,
+Shoulder-pass browser review passes at Medium 1280×720: six live cast labels,
 actual wardrobe projection inside its responsive stage and0page/HTTP/context
 errors. The exposed back-neck strip is substantially closed. Body now has
 41,134triangles (+148), with156initial draws. Evidence:
@@ -217,7 +217,7 @@ Actual public/wardrobe browser review is pending. The exact video look, native M
 and full WebGPU validation remain open.
 
 Final expression/neck browser review passes: ordinary public entry and actual
-wardrobe at Medium1280×720, six live cast labels and0page/HTTP/context errors.
+wardrobe at Medium 1280×720, six live cast labels and0page/HTTP/context errors.
 The posed neck gap is shorter, brows are more focused and beard chin broader.
 The hero retains41,134triangles and the initial view156draws. Evidence:
 `docs/qa/video-expression-2026-11-07.json` and its scene/body/face PNGs.
@@ -245,7 +245,7 @@ correction, the affected 5 asset, 39 native wardrobe and 2 roll cases pass again
 Strict diagnostics: 0 errors / 0 warnings; final production build passes.
 Two consecutive offline bakes are byte-identical. Only the beard field differs
 from the preceding generated head; the complete anatomical skin is unchanged.
-Actual Medium1280×720 WebGL2 browser review passes: six cast labels, wardrobe
+Actual Medium 1280×720 WebGL2 browser review passes: six cast labels, wardrobe
 projection in its actual stage and no page/HTTP/context errors. Hero44,374
 triangles (+3,240); initial156draws, no added textures. Evidence:
 `docs/qa/video-locks-2026-11-08.json` and scene/body/face/wardrobe PNGs.
@@ -258,3 +258,38 @@ its first closed-union/paint projection exposed collar remnants and facial paint
 seams in a bare-head render. Do not publish that prototype. The current beard
 pass preserves the existing complete anatomical skin head. Native facial-plane
 retopology and palette-safe painted eyelids remain necessary art work.
+
+
+## Original painted beard on the configurable sculpt — 8 November 2026
+
+Projected the owner's Alpine Heavy beard paint offline onto the closed wardrobe
+beard: 954 original surface triangles and 85,351 projected texels. The atlas stores
+neutral value, not the donor's orange pigment. All eight hair selections still
+apply; skin/skull geometry and all skin colours remain independent. The original
+curly-hair paint is regenerated from its unchanged source and packed alongside.
+The one existing scene-shared head texture pair is reused across all six roles:
+1024×1024 paint / 1×1 lossless hair mask. This adds approximately 2 MiB
+of RGBA8 mip storage scene-wide; no extra textures, materials, draws or geometry.
+
+Beard UVs and source checksum are validated. Every beard vertex uses the shared
+head sampler region 9 and keeps fitted contact shade in the existing lighting
+attribute. Matte hair is handled in both shader languages. The production
+`wardrobe-assets` pipeline runs `bake-beard-paint.py` after the closed body/curl
+bakes and before content hashes are published. Repeated packing preserves curl
+UVs without rescaling them again. The original owner GLBs/paint remain unchanged.
+
+Validation: 15 script cases pass; the full server run had 243 passes and one
+5-second boat-test timeout. All 4 boat cases pass on the documented 15-second
+isolated retry; all 159 client cases pass. After compact UV changes, all 44 affected
+asset/native cases and 2 roll cases pass; the final 1×1 mask passes all 15 script cases.
+Strict diagnostics report 0 errors / 0 warnings; final production builds pass. Fresh
+and repeat bakes are byte-identical; copied production assets match checked
+sources. Anatomical skin/head buffers remain identical to 8abd0ee.
+
+Actual Medium 1280×720 WebGL2 browser review passes: six cast labels, real wardrobe
+projection, 0 page/HTTP/context errors, 44,374 hero triangles and 156 initial draws.
+Evidence: `docs/qa/video-painted-beard-2026-11-08.json`, companion validation JSON
+and scene/body/face/wardrobe PNGs. Final 512×256 beard UV tile prevents unnecessary
+isotropic mip blur; the constant hair mask is 1×1. No negative mip bias is used.
+The overall figure/world art still falls short of the supplied gameplay video.
+Exact likeness, native M4 thermals/FPS and full WebGPU acceptance remain OPEN.

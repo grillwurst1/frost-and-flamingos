@@ -1519,7 +1519,7 @@ sie sind Modellprüfungen, keine Aufnahme einer laufenden Kampfsituation.
 prüfen die Modelle; die normale Spielaufnahme dokumentiert separat die
 tatsächliche Kameraperspektive. Eine Messung auf dem MacBook M4 steht noch aus.
 
-Die neue Browserprüfung besteht ohne Seiten-,HTTP- oder Kontextfehler. Bilder
+Die neue Browserprüfung besteht ohne Seiten-, HTTP- oder Kontextfehler. Bilder
 liegen unter docs/qa/video-detail-*-2026-11-07.png. Die Stiefelnahaufnahme zeigt
 noch schwebende Schnürsenkelbalken; dieser Befund wird im nächsten Schritt
 korrigiert. Die Grafikabnahme ist weiterhin offen.
@@ -1539,7 +1539,7 @@ mit deinem Video bleibt offen; einzelne verbesserte Details sind keine Abnahme
 der gesamten Figurengrafik.
 
 Die abschließende Browserprüfung bestätigt anliegende Schnürsenkel und eine
-gerundete Taille. Sie besteht ohne Seiten-,HTTP- oder Grafik-Kontextfehler.
+gerundete Taille. Sie besteht ohne Seiten-, HTTP- oder Grafik-Kontextfehler.
 Spielansicht und Garderobe: docs/qa/video-fitted-2026-11-07.json sowie die
 zugehörigen Bilder. Die vergrößerten Modellbilder verwenden eine Prüfkamera
 bei ausgeblendeter Oberfläche; das normale Garderobenbild zeigt die echte UI.
@@ -1576,7 +1576,7 @@ Zusätzlich ist die Heavy-Kopfhöhe anhand der animierten Pose korrigiert.
 Schädel, Augen, Bart und Kopfbedeckungen bleiben dabei zueinander ausgerichtet.
 Alphornkontakt, Halsansatz und Rollbewegung bestehen weiterhin ihre Prüfungen.
 
-Die abschließende Bildprüfung besteht ohne Seiten-,HTTP- oder Grafikfehler.
+Die abschließende Bildprüfung besteht ohne Seiten-, HTTP- oder Grafikfehler.
 Die Figur behält41.134Dreiecke; die Startansicht benötigt156Zeichenaufrufe.
 Echte Aufnahmen und Bericht: docs/qa/video-expression-2026-11-07.json und
 zugehörige Spiel-,Ganzkörper- und Gesichtsaufnahmen. Die Gesamtgrafik weicht
@@ -1593,10 +1593,31 @@ Strähnen stecken im bestehenden Figurenmodell; zusätzliche Texturen oder
 Zeichenaufrufe sind dafür nicht nötig. Das Bartmodell besitzt 4.776 Dreiecke.
 
 418 Prüfungen im Gesamtlauf bestehen. Nach der letzten Formkorrektur bestehen
-zusätzlich alle46betroffenen Modell-,Kleidungs- und Rollprüfungen. Typprüfung und
+zusätzlich alle 46 betroffenen Modell-,Kleidungs- und Rollprüfungen. Typprüfung und
 Produktionsbuild bestehen. Echte Browseraufnahmen unter docs/qa/video-locks-*
 zeigen Spiel, Kleiderauswahl und Nahansichten ohne Seiten- oder Grafikfehler.
-Die Figur hat44.374Dreiecke (+3.240), die Startansicht weiterhin156Zeichenaufrufe.
+Die Figur hat 44.374 Dreiecke (+3.240), die Startansicht weiterhin 156 Zeichenaufrufe.
 Die Bart-Innenseite folgt dem Kiefer und ersetzt den einfachen Fächerverschluss.
 Die Gesamtgrafik entspricht noch nicht exakt deinem Video. Ein Belastungstest
 auf deinem MacBook M4 bleibt erforderlich.
+
+
+## Originale Bartbemalung auf der 3D-Figur – 8. November 2026
+
+Die gemalten Strähnen des vorhandenen Heavy-Originalmodells liegen jetzt auf dem
+plastischen, geschlossenen Bart. Die Bemalung enthält nur Helligkeit: Alle acht
+Haarfarben bleiben frei wählbar, Haut und Stirn behalten ihre eigene Farbe.
+Die Lockenfrisur teilt weiterhin dieselbe Textur mit dem Bart. Dafür steigt der
+Texturspeicher rechnerisch um rund 2 MiB für die gesamte Szene, unabhängig von der
+Spielerzahl. Die Figur benötigt weiterhin 44.374 Dreiecke und keine zusätzlichen
+Zeichenaufrufe. Für neue Modelle bitte die vollständige Pipeline
+`bun run wardrobe-assets` verwenden; sie erzeugt Form, Bemalung und Prüfsummen.
+
+Modell-, Client- und Bewegungsprüfungen bestehen. Ein Bootstest überschritt zuerst
+das 5-Sekunden-Zeitlimit; alle 4 Bootstests bestanden im separaten Lauf mit 15 Sekunden.
+Typprüfung und Produktionsbuild bestehen. Die Browserprüfung bei 1280×720 besteht
+mit sechs echten Spielernamen, korrekter Kleiderauswahl und ohne Seiten-, HTTP-
+oder Grafikfehler. Echte Aufnahmen: docs/qa/video-painted-beard-*-2026-11-08.png;
+Berichte: docs/qa/video-painted-beard-2026-11-08.json und zugehörige Validierung.
+Das ist weiterhin keine vollständige grafische Übereinstimmung mit deinem Video.
+Die Leistung auf dem MacBook M4 ist hier nicht gemessen.

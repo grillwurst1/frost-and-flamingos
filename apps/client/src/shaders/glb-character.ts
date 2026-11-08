@@ -320,7 +320,7 @@ void main(void) {
   gloss = mix(gloss, 0.035, step(1.5, vColor.a));
 #ifdef FF_NATIVE_WARDROBE
   // Region 9 is the closed, vertex-painted beard: matte hair, not vinyl.
-  gloss = mix(gloss, 0.025, (1.0-step(0.5,vWardrobe.x)) * (1.0-smoothstep(0.1,0.2,abs(vWardrobe.y-9.0))));
+  gloss = mix(gloss, 0.025, 1.0-smoothstep(0.1,0.2,abs(vWardrobe.y-9.0)));
 #endif
 #endif
 #ifdef FF_SOFT_CHARACTER
@@ -636,7 +636,7 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
   base = mix(base, uniforms.uSkinColor, step(1.5, input.vColor.a));
   gloss = mix(gloss, 0.035, step(1.5, input.vColor.a));
 #ifdef FF_NATIVE_WARDROBE
-  gloss = mix(gloss, 0.025, (1.0-step(0.5,input.vWardrobe.x)) * (1.0-smoothstep(0.1,0.2,abs(input.vWardrobe.y-9.0))));
+  gloss = mix(gloss, 0.025, 1.0-smoothstep(0.1,0.2,abs(input.vWardrobe.y-9.0)));
 #endif
 #endif
 #ifdef FF_SOFT_CHARACTER

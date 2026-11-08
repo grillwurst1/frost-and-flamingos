@@ -15,7 +15,9 @@ export interface WardrobeHeadGeometry {
   ambientOcclusion?: number[];
   skinReference: [number, number, number];
   hairReference: [number, number, number];
-  beard?: { positions: number[]; normals: number[]; indices: number[]; cavities: number[]; shades?: number[] };
+  /** Offline layout marker: beard left, original curls right, one shared atlas. */
+  beardPaintAtlas?: 1;
+  beard?: { positions: number[]; normals: number[]; indices: number[]; cavities: number[]; shades?: number[]; uvs?: number[]; sourceHash?: string };
   afro?: { sourceHash: string; positions: number[]; normals: number[]; indices: number[]; uvs: number[]; shades: number[] };
 }
 
@@ -29,6 +31,7 @@ export function parseWardrobeHead(value: unknown): WardrobeHeadGeometry | null {
   if(h.ambientOcclusion!==undefined&&(!Array.isArray(h.ambientOcclusion)||h.ambientOcclusion.length!==count
     ||!h.ambientOcclusion.every(n=>Number.isFinite(n)&&n>=0&&n<=.55)))return null;
   if (h.solidAnatomy !== undefined && h.solidAnatomy !== true) return null;
+  if (h.beardPaintAtlas !== undefined && h.beardPaintAtlas !== 1) return null;
   for (const [array, length] of [[h.positions, count * 3], [h.normals, count * 3], [h.uvs, count * 2], [h.tints, count * 3]] as const)
     if (!Array.isArray(array) || array.length !== length || !array.every(Number.isFinite)) return null;
   if (!Array.isArray(h.painted) || h.painted.length !== count || !h.painted.every(n => n === 0 || n === 1 || n === 2 || n === 3)
@@ -48,6 +51,9 @@ export function parseWardrobeHead(value: unknown): WardrobeHeadGeometry | null {
     if (!Number.isInteger(count) || count < 100 || count > 5000) return null;
     if (b.shades !== undefined && (!Array.isArray(b.shades) || b.shades.length !== count
       || !b.shades.every(n => Number.isFinite(n) && n >= .3 && n <= 1.3))) return null;
+    if (b.sourceHash !== undefined && (typeof b.sourceHash !== 'string' || !/^[a-f0-9]{64}$/.test(b.sourceHash))) return null;
+    if (b.uvs !== undefined && (!Array.isArray(b.uvs) || b.uvs.length !== count * 2 || !b.sourceHash
+      || !b.uvs.every(n => Number.isFinite(n) && n >= 0 && n <= 1))) return null;
     for (const [array, length] of [[b.positions, count * 3], [b.normals, count * 3], [b.cavities, count]] as const)
       if (!Array.isArray(array) || array.length !== length || !array.every(Number.isFinite)) return null;
     if (!Array.isArray(b.indices) || !b.indices.length || b.indices.length > 30000 || b.indices.length % 3
