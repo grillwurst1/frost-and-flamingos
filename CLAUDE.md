@@ -1883,3 +1883,31 @@ The hero retains41,134triangles and the initial view156draws. Evidence:
 `docs/qa/video-expression-2026-11-07.json` and its scene/body/face PNGs.
 Overall modelling and painted detail remain substantially below the owner video
 target; visual acceptance is OPEN. Native M4 measurements remain unperformed.
+
+
+## Sculpted beard locks — 8 November 2026
+
+Rebuilt the configurable closed beard with flowing carved locks, longer
+sideburns, a fuller rounded lower volume and a parted curved moustache. Neutral
+vertex shades retain every selected hair pigment; the signature ginger is now
+a warmer ginger orange instead of saturated red. The skull/forehead/skin base is unchanged
+and remains complete when the beard is removed. A matte hair region is handled
+in both shader languages, within the same existing skinned body draw.
+
+Offline bake: 2,394 vertices / 4,776 triangles for the whole beard, up from
+774 / 1,536; no new textures, materials, passes, runtime raycasts or per-frame
+allocation. The bounded accessory limit is 5,000 triangles. Stored neutral shades
+are validated for count/range/finite values; old assets without shades retain a
+valid fallback. The bake remains part of `bun run wardrobe-assets`.
+
+Full script/server/client suite: 418 pass. After the final inner-shell geometry
+correction, the affected 5 asset, 39 native wardrobe and 2 roll cases pass again.
+Strict diagnostics: 0 errors / 0 warnings; final production build passes.
+Two consecutive offline bakes are byte-identical. Only the beard field differs
+from the preceding generated head; the complete anatomical skin is unchanged.
+Actual Medium1280×720 WebGL2 browser review passes: six cast labels, wardrobe
+projection in its actual stage and no page/HTTP/context errors. Hero44,374
+triangles (+3,240); initial156draws, no added textures. Evidence:
+`docs/qa/video-locks-2026-11-08.json` and scene/body/face/wardrobe PNGs.
+Exact likeness to the supplied video is still OPEN. Native M4 thermals/FPS and
+full dynamic WebGPU acceptance have not been measured here.

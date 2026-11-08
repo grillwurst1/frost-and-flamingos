@@ -318,6 +318,10 @@ void main(void) {
   // Keep its head-atlas category/UVs intact across neighbouring triangles.
   base = mix(base, uSkinColor, step(1.5, vColor.a));
   gloss = mix(gloss, 0.035, step(1.5, vColor.a));
+#ifdef FF_NATIVE_WARDROBE
+  // Region 9 is the closed, vertex-painted beard: matte hair, not vinyl.
+  gloss = mix(gloss, 0.025, (1.0-step(0.5,vWardrobe.x)) * (1.0-smoothstep(0.1,0.2,abs(vWardrobe.y-9.0))));
+#endif
 #endif
 #ifdef FF_SOFT_CHARACTER
   if (vComicPaint.x > .5 && vColor.a < .5) base = ffComicCloth(base, vComicPaint.x, vPaintRest, vPaintNormal, paintDx, paintDy);
@@ -631,6 +635,9 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
 #ifdef FF_SOFT_CHARACTER
   base = mix(base, uniforms.uSkinColor, step(1.5, input.vColor.a));
   gloss = mix(gloss, 0.035, step(1.5, input.vColor.a));
+#ifdef FF_NATIVE_WARDROBE
+  gloss = mix(gloss, 0.025, (1.0-step(0.5,input.vWardrobe.x)) * (1.0-smoothstep(0.1,0.2,abs(input.vWardrobe.y-9.0))));
+#endif
 #endif
 #ifdef FF_SOFT_CHARACTER
   if (input.vComicPaint.x > .5 && input.vColor.a < .5) { base = ffComicCloth(base, input.vComicPaint.x, input.vPaintRest, input.vPaintNormal, paintDx, paintDy); }

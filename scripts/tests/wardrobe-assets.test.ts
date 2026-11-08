@@ -45,7 +45,14 @@ test('the shared closed head and curls match their original sources and every cl
   expect(parseWardrobeHead({...h,ambientOcclusion:[0]})).toBeNull();
   expect(parseWardrobeHead({...h,ambientOcclusion:undefined})).not.toBeNull();
   expect(h!.beard).toBeDefined();
-  expect(h!.beard!.indices.length / 3).toBeLessThan(2500);
+  // Flowing sculpted locks and the full moustache share the original body
+  // draw. Keep the whole closed accessory below 5k triangles.
+  expect(h!.beard!.indices.length / 3).toBeLessThan(5000);
+  expect(h!.beard!.shades).toHaveLength(h!.beard!.positions.length / 3);
+  expect(Math.max(...h!.beard!.shades!) - Math.min(...h!.beard!.shades!)).toBeGreaterThan(.3);
+  expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, shades: [NaN] } })).toBeNull();
+  expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, shades: h!.beard!.shades!.map(() => 2) } })).toBeNull();
+  expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, shades: undefined } })).not.toBeNull();
   const beardEdges = new Map<string, number>();
   for (let f = 0; f < h!.beard!.indices.length; f += 3) for (let k = 0; k < 3; k++) {
     const a = h!.beard!.indices[f + k]!, b = h!.beard!.indices[f + (k + 1) % 3]!;
@@ -53,6 +60,17 @@ test('the shared closed head and curls match their original sources and every cl
     beardEdges.set(key, (beardEdges.get(key) ?? 0) + 1);
   }
   expect([...beardEdges.values()].every(count => count === 2)).toBe(true);
+  // A closed but collapsed pair of sheets still passes edge incidence.
+  // Require real enclosed volume for the jaw-following inner/outer shell.
+  let beardVolume = 0;
+  const beard = h!.beard!, point = (v: number) => beard.positions.slice(v * 3, v * 3 + 3);
+  for (let f = 0; f < beard.indices.length; f += 3) {
+    const a = point(beard.indices[f]!), b = point(beard.indices[f + 1]!), c = point(beard.indices[f + 2]!);
+    beardVolume += a[0]! * (b[1]! * c[2]! - b[2]! * c[1]!)
+      + a[1]! * (b[2]! * c[0]! - b[0]! * c[2]!) + a[2]! * (b[0]! * c[1]! - b[1]! * c[0]!);
+  }
+  expect(beardVolume / 6).toBeGreaterThan(.0005);
+  expect(beardVolume / 6).toBeLessThan(.003);
   expect(h!.afro!.uvs.every(n => n >= 0 && n <= 1)).toBe(true);
   expect(bytes.byteLength).toBeLessThan(2000000);
   for (let v = 0; v < h!.normals.length; v += 3) expect(Math.hypot(...h!.normals.slice(v, v + 3))).toBeGreaterThan(.8);

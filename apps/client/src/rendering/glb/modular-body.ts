@@ -514,7 +514,9 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           frame.z + (beard.positions[v * 3 + 2]! - h.frame.z) * scale);
         const normal = new Vector3(beard.normals[v * 3]! / broad, beard.normals[v * 3 + 1]!, beard.normals[v * 3 + 2]!).normalize();
         headNormals.push(base + v, normal.x, normal.y, normal.z);
-        colors.push(...hairRGB, 0); cavities.push(beard.cavities[v]!, 0); nativeFlags.push(0, 0);
+        const shade = beard.shades?.[v] ?? 1;
+        colors.push(hairRGB[0]! * shade, hairRGB[1]! * shade, hairRGB[2]! * shade, 0);
+        cavities.push(beard.cavities[v]!, 0); nativeFlags.push(0, 9);
         const influence = weight(['Head'], 0); joints.push(...influence.indices); weights.push(...influence.weights);
       }
       for (let f = 0; f < beard.indices.length; f += 3) indices.push(base + beard.indices[f]!, base + beard.indices[f + 2]!, base + beard.indices[f + 1]!);

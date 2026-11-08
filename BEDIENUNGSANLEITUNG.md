@@ -1581,3 +1581,22 @@ Die Figur behält41.134Dreiecke; die Startansicht benötigt156Zeichenaufrufe.
 Echte Aufnahmen und Bericht: docs/qa/video-expression-2026-11-07.json und
 zugehörige Spiel-,Ganzkörper- und Gesichtsaufnahmen. Die Gesamtgrafik weicht
 noch deutlich vom Video ab; ein Dauertest auf dem MacBook M4 steht weiterhin aus.
+
+
+## Geformte Bartsträhnen – 8. November 2026
+
+Vollbart und Augenklappenbart erhalten längere Koteletten, plastische Strähnen,
+ein volleres Kinn und einen gebogenen, geteilten Schnurrbart. Alle acht Haarfarben
+bleiben auswählbar; die erste Farbe ist nun ein wärmeres Ingwerorange. Haut und
+Stirn bleiben unabhängig davon, auch ohne Bart. Die matte Haarschattierung und
+Strähnen stecken im bestehenden Figurenmodell; zusätzliche Texturen oder
+Zeichenaufrufe sind dafür nicht nötig. Das Bartmodell besitzt 4.776 Dreiecke.
+
+418 Prüfungen im Gesamtlauf bestehen. Nach der letzten Formkorrektur bestehen
+zusätzlich alle46betroffenen Modell-,Kleidungs- und Rollprüfungen. Typprüfung und
+Produktionsbuild bestehen. Echte Browseraufnahmen unter docs/qa/video-locks-*
+zeigen Spiel, Kleiderauswahl und Nahansichten ohne Seiten- oder Grafikfehler.
+Die Figur hat44.374Dreiecke (+3.240), die Startansicht weiterhin156Zeichenaufrufe.
+Die Bart-Innenseite folgt dem Kiefer und ersetzt den einfachen Fächerverschluss.
+Die Gesamtgrafik entspricht noch nicht exakt deinem Video. Ein Belastungstest
+auf deinem MacBook M4 bleibt erforderlich.

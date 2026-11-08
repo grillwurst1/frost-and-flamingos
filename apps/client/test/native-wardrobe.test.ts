@@ -652,20 +652,22 @@ test('the complete gold watch stays rigid on the forearm when anatomical arms an
 });
 
 
-test('eyepatch beards follow selected hair colour and extend around the actual sculpted chin', () => {
-  for (const hairColorIndex of [0, 2, 5]) {
+test('sculpted beard locks retain neutral shading for every selected hair colour and extend below the actual chin', () => {
+  for (let hairColorIndex = 0; hairColorIndex < HAIR_COLORS.length; hairColorIndex++) {
     const { view, mesh } = build({ face: 'face_eyepatch_beard', hairStyleIndex: 6, headgear: 'head_none', hairColorIndex }, true);
     try {
       const c = mesh.getVerticesData('color')!, p = mesh.getVerticesData('position')!, flags = mesh.getVerticesData('uv2')!;
       const rgb = [1, 3, 5].map(i => Number.parseInt(HAIR_COLORS[hairColorIndex]!.slice(i, i + 2), 16) / 255);
+      const authored = asset.wardrobeHead!.beard!;
       let beard = 0, bottom = Infinity;
       for (let v = 0; v < mesh.getTotalVertices(); v++) {
-        if (flags[v * 2] !== 0 || c[v * 4 + 3] !== 0 || p[v * 3 + 1]! >= asset.spec.head.y) continue;
-        if (rgb.every((channel, i) => Math.abs(c[v * 4 + i]! - channel) < .00001)) {
-          beard++; bottom = Math.min(bottom, p[v * 3 + 1]!);
-        }
+        if (flags[v * 2] !== 0 || flags[v * 2 + 1] !== 9) continue;
+        expect(c[v * 4 + 3]).toBe(0);
+        const shade = authored.shades![beard]!;
+        for (let channel = 0; channel < 3; channel++) expect(c[v * 4 + channel]!).toBeCloseTo(rgb[channel]! * shade, 5);
+        beard++; bottom = Math.min(bottom, p[v * 3 + 1]!);
       }
-      expect(beard).toBeGreaterThan(500);
+      expect(beard).toBe(authored.positions.length / 3);
       const frame = asset.wardrobeHead!.frame, radius = .15;
       const actualChin = asset.spec.head.y + (1.285 - frame.y) * radius / frame.radius;
       expect(bottom).toBeLessThan(actualChin - .025);

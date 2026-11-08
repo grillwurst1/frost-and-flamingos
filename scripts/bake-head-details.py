@@ -14,32 +14,49 @@ points = [h['positions'][i:i+3] for i in range(0, len(h['positions']), 3)]
 skin = [h['indices'][i:i+3] for i in range(0, len(h['indices']), 3)
         if all(h['painted'][v] == 0 for v in h['indices'][i:i+3])]
 bvh = BVHTree.FromPolygons(points, skin, all_triangles=True)
-p, faces, shade = [], [], []
+p, faces, shade, shades = [], [], [], []
 
-def vertex(at, cavity=0):
-    p.append(list(at)); shade.append(cavity); return len(p)-1
+def vertex(at, cavity=0, pigment=1):
+    p.append(list(at)); shade.append(cavity); shades.append(pigment); return len(p)-1
 
-rows, sides = 12, 40
-for layer in range(1):
+rows, sides = 20, 44
+for layer in range(2):
     for row in range(rows+1):
         t = row/rows
         for col in range(sides+1):
             angle = -1.85 + 3.7*col/sides
             side = abs(math.sin(angle))
-            upper = 1.356 + .073*side**2
-            lower = 1.258 + .030*side**4
+            # Long sideburns flow into a full rounded chin, rather than a
+            # thin bowl with a horizontal rim across both cheeks.
+            upper = 1.340 + .080*side**2.4
+            lower = 1.248 + .030*side**4
             y = lower + (upper-lower)*t
             direction = Vector((math.sin(angle), 0, math.cos(angle)))
             origin = Vector((0, max(y, 1.302), -.030)) + direction*.5
             hit, _, _, _ = bvh.ray_cast(origin, -direction, 1.)
             if hit is None: raise RuntimeError('Beard misses the closed jaw')
-            radius = max(.02, (hit-Vector((0, max(y, 1.302), -.030))).dot(direction))
-            taper = .64 + .36*min(1., t/.35)
-            groove = (.0035*math.cos(angle*17+t*1.6)+.002*math.sin(angle*9-t*2))*math.sin(math.pi*t)
-            radius = radius*taper + .010 + .012*math.sin(math.pi*t) + groove - layer*.009
-            radius = max(radius,.068*(1-t)**2)
+            skin_radius = max(.02, (hit-Vector((0, max(y, 1.302), -.030))).dot(direction))
+            taper = .55 + .45*math.sin(min(1.,t/.48)*math.pi/2)
+            # Swept locks share one closed surface. Their broad ridges remain
+            # legible when minified, with no loose strips or sharp hair cards.
+            flow = angle*19 + 2.6*(1-t)**1.6*math.sin(angle*1.8)
+            ridge = .5+.5*math.cos(flow)
+            groove = (.0023*math.cos(flow)+.0006*math.cos(flow*2+.5))*math.sin(math.pi*t)**.65
+            radius = skin_radius*taper + .008 + .022*math.sin(math.pi*t)**.7 + groove
+            radius = max(radius,.082*(1-t)**2)
+            # Short highlights break up each lock; full-height bright bands
+            # made the first browser version look like uniform corrugation.
+            streak=max(0.,math.sin(t*math.pi*1.7+.7*math.sin(angle*4)))
+            pigment = .80+.17*ridge+.10*streak*ridge**4-.09*(1-t)**2
+            if layer:
+                # A jaw-following inner surface replaces the old single fan
+                # vertex. Its rounded bottom closes the beard under the chin
+                # without a diagonal flap or fan-distorted rim normals.
+                radius=max(.018,skin_radius-.012)
+                y+=.008*(1-t)
+                pigment=.68
             vertex((math.sin(angle)*radius, y, -.030+math.cos(angle)*radius),
-                   .025 + .065*(1-t) + .035*(1-math.cos(angle*17))*math.sin(math.pi*t))
+                   .025+.045*(1-t)+.035*(1-ridge)*math.sin(math.pi*t),pigment)
             if row and col:
                 a = layer*(rows+1)*(sides+1)+(row-1)*(sides+1)+col-1
                 b, c, d = a+1, a+sides+2, a+sides+1
@@ -48,20 +65,25 @@ for layer in range(1):
 loop = list(range(sides+1)) + [r*(sides+1)+sides for r in range(1,rows+1)]
 loop += [rows*(sides+1)+c for c in range(sides-1,-1,-1)]
 loop += [r*(sides+1) for r in range(rows-1,0,-1)]
-back = vertex((0, 1.341, -.045), .03)
-for a,b in zip(loop,loop[1:]+loop[:1]): faces.append([a,back,b])
+inner=(rows+1)*(sides+1)
+for a,b in zip(loop,loop[1:]+loop[:1]):
+    faces.extend([[a,b,b+inner],[a,b+inner,a+inner]])
 
 # Curved tapered moustache locks leave the lips and nose free.
 for sign in [-1,1]:
-    first=len(p); steps=14; sections=8
+    first=len(p); steps=20; sections=12
     for row in range(steps+1):
-        t=row/steps; x=sign*(.003+.053*t); y=1.370-.013*t+.002*math.sin(math.pi*t)
+        t=row/steps; x=sign*(.003+.064*t); y=1.380-.037*t+.009*math.sin(math.pi*t)
         hit,_,_,_=bvh.ray_cast(Vector((x,y,.5)),Vector((0,0,-1)),1.)
         if hit is None: raise RuntimeError('Moustache misses upper lip')
-        radius=.0013+.0065*math.sin(math.pi*(.12+.84*t))**.7
+        radius=.0015+.0125*math.sin(math.pi*(.10+.88*t))**.7
         for col in range(sections):
             a=col/sections*2*math.pi
-            vertex((x,y+math.sin(a)*radius,hit.z+.004+math.cos(a)*radius),.03)
+            # A softly lobed cross section and neutral painted highlights
+            # follow the curved lock, without fixing the chosen hair colour.
+            r=radius*(1+.075*math.cos(a*4+t*3))
+            vertex((x,y+math.sin(a)*r,hit.z+.008+math.cos(a)*r*.7),.025,
+                   .78+.26*max(0.,math.cos(a-.6))+.04*math.cos(a*4+t*3))
             if row:
                 aa=first+(row-1)*sections+col;bb=first+(row-1)*sections+(col+1)%sections
                 cc=first+row*sections+(col+1)%sections;dd=first+row*sections+col
@@ -75,7 +97,8 @@ bm=bmesh.new();bm.from_mesh(mesh);bmesh.ops.recalc_face_normals(bm,faces=list(bm
 mesh.calc_loop_triangles()
 h['beard']={'positions':[round(float(c),7) for v in mesh.vertices for c in v.co],
  'normals':[round(float(c),7) for v in mesh.vertices for c in v.normal],
- 'indices':[v for f in mesh.loop_triangles for v in f.vertices], 'cavities':[round(s,6) for s in shade]}
+ 'indices':[v for f in mesh.loop_triangles for v in f.vertices], 'cavities':[round(s,6) for s in shade],
+ 'shades':[round(s,6) for s in shades]}
 # Preserve the donor brow samples so repeated bakes never accumulate a frown.
 # Fit the focused brow back onto the closed skin after lowering its inner end.
 if 'browExpressionBase' not in h:
