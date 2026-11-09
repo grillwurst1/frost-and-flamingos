@@ -1593,7 +1593,7 @@ Strähnen stecken im bestehenden Figurenmodell; zusätzliche Texturen oder
 Zeichenaufrufe sind dafür nicht nötig. Das Bartmodell besitzt 4.776 Dreiecke.
 
 418 Prüfungen im Gesamtlauf bestehen. Nach der letzten Formkorrektur bestehen
-zusätzlich alle 46 betroffenen Modell-,Kleidungs- und Rollprüfungen. Typprüfung und
+zusätzlich alle 46 betroffenen Modell-, Kleidungs- und Rollprüfungen. Typprüfung und
 Produktionsbuild bestehen. Echte Browseraufnahmen unter docs/qa/video-locks-*
 zeigen Spiel, Kleiderauswahl und Nahansichten ohne Seiten- oder Grafikfehler.
 Die Figur hat 44.374 Dreiecke (+3.240), die Startansicht weiterhin 156 Zeichenaufrufe.
@@ -1621,3 +1621,19 @@ oder Grafikfehler. Echte Aufnahmen: docs/qa/video-painted-beard-*-2026-11-08.png
 Berichte: docs/qa/video-painted-beard-2026-11-08.json und zugehörige Validierung.
 Das ist weiterhin keine vollständige grafische Übereinstimmung mit deinem Video.
 Die Leistung auf dem MacBook M4 ist hier nicht gemessen.
+
+
+## Rundere Schultern und anliegende Hemddetails – 9. November 2026
+
+Das Hemd erhält eine weichere Brust-/Schulterform und eine kleinere Halsöffnung.
+Knopfleiste, Kragen und Hosenträger folgen derselben tatsächlichen Stofffläche;
+der Kragen läuft zu seinen Enden hin schmaler aus. Körperbreite, Kleidung und
+Haut bleiben frei wählbar. Die zusätzlichen Formen werden beim Erstellen der
+Ausrüstung berechnet und im bestehenden Figurenmodell dargestellt.
+
+50 gezielte Modell-, Kleidungs- und Flächenprüfungen sowie die Typprüfung bestehen.
+Alle 420 Prüfungen, die Typprüfung und der Produktionsbuild bestehen.
+Die echte Browserprüfung besteht ohne Seiten-, HTTP- oder Grafikfehler.
+Die Figur hat jetzt 44.630 Dreiecke (+256), die Startansicht weiterhin 156
+Zeichenaufrufe. Aufnahmen und Bericht: docs/qa/video-tailoring-2026-11-09.*.
+Die Gesamtgrafik entspricht weiterhin noch nicht vollständig dem Zielvideo.

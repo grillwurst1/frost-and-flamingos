@@ -24,7 +24,7 @@ function surface(scene: Scene, name: string, positions: number[], indices: numbe
 
 /** A fitted leather/cloth ribbon with bevelled edges, following the garment
  * rather than floating as a straight board across a curved chest/back. */
-export function tailoredStrip(scene: Scene, name: string, path: readonly Vector3[], width: number,
+export function tailoredStrip(scene: Scene, name: string, path: readonly Vector3[], width: number | ((t:number)=>number),
   thickness: number, color: Color4): Mesh {
   const positions: number[] = [], indices: number[] = [], cavity: number[] = [];
   const section = [[-.5, -.25], [-.43, -.5], [.43, -.5], [.5, -.25], [.5, .25], [.43, .5], [-.43, .5], [-.5, .25]] as const;
@@ -34,8 +34,9 @@ export function tailoredStrip(scene: Scene, name: string, path: readonly Vector3
     const normal = new Vector3(p.x * .3, 0, p.z < 0 ? -1 : 1);
     const across = Vector3.Cross(tangent, normal).normalize();
     const out = Vector3.Cross(across, tangent).normalize();
+    const rowWidth=typeof width==='number'?width:width(row/Math.max(1,path.length-1));
     for (const [x, z] of section) {
-      const at = p.add(across.scale(x * width)).add(out.scale(z * thickness));
+      const at = p.add(across.scale(x * rowWidth)).add(out.scale(z * thickness));
       positions.push(at.x, at.y, at.z); cavity.push(z < 0 ? .12 : .025);
     }
     if (row) for (let j = 0; j < 8; j++) {

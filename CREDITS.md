@@ -319,3 +319,10 @@ the owner's unchanged `alpine-heavy.glb` / `alpine-heavy-basecolor.webp`; source
 checksum is retained in the beard geometry. Only neutral painted value is reused,
 so every selected hair colour remains independent of skin. The original Lagoon
 Allrounder curl paint shares the existing atlas. Tool: `scripts/bake-beard-paint.py`.
+
+
+### Continuous cloth surfaces — 9 November 2026
+
+Original procedural tailoring in `character-tailoring.ts`: a shape-preserving
+cubic shoulder/neck profile shared by solid shirt/waistcoat geometry and fitted
+collar/placket/harness paths. No additional external art or textures.

@@ -33,6 +33,7 @@ import {
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
 import { sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
+import { shirtPoint, shirtProfile, shirtSurface } from './character-tailoring';
 import { createContactShadow } from './contact-shadow';
 import { tagComicPaint } from './comic-paint';
 
@@ -68,22 +69,6 @@ function tagParts(parts: readonly Mesh[], tag: number, detail = 0): void {
     for (let i = 0; i < data.length; i += 2) { data[i] = tag; data[i + 1] = detail; }
     part.setVerticesData('uv2', data, false, 2);
   }
-}
-
-const SHIRT_PROFILE: readonly (readonly [number, number])[] = [
-  [.38,-.5],[.40,-.35],[.46,-.05],[.50,.20],[.47,.40],[.37,.50],
-];
-
-function shirtFront(x:number,y:number,width:number,height:number,depth:number,centre:number,offset=.006):Vector3 {
-  const u=Math.max(-.5,Math.min(.5,(y-centre)/height));
-  let radius=SHIRT_PROFILE[SHIRT_PROFILE.length-1]![0];
-  for(let i=0;i+1<SHIRT_PROFILE.length;i++){
-    const a=SHIRT_PROFILE[i]!,b=SHIRT_PROFILE[i+1]!;
-    if(u<=b[1]){radius=a[0]+(b[0]-a[0])*(u-a[1])/(b[1]-a[1]);break;}
-  }
-  const angle=Math.asin(Math.max(-.99,Math.min(.99,x/(radius*width))));
-  const fold=Math.sin(angle*7+u*4)*.009*Math.max(0,1-Math.abs(u*2));
-  return new Vector3(x,y,Math.cos(angle)*(depth*radius+fold)+offset);
 }
 
 /** Shared cross-section for rounded hips, boots and their fitted trim. */
@@ -167,7 +152,8 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
     }
   } else if (organic) {
     const torso = /^(chest|waist|hip|hip-facing|waist-belt|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$/.test(name);
-    const profile: Array<[number, number]> = /^((ranger|field)-waistcoat|alpine-shirt-body)$/.test(name) ? SHIRT_PROFILE.map(([radius,y])=>[radius*width,y*height] as [number,number]) : name.endsWith('-arm-sculpt') ? [
+    const fittedTorso=/^((ranger|field)-waistcoat|alpine-shirt-body)$/.test(name);
+    const profile: Array<[number, number]> = fittedTorso ? shirtProfile().map(([radius,y])=>[radius*width,y*height] as [number,number]) : name.endsWith('-arm-sculpt') ? [
       [.23 * width, -height / 2], [.245 * width, -height * .45], [.315 * width, -height * .32],
       [.385 * width, -height * .15], [.365 * width, 0], [.4 * width, height * .12],
       [.44 * width, height * .27], [.5 * width, height * .42], [.44 * width, height / 2], [.27 * width, height / 2 + .035], [.03 * width, height / 2 + .065],
@@ -188,8 +174,9 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
         const angle = Math.atan2(x, z * width / depth);
         const edge = Math.max(0, 1 - Math.abs(y / height * 2));
         const fold = Math.sin(angle * 7 + y / height * 4) * .009 * edge;
-        batch.positions[v] = x + Math.sin(angle) * fold;
-        batch.positions[v + 2] = z + Math.cos(angle) * fold;
+        const point=fittedTorso?shirtSurface(angle,y/height,width,depth):[x+Math.sin(angle)*fold,z+Math.cos(angle)*fold];
+        batch.positions[v] = point[0]!;
+        batch.positions[v + 2] = point[1]!;
       }
       VertexData.ComputeNormals(batch.positions, batch.indices, batch.normals);
     }
@@ -668,7 +655,7 @@ export class CharacterView {
       box(scene, body, 'field-waist-hem', waistWidth + .035, .045, chestDepth, 0, .045, 0, torsoSecondary);
     } else if (torso === 'torso_alpine_shirt') {
       const width=shoulderWidth*.94,height=.65,depth=chestDepth+.02,centre=.27;
-      const point=(x:number,y:number,offset=.006)=>shirtFront(x,y,width,height,depth,centre,offset);
+      const point=(x:number,y:number,offset=.006)=>shirtPoint(x,y,width,height,depth,centre,offset);
       box(scene,body,'alpine-shirt-body',width,height,depth,0,centre,0,torsoPrimary);
       body.push(tailoredStrip(scene,'alpine-shirt-placket',Array.from({length:9},(_,i)=>point(0,.09+i/8*.44)),.05,.006,torsoPrimary));
       for(let button=0;button<4;button++){
@@ -677,7 +664,7 @@ export class CharacterView {
       }
       for(const side of [-1,1]){
         const collar=Array.from({length:5},(_,i)=>{const t=i/4;return point(side*(.11-.045*t),.59-.065*t,.012)});
-        body.push(tailoredStrip(scene,'alpine-shirt-collar',collar,.07,.009,torsoPrimary));
+        body.push(tailoredStrip(scene,'alpine-shirt-collar',collar,t=>.014+.048*Math.sin(Math.PI*t)**.7,.009,torsoPrimary));
         const p=point(side*.14,.20,.014);
         box(scene,body,'alpine-shirt-brace-buckle',.036,.038,.018,p.x,p.y,p.z,torsoAccent);
       }
@@ -806,22 +793,15 @@ export class CharacterView {
       const vestDepth = chestDepth + (alpine ? .02 : field ? .04 : .03);
       const vestHeight = alpine ? .65 : field ? .49 : .55;
       const vestCentre = alpine || field ? .27 : .23;
-      const section = SHIRT_PROFILE.map(([radius,y])=>[y,radius] as const);
       for (const side of [-1, 1]) {
         // Back seams remain visible when the selected backpack is absent.
         for (const back of [-1, 1]) {
           const path: Vector3[] = [];
           for (let step = 0; step <= 10; step++) {
             const y = .08 + step / 10 * (alpine ? .52 : .44);
-            const x = side * shoulderWidth * (.22 + .035 * Math.sin(step / 10 * Math.PI));
-            const u = Math.max(-.5, Math.min(.5, (y - vestCentre) / vestHeight));
-            let radius = .37;
-            for (let i = 0; i + 1 < section.length; i++) {
-              const a = section[i]!, b = section[i + 1]!;
-              if (u <= b[0]) { radius = a[1] + (b[1] - a[1]) * (u - a[0]) / (b[0] - a[0]); break; }
-            }
-            const z = back * (vestDepth * radius * Math.sqrt(Math.max(0, 1 - (x / (vestWidth * radius)) ** 2)) + .010);
-            path.push(new Vector3(x, y, z));
+            const t=step/10;
+            const x = side * shoulderWidth * (.22 + .035 * Math.sin(t * Math.PI)-.09*t**4);
+            path.push(shirtPoint(x,y,vestWidth,vestHeight,vestDepth,vestCentre,.010,back));
           }
           const strap = torso === 'torso_tracht_shirt' || torso === 'torso_alpine_shirt';
           body.push(tailoredStrip(scene, strap ? 'fitted-leather-harness' : 'vest-tailored-seam', path, strap ? .038 : .008, .009, strap ? leather : torsoSecondary));

@@ -858,3 +858,13 @@ errors. Evidence: docs/qa/video-painted-beard-2026-11-08.json, companion validat
 JSON and actual scene/body/face/wardrobe PNGs. Full functional coverage and final
 UV/mask rechecks pass; one default 5-second boat timeout passed the documented
 isolated 15-second retry. Skin/head buffers remain unchanged from 8abd0ee.
+
+
+### 9 November 2026 — continuous cloth shoulders
+
+Owner-priority art: cubic shirt/waistcoat surface, sloping shoulders, fitted
+trim and tapered collar. All 420 cases pass (244 server cases use the documented
+15-second Cloud timeout), strict diagnostics and production build pass. Actual
+Medium WebGL2 capture has 44,630 hero triangles (+256), 156 initial draws and
+zero page/HTTP/context errors. Evidence: docs/qa/video-tailoring-2026-11-09.json
+and actual PNGs. Native M4 and exact video acceptance remain open.

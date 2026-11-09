@@ -1946,3 +1946,27 @@ and scene/body/face/wardrobe PNGs. Final 512×256 beard UV tile prevents unneces
 isotropic mip blur; the constant hair mask is 1×1. No negative mip bias is used.
 The overall figure/world art still falls short of the supplied gameplay video.
 Exact likeness, native M4 thermals/FPS and full WebGPU acceptance remain OPEN.
+
+
+## Continuous tailored shoulders and fitted trim — 9 November 2026
+
+Replaced the six-ring, wide-neck torso outline with a shape-preserving cubic
+cloth profile and a sloping shoulder into a narrower neck opening. The real
+shirt/waistcoat shell and every Alpine placket/collar/harness point now share one
+surface evaluator, including restrained modelled folds. Trims are solved onto
+the actual front/back ellipse instead of a separate approximate radius; their
+paths stay on the garment bounds. The Alpine collar tapers towards both ends.
+All geometry is still generated once per cached outfit, in the existing skinned
+body draw. No new textures/materials, shaders, protocol or gameplay rules.
+
+Two new tests inspect bounded shoulder curvature and actual emitted cloth:
+48 front-ray samples across three body widths require 4–14 mm trim clearance.
+All 50 focused anatomy/wardrobe/tailoring/detail cases pass. Strict checks report
+0 errors / 0 warnings. Final browser art review and broad checks complete.
+All final checks pass: 15 asset/script cases, 244 server cases (documented
+15-second Cloud timeout) and 161 client cases: 420 total. Strict diagnostics:
+0 errors / 0 warnings; production builds pass. Actual Medium 1280×720 WebGL2
+review passes with six cast labels, real wardrobe projection and no page/HTTP/
+context errors. Hero 44,630 triangles (+256), unchanged 156 initial draws.
+Evidence: `docs/qa/video-tailoring-2026-11-09.json` and scene/body/face/wardrobe PNGs.
+Exact video likeness and native M4 performance remain OPEN.
