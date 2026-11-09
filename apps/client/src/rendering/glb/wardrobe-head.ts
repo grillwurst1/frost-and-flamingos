@@ -4,6 +4,8 @@ export interface WardrobeHeadGeometry {
   sourceHash: string;
   frame: { y: number; z: number; radius: number };
   solidAnatomy?: true;
+  /** Offline sculpt version, with one fitted contact-lighting bake. */
+  facePlaneSculptVersion?: 1;
   positions: number[];
   normals: number[];
   uvs: number[];
@@ -31,6 +33,7 @@ export function parseWardrobeHead(value: unknown): WardrobeHeadGeometry | null {
   if(h.ambientOcclusion!==undefined&&(!Array.isArray(h.ambientOcclusion)||h.ambientOcclusion.length!==count
     ||!h.ambientOcclusion.every(n=>Number.isFinite(n)&&n>=0&&n<=.55)))return null;
   if (h.solidAnatomy !== undefined && h.solidAnatomy !== true) return null;
+  if (h.facePlaneSculptVersion !== undefined && h.facePlaneSculptVersion !== 1) return null;
   if (h.beardPaintAtlas !== undefined && h.beardPaintAtlas !== 1) return null;
   for (const [array, length] of [[h.positions, count * 3], [h.normals, count * 3], [h.uvs, count * 2], [h.tints, count * 3]] as const)
     if (!Array.isArray(array) || array.length !== length || !array.every(Number.isFinite)) return null;

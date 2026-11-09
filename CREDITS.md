@@ -326,3 +326,11 @@ Allrounder curl paint shares the existing atlas. Tool: `scripts/bake-beard-paint
 Original procedural tailoring in `character-tailoring.ts`: a shape-preserving
 cubic shoulder/neck profile shared by solid shirt/waistcoat geometry and fitted
 collar/placket/harness paths. No additional external art or textures.
+
+
+### Sculpted facial planes — 9 November 2026
+
+Original offline deformation of the closed derived owner Scout head, with
+expanded nasal/cheek/orbital planes and refitted brows/beard/creases. No original
+GLB or supplied paint is modified. The shared skin remains colour-independent;
+contact lighting is recalculated on the final sculpt. `scripts/sculpt-face-planes.py`.

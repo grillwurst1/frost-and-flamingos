@@ -317,3 +317,37 @@ review passes with six cast labels, real wardrobe projection and no page/HTTP/
 context errors. Hero 44,630 triangles (+256), unchanged 156 initial draws.
 Evidence: `docs/qa/video-tailoring-2026-11-09.json` and scene/body/face/wardrobe PNGs.
 Exact video likeness and native M4 performance remain OPEN.
+
+
+## Sculpted facial planes and one contact-lighting bake — 9 November 2026
+
+Expanded the existing closed sculpt's nose/bridge, cheek and orbital planes,
+slightly strengthened its lower face and gave the curved brows a fuller section.
+Skin, lip and brow normals follow the new surface; beard/moustache and crease
+ribbons are refitted afterwards. Heavy eye height increases from 0.85 to 1.10 of
+the shared eye geometry. Frames, selectable skin/hair/clothing and topology stay
+independent. No extra triangles, textures, shader passes or per-frame morph work.
+
+The final contact-lighting bake is now applied once: solid facial-skin UV cavity
+values are zero instead of multiplying the old cavity and new occlusion together.
+The selected base pigment is unchanged. `sculpt-face-planes.py` runs after closed
+head derivation and before beard/crease fitting; a version marker prevents
+accumulated deformation. Fresh derivation from the original owner Scout matches
+the upgraded head's geometry, normals, brows, beard and occlusion exactly.
+
+44 targeted asset/native cases pass. A default 5-second roll-test timeout passed
+the isolated 15-second retry (both roll cases); strict diagnostics show 0 errors /
+0 warnings. Final browser review and affected-suite checks complete.
+Final verification passes: all 15 script/asset cases and all 161 client cases
+(the latter use the 15-second Cloud timeout); the unchanged 244 server cases
+passed at 62e8860. The initial isolated roll run had one 5-second timeout, followed
+by two passing roll cases and the complete passing client suite. Strict checks:
+0 errors / 0 warnings; production builds pass and copied assets match sources.
+
+Actual Medium 1280×720 WebGL2 review passes: six live cast labels, real wardrobe
+projection, zero page/HTTP/context errors. Hero 44,630 triangles and 156 initial
+draws remain unchanged from the torso checkpoint. Evidence:
+`docs/qa/video-face-planes-2026-11-09.json`, companion validation JSON and actual
+scene/body/face/wardrobe PNGs. Reapplying the versioned sculpt is byte-identical;
+fresh-source core geometry, normals, brows, beard and occlusion match exactly.
+The overall video-reference quality and native M4/WebGPU acceptance remain OPEN.

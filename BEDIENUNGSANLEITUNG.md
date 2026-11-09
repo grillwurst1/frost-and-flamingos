@@ -1637,3 +1637,22 @@ Die echte Browserprüfung besteht ohne Seiten-, HTTP- oder Grafikfehler.
 Die Figur hat jetzt 44.630 Dreiecke (+256), die Startansicht weiterhin 156
 Zeichenaufrufe. Aufnahmen und Bericht: docs/qa/video-tailoring-2026-11-09.*.
 Die Gesamtgrafik entspricht weiterhin noch nicht vollständig dem Zielvideo.
+
+
+## Ausgeformte Gesichtszüge – 9. November 2026
+
+Nasenrücken, Wangen, Augenbrauen und untere Gesichtspartie sind plastischer
+geformt. Die Augen der Heavy-Figur sind etwas höher. Bart und Gesichtsfalten
+werden neu an die Oberfläche angepasst. Haut- und Haarfarbe bleiben unabhängig
+wählbar. Die Kontaktschattierung wird nur einmal auf die fertige Form angewendet;
+die Hautfarbe selbst ändert sich dadurch nicht. Die Formen werden vorab gebaut,
+ohne zusätzliche Dreiecke oder Texturen im Spiel.
+
+Alle 15 Asset- und 161 Clientprüfungen sowie Typprüfung und Produktionsbuild
+bestehen. Die Clientprüfung verwendet das längere Cloud-Testzeitlimit; eine
+Rollprüfung war im ersten Lauf am kurzen Zeitlimit gescheitert und besteht im
+Nachtest. Die unveränderten 244 Serverfälle bestanden bereits beim Hemdschritt.
+Die Browserprüfung besteht ohne Seiten-, HTTP- oder Grafikfehler. Gesicht und
+Gesamtfigur bleiben bei derselben Geometrieanzahl; die Startansicht hat weiterhin
+156 Zeichenaufrufe. Aufnahmen und Berichte: docs/qa/video-face-planes-2026-11-09.*.
+Die Gesamtgrafik erreicht die Video-Zielqualität weiterhin noch nicht vollständig.

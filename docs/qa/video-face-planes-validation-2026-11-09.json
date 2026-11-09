@@ -1,0 +1,52 @@
+{
+  "baseCommit": "62e8860900ea46988e79a63071c9dc2203b7874c",
+  "headHash": "74ca8a61eec87fc021261b402b46da547992f2b107fb6bb53d42c3039021ba77",
+  "wardrobeRevision": "b307552ae7ea93bfb34d3019982e71ea613ec97678e4520279507477d5fa034d",
+  "headVertices": 4251,
+  "headTriangles": 7948,
+  "topologyUnchanged": true,
+  "pigmentTintsUnchanged": true,
+  "skinReferenceUnchanged": true,
+  "freshSourceGeometryNormalsBrowsBeardAndOcclusionMatch": true,
+  "repeatSculptVersionIsByteIdentical": true,
+  "singleContactLighting": {
+    "skinCavityUVsZero": true,
+    "peakOcclusion": 0.39403
+  },
+  "tests": {
+    "targetedAssetNative": 44,
+    "initialRollRun": {
+      "passed": 1,
+      "timeouts": 1,
+      "limitMs": 5000
+    },
+    "rollRetry": {
+      "passed": 2,
+      "failed": 0,
+      "commandTimeoutMs": 15000
+    },
+    "finalScriptCases": 15,
+    "finalClientCases": 161,
+    "finalClientCommandTimeoutMs": 15000,
+    "unchangedServerCasesPassedAtBaseCommit": 244,
+    "strictErrors": 0,
+    "strictWarnings": 0,
+    "productionBuild": "passed"
+  },
+  "browser": {
+    "mediumViewport": [
+      1280,
+      720
+    ],
+    "renderer": "WebGL2 SwiftShader",
+    "errors": 0,
+    "httpFailures": 0,
+    "contextLosses": 0,
+    "castLabels": 6,
+    "wardrobeProjection": "passed",
+    "heroTriangles": 44630,
+    "initialDrawCalls": 156
+  },
+  "nativeM4Measured": false,
+  "exactVideoLikeness": "open"
+}

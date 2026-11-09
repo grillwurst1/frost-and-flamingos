@@ -36,8 +36,14 @@ test('the shared closed head and curls match their original sources and every cl
   expect(h!.painted.filter(kind => kind === 0).length).toBeGreaterThan(3000);
   expect(h!.painted.includes(1)).toBe(false);
   expect(h!.painted.includes(3)).toBe(true);
-  expect(h!.uvs.some((n, i) => i % 2 === 0 && h!.painted[i / 2] === 0 && n > .01)).toBe(true);
-  expect(h!.uvs.every((n, i) => h!.painted[Math.floor(i / 2)] !== 0 || n >= 0 && n <= .18)).toBe(true);
+  expect(h!.facePlaneSculptVersion).toBe(1);
+  // Final-sculpt contact lighting lives in ambientOcclusion. A second UV
+  // cavity factor must not darken the same nose/eye folds again.
+  expect(h!.uvs.every((n, i) => h!.painted[Math.floor(i / 2)] !== 0 || n === 0)).toBe(true);
+  const nose=h!.positions.filter((_,i)=>i%3===2&&h!.painted[(i-2)/3]===0
+    && Math.abs(h!.positions[i-2]!)<.02&&Math.abs(h!.positions[i-1]!-1.403)<.01);
+  expect(Math.max(...nose)).toBeGreaterThan(.102);
+  expect(parseWardrobeHead({...h,facePlaneSculptVersion:2})).toBeNull();
   expect(h!.indices.length / 3).toBeLessThan(8000);
   expect(h!.ambientOcclusion).toHaveLength(h!.positions.length/3);
   expect(Math.max(...h!.ambientOcclusion!)).toBeGreaterThan(.2);

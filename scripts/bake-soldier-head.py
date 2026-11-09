@@ -155,6 +155,8 @@ head_file=output/'soldier-head.json'
 head_file.write_text(json.dumps(head,separators=(',',':'),allow_nan=False))
 subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('refine-head-sculpt.py')),
     '--',str(head_file),str(head_file)],check=True)
+subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('sculpt-face-planes.py')),
+    '--',str(head_file)],check=True)
 subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('bake-head-details.py')),
     '--',str(head_file)],check=True)
 subprocess.run(['blender','--background','--threads','2','--python',str(Path(__file__).with_name('sculpt-comic-face.py')),

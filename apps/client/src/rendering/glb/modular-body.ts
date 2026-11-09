@@ -495,7 +495,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     for (let f = 0; f < h.indices.length; f += 3) indices.push(first + h.indices[f]!, first + h.indices[f + 2]!, first + h.indices[f + 1]!);
     const eyes = sculptedEyes(), eyeBase = positions.length / 3;
-    const eyeHeight = profile.cosmetics.classId === 'heavy' ? .85 : 1;
+    const eyeHeight = profile.cosmetics.classId === 'heavy' ? 1.10 : 1;
     for (let v = 0; v < eyes.positions.length / 3; v++) {
       positions.push(eyes.positions[v * 3]! * scale * broad,
         frame.y + (1.438 + (eyes.positions[v * 3 + 1]! - 1.438) * eyeHeight - h.frame.y) * scale,

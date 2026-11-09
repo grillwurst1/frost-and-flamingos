@@ -868,3 +868,17 @@ trim and tapered collar. All 420 cases pass (244 server cases use the documented
 Medium WebGL2 capture has 44,630 hero triangles (+256), 156 initial draws and
 zero page/HTTP/context errors. Evidence: docs/qa/video-tailoring-2026-11-09.json
 and actual PNGs. Native M4 and exact video acceptance remain open.
+
+
+### 9 November 2026 — facial planes and single contact lighting
+
+Owner-priority art continues after 62e8860: stronger nasal/cheek/orbital planes,
+fuller brows, higher Heavy eyes and one contact-lighting bake. Closed topology,
+selected skin/hair pigments and 44,630 hero triangles are retained. Fresh-source
+geometry/brow/beard/lighting equals the upgrade; repeating the sculpt is a no-op.
+All 15 script/asset and 161 client cases pass with the Cloud time allowance; the
+unchanged 244 server cases passed at the preceding checkpoint. Strict checks,
+production build and actual Medium WebGL2 review pass, with 156 initial draws
+and zero page/HTTP/context errors. One initial 5-second roll timeout passed on
+retry. Evidence: docs/qa/video-face-planes-2026-11-09.json and companion files.
+Full reference acceptance and native M4 measurements remain open.
