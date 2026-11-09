@@ -334,3 +334,13 @@ Original offline deformation of the closed derived owner Scout head, with
 expanded nasal/cheek/orbital planes and refitted brows/beard/creases. No original
 GLB or supplied paint is modified. The shared skin remains colour-independent;
 contact lighting is recalculated on the final sculpt. `scripts/sculpt-face-planes.py`.
+
+
+### Original sculpted beard and anatomical forearms — 9 November 2026
+
+The wardrobe beard is now extracted from the owner's original Alpine Heavy
+Meshy geometry, welded, thickened and remeshed offline. Its selectable pigment
+still uses the previously derived neutral source-paint atlas. Rolled shirts
+expose the existing closed Lagoon Heavy anatomical arm derivation retargeted
+to each rig. Folded hollow cuffs are original procedural project geometry.
+No external art, original GLB or owner reference video was modified.

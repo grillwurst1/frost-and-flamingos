@@ -882,3 +882,14 @@ production build and actual Medium WebGL2 review pass, with 156 initial draws
 and zero page/HTTP/context errors. One initial 5-second roll timeout passed on
 retry. Evidence: docs/qa/video-face-planes-2026-11-09.json and companion files.
 Full reference acceptance and native M4 measurements remain open.
+
+
+## Reference character reconstruction — 9 November 2026
+
+Owner-priority character reconstruction: original sculpted beard/paint, anatomical
+forearms under rolled cuffs, corrected hat-independent class height and camera,
+subdued socks/ginger. All 423 cases, strict checks, build and actual Medium
+WebGL2 captures pass; fresh/repeated beard bakes match exactly. Hero 44,572 tris,
+unchanged 156 initial draws. Evidence: docs/qa/video-figure-rebuild-2026-11-09.*
+and companion images/report. Next art gaps remain softer clothing, closer facial/
+body silhouette and overall video likeness; M5/M6 gates are unchanged.

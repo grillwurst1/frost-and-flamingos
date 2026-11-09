@@ -127,7 +127,7 @@ export const SKIN_TONES = [
 
 /** Signature ginger first, then the rest of the wardrobe palette. */
 export const HAIR_COLORS = [
-  '#f5741c',
+  '#d85b17',
   '#b83214',
   '#f2c94c',
   '#f5efe0',

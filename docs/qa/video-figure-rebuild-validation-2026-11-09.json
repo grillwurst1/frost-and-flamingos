@@ -1,0 +1,68 @@
+{
+  "baseCommit": "04e38b2dcd3dabe6f5375846a4b04091d4381732",
+  "headHash": "28b6159d989612579bd8f1226b294429d0fb4279545f4b9303ae5051f0ca56a9",
+  "wardrobeRevision": "cc00af3091edf240bb854ee87cc23f5054e76eceabeb758a6d3346d17f435c5e",
+  "nativeBeard": {
+    "vertices": 2112,
+    "triangles": 4200,
+    "nativeSculpt": true
+  },
+  "reproducibility": {
+    "sharedHeadExceptBeardUnchanged": true,
+    "bakes": [
+      {
+        "run": "fresh",
+        "byteIdentical": true,
+        "hashes": {
+          "soldier-head.json": "28b6159d989612579bd8f1226b294429d0fb4279545f4b9303ae5051f0ca56a9",
+          "soldier-head-basecolor.webp": "73006a3db585752dd455ab90a847aa9eba227635553cb5ef81aba1eaad049774",
+          "soldier-head-mask.webp": "d430909f9aca34fa1f3943f69eac50e380a587fcb811be3a19e20dbbcfbebddb"
+        }
+      },
+      {
+        "run": "repeat",
+        "byteIdentical": true,
+        "hashes": {
+          "soldier-head.json": "28b6159d989612579bd8f1226b294429d0fb4279545f4b9303ae5051f0ca56a9",
+          "soldier-head-basecolor.webp": "73006a3db585752dd455ab90a847aa9eba227635553cb5ef81aba1eaad049774",
+          "soldier-head-mask.webp": "d430909f9aca34fa1f3943f69eac50e380a587fcb811be3a19e20dbbcfbebddb"
+        }
+      }
+    ]
+  },
+  "productionAssetsMatchSources": true,
+  "tests": {
+    "scripts": 15,
+    "server": 244,
+    "client": 164,
+    "total": 423,
+    "serverTimeoutMs": 15000,
+    "clientTimeoutMs": 20000,
+    "strictErrors": 0,
+    "strictWarnings": 0,
+    "productionBuild": "passed"
+  },
+  "browser": {
+    "status": "passed",
+    "viewport": [
+      1280,
+      720
+    ],
+    "renderer": "WebGL2 SwiftShader",
+    "errors": 0,
+    "httpFailures": 0,
+    "contextLosses": 0,
+    "castLabels": 6,
+    "wardrobeProjection": "passed",
+    "heroTriangles": 44572,
+    "initialDrawCalls": 156,
+    "modelScale": 1.3070112124456936
+  },
+  "nativeM4Measured": false,
+  "exactVideoLikeness": "open",
+  "remainingArtGaps": [
+    "clothing softness",
+    "facial and body silhouette",
+    "overall video likeness"
+  ]
+}

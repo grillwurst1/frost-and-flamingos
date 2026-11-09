@@ -1584,3 +1584,17 @@ draws remain unchanged from the torso checkpoint. Evidence:
 scene/body/face/wardrobe PNGs. Reapplying the versioned sculpt is byte-identical;
 fresh-source core geometry, normals, brows, beard and occlusion match exactly.
 The overall video-reference quality and native M4/WebGPU acceptance remain OPEN.
+
+
+## Reference character reconstruction — 9 November 2026
+
+The reference hero now uses the owner's sculpted beard and anatomical forearms,
+with folded shirt cuffs, subdued wool socks and a deeper ginger palette. Body
+height is calibrated without hats or hair; a Heavy reaches 1.95 m. Skin, outfits,
+hair colour, independent feet and existing animation remain configurable.
+
+All 423 tests, strict type checks and production builds pass. Actual Medium
+WebGL2 captures have no page/HTTP/context errors, 44,572 hero triangles and the
+same 156 initial draws. See `docs/qa/video-figure-rebuild-2026-11-09.json` and
+companion PNGs. Exact video likeness remains open, particularly clothing softness
+and overall sculpt; native M4 performance has not been measured in this Cloud.

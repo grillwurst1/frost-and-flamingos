@@ -21,6 +21,21 @@ const torsoFrames = new WeakMap<Mesh, TorsoDepth>();
 const footSpreads = new WeakMap<Mesh, number>();
 const bodyCache = new WeakMap<Scene, Map<string, CachedBody>>();
 const MAX_CACHED_BODIES = 12;
+const skinTops=new WeakMap<NonNullable<PaintedModelAsset['wardrobeHead']>,number>();
+
+/** A helmet, afro or spoon must not shrink the anatomical body to its class height. */
+export function modularAnatomicalHeight(profile:PlayerProfile,asset:PaintedModelAsset):number {
+  const h=asset.wardrobeHead;if(!h)return asset.height;
+  let top=skinTops.get(h);
+  if(top===undefined) {
+    top=-Infinity;
+    for(let i=0;i<h.painted.length;i++)if(h.painted[i]===0)top=Math.max(top,h.positions[i*3+1]!);
+    skinTops.set(h,top);
+  }
+  if(!Number.isFinite(top))return asset.height;
+  const frame=modularHeadFrame(profile,asset,true,true);
+  return frame.y+(top-h.frame.y)*frame.radius/h.frame.radius;
+}
 
 export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset, native = false, sharedHead = false): PaintedModelAsset['spec']['head'] {
   const head = asset.spec.head;
@@ -53,6 +68,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     torso: profile.cosmetics.torso === 'torso_tracht_shirt' ? Boolean(shirt) : nativeRecipe.torso,
   } : nativeRecipe;
   const surfaces = native && sharedBody ? bodySurfaceRecipe(profile, asset) : { arms: false };
+  const rolledAuthoredArms=surfaces.arms&&['torso_alpine_shirt','torso_tracht_shirt','torso_hawaii_shirt'].includes(profile.cosmetics.torso);
   const handSource = native && !recipe.hands ? asset.wardrobeBody?.hands : undefined;
   const key = `${asset.spec.key}:${profileAppearanceKey(profile)}:${native}:${cleanHead}:${surfaces.arms}:${Boolean(handSource)}:${Boolean(shirt)}:${Boolean(breeches)}`;
   const finish = (cached: CachedBody): Mesh => {
@@ -277,7 +293,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
             : detail === 8 ? recipe.head || (cleanHead && Boolean(asset.wardrobeHead?.beard)) : recipe.head;
           else if (tag === 0) replaced = detail === 6 ? recipe.head : detail === 7 ? recipe.legs : recipe.torso;
         } else if (name.includes('arm')) {
-          replaced = detail === 3 || detail === 4 ? recipe.hands : recipe.arms || surfaces.arms;
+          replaced = detail === 3 || detail === 4 ? recipe.hands : recipe.arms
+            || (surfaces.arms && [faces[f]!,faces[f+1]!,faces[f+2]!].every(v=>paint[v*4+3]!>.5));
         } else {
           replaced = detail === 2 ? recipe.feet : recipe.legs;
           if(detail===5)replaced=false; // Independent selected knee sock over the native foot/leg.
@@ -545,6 +562,19 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     const add = (old: number, region: number): number => {
       const key = `${old}:${region}`, cached = remap.get(key); if (cached !== undefined) return cached;
       const index = positions.length / 3, vertex = retarget.vertex(old); remap.set(key, index);
+      if(rolledAuthoredArms) {
+        // Keep a complete anatomical arm under the sleeve. Only the hidden
+        // upper section is narrowed; the exposed elbow/forearm keeps its sculpt.
+        const side=vertex.position.x>0?'Left':'Right';
+        const shoulder=bind(side+'Arm'),axis=bind(side+'ForeArm').subtract(shoulder);
+        const t=Vector3.Dot(vertex.position.subtract(shoulder),axis)/axis.lengthSquared();
+        const blend=Math.max(0,Math.min(1,(t-.55)/.25));
+        const radius=.65+.35*blend*blend*(3-2*blend);
+        if(radius<1) {
+          const centre=shoulder.add(axis.scale(t));
+          vertex.position.copyFrom(centre.add(vertex.position.subtract(centre).scale(radius)));
+        }
+      }
       positions.push(vertex.position.x, vertex.position.y, vertex.position.z);
       headNormals.push(index, vertex.normal.x, vertex.normal.y, vertex.normal.z);
       colors.push(...(region === 4 ? skinRGB : [1, 1, 1]), region === 4 ? 1 : 0);

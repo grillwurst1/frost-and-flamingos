@@ -4,9 +4,29 @@ import { Scene } from '@babylonjs/core/scene';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { createDefaultProfile } from '@frost-and-flamingos/shared';
 import { CharacterView } from '../src/rendering/character';
-import { sculptedBeard, tailoredStrip } from '../src/rendering/character-surfaces';
+import { rolledSleeve, sculptedBeard, tailoredStrip } from '../src/rendering/character-surfaces';
 import { Color4, Vector3 } from '@babylonjs/core/Maths/math';
 import { sculptedEyes } from '../src/rendering/glb/eye-surfaces';
+
+test('rolled cuffs leave an arm opening and form a closed fold with outward cloth normals',()=>{
+  const engine=new NullEngine(),scene=new Scene(engine),mesh=rolledSleeve(scene,'cuff',.15,.05,new Color4(1,1,1,0));
+  try {
+    const p=mesh.getVerticesData('position')!,n=mesh.getVerticesData('normal')!,faces=mesh.getIndices()!;
+    const edges=new Map<string,number>();let outer=0,inner=0;
+    for(let v=0;v<mesh.getTotalVertices();v++) {
+      const x=p[v*3]!,z=p[v*3+2]!,r=Math.hypot(x,z),dot=(x*n[v*3]!+z*n[v*3+2]!)/r;
+      expect(r).toBeGreaterThan(.054);
+      if(r>.073){expect(dot).toBeGreaterThan(.3);outer++}
+      if(r<.056){expect(dot).toBeLessThan(-.3);inner++}
+    }
+    for(let f=0;f<faces.length;f+=3)for(let k=0;k<3;k++) {
+      const a=faces[f+k]!,b=faces[f+(k+1)%3]!,key=`${Math.min(a,b)}:${Math.max(a,b)}`;
+      edges.set(key,(edges.get(key)??0)+1);
+    }
+    expect(outer).toBeGreaterThan(20);expect(inner).toBeGreaterThan(20);
+    expect([...edges.values()].every(n=>n===2)).toBe(true);
+  }finally{scene.dispose();engine.dispose()}
+});
 
 test('sculpted eyes have finite outward 3D surfaces and texture-independent feature colours', () => {
   const eyes = sculptedEyes(), used = new Set(eyes.indices);

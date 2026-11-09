@@ -163,6 +163,12 @@ try {
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-close.png'),timeout:180000});
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;const position=p.clone().set(p.x+Math.sin(a)*1.35,p.y+1.58,p.z+Math.cos(a)*1.35),target=p.clone();target.y+=1.51;g.devCamera={position,target};});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-face.png'),timeout:180000});
+      if(process.env.FF_QA_REFERENCE_THREE_QUARTER==='1') {
+        await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle;
+          g.setPreviewFacing(.85);const position=p.clone().set(p.x+Math.sin(a)*2.7,p.y+1.10,p.z+Math.cos(a)*2.7),target=p.clone();target.y+=.95;g.devCamera={position,target};});
+        await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-quarter.png'),timeout:180000});
+        await page.evaluate(()=>window.__frostDebug.setPreviewFacing(.18));
+      }
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle,position=p.clone().set(p.x+Math.sin(a)*1.1,p.y+.38,p.z+Math.cos(a)*1.1),target=p.clone();target.y+=.29;g.devCamera={position,target}});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-boots.png'),timeout:180000});
     }

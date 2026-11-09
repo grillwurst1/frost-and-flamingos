@@ -64,7 +64,13 @@ test('the shared closed head and curls match their original sources and every cl
   // draw. Keep the whole closed accessory below 5k triangles.
   expect(h!.beard!.indices.length / 3).toBeLessThan(5000);
   expect(h!.beard!.shades).toHaveLength(h!.beard!.positions.length / 3);
-  expect(Math.max(...h!.beard!.shades!) - Math.min(...h!.beard!.shades!)).toBeGreaterThan(.3);
+  expect(h!.beard!.nativeSculpt).toBe(true);
+  const beardPoints=h!.beard!.positions;
+  for(let v=0;v<beardPoints.length/3;v++) {
+    expect(Math.abs(beardPoints[v*3]!)).toBeLessThan(.15);
+    expect(beardPoints[v*3+1]!).toBeGreaterThan(1.20);
+    expect(beardPoints[v*3+1]!).toBeLessThan(1.45);
+  }
   expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, shades: [NaN] } })).toBeNull();
   expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, shades: h!.beard!.shades!.map(() => 2) } })).toBeNull();
   expect(parseWardrobeHead({ ...h, beard: { ...h!.beard, shades: undefined } })).not.toBeNull();

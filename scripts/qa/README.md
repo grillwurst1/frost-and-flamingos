@@ -86,6 +86,9 @@ Do not edit client code/assets during a run: Vite hot reload invalidates it.
 The close option saves both full-body and face views of the actual loaded,
 posed 3D wardrobe model at 1280×800 Medium. These are diagnostic inspection
 views; `reference-scene.png` remains the unchanged public gameplay camera.
+`FF_QA_REFERENCE_THREE_QUARTER=1` adds a three-quarter diagnostic body view
+to the close captures. This rotates the real wardrobe avatar, then restores
+its facing before the boot inspection; it does not change the public camera.
 
 Gletscherpass is now the default at `/`; `FF_QA_REFERENCE_ROOT=1` verifies that
 entry instead of the explicit reference alias. The menu must link to

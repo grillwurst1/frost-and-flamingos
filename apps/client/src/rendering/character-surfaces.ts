@@ -51,6 +51,22 @@ export function tailoredStrip(scene: Scene, name: string, path: readonly Vector3
   return surface(scene, name, positions, indices, color, cavity, false);
 }
 
+/** A real folded cloth ring, open for the arm and closed through its thickness. */
+export function rolledSleeve(scene:Scene,name:string,diameter:number,height:number,color:Color4):Mesh {
+  const section=[[.060,-.025],[.066,-.028],[.076,-.022],[.079,-.009],[.077,.011],[.071,.025],[.061,.024],[.058,.014],[.058,-.014]] as const;
+  const p:number[]=[],indices:number[]=[],cavity:number[]=[];const sides=32;
+  for(const [r,y] of section)for(let j=0;j<sides;j++) {
+    const a=j/sides*Math.PI*2;
+    p.push(Math.sin(a)*r*diameter/.158,y*height/.056+Math.cos(a*2)*.0015,Math.cos(a)*r*diameter/.158);
+    cavity.push(r<.065?.10:.025);
+  }
+  for(let row=0;row<section.length;row++)for(let j=0;j<sides;j++) {
+    const a=row*sides+j,b=row*sides+(j+1)%sides,c=((row+1)%section.length)*sides+(j+1)%sides,d=((row+1)%section.length)*sides+j;
+    indices.push(a,b,c,a,c,d);
+  }
+  return surface(scene,name,p,indices,color,cavity);
+}
+
 /** One shaped beard wraps around the jaw, with broad carved locks. Its upper
  * edge follows cheeks/sideburns and its pointed chin replaces intersecting balls. */
 export function sculptedBeard(scene: Scene, headY: number, color: Color4): Mesh {

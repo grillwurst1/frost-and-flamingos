@@ -32,7 +32,7 @@ import {
 } from './materials';
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
-import { sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
+import { rolledSleeve, sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
 import { shirtPoint, shirtProfile, shirtSurface } from './character-tailoring';
 import { createContactShadow } from './contact-shadow';
 import { tagComicPaint } from './comic-paint';
@@ -541,10 +541,11 @@ export class CharacterView {
     this.rightShoulder.rotation.z = -0.07;
 
     const limbBulk = lerp(1.30, 0.96, bodyType);
+    const armBulk=lerp(1.12,.96,bodyType);
     const rolledSleeves = cosmetics.torso === 'torso_alpine_shirt' || cosmetics.torso === 'torso_tracht_shirt' || cosmetics.torso === 'torso_hawaii_shirt';
-    const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', limbBulk, rolledSleeves);
+    const leftArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'left', armBulk, rolledSleeves);
     leftArm.parent = this.leftShoulder;
-    const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', limbBulk, rolledSleeves);
+    const rightArm = this.buildArm(scene, cosmetics.hands, sleeve, skinColor, bareArms, 'right', armBulk, rolledSleeves);
     rightArm.parent = this.rightShoulder;
 
     this.leftHip = new TransformNode('left-hip', scene);
@@ -1155,7 +1156,7 @@ export class CharacterView {
     const parts: PartList = [];
     const armColor = bare ? skin : sleeve;
     if (rolled && !bare) {
-      box(scene, parts, `${side}-sleeve-sculpt`, .18, .30, .185, 0, -.135, 0, sleeve);
+      box(scene, parts, `${side}-sleeve-sculpt`, .165, .26, .173, 0, -.115, 0, sleeve);
       box(scene, parts, `${side}-forearm-sculpt`, .14, .315, .145, 0, -.4575, 0, skin, { skin: true });
     } else {
       // One connected shoulder/biceps/elbow/forearm surface replaces four
@@ -1163,9 +1164,8 @@ export class CharacterView {
       box(scene, parts, `${side}-arm-sculpt`, .176, .615, .183, 0, -.3075, 0, armColor, { skin: bare });
     }
     if (rolled) {
-      cylinder(scene, parts, `${side}-rolled-sleeve`, 0.065, 0.15, 0.145, 0, -0.285, 0, sleeve, { segments: 20 });
-      torus(scene, parts, `${side}-sleeve-hem`, 0.145, 0.014, 0, -0.317, 0,
-        new Color4(sleeve.r * .8, sleeve.g * .8, sleeve.b * .85, 0), { segments: 20 });
+      const cuff=rolledSleeve(scene,`${side}-rolled-sleeve`,.15,.05,sleeve);
+      cuff.position.y=-.247;parts.push(cuff);
     } else if (!bare) {
       box(scene, parts, `${side}-cuff`, 0.135, 0.06, 0.145, 0, -0.59, 0, WHITE);
     }
@@ -1291,9 +1291,9 @@ export class CharacterView {
       box(scene, parts, `${side}-lederhosen`, 0.18, 0.36, 0.20, 0, -0.18, 0, primary);
       if (!peg && feet !== 'feet_ski_boots') {
         if(ankleBoot){
-          // A separate closed white wool layer; the skin remains underneath.
-          box(scene,parts,`${side}-alpine-sock`,.17,.27,.19,0,-.565,0,WHITE);
-          torus(scene,parts,`${side}-alpine-sock-cuff`,.16,.02,0,-.447,0,WHITE,{segments:24,scaleZ:1.10});
+          const wool=hexToColor4('#b6b2a1');
+          box(scene,parts,`${side}-alpine-sock`,.155,.22,.17,0,-.59,0,wool);
+          torus(scene,parts,`${side}-alpine-sock-cuff`,.15,.018,0,-.492,0,wool,{segments:24,scaleZ:1.10});
         }else{
           box(scene, parts, `${side}-sock`, .15,.12,.16,0,-.72,0,secondary);
           box(scene,parts,`${side}-sock-stripe`,.155,.03,.165,0,-.66,0,accent);

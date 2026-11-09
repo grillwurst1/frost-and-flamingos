@@ -8,7 +8,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture';
 import type { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial';
 import type { Mesh } from '@babylonjs/core/Meshes/mesh';
-import { createDefaultProfile, LEGS_PALETTES, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
+import { CLASS_STATS, createDefaultProfile, LEGS_PALETTES, SKIN_TONES, HAIR_COLORS, HEADGEAR_IDS, FACE_IDS, TORSO_IDS, BACK_IDS, HANDS_IDS, LEGS_IDS, FEET_IDS, type Cosmetics } from '@frost-and-flamingos/shared';
 import { GlbCharacterView } from '../src/rendering/glb-character';
 import { bindWorldTransform, jointName, paintedModelLibrary, type PaintedModelAsset } from '../src/rendering/glb/library';
 import { modularHeadFrame, modularTorsoFrame } from '../src/rendering/glb/modular-body';
@@ -718,4 +718,47 @@ test('the original Alpine calf is skin-bearing leg anatomy rather than fixed-col
     }
   }
   expect(calfSkin).toBeGreaterThan(30);
+});
+
+test('bare Heavy anatomy reaches its physical class height and hats cannot shrink the body',async()=>{
+  const target=(await paintedModelLibrary(scene).load('alpine-heavy'))!;
+  let bodyScale=0;
+  for(const headgear of ['head_none','head_fondue_pot','head_tirol'] as const) {
+    const {view,mesh}=build({classId:'heavy',bodyType:.267,headgear,hairStyleIndex:6,face:'face_none',torso:'torso_alpine_shirt'},true,target);
+    try {
+      const model=view.root.getChildTransformNodes(false).find(n=>n.name==='glb-model-root')!;
+      if(!bodyScale)bodyScale=model.scaling.y;else expect(model.scaling.y).toBeCloseTo(bodyScale,6);
+      if(headgear==='head_none') {
+        const p=mesh.getVerticesData('position')!,j=mesh.getVerticesData('matricesIndices')!,w=mesh.getVerticesData('matricesWeights')!,c=mesh.getVerticesData('color')!;
+        const bone=mesh.skeleton!.bones.find(b=>jointName(b.name)==='Head')!.getIndex();
+        const world=mesh.computeWorldMatrix(true);let top=-Infinity;
+        for(let v=0;v<mesh.getTotalVertices();v++)if(j[v*4]===bone&&w[v*4]!>.99&&c[v*4+3]===1)
+          top=Math.max(top,Vector3.TransformCoordinates(Vector3.FromArray(p,v*3),world).y);
+        expect(top).toBeCloseTo(CLASS_STATS.heavy.height,2);
+      }
+    }finally{view.dispose()}
+  }
+});
+
+test('rolled Alpine sleeves retain the real authored forearms beneath the chosen skin colour',async()=>{
+  const target=(await paintedModelLibrary(scene).load('alpine-heavy'))!,profile=createDefaultProfile('Authored sleeve','heavy');
+  Object.assign(profile.cosmetics,{bodyType:.278,torso:'torso_alpine_shirt',headgear:'head_none',hairStyleIndex:6,skinToneIndex:5});
+  const {view,mesh}=build(profile.cosmetics,true,target);
+  try {
+    const data=target.wardrobeBody!,bones=new Map(mesh.skeleton!.bones.map(b=>[jointName(b.name),b.getIndex()]));
+    const retarget=bodySurfaceRetarget(profile,target,data,bones),points=mesh.getVerticesData('position')!;
+    const forearms=new Set(data.bones.filter(b=>/^(Left|Right)ForeArm$/.test(b.name)).map(b=>b.index));
+    const colours=mesh.getVerticesData('color')!,skin=[1,3,5].map(i=>Number.parseInt(SKIN_TONES[5]!.slice(i,i+2),16)/255);
+    const drawn=new Map<string,number>();for(let i=0;i<points.length;i+=3)drawn.set(Array.from(points.slice(i,i+3),n=>n.toFixed(5)).join(','),i/3);
+    let matched=0;
+    for(let v=0;v<data.positions.length/3;v++)if([0,1,2,3].some(k=>forearms.has(data.joints[v*4+k]!)&&data.weights[v*4+k]!>.99)) {
+      const p=retarget.vertex(v).position;
+      const actual=drawn.get(p.asArray().map(n=>n.toFixed(5)).join(','));
+      if(actual!==undefined) {
+        matched++;expect(colours[actual*4+3]).toBe(1);
+        for(let channel=0;channel<3;channel++)expect(colours[actual*4+channel]!).toBeCloseTo(skin[channel]!,5);
+      }
+    }
+    expect(matched).toBeGreaterThan(200);expect(mesh.subMeshes).toHaveLength(1);
+  }finally{view.dispose()}
 });

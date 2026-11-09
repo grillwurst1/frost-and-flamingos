@@ -64,7 +64,8 @@ export function bodySurfaceRecipe(profile: PlayerProfile, asset: PaintedModelAss
   if (!asset.wardrobeBody) return { arms: false };
   const native = nativeWardrobeRecipe(profile, asset), c = profile.cosmetics;
   return {
-    arms: !native.arms && ['torso_field_vest', 'torso_bare_suspenders', 'torso_barrel_armor', 'torso_flamingo_ring'].includes(c.torso),
+    arms: !native.arms && ['torso_field_vest', 'torso_bare_suspenders', 'torso_barrel_armor', 'torso_flamingo_ring',
+      'torso_alpine_shirt', 'torso_tracht_shirt', 'torso_hawaii_shirt'].includes(c.torso),
   };
 }
 

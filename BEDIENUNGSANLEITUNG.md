@@ -1656,3 +1656,23 @@ Die Browserprüfung besteht ohne Seiten-, HTTP- oder Grafikfehler. Gesicht und
 Gesamtfigur bleiben bei derselben Geometrieanzahl; die Startansicht hat weiterhin
 156 Zeichenaufrufe. Aufnahmen und Berichte: docs/qa/video-face-planes-2026-11-09.*.
 Die Gesamtgrafik erreicht die Video-Zielqualität weiterhin noch nicht vollständig.
+
+
+## Figurenform und tatsächliche Körpergröße – 9. November 2026
+
+Der Vollbart verwendet jetzt die ausgeformte Geometrie des ursprünglichen
+Heavy-Modells. Unter aufgerollten Hemden liegen modellierte Unterarme; die
+Ärmelabschlüsse sind gefaltete Stoffringe. Kürzere, graubeige Wollsocken und ein
+tieferes Ingwerorange orientieren sich am Video. Hautfarbe, Haarfarbe und Kleidung
+bleiben unabhängig wählbar; gespeicherte Konfigurationen werden nicht ersetzt.
+
+Die Körpergröße wird ohne Helm und Aufbauten berechnet. Die Heavy-Figur erreicht
+nun tatsächlich 1,95 m; ein anderer Hut verkleinert sie nicht mehr. Die mittige
+Folgekamera ist entsprechend angepasst. Die grafische Übereinstimmung mit dem
+Zielvideo ist damit noch nicht vollständig erreicht.
+
+Alle 423 automatischen Prüfungen, die Typprüfung und der Produktionsbuild
+bestehen. Die Browserprüfung zeigt keine Seiten-, Lade- oder Grafikfehler.
+Die Figur hat 44.572 Dreiecke; die Startansicht weiterhin 156 Zeichenaufrufe.
+Aufnahmen: docs/qa/video-figure-rebuild-*-2026-11-09.png. Besonders die weichere
+Kleidung und die genaue Gesichts-/Körperform bleiben offene grafische Arbeiten.

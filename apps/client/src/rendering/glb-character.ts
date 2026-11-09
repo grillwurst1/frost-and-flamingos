@@ -21,7 +21,7 @@ import {
 } from '@frost-and-flamingos/shared';
 import type { AvatarPose, AvatarView } from './avatar';
 import { CharacterView } from './character';
-import { buildModularBody, modularFootSpread, modularHeadFrame, modularRollBoxes, modularTorsoFrame } from './glb/modular-body';
+import { buildModularBody, modularAnatomicalHeight, modularFootSpread, modularHeadFrame, modularRollBoxes, modularTorsoFrame } from './glb/modular-body';
 import { bodySurfaceRecipe } from './glb/body-surfaces';
 import { wristHandSurface } from './glb/hand-surface';
 import { nativeWardrobeRecipe } from './glb/native-wardrobe';
@@ -405,7 +405,8 @@ export class GlbCharacterView implements AvatarView {
     const classHeight = (CLASS_STATS as Partial<Record<string, { height: number }>>)[profile.cosmetics.classId]?.height;
     this.height = spec.heightMeters ?? classHeight ?? asset.height;
     this.armedModel = spec.armed !== false;
-    this.scale = this.height / asset.height;
+    const anatomical=spec.cosmetics!==false&&asset.wardrobe&&textures?.wardrobeMask&&asset.wardrobeHead&&textures?.head;
+    this.scale = this.height / (anatomical?modularAnatomicalHeight(profile,asset):asset.height);
     this.bulk = spec.bulk;
     this.torso = asset.torso;
     const leftArm = asset.bindPositions.get('LeftArm');

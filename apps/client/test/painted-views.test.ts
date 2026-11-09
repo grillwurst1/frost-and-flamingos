@@ -160,7 +160,8 @@ describe('locomotion cadence', () => {
         const cadence = (2 * dominant.rate) / dominant.clip.duration;
         expect(cadence).toBeLessThanOrEqual((CADENCE_CAP[dominant.role] ?? 4.5) + 1e-6);
         // What the ceiling leaves shows as slide, bounded by the stride lengthening.
-        const modelSpeed = speed / (stats.height / asset.height);
+        const modelRoot=view.root.getChildTransformNodes(false).find(n=>n.name==='glb-model-root')!;
+        const modelSpeed = speed / modelRoot.scaling.x;
         const slide = 1 - (dominant.rate * (dominant.clip.naturalSpeed ?? 1) * dominant.stride) / modelSpeed;
         expect(slide).toBeLessThan(0.4);
         view.dispose();

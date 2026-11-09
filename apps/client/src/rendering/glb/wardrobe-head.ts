@@ -19,7 +19,7 @@ export interface WardrobeHeadGeometry {
   hairReference: [number, number, number];
   /** Offline layout marker: beard left, original curls right, one shared atlas. */
   beardPaintAtlas?: 1;
-  beard?: { positions: number[]; normals: number[]; indices: number[]; cavities: number[]; shades?: number[]; uvs?: number[]; sourceHash?: string };
+  beard?: { positions: number[]; normals: number[]; indices: number[]; cavities: number[]; shades?: number[]; uvs?: number[]; sourceHash?: string; nativeSculpt?: true };
   afro?: { sourceHash: string; positions: number[]; normals: number[]; indices: number[]; uvs: number[]; shades: number[] };
 }
 
@@ -52,6 +52,7 @@ export function parseWardrobeHead(value: unknown): WardrobeHeadGeometry | null {
   if (h.beard) {
     const b = h.beard, count = b.positions?.length / 3;
     if (!Number.isInteger(count) || count < 100 || count > 5000) return null;
+    if(b.nativeSculpt!==undefined&&b.nativeSculpt!==true)return null;
     if (b.shades !== undefined && (!Array.isArray(b.shades) || b.shades.length !== count
       || !b.shades.every(n => Number.isFinite(n) && n >= .3 && n <= 1.3))) return null;
     if (b.sourceHash !== undefined && (typeof b.sourceHash !== 'string' || !/^[a-f0-9]{64}$/.test(b.sourceHash))) return null;

@@ -2004,3 +2004,36 @@ draws remain unchanged from the torso checkpoint. Evidence:
 scene/body/face/wardrobe PNGs. Reapplying the versioned sculpt is byte-identical;
 fresh-source core geometry, normals, brows, beard and occlusion match exactly.
 The overall video-reference quality and native M4/WebGPU acceptance remain OPEN.
+
+
+## Reference character reconstruction — 9 November 2026
+
+Rebuilt the reference figure's beard from the owner's original Heavy sculpt
+(2,112 vertices / 4,200 closed triangles), retaining its painted strands in the
+existing shared atlas and all eight selectable pigments. Rolled shirts use
+retargeted original anatomical forearms, compact sleeves and hollow folded cuffs.
+Shorter grey-beige socks and deeper ginger replace the bright white/yellow cast.
+Source GLBs/paint and outfit-independent base skin are unchanged.
+
+Normalise modular soldiers by their bare anatomical head, excluding pot helmets,
+spoons and hair. A Heavy now reaches its physical 1.95 m height; hats cannot
+shrink the body. Follow-camera pivot/distance are 1.65/3.75 m; horizontal centring
+remains. Gait checks use actual model scale. Existing material, draw and bounded
+outfit-cache structure remain; no new samplers, passes or per-frame sculpting.
+
+Validation: all 423 cases pass (15 script, 244 server, 164 client), using the
+existing 15-second server / 20-second client Cloud allowances. Three new client
+cases verify hat-independent body height, selected-pigment anatomical forearms
+and closed cuff folds with outward normals. Strict diagnostics: 0 errors and
+0 warnings. Production builds pass. Fresh and repeated original-source beard/
+paint derivations are byte-identical to the shipped assets; shared head data
+outside the beard is unchanged. Copied production assets match source files.
+
+Actual Medium 1280×720 WebGL2 review passes: six live cast labels, wardrobe
+projection and zero page/HTTP/context errors. Hero 44,572 triangles (-58), with
+unchanged 156 initial draws. Evidence: `docs/qa/video-figure-rebuild-2026-11-09.json`,
+companion validation JSON and scene/body/face/quarter/boots/wardrobe PNGs.
+Visual review confirms a fuller connected beard and shaped forearms. Clothing
+still appears stiffer and face/body shapes differ from the target video; exact
+art acceptance remains OPEN. Native M4 thermals/FPS and full WebGPU acceptance
+cannot be inferred from Cloud SwiftShader.

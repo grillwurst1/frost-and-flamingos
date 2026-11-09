@@ -58,6 +58,8 @@ try {
     entry.wardrobe = `${key}-wardrobe.json`;
     entry.textures.wardrobeMask = `${key}-wardrobe-mask.webp`;
   }
+  const nativeBeard=Bun.spawn(['python3',join(root,'scripts/bake-native-beard.py'),join(temporary,'alpine-heavy.json'),output],{stdout:'inherit',stderr:'inherit'});
+  if(await nativeBeard.exited!==0)throw new Error('Original beard sculpt bake failed');
   const beard = Bun.spawn(['python3', join(root, 'scripts/bake-beard-paint.py'), join(temporary, 'alpine-heavy.json'), output], { stdout: 'inherit', stderr: 'inherit' });
   if (await beard.exited !== 0) throw new Error('Original beard paint bake failed');
   const headHash = new Bun.CryptoHasher('sha256').update(await Bun.file(join(output, 'soldier-head.json')).arrayBuffer()).digest('hex');
