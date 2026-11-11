@@ -169,6 +169,15 @@ try {
         await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-quarter.png'),timeout:180000});
         await page.evaluate(()=>window.__frostDebug.setPreviewFacing(.18));
       }
+      if(process.env.FF_QA_REFERENCE_CANNON_POSE==='1') {
+        const previous=await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle,previous=g.previewWeapon;
+          g.previewWeapon='snow_cannon';g.setPreviewFacing(2.25);
+          const position=p.clone().set(p.x+Math.sin(a)*2.7,p.y+1.1,p.z+Math.cos(a)*2.7),target=p.clone();target.y+=.95;g.devCamera={position,target};return previous;});
+        await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-cannon.png'),timeout:180000});
+        await page.evaluate(()=>{const g=window.__frostDebug;g.setPreviewFacing(1.45);g.devCamera.position.y=g.previewView.root.getAbsolutePosition().y+1.45});
+        await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-cannon-front.png'),timeout:180000});
+        await page.evaluate(previous=>{window.__frostDebug.previewWeapon=previous;window.__frostDebug.setPreviewFacing(.18)},previous);
+      }
       await page.evaluate(()=>{const g=window.__frostDebug,p=g.previewView.root.getAbsolutePosition(),a=g.cameraRig.previewAngle,position=p.clone().set(p.x+Math.sin(a)*1.1,p.y+.38,p.z+Math.cos(a)*1.1),target=p.clone();target.y+=.29;g.devCamera={position,target}});
       await frames(3);await page.screenshot({path:resolve(output,'reference-ranger-boots.png'),timeout:180000});
     }

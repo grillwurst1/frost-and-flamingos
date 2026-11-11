@@ -111,6 +111,10 @@ float ffCoolMask(vec3 base) {
   float saturation = (maxC - minC) / max(maxC, 0.001);
   float luma = dot(base, vec3(0.299, 0.587, 0.114));
   float pale = smoothstep(0.62, 0.86, luma) * (1.0 - smoothstep(0.1, 0.3, saturation));
+#ifdef FF_SOFT_CHARACTER
+  // Pale cloth is not snow: preserve the selected warm cream under the sun.
+  pale *= .2;
+#endif
   float bluish = smoothstep(0.02, 0.18, base.b - base.r) * smoothstep(0.35, 0.7, luma);
   return clamp(max(pale, bluish), 0.0, 1.0);
 }
@@ -263,7 +267,10 @@ fn ffCoolMask(base : vec3f) -> f32 {
   let minC = min(base.r, min(base.g, base.b));
   let saturation = (maxC - minC) / max(maxC, 0.001);
   let luma = dot(base, vec3f(0.299, 0.587, 0.114));
-  let pale = smoothstep(0.62, 0.86, luma) * (1.0 - smoothstep(0.1, 0.3, saturation));
+  var pale = smoothstep(0.62, 0.86, luma) * (1.0 - smoothstep(0.1, 0.3, saturation));
+#ifdef FF_SOFT_CHARACTER
+  pale *= .2;
+#endif
   let bluish = smoothstep(0.02, 0.18, base.b - base.r) * smoothstep(0.35, 0.7, luma);
   return clamp(max(pale, bluish), 0.0, 1.0);
 }

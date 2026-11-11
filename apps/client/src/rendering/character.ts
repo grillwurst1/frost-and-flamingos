@@ -33,7 +33,7 @@ import {
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
 import { rolledSleeve, sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
-import { shirtPoint, shirtProfile, shirtSurface } from './character-tailoring';
+import { shirtNormal, shirtPoint, shirtProfile, shirtSurface } from './character-tailoring';
 import { createContactShadow } from './contact-shadow';
 import { tagComicPaint } from './comic-paint';
 
@@ -179,6 +179,11 @@ function shapedPart(scene: Scene, name: string, width: number, height: number, d
         batch.positions[v + 2] = point[1]!;
       }
       VertexData.ComputeNormals(batch.positions, batch.indices, batch.normals);
+      if(fittedTorso)for(let ring=0;ring<profile.length;ring++)for(let segment=0;segment<=32;segment++) {
+        const n=shirtNormal(segment/32*Math.PI*2,profile[ring]![1]/height,width,height,depth);
+        const at=(ring*33+segment)*3;
+        batch.normals[at]=n.x;batch.normals[at+1]=n.y;batch.normals[at+2]=n.z;
+      }
     }
   } else batch.box(0, 0, 0, width, height, depth, [1, 1, 1], 'plain', Math.min(0.026, width * 0.2, height * 0.2, depth * 0.2));
   const mesh = new Mesh(name, scene);
@@ -505,9 +510,9 @@ export class CharacterView {
     });
     const belt = hexToColor4(LEGS_PALETTES[cosmetics.legs].secondary);
     const beltDepth=chestDepth*.96;
-    box(scene, body, 'waist-belt', waistWidth + 0.025, 0.05, beltDepth, 0, 0.015, 0, belt);
-    box(scene, body, 'belt-buckle', 0.075, 0.06, 0.018, 0, 0.015, beltDepth / 2 + 0.008, GOLD);
-    box(scene, body, 'belt-buckle-inset', 0.042, 0.032, 0.022, 0, 0.015, beltDepth / 2 + 0.012, belt);
+    box(scene, body, 'waist-belt', waistWidth + 0.025, .032, beltDepth, 0, 0.015, 0, belt);
+    box(scene, body, 'belt-buckle', .064, .047, 0.018, 0, 0.015, beltDepth / 2 + 0.008, GOLD);
+    box(scene, body, 'belt-buckle-inset', .036, .025, 0.022, 0, 0.015, beltDepth / 2 + 0.012, belt);
     const backStart = body.length;
     this.buildBackItem(scene, body, cosmetics.back);
     tagParts(body.slice(backStart), 2);
@@ -523,6 +528,8 @@ export class CharacterView {
     this.buildHeadgear(scene, body, cosmetics.headgear, HEAD_Y + hatLift);
     tagParts(body.slice(hatStart), 1, 4);
     for (const part of body) if (!part.isVerticesDataPresent('uv2')) tagParts([part], 0, part.name === 'neck' ? 6 : /^(hip|waist-belt|belt-buckle)/.test(part.name) ? 7 : 0);
+    if(cosmetics.legs==='legs_lederhosen')for(const part of body)
+      if(/^hip(?:-facing)?$/.test(part.name))tagComicPaint(part,false,5);
 
     const bodyMesh = mergeParts(scene, 'character-body-mesh', body, this.material);
     if (bodyMesh) {
@@ -1156,7 +1163,7 @@ export class CharacterView {
     const parts: PartList = [];
     const armColor = bare ? skin : sleeve;
     if (rolled && !bare) {
-      box(scene, parts, `${side}-sleeve-sculpt`, .165, .26, .173, 0, -.115, 0, sleeve);
+      box(scene, parts, `${side}-sleeve-sculpt`, .14, .25, .15, 0, -.145, 0, sleeve);
       box(scene, parts, `${side}-forearm-sculpt`, .14, .315, .145, 0, -.4575, 0, skin, { skin: true });
     } else {
       // One connected shoulder/biceps/elbow/forearm surface replaces four
@@ -1164,8 +1171,8 @@ export class CharacterView {
       box(scene, parts, `${side}-arm-sculpt`, .176, .615, .183, 0, -.3075, 0, armColor, { skin: bare });
     }
     if (rolled) {
-      const cuff=rolledSleeve(scene,`${side}-rolled-sleeve`,.15,.05,sleeve);
-      cuff.position.y=-.247;parts.push(cuff);
+      const cuff=rolledSleeve(scene,`${side}-rolled-sleeve`,.14,.05,sleeve);
+      cuff.position.y=-.27;parts.push(cuff);
     } else if (!bare) {
       box(scene, parts, `${side}-cuff`, 0.135, 0.06, 0.145, 0, -0.59, 0, WHITE);
     }

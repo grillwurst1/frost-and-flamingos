@@ -1676,3 +1676,25 @@ bestehen. Die Browserprüfung zeigt keine Seiten-, Lade- oder Grafikfehler.
 Die Figur hat 44.572 Dreiecke; die Startansicht weiterhin 156 Zeichenaufrufe.
 Aufnahmen: docs/qa/video-figure-rebuild-*-2026-11-09.png. Besonders die weichere
 Kleidung und die genaue Gesichts-/Körperform bleiben offene grafische Arbeiten.
+
+
+## Arme, Schultern und Kleidung – 11. November 2026
+
+Die bewaffneten Figuren übernehmen die überhöhte Schulterhaltung der fremden
+Ruheanimation nicht mehr. Hemdschultern und Kragen folgen dem Brustkorb; eine
+Halsdrehung verformt sie nicht. Der Kopf des Alpine Heavy sitzt am Kopfansatz des
+Originalrigs. Hautfarbe, Kleidung und Kopfbedeckungen bleiben unabhängig wählbar.
+Die schmaleren Ärmel verdecken die darunterliegende Haut; freie Unterarme und
+ärmellose Varianten behalten ihre modellierte Anatomie.
+
+Die Schneekanone wird unter dem Rohr abgestützt und auch in der Garderobe tief
+getragen. Stoff und Leder haben zurückhaltendere Glanz-/Texturkontraste; helle
+Kleidung behält ihren Cremeton. Neue tatsächliche Browseraufnahmen liegen unter
+docs/qa/video-arm-binding-*-2026-11-11.png. Die vollständige Übereinstimmung mit
+dem Zielvideo bleibt offen.
+
+Alle 425 automatischen Prüfungen, die Typprüfung und der Produktionsbuild
+bestehen. Die Browserprüfung besteht ohne Seiten-, Lade- oder Grafikfehler.
+Die Referenzfigur hat 43.197 Dreiecke (1.375 weniger), die Startansicht weiterhin
+156 Zeichenaufrufe. Die Software-Grafikprüfung ersetzt keine Messung von
+Temperatur oder Bildrate auf dem MacBook M4.

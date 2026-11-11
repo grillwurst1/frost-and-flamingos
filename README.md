@@ -1598,3 +1598,17 @@ WebGL2 captures have no page/HTTP/context errors, 44,572 hero triangles and the
 same 156 initial draws. See `docs/qa/video-figure-rebuild-2026-11-09.json` and
 companion PNGs. Exact video likeness remains open, particularly clothing softness
 and overall sculpt; native M4 performance has not been measured in this Cloud.
+
+
+## Arm and shoulder correction — 11 November 2026
+
+Armed shoulders now use the character's own rig instead of the borrowed idle's
+shrug. The shirt follows the chest, the Heavy neck fits its collar, and rolled
+sleeves fit the arms. The snow cannon is supported underneath and carried low
+in gameplay and wardrobe. Cloth/leather shading is quieter and retains warm
+cream. Skin, outfits, articulated fingers and independent feet remain selectable.
+
+The actual Medium WebGL2 review passes without page/HTTP/context errors, with
+43,197 hero triangles and unchanged 156 initial draws. Captures and report:
+`docs/qa/video-arm-binding-2026-11-11.json`. All 425 cases, strict checks and production builds pass.
+Exact video likeness and native M4 performance acceptance remain open.

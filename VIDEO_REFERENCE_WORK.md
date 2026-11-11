@@ -384,3 +384,41 @@ Visual review confirms a fuller connected beard and shaped forearms. Clothing
 still appears stiffer and face/body shapes differ from the target video; exact
 art acceptance remains OPEN. Native M4 thermals/FPS and full WebGPU acceptance
 cannot be inferred from Cloud SwiftShader.
+
+
+## Fitted arms and chest-bound shirts — 11 November 2026
+
+Correct armed retargeted clavicles towards each rig's own rest rotations before
+protraction/reach solving. The borrowed idle was raising Heavy upper arms out of
+the shirt and making the solver lift a hip-held weapon. Procedural shirt shoulders
+and collars now follow Spine2; only anatomical neck skin follows neck rotation.
+Fit the Alpine Heavy head at its native Head joint plus 0.10 m (radius 0.15 m),
+removing the old head lift. All head selections share that frame; bare anatomical
+class height stays 1.95 m. Existing anatomy, appearance choices and rigs remain.
+
+Slim/lower rolled sleeves and omit source skin fully hidden inside those closed
+sleeves. Bare outfits retain complete arms and exposed forearms retain their sculpt.
+Preserve differential/source cloth normals through adaptive subdivision and the
+inverse transpose of rig fitting. Folds gather at the tuck/underarms; the waist
+gets slimmer belt/buckle details. Match the lederhosen seat to its leg material.
+Pale cloth keeps its selected cream instead of snow-blue shading; cloth/wool are
+matte and cloth/leather paint contrast is restrained in both shader languages.
+The snow cannon supports under its drum and uses the same low hold in the wardrobe
+as in gameplay. Source textures/GLBs, physics, saved profiles and protocol are unchanged.
+No new textures, samplers or passes. Outfit geometry stays bounded/cached; the
+per-frame correction is two clavicle blends and one rig refresh.
+
+Regressions inspect actual skinned sleeves, shoulder lift, covered skin, head/shirt
+contact and head-only motion in gameplay/wardrobe. Posed eye clearance replaces the
+legacy high-marker assertion. Before the new fit, the neck-contact test detects
+0.05553 model-space separation. The continuous-shirt seam test fails the prior retargeter
+(normal dot 0.994938 vs >0.9999) and passes at three body widths.
+
+Final validation: all 425 cases pass (15 script, 244 server, 166 client),
+using the documented 15-second server / 20-second client Cloud allowances.
+Strict diagnostics: 0 errors / 0 warnings. Shared/client/server production builds
+pass and copied model assets match the source files. Actual Medium 1280×720
+WebGL2 review passes with six cast labels, wardrobe projection and no page/HTTP/
+context errors. Hero 43,197 triangles (-1,375 vs 5fe0587), unchanged 156 initial
+draws. Evidence: docs/qa/video-arm-binding-2026-11-11.json and companion PNGs.
+Exact reference likeness, native M4 thermals/FPS and full WebGPU acceptance remain open.

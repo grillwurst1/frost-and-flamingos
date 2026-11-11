@@ -32,8 +32,20 @@ export function shirtProfile(): Array<[number,number]> {
 /** One surface definition for the actual shell, placket, collar and harness. */
 export function shirtSurface(angle:number,u:number,width:number,depth:number): readonly [number,number] {
   const radius=shirtRadius(u),edge=Math.max(0,1-Math.abs(u*2));
-  const fold=Math.sin(angle*7+u*4)*.004*edge*edge;
+  // Cloth gathers at the tuck and under the arms; the belly stays broadly smooth.
+  const tuck=Math.exp(-(((u+.34)/.14)**2));
+  const underarm=Math.sin(angle)**6*Math.exp(-(((u-.19)/.15)**2));
+  const fold=edge*(.004*Math.sin(angle*5+u*3)*tuck+.005*Math.sin(u*26+Math.cos(angle)*2)*underarm);
   return [Math.sin(angle)*(width*radius+fold),Math.cos(angle)*(depth*radius+fold)];
+}
+
+/** Differential normal of the cloth itself, independent of its triangulation. */
+export function shirtNormal(angle:number,u:number,width:number,height:number,depth:number):Vector3 {
+  const e=.0001,a=shirtSurface(angle-e,u,width,depth),b=shirtSurface(angle+e,u,width,depth);
+  const lo=Math.max(-.5,u-e),hi=Math.min(.5,u+e);
+  const c=shirtSurface(angle,lo,width,depth),d=shirtSurface(angle,hi,width,depth);
+  return Vector3.Cross(new Vector3(b[0]-a[0],0,b[1]-a[1]),
+    new Vector3(d[0]-c[0],(hi-lo)*height,d[1]-c[1])).normalize();
 }
 
 export function shirtPoint(x:number,y:number,width:number,height:number,depth:number,centre:number,offset=.006,back=1):Vector3 {

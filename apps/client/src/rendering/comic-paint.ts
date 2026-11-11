@@ -18,7 +18,7 @@ export function comicPaintTexture(scene: Scene): Texture {
 }
 
 /** Semantic labels are assigned before merging, so pigment never leaks onto skin. */
-export function tagComicPaint(part: Mesh, head: boolean): void {
+export function tagComicPaint(part: Mesh, head: boolean, kindOverride?: number): void {
   const colors = part.getVerticesData('color');
   const name = part.name;
   const skin = (colors?.[3] ?? 0) > .5;
@@ -32,6 +32,7 @@ export function tagComicPaint(part: Mesh, head: boolean): void {
     else if (/shirt|sleeve|collar|placket|blouse/.test(name)) kind = 3;
     if (/dial|clock-face|clock-hand|clock-tick|buckle|clasp|button|boot-lace/.test(name)) kind = 0;
     if (head && !/felt-crown|curled-brim/.test(name)) kind = 0;
+    if(kindOverride!==undefined)kind=kindOverride;
   }
   const data = new Float32Array(part.getTotalVertices() * 2);
   for (let v = 0; v < data.length; v += 2) data[v] = kind;

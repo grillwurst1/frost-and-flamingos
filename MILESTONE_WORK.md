@@ -893,3 +893,13 @@ WebGL2 captures pass; fresh/repeated beard bakes match exactly. Hero 44,572 tris
 unchanged 156 initial draws. Evidence: docs/qa/video-figure-rebuild-2026-11-09.*
 and companion images/report. Next art gaps remain softer clothing, closer facial/
 body silhouette and overall video likeness; M5/M6 gates are unchanged.
+
+
+### 11 November 2026 — correct arm/shoulder binding before further art
+
+Owner reported deformed arms. Corrected retargeted armed clavicles, chest-bound
+shirt shoulders, Heavy skull-base fit, rolled sleeve silhouette/covered skin,
+cloth normals/materials and low snow-cannon support. Actual Medium WebGL2 review
+passes (43,197 hero triangles, 156 initial draws, zero page/HTTP/context errors).
+Evidence: docs/qa/video-arm-binding-2026-11-11.* and companion PNGs. All 425 cases, strict checks and production builds pass. Visual acceptance and native M4 remain open;
+new milestones stay secondary to the owner's figure/reference priority.

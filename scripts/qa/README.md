@@ -89,6 +89,10 @@ views; `reference-scene.png` remains the unchanged public gameplay camera.
 `FF_QA_REFERENCE_THREE_QUARTER=1` adds a three-quarter diagnostic body view
 to the close captures. This rotates the real wardrobe avatar, then restores
 its facing before the boot inspection; it does not change the public camera.
+`FF_QA_REFERENCE_CANNON_POSE=1` additionally inspects the loaded wardrobe avatar
+carrying its selected snow cannon from back and side, then restores its weapon
+and facing. Those diagnostic poses hide the wardrobe overlay; the ordinary
+gameplay camera remains in `reference-scene.png`.
 
 Gletscherpass is now the default at `/`; `FF_QA_REFERENCE_ROOT=1` verifies that
 entry instead of the explicit reference alias. The menu must link to

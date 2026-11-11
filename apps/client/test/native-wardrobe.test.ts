@@ -450,11 +450,8 @@ test('the bald heavy uses the detailed face without importing the original winte
   Object.assign(profile.cosmetics, { headgear: 'head_none', face: 'face_none', hairStyleIndex: 6, torso: 'torso_field_vest', legs: 'legs_olive_pants' });
   expect(nativeWardrobeRecipe(profile, heavy!).legs).toBe(false);
   const headFrame = modularHeadFrame(profile, heavy!, true, true);
-  // A bare head must clear the shoulders; the helmet marker used to put the
-  // eyes at shoulder height. Changing hats must not move the anatomical head.
-  const shoulderY = Math.max(heavy!.bindPositions.get('LeftArm')!.y, heavy!.bindPositions.get('RightArm')!.y);
-  expect(headFrame.y - shoulderY).toBeGreaterThan(.18);
-  expect(headFrame.y - shoulderY).toBeLessThan(.30);
+  // Changing hats must not move the anatomical head. Check actual posed eyes
+  // below instead of requiring the old raised marker that left the neck floating.
   for (const headgear of HEADGEAR_IDS) expect(modularHeadFrame({ ...profile, cosmetics: { ...profile.cosmetics, headgear } }, heavy!, true, true)).toEqual(headFrame);
   const view = new GlbCharacterView(scene, new StandardMaterial('heavy-qa', scene), profile, heavy!, { ...textures, head: { albedo: textures.albedo, mask: textures.wardrobeMask } });
   try {
@@ -471,6 +468,14 @@ test('the bald heavy uses the detailed face without importing the original winte
     expect(head).toBeGreaterThan(3000); expect(mesh.subMeshes).toHaveLength(1);
     for(let i=0;i<100;i++)view.update(1/45,{position:{x:0,y:0,z:0},velocity:{x:0,y:0,z:0},yaw:0,pitch:-.16,grounded:true,alive:true,crouched:false,swimming:false,weaponId:'snow_cannon'});
     const rig=(view as unknown as {rig:GlbRig}).rig;rig.refresh();
+    mesh.skeleton!.prepare(true);const posed=mesh.getPositionData(true)!,colours=mesh.getVerticesData('color')!;
+    let eyeY=Infinity,eyes=0;
+    for(let v=0;v<posed.length/3;v++)if(joints[v*4]===headBone&&weights[v*4]!>.99
+      && Math.abs(colours[v*4]!-.94)<.001&&Math.abs(colours[v*4+1]!-.94)<.001&&Math.abs(colours[v*4+2]!-.90)<.001) {
+      eyeY=Math.min(eyeY,posed[v*3+1]!);eyes++;
+    }
+    expect(eyes).toBeGreaterThan(20);
+    expect(eyeY-Math.max(rig.position('LeftArm')!.y,rig.position('RightArm')!.y)).toBeGreaterThan(.12);
     const facing = Vector3.Forward().rotateByQuaternionToRef(rig.rotation('Head')!.multiply(Quaternion.Inverse(bindWorldTransform(heavy!,'Head')!.rotation)),new Vector3());
     expect(Math.abs(facing.y)).toBeLessThan(.2);
     expect(facing.z).toBeGreaterThan(.96);
@@ -736,6 +741,26 @@ test('bare Heavy anatomy reaches its physical class height and hats cannot shrin
           top=Math.max(top,Vector3.TransformCoordinates(Vector3.FromArray(p,v*3),world).y);
         expect(top).toBeCloseTo(CLASS_STATS.heavy.height,2);
       }
+    }finally{view.dispose()}
+  }
+});
+
+test('the continuous shirt has no split lighting seam after retargeting and adaptive subdivision',async()=>{
+  const target=(await paintedModelLibrary(scene).load('alpine-heavy'))!;
+  for(const bodyType of [0,.5,1]) {
+    const {view,mesh}=build({classId:'heavy',bodyType,torso:'torso_alpine_shirt',back:'back_none'},true,target);
+    try {
+      const p=mesh.getVerticesData('position')!,n=mesh.getVerticesData('normal')!,paint=mesh.getVerticesData('uv3')!;
+      const lower=target.bindPositions.get('Spine')!.y,upper=target.bindPositions.get('Spine2')!.y;
+      const at=new Map<string,Vector3>();let pairs=0;
+      for(let v=0;v<mesh.getTotalVertices();v++) {
+        if(paint[v*2]!==3||Math.abs(p[v*3]!)>.001||p[v*3+1]!<=lower||p[v*3+1]!>=upper||n[v*3+2]!<.6)continue;
+        const key=Array.from(p.slice(v*3,v*3+3),x=>x.toFixed(5)).join(','),normal=Vector3.FromArray(n,v*3);
+        expect(normal.length()).toBeCloseTo(1,5);
+        const other=at.get(key);
+        if(other){expect(Vector3.Dot(normal,other)).toBeGreaterThan(.9999);pairs++}else at.set(key,normal);
+      }
+      expect(pairs).toBeGreaterThan(8);
     }finally{view.dispose()}
   }
 });

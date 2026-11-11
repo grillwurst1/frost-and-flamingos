@@ -344,3 +344,11 @@ still uses the previously derived neutral source-paint atlas. Rolled shirts
 expose the existing closed Lagoon Heavy anatomical arm derivation retargeted
 to each rig. Folded hollow cuffs are original procedural project geometry.
 No external art, original GLB or owner reference video was modified.
+
+
+### Arm fit and cloth lighting — 11 November 2026
+
+Original project corrections to rig binding, clavicle holds, fitted rolled
+sleeves and differential cloth normals, using the existing owner-derived body
+and head. Existing owner paint is toned through the shared shader/atlas; no new
+external art, original GLB, source texture or supplied reference is modified.

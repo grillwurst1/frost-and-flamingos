@@ -39,10 +39,16 @@ export function modularAnatomicalHeight(profile:PlayerProfile,asset:PaintedModel
 
 export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsset, native = false, sharedHead = false): PaintedModelAsset['spec']['head'] {
   const head = asset.spec.head;
-  // The original Alpine heavy's head marker was calibrated for its large pot
-  // helmet. A bare anatomical head needs to sit above, rather than inside, the
-  // shoulders; use one frame for skull, eyes, hair and every selected headpiece.
-  if (native && sharedHead && asset.wardrobeHead) return { ...head, y: asset.spec.key === 'alpine-heavy' ? 1.30 : head.y, radius: profile.cosmetics.classId === 'heavy' ? .16 : profile.cosmetics.classId === 'infiltrator' ? .125 : .15 };
+  // Fit the bare Alpine Heavy to its actual skull base. The old extra lift
+  // compensated for a retargeted shoulder shrug and left the neck floating
+  // once the clavicles were corrected. Use one frame for all head selections.
+  if (native && sharedHead && asset.wardrobeHead) {
+    const alpineHeavy = asset.spec.key === 'alpine-heavy';
+    const y = alpineHeavy ? (asset.bindPositions.get('Head')?.y ?? head.y - .10) + .10 : head.y;
+    const radius = profile.cosmetics.classId === 'heavy' ? (alpineHeavy ? .15 : .16)
+      : profile.cosmetics.classId === 'infiltrator' ? .125 : .15;
+    return { ...head, y, radius };
+  }
   if (native && nativeWardrobeRecipe(profile, asset).head) return head;
   return { ...head, radius: head.radius * (profile.cosmetics.classId === 'heavy' ? .80 : .90) };
 }
@@ -115,6 +121,13 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     return selectedHeadFrame.y + (y - 1.66) * headScale;
   };
+  const bodySlope=(y:number):number=>{
+    for(let i=0;i+1<anchors.length;i++) {
+      const a=anchors[i]!,b=anchors[i+1]!;
+      if(y<=b[0])return Math.max(.0001,(b[1]-a[1])/(b[0]-a[0]));
+    }
+    return headScale;
+  };
   const body = (p: Vector3, tag: number, detail = 0) => {
     const y = p.y + 0.88;
     const head = tag === 1;
@@ -145,6 +158,9 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       at.y = bind('Spine2').y + (y - 1.28) * size;
       return { at, ...weight(['Spine2'], 0) };
     }
+    // A shirt shoulder/collar follows the chest, not a nodding neck. Only
+    // the anatomical neck itself is allowed to inherit that extra rotation.
+    if(detail!==6&&y>=1.28)return {at,...weight(['Spine2'],0)};
     const chain = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck'];
     const levels = [0.88, 1.03, 1.15, 1.28, 1.48];
     for (let i = 0; i + 1 < levels.length; i++) if (y <= levels[i + 1]!) {
@@ -244,7 +260,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
       if (!(name === 'character-body-mesh' || /^(left|right)-(arm|leg)-mesh$/.test(name))) continue;
       const points = Array.from(mesh.getVerticesData('position')!), paint = Array.from(mesh.getVerticesData('color')!);
       const tags = Array.from(mesh.getVerticesData('uv2') ?? new Float32Array(points.length / 3 * 2));
-      const authoredNormals = mesh.getVerticesData('normal')!;
+      const authoredNormals = Array.from(mesh.getVerticesData('normal')!);
       const tone = Array.from(mesh.getVerticesData('uv') ?? new Float32Array(points.length / 3 * 2));
       const comic = Array.from(mesh.getVerticesData('uv3') ?? new Float32Array(points.length / 3 * 2));
       let faces = Array.from(mesh.getIndices()!);
@@ -260,6 +276,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           const index = points.length / 3;
           for (let c = 0; c < 3; c++) points.push((points[a * 3 + c]! + points[b * 3 + c]!) / 2);
           for (let c = 0; c < 4; c++) paint.push((paint[a * 4 + c]! + paint[b * 4 + c]!) / 2);
+          const normal=Vector3.FromArray(authoredNormals,a*3).add(Vector3.FromArray(authoredNormals,b*3)).normalize();
+          authoredNormals.push(normal.x,normal.y,normal.z);
           tags.push(tags[a * 2] ?? 0, tags[a * 2 + 1] ?? 0);
           for (let c = 0; c < 2; c++) tone.push((tone[a * 2 + c]! + tone[b * 2 + c]!) / 2);
           comic.push(comic[a * 2] ?? 0, 0);
@@ -323,6 +341,24 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           measureTorso(mapped.at);
         if (name === 'character-body-mesh' && tags[vertex * 2] === 1)
           headNormals.push(target, -authoredNormals[i]!, authoredNormals[i + 1]!, authoredNormals[i + 2]!);
+        else if(name==='character-body-mesh') {
+          // Inverse-transpose of the actual template-to-rig deformation.
+          // Re-triangulating the stretched cloth creates diagonal shade streaks.
+          const slope=tags[vertex*2]===2?size:bodySlope(p.y+.88);
+          const normal=new Vector3(-authoredNormals[i]!/bodyScaleX,authoredNormals[i+1]!/slope,authoredNormals[i+2]!/size).normalize();
+          headNormals.push(target,normal.x,normal.y,normal.z);
+        }else if(name.includes('arm')&&-p.y<.60) {
+          const side=name.startsWith('left')?'Left':'Right',segment=-p.y<.33?0:1;
+          const start=bind(side+(segment===0?'Arm':'ForeArm')),end=bind(side+(segment===0?'ForeArm':'Hand'));
+          const axis=end.subtract(start),length=axis.length(),direction=axis.scale(1/Math.max(length,.0001));
+          const right=new Vector3(-1,0,0);right.subtractInPlace(direction.scale(Vector3.Dot(right,direction)));
+          if(right.lengthSquared()<.01)right.copyFrom(Vector3.Cross(direction,new Vector3(0,0,1)));
+          right.normalize();const front=Vector3.Cross(right,direction).normalize();
+          const normal=right.scale(authoredNormals[i]!/size)
+            .add(direction.scale(-authoredNormals[i+1]!*(segment===0?.33:.27)/Math.max(length,.0001)))
+            .add(front.scale(authoredNormals[i+2]!/size)).normalize();
+          headNormals.push(target,normal.x,normal.y,normal.z);
+        }
         joints.push(...mapped.indices); weights.push(...mapped.weights);
         cavities.push(tone[vertex * 2]!, tone[vertex * 2 + 1]!); nativeFlags.push(0, 0);
         const c = vertex * 4; colors.push(paint[c]!, paint[c + 1]!, paint[c + 2]!, paint[c + 3]!);
@@ -558,13 +594,20 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   }
   if (sharedBody && asset.wardrobeBody && surfaces.arms) {
     const data = asset.wardrobeBody, retarget = bodySurfaceRetarget(profile, asset, data, bones);
+    const sleeveCuts=new Map<'Left'|'Right',{start:Vector3;axis:Vector3;inverseLength:number}>();
+    if(rolledAuthoredArms)for(const side of ['Left','Right'] as const) {
+      const shoulder=data.bones.find(b=>b.name===side+'Arm'),elbow=data.bones.find(b=>b.name===side+'ForeArm');
+      if(!shoulder||!elbow)continue;
+      const start=Vector3.FromArray(shoulder.position),axis=Vector3.FromArray(elbow.position).subtract(start),length=axis.lengthSquared();
+      if(length>1e-8)sleeveCuts.set(side,{start,axis,inverseLength:1/length});
+    }
     const remap = new Map<string, number>();
     const add = (old: number, region: number): number => {
       const key = `${old}:${region}`, cached = remap.get(key); if (cached !== undefined) return cached;
       const index = positions.length / 3, vertex = retarget.vertex(old); remap.set(key, index);
       if(rolledAuthoredArms) {
-        // Keep a complete anatomical arm under the sleeve. Only the hidden
-        // upper section is narrowed; the exposed elbow/forearm keeps its sculpt.
+        // The overlap hidden inside the cuff is narrowed; exposed anatomy keeps
+        // its original sculpt. Proximal covered skin is omitted below.
         const side=vertex.position.x>0?'Left':'Right';
         const shoulder=bind(side+'Arm'),axis=bind(side+'ForeArm').subtract(shoulder);
         const t=Vector3.Dot(vertex.position.subtract(shoulder),axis)/axis.lengthSquared();
@@ -585,6 +628,14 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     };
     for (let f = 0; f < data.indices.length; f += 3) {
       const region = data.regions[f / 3]!;
+      if(sleeveCuts.size) {
+        const vertices=[data.indices[f]!,data.indices[f+1]!,data.indices[f+2]!];
+        const cut=sleeveCuts.get(data.positions[vertices[0]!*3]!>0?'Left':'Right');
+        // Keep the cut well inside the closed cloth, before the elbow. Never
+        // draw donor shoulder caps through a fitted shirt; bare outfits retain
+        // the complete source arm. No clipping work runs during animation.
+        if(cut&&vertices.every(v=>Vector3.Dot(Vector3.FromArray(data.positions,v*3).subtract(cut.start),cut.axis)*cut.inverseLength<.65))continue;
+      }
       if (region === 4 && surfaces.arms)
         indices.push(add(data.indices[f]!, region), add(data.indices[f + 2]!, region), add(data.indices[f + 1]!, region));
     }

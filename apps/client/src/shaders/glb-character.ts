@@ -324,6 +324,8 @@ void main(void) {
 #endif
 #endif
 #ifdef FF_SOFT_CHARACTER
+  if(vComicPaint.x>2.5&&vComicPaint.x<4.5)gloss=.025;
+  if(vComicPaint.x>7.5)gloss=.015;
   if (vComicPaint.x > .5 && vColor.a < .5) base = ffComicCloth(base, vComicPaint.x, vPaintRest, vPaintNormal, paintDx, paintDy);
 #endif
 #ifdef FF_COMIC_PROP
@@ -640,6 +642,8 @@ fn main(input : FragmentInputs) -> FragmentOutputs {
 #endif
 #endif
 #ifdef FF_SOFT_CHARACTER
+  if(input.vComicPaint.x>2.5&&input.vComicPaint.x<4.5) { gloss=.025; }
+  if(input.vComicPaint.x>7.5) { gloss=.015; }
   if (input.vComicPaint.x > .5 && input.vColor.a < .5) { base = ffComicCloth(base, input.vComicPaint.x, input.vPaintRest, input.vPaintNormal, paintDx, paintDy); }
 #endif
 #ifdef FF_COMIC_PROP

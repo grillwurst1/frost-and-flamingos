@@ -22,6 +22,9 @@ vec3 ffComicCloth(vec3 base, float kind, vec3 p, vec3 n, vec3 gx, vec3 gy) {
   vec3 paint = texture2DLodEXT(comicPaintSampler, coord, lod).rgb;
   float mean = cell < .5 ? .46 : cell < 1.5 ? .40 : cell < 2.5 ? .78 : cell < 3.5 ? .21 : cell < 4.5 ? .25 : cell < 5.5 ? .25 : cell < 6.5 ? .40 : .78;
   float value = clamp(dot(paint, vec3(.299,.587,.114)) / mean, .38, 1.4);
+  // Keep the supplied brushwork, without cuts resembling rock/wood on clothes.
+  if(cell > 1.5 && cell < 2.5) value=clamp(value,.85,1.12);
+  if(cell > 3.5 && cell < 4.5) value=clamp(value,.82,1.15);
   float fade = 1.0 - smoothstep(3.0, 5.0, lod);
   float strength = cell < .5 ? .55 : cell < 1.5 ? .35 : cell < 2.5 ? .17 : cell < 3.5 ? .24 : cell < 4.5 ? .40 : cell < 5.5 ? .28 : cell > 6.5 ? .14 : .35;
   return base * mix(1.0, value, strength * fade);
@@ -51,7 +54,9 @@ fn ffComicCloth(base : vec3f, kind : f32, p : vec3f, n : vec3f, gx : vec3f, gy :
   var mean = .78;
   if (cell < .5) { mean = .46; } else if (cell < 1.5) { mean = .40; } else if (cell < 2.5) { mean = .78; }
   else if (cell < 3.5) { mean = .21; } else if (cell < 4.5) { mean = .25; } else if (cell < 5.5) { mean = .25; } else if (cell < 6.5) { mean = .40; }
-  let value = clamp(dot(paint, vec3f(.299,.587,.114)) / mean, .38, 1.4);
+  var value = clamp(dot(paint, vec3f(.299,.587,.114)) / mean, .38, 1.4);
+  if(cell > 1.5 && cell < 2.5) { value=clamp(value,.85,1.12); }
+  if(cell > 3.5 && cell < 4.5) { value=clamp(value,.82,1.15); }
   let fade = 1.0 - smoothstep(3.0, 5.0, lod);
   var strength = .35;
   if(cell < .5) {strength=.55;} else if(cell > 1.5 && cell < 2.5) {strength=.17;} else if(cell > 6.5) {strength=.14;} else if(cell < 3.5 && cell > 2.5) {strength=.24;} else if(cell < 4.5 && cell > 3.5) {strength=.40;} else if(cell < 5.5 && cell > 4.5) {strength=.28;}

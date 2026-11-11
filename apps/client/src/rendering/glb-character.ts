@@ -1470,6 +1470,16 @@ export class GlbCharacterView implements AvatarView {
     const spineRotation = rig.rotation('Spine2');
     const tucked = hold.anchor === 'shoulders';
     const mouthpiece = hold.mouthpiece ?? null;
+    if(tucked) {
+      // Retargeted idles carry another body's clavicle shrug. Start an armed
+      // hold from this rig's own clavicle rest rotations; otherwise the upper
+      // arms rise out of the shirt and the reach solver raises a hip-held gun.
+      for(const side of ['Left','Right'] as const) {
+        const name=`${side}Shoulder` as const,node=rig.node(name),rest=this.asset.bindPose.get(name);
+        if(node?.rotationQuaternion&&rest)Quaternion.SlerpToRef(node.rotationQuaternion,rest.rotation,armed,node.rotationQuaternion);
+      }
+      rig.refresh();
+    }
     // Protract the clavicles before any reach test, so the tests see the
     // shoulders the arms start from: clips that roll the shoulders back (the
     // heavies' idles) would leave the grips out of reach. A horn at the mouth

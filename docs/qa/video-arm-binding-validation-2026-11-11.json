@@ -1,0 +1,70 @@
+{
+  "baseCommit": "5fe0587d9b68079279868e1e515b426a8ee2fe80",
+  "date": "2026-11-11",
+  "fixes": [
+    "armed clavicle rest rotations before reach solving",
+    "shirt shoulders follow chest instead of neck",
+    "fit Alpine Heavy skull to native Head joint + 0.10, radius 0.15",
+    "fitted rolled sleeves and omitted covered upper-arm skin",
+    "continuous cloth normals through subdivision and inverse-transpose rig fitting",
+    "snow-cannon support underneath drum and shared low gameplay/wardrobe hold",
+    "matte cloth, restrained paint contrast, warm pale cloth"
+  ],
+  "headFit": {
+    "basis": "native Head bind joint",
+    "offsetModelUnits": 0.1,
+    "radiusModelUnits": 0.15,
+    "worldClassHeightMetres": 1.95,
+    "actualModelScale": 1.3965515392398504
+  },
+  "regressions": {
+    "oldNeckGapModelUnits": 0.05552935600280762,
+    "newMaximumNeckGapModelUnits": 0.02,
+    "oldSeamNormalDot": 0.9949382772465359,
+    "minimumSeamNormalDot": 0.9999,
+    "checks": [
+      "actually skinned sleeve fit and covered skin",
+      "gameplay and wardrobe low carry",
+      "no retargeted shoulder lift beyond rest clearance",
+      "head/neck contact with shirt",
+      "head motion without shirt deformation",
+      "actual posed eyes stay above shoulders",
+      "existing weapon foregrip and Alphorn mouth contact"
+    ]
+  },
+  "tests": {
+    "scriptCases": 15,
+    "serverCases": 244,
+    "clientCases": 166,
+    "total": 425,
+    "serverTimeoutMs": 15000,
+    "clientTimeoutMs": 20000,
+    "strictErrors": 0,
+    "strictWarnings": 0,
+    "productionBuild": "passed"
+  },
+  "productionModelAssetsMatchSources": true,
+  "headGeometryHashUnchangedFromBase": "28b6159d989612579bd8f1226b294429d0fb4279545f4b9303ae5051f0ca56a9",
+  "browser": {
+    "status": "passed",
+    "viewport": [
+      1280,
+      720
+    ],
+    "renderer": "WebGL2 SwiftShader",
+    "pageErrors": 0,
+    "httpFailures": 0,
+    "contextLosses": 0,
+    "castLabels": 6,
+    "wardrobeProjection": "passed",
+    "heroTriangles": 43197,
+    "heroTrianglesAtBase": 44572,
+    "initialDrawCalls": 156,
+    "initialDrawCallsAtBase": 156
+  },
+  "newTextures": 0,
+  "newSamplers": 0,
+  "newRenderPasses": 0,
+  "nativeM4Measured": false,
+  "exactReferenceLikeness": "open"
+}

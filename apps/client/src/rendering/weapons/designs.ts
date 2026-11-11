@@ -553,14 +553,13 @@ const DESIGNS: Record<string, WeaponDesign> = {
       shoulder: [0.16, -0.50, 0.12],
       tilt: 0.1,
       yaw: -0.04,
-      support: [0.13, 0.22, 0.22],
-      supportBack: [0.13, 0.22, -0.07],
+      support: [0.07, 0.09, 0.22],
+      supportBack: [0.07, 0.09, -0.07],
       gripAxis: [0, -1, -0.2],
       supportAxis: [1, 0, 0],
       muzzle: [0, 0.2, 0.52],
       muzzleKind: 'snow',
     },
-    preview: { shoulder: [0.1, -0.255, 0.1], tilt: 0.1, yaw: 0.24 },
     build: (kit) => {
       kit.lathe(
         [
