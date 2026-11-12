@@ -136,3 +136,13 @@ extent, location outside the playable basin, shadow exclusion, disabled
 panorama and at most 5,120 triangles / 3,000 vertices. Combine with
 `FF_QA_REFERENCE_ROOT=1 FF_QA_REFERENCE_VIDEO=1 FF_QA_REFERENCE_CAPTURE_ONLY=1
 FF_QA_REFERENCE_CAST=1` for the ordinary Medium 1280×720 public scene capture.
+
+
+`FF_QA_REFERENCE_AIM=1` checks that the DOM reticle matches the real projected
+weapon ray and remains inside the viewport. Combined with `FF_QA_REFERENCE_SNOW=1`,
+it also checks an actual outgoing fire packet against that direction. Use a
+live isolated no-bot room for the lengthy software-rendered firing/mechanics
+check. `FF_QA_REFERENCE_ANATOMY=1` adds explicitly diagnostic nape and shoe
+close-ups of the current human; `FF_QA_REFERENCE_POSE=1` adds whole-body/face
+views. They follow the unchanged ordinary public scene capture and never
+stand in for a playable-camera screenshot.

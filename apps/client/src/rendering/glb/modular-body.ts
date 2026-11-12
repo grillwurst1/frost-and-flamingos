@@ -13,6 +13,7 @@ import { sculptedEyes } from './eye-surfaces';
 import { nativeWardrobeRecipe, usesNativeRegion } from './native-wardrobe';
 import { RIG_JOINTS, type RigJoint } from './rig';
 import { footwearSpread } from './footwear-stance';
+import { fitHeavyNape } from './nape-fit';
 
 export interface ModularRollBox { joint: RigJoint; corners: readonly Vector3[] }
 const rollBoxes = new WeakMap<Mesh, readonly ModularRollBox[]>();
@@ -44,7 +45,7 @@ export function modularHeadFrame(profile: PlayerProfile, asset: PaintedModelAsse
   // once the clavicles were corrected. Use one frame for all head selections.
   if (native && sharedHead && asset.wardrobeHead) {
     const alpineHeavy = asset.spec.key === 'alpine-heavy';
-    const y = alpineHeavy ? (asset.bindPositions.get('Head')?.y ?? head.y - .10) + .10 : head.y;
+    const y = alpineHeavy ? (asset.bindPositions.get('Head')?.y ?? head.y - .10) + .04 : head.y;
     const radius = profile.cosmetics.classId === 'heavy' ? (alpineHeavy ? .15 : .16)
       : profile.cosmetics.classId === 'infiltrator' ? .125 : .15;
     return { ...head, y, radius };
@@ -107,6 +108,7 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   // Heavy shoulders were wide, but their selected shirts kept a scout-width
   // chest. Give the complete torso shell room to meet those upper arms.
   const bodyScaleX = shoulder / 0.30 * (profile.cosmetics.classId === 'heavy' ? 1.20 : 1);
+  const packScaleX=profile.cosmetics.back==='back_cuckoo_clock' ? .80 : 1;
   const selectedHeadFrame = modularHeadFrame(profile, asset, native, sharedHead);
   const headScale = selectedHeadFrame.radius / 0.21;
   const anchors = [
@@ -128,11 +130,18 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     return headScale;
   };
+  const neckCentre=(y:number):{z:number;slope:number}=>{
+    const below=y<1.48,a=below?1.28:1.48,b=below?1.48:1.66;
+    const from=bind(below?'Spine2':'Neck').z,to=below?bind('Neck').z:selectedHeadFrame.z;
+    const slope=(to-from)/(b-a);
+    return {z:from+(y-a)*slope,slope};
+  };
   const body = (p: Vector3, tag: number, detail = 0) => {
     const y = p.y + 0.88;
     const head = tag === 1;
     const at = new Vector3(-p.x * (head ? headScale : bodyScaleX), head ? selectedHeadFrame.y + (y - 1.66) * headScale : bodyY(y),
       p.z * (head ? headScale : size) + (head ? selectedHeadFrame.z : bind('Spine2').z));
+    if(tag===0&&detail===6)at.z=p.z*size+neckCentre(y).z;
     if (head && cleanHead && detail === 3 && profile.cosmetics.hairStyleIndex === 1 && asset.wardrobeHead?.afro) {
       // A small inner cap closes any area hidden by the donor's goggles. The
       // visible silhouette and curls come from the actual artist geometry.
@@ -156,6 +165,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     if (head) return { at, ...weight(['Head'], 0) };
     if (tag === 2) {
       at.y = bind('Spine2').y + (y - 1.28) * size;
+      at.x*=packScaleX;
+      if(profile.cosmetics.back==='back_cuckoo_clock')at.y+=.04*size;
       return { at, ...weight(['Spine2'], 0) };
     }
     // A shirt shoulder/collar follows the chest, not a nodding neck. Only
@@ -345,7 +356,10 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
           // Inverse-transpose of the actual template-to-rig deformation.
           // Re-triangulating the stretched cloth creates diagonal shade streaks.
           const slope=tags[vertex*2]===2?size:bodySlope(p.y+.88);
-          const normal=new Vector3(-authoredNormals[i]!/bodyScaleX,authoredNormals[i+1]!/slope,authoredNormals[i+2]!/size).normalize();
+          const width=bodyScaleX*(tags[vertex*2]===2?packScaleX:1);
+          const zNormal=authoredNormals[i+2]!/size;
+          const centreSlope=tags[vertex*2]===0&&tags[vertex*2+1]===6?neckCentre(p.y+.88).slope:0;
+          const normal=new Vector3(-authoredNormals[i]!/width,(authoredNormals[i+1]!-centreSlope*zNormal)/slope,zNormal).normalize();
           headNormals.push(target,normal.x,normal.y,normal.z);
         }else if(name.includes('arm')&&-p.y<.60) {
           const side=name.startsWith('left')?'Left':'Right',segment=-p.y<.33?0:1;
@@ -530,10 +544,10 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     const hair = HAIR_COLORS[profile.cosmetics.hairColorIndex] ?? HAIR_COLORS[0];
     const hairRGB = [1, 3, 5].map(i => Number.parseInt(hair.slice(i, i + 2), 16) / 255);
     for (let v = 0; v < h.positions.length / 3; v++) {
-      positions.push(h.positions[v * 3]! * scale * broad,
-        frame.y + (h.positions[v * 3 + 1]! - h.frame.y) * scale,
-        frame.z + (h.positions[v * 3 + 2]! - h.frame.z) * scale);
-      const normal = new Vector3(h.normals[v * 3]! / broad, h.normals[v * 3 + 1]!, h.normals[v * 3 + 2]!).normalize();
+      const point=Vector3.FromArray(h.positions,v*3),normal=Vector3.FromArray(h.normals,v*3);
+      if(profile.cosmetics.classId==='heavy')fitHeavyNape(point,normal);
+      positions.push(point.x*scale*broad,frame.y+(point.y-h.frame.y)*scale,frame.z+(point.z-h.frame.z)*scale);
+      normal.x/=broad;normal.normalize();
       headNormals.push(first + v, normal.x, normal.y, normal.z);
       if(h.ambientOcclusion)headOcclusion.set(first+v,h.ambientOcclusion[v]!);
       const pigment = h.painted[v] === 2 ? hairRGB : skinRGB;

@@ -68,6 +68,18 @@ try {
   }
   if(process.env.FF_QA_REFERENCE_CAST==='1')for(const name of ['RoofSniper77','Senn_Koloss','Skipper','Wuzzi','Angry_Cow_Beta','StumbleBoi'])
     assert.ok(first.names.includes(name),name+' must be labelled in the initial view');
+  if(process.env.FF_QA_REFERENCE_AIM==='1') {
+    result.aim=await page.evaluate(()=>{
+      const g=window.__frostDebug,c=g.cameraRig.camera,d=g.cameraRig.getAimDirectionToRef(c.position.clone().setAll(0)),p=c.position.add(d.scale(30)),m=g.scene.getTransformMatrix().m;
+      const w=m[3]*p.x+m[7]*p.y+m[11]*p.z+m[15],r=document.querySelector('.crosshair-hud').getBoundingClientRect();
+      const send=g.network.sendFire.bind(g.network);g.network.sendFire=data=>{window.__qaFiredRay=data;return send(data)};
+      return {direction:d.asArray(),camera:c.getDirection(c.position.clone().set(0,0,1)).asArray(),
+        projected:[((m[0]*p.x+m[4]*p.y+m[8]*p.z+m[12])/w*.5+.5)*innerWidth,(.5-(m[1]*p.x+m[5]*p.y+m[9]*p.z+m[13])/w*.5)*innerHeight],
+        reticle:[(r.left+r.right)/2,(r.top+r.bottom)/2],viewport:[innerWidth,innerHeight]};
+    });
+    assert.ok(Math.hypot(...result.aim.reticle.map((v,i)=>v-result.aim.projected[i]))<2,'reticle must show the real weapon ray');
+    assert.ok(result.aim.reticle.every((v,i)=>v>0&&v<result.aim.viewport[i]),'reticle must remain in the viewport');
+  }
   if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');
   await page.screenshot({path:resolve(output,'reference-scene.png'),timeout:180000});
   if(process.env.FF_QA_REFERENCE_SNOW==='1'){
@@ -76,6 +88,11 @@ try {
     const cloud=await page.evaluate(()=>{const g=window.__frostDebug,m=g.scene.getMeshByName('snow-stream-cloud');return {instances:m?.thinInstanceCount,enabled:m?.isEnabled(),attribute:m?.subMeshes[0]?.effect?.getAttributeLocationByName('world0')}});
     assert.equal(cloud.instances,64);assert.equal(cloud.enabled,true,'a disabled pool is not a visible snow stream');assert.ok(cloud.attribute>=0);result.snowStream=cloud;
     await page.screenshot({path:resolve(output,'reference-snow-stream.png'),timeout:180000});
+    if(process.env.FF_QA_REFERENCE_AIM==='1') {
+      result.firedRay=await page.evaluate(()=>window.__qaFiredRay);
+      assert.ok(result.firedRay&&Object.values(result.firedRay.direction).every(Number.isFinite));
+      const d=result.firedRay.direction,a=result.aim.direction;assert.ok(d.x*a[0]+d.y*a[1]+d.z*a[2]>.94,'actual fire packet must follow the shown weapon ray');
+    }
     assert.ok(await page.evaluate(()=>window.__frostDebug.latestLocalState.hp>0),'player died during snow-stream capture');
     }finally{await page.mouse.up()}
   }
@@ -86,6 +103,14 @@ try {
     await page.keyboard.press('1');await frames(3);
     await page.evaluate(()=>{const g=window.__frostDebug,p=g.localView.root.getAbsolutePosition(),position=p.clone().set(p.x+.9,p.y+1.65,p.z+1.25),target=p.clone();target.y+=1.65;g.devCamera={position,target}});
     await frames(2);await page.screenshot({path:resolve(output,'reference-heavy-face.png'),timeout:180000});
+    await page.evaluate(()=>{window.__frostDebug.devCamera=null});await frames(2);
+  }
+  if(process.env.FF_QA_REFERENCE_ANATOMY==='1'){
+    // Inspection cameras only: the ordinary playable view is captured above.
+    for(const [name,offset,targetHeight] of [['nape',[1,1.75,-1.1],1.6],['boots',[.8,.35,1.2],.18]]){
+      await page.evaluate(({offset,targetHeight})=>{const g=window.__frostDebug,p=g.localView.root.getAbsolutePosition();g.devCamera={position:p.add(p.clone().set(...offset)),target:p.add(p.clone().set(0,targetHeight,0))}},{offset,targetHeight});
+      await frames(2);await page.screenshot({path:resolve(output,'reference-heavy-'+name+'.png'),timeout:180000});
+    }
     await page.evaluate(()=>{window.__frostDebug.devCamera=null});await frames(2);
   }
   if(process.env.FF_QA_REFERENCE_VIEWS==='1') {

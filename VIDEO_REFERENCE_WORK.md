@@ -516,3 +516,42 @@ is still missing. Hero clothing/anatomical silhouette, weapon visibility, troop
 staging/density and the centred rear camera still differ materially. Prioritise
 actual asset/camera work and normal gameplay captures; neither more polygons nor
 passing checks establish exact video likeness. Camera preference remains pending.
+
+
+## Hero anatomy, weapon size and reference framing — 12 November 2026
+
+The owner rejected the neck, legs and feet during actual inspection. The first
+new capture exposed calf skin piercing the wool; it is rejected as final
+evidence. Covered skin now ends inside the sock. Fit the Heavy skull lower,
+round its nape with differential normals, and replace the neck cylinder with a
+closed shoulder-to-neck loft. A further nape inspection caught a centreline
+misalignment: use real Spine2/Neck/head Z positions and normal shear, instead
+of placing the neck on the chest axis. Shoe undersides must meet the soles,
+rather than curl upwards like elliptical tubes.
+Shorter/slimmer hiking shoes have a heel cup,
+inclined instep, rounded toe, matching bevelled sole and fitted laces.
+The shoe loft is reduced to 16 longitudinal rows / 24 sides after inspection;
+new details do not justify excessive hidden geometry. Preserve independent
+foot articulation, original face topology and selectable skin/outfits.
+
+The latest explicit request for the complete video scene supersedes the older
+pending camera clarification. Reference humans use a side-follow view, body
+near centre, visible smaller gold cannon and narrower red clock. Crosshair
+position projects the actual aim ray; packets/tracers converge from real eyes/
+muzzle. Side offset shrinks with zoom/rear obstruction. Existing fir placement
+adds the missing left foreground. Field/vehicle/mascot profiles remain centred.
+Exact overall likeness remains OPEN; do not call this a 1:1 or M4 benchmark.
+
+
+Final verification: all 430 cases pass (15 script, 246 server, 169 client),
+strict 0 errors / 0 warnings and all production builds pass. Final public
+Medium 1280×720 and diagnostic nape/boot browser reviews pass without
+page/HTTP/context errors. The DOM reticle matches the weapon ray within
+0.011 pixels. Hero 46,441 triangles (previously 43,197); map unchanged at
+172,685 vertices. Initial draws 159 versus 158 due to existing foreground
+visibility; no added textures, full-screen passes or per-frame geometry fitting.
+Low 800×500 no-bot checks pass actual snow firing, walk/jump, capture, F boarding,
+60-second drive/fire with 12 authoritative cannon events, F exit and real wardrobe
+projection. Warm mesh/material/texture/geometry deltas: {'meshes': -1, 'materials': -1, 'textures': -1, 'geometries': -1}.
+Evidence: docs/qa/video-anatomy-validation-2026-11-12.json and companion files.
+This verifies the increment; exact video likeness and native M4 acceptance remain OPEN.

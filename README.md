@@ -1646,3 +1646,25 @@ public Medium WebGL2 review also pass. The map
 stores 172,685 vertices (-10.82% versus the preceding layout); 158 initial draws.
 The original 3D ridges use 2,665 shared points, with no panorama texture or
 additional shadow coverage. Exact video likeness remains open.
+
+
+## Hero anatomy and visible cannon — 12 November 2026
+
+The reference Heavy has a shorter neck, rounded nape and sculpted hiking shoes
+with fitted laces and thin soles. Covered calf skin stops inside wool socks.
+Skin/outfit selection and independent foot animation remain available.
+Reference-only side-follow framing exposes the smaller gold snow cannon and
+red cuckoo pack; the crosshair follows the actual weapon ray, including zoom
+and wall obstruction. Existing foreground fir placement follows the video.
+
+Latest actual public [scene](docs/qa/video-anatomy-scene-2026-11-12.png);
+labelled asset-inspection [neck](docs/qa/video-anatomy-nape-2026-11-12.png) /
+[feet](docs/qa/video-anatomy-boots-2026-11-12.png). Verification is recorded in
+[the report](docs/qa/video-anatomy-validation-2026-11-12.json).
+Exact video likeness and native Mac M4 thermal/FPS acceptance remain open.
+
+All 430 tests, strict checks and production builds pass. Actual public Medium
+review and isolated Low snow/capture/60-second drive-fire/exit/wardrobe checks
+pass without page/HTTP/context errors (12 authoritative cannon shots).
+The hero has 46,441 triangles; map geometry is unchanged, with no new textures
+or full-screen passes. See the linked validation report for bounded resource data.

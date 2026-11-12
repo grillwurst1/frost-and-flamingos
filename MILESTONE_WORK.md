@@ -942,3 +942,29 @@ ridge vertices / 3,577 triangles; 172,685 total map vertices (-10.82%), 158 init
 draws and no panorama texture or distant shadow coverage. Evidence:
 docs/qa/video-alps-validation-2026-11-12.json and companion files. Exact video
 acceptance remains open; continue camera/hero/weapon/effect art from actual views.
+
+
+### 12 November 2026 — hero neck, lower legs and weapon framing
+
+Continue the owner video-art priority: shorten the Heavy neck, round its nape,
+replace cylindrical boots with sculpted hiking shoes and matching soles, and
+remove calf skin piercing socks. Preserve independent articulated feet and
+selectable pigments/outfits. Reference-only side-follow view exposes the smaller
+gold cannon/clock; projected reticle stays tied to real firing. Zoom/obstruction
+checks protect playability. Reposition one existing fir into the foreground.
+Exact video acceptance and native M4 measurements remain OPEN; no future
+gameplay milestone is closed by this visual increment.
+
+
+Final verification: all 430 cases pass (15 script, 246 server, 169 client),
+strict 0 errors / 0 warnings and all production builds pass. Final public
+Medium 1280×720 and diagnostic nape/boot browser reviews pass without
+page/HTTP/context errors. The DOM reticle matches the weapon ray within
+0.011 pixels. Hero 46,441 triangles (previously 43,197); map unchanged at
+172,685 vertices. Initial draws 159 versus 158 due to existing foreground
+visibility; no added textures, full-screen passes or per-frame geometry fitting.
+Low 800×500 no-bot checks pass actual snow firing, walk/jump, capture, F boarding,
+60-second drive/fire with 12 authoritative cannon events, F exit and real wardrobe
+projection. Warm mesh/material/texture/geometry deltas: {'meshes': -1, 'materials': -1, 'textures': -1, 'geometries': -1}.
+Evidence: docs/qa/video-anatomy-validation-2026-11-12.json and companion files.
+This verifies the increment; exact video likeness and native M4 acceptance remain OPEN.

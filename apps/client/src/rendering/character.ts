@@ -32,7 +32,7 @@ import {
 } from './materials';
 import { mergeParts } from './mesh-utils';
 import { Affine, GeometryBatch } from './map/geometry';
-import { rolledSleeve, sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
+import { bootLacePoint, MOUNTAIN_BOOT, sculptedBoot, sculptedBootSole, sculptedNeck, rolledSleeve, sculptedBeard, sculptedHairCap, sculptedHatFeather, sculptedTrouserLeg, tailoredStrip } from './character-surfaces';
 import { shirtNormal, shirtPoint, shirtProfile, shirtSurface } from './character-tailoring';
 import { createContactShadow } from './contact-shadow';
 import { tagComicPaint } from './comic-paint';
@@ -78,19 +78,10 @@ function roundedProfile(width: number, height: number, torso = false): Array<[nu
     [width * .47, height * .4], [width * .42, height / 2]];
 }
 
-/** Front of the same boot surface used below, in the leg's template space. */
-function bootLacePoint(x: number, y: number): Vector3 {
-  const width=.19, height=.17, depth=.28, localY=y+.79;
-  const profile=roundedProfile(width,height);
-  let radius=profile[profile.length-1]![0];
-  for(let i=0;i+1<profile.length;i++){
-    const a=profile[i]!,b=profile[i+1]!;
-    if(localY<=b[1]){radius=a[0]+(b[0]-a[0])*Math.max(0,Math.min(1,(localY-a[1])/(b[1]-a[1])));break;}
-  }
-  return new Vector3(x,y,.04+depth/width*Math.sqrt(Math.max(0,radius*radius-x*x))+.0025);
-}
-
 function shapedPart(scene: Scene, name: string, width: number, height: number, depth: number): Mesh {
+  if(name==='neck')return sculptedNeck(scene,name);
+  if(/^(left|right)-boot$/.test(name))return sculptedBoot(scene,name,width,height,depth);
+  if(/^(left|right)-boot-sole$/.test(name))return sculptedBootSole(scene,name,width,height,depth);
   const batch = new GeometryBatch();
   batch.jitter = 0;
   const organic = /^(chest|waist|hip|hip-facing|waist-belt|dirndl-blouse|ranger-waistcoat|alpine-shirt-body|field-waistcoat)$|-(upper-arm|forearm|arm-sculpt|forearm-sculpt|sleeve-sculpt|thigh|shin|lederhosen|boardshort|boot|ski-boot|boot-sole|ski-sole|boot-cuff|sock|hand-palm)$/.test(name);
@@ -462,7 +453,7 @@ export class CharacterView {
     // their own original trouser mesh; mixed outfits must not expose a hole.
     box(scene, body, 'hip-facing', waistWidth * 1.04, .22, chestDepth * .7, 0, .12, 0,
       hexToColor4(LEGS_PALETTES[cosmetics.legs].primary));
-    cylinder(scene, body, 'neck', 0.14, 0.16, 0.18, 0, 0.6, 0, skinColor, { skin: true });
+    box(scene,body,'neck',.16,.125,.14,0,.59,0,skinColor,{skin:true});
 
     // Head, face and ears.
     const headStart = body.length;
@@ -1269,7 +1260,9 @@ export class CharacterView {
     const peg = feet === 'feet_peg_leg' && side === 'right';
     const ankleBoot = feet === 'feet_mountain_boots' || (feet === 'feet_peg_leg' && !peg);
     const coveredCuffs = feet === 'feet_ski_boots' || ankleBoot;
-    const shinBottom = ankleBoot ? -.695 : -.75;
+    // Stop hidden skin inside the wool, rather than letting a same-width calf
+    // render through it. Keep the overlap above the sock's upper edge.
+    const shinBottom = ankleBoot ? (legs==='legs_lederhosen'?-.55:-.695) : -.75;
     if (legs === 'legs_olive_pants') {
       const bottom = peg ? -.4 : feet === 'feet_ski_boots' ? -.415 : shinBottom;
       parts.push(sculptedTrouserLeg(scene, side, bottom, primary));
@@ -1299,8 +1292,8 @@ export class CharacterView {
       if (!peg && feet !== 'feet_ski_boots') {
         if(ankleBoot){
           const wool=hexToColor4('#b6b2a1');
-          box(scene,parts,`${side}-alpine-sock`,.155,.22,.17,0,-.59,0,wool);
-          torus(scene,parts,`${side}-alpine-sock-cuff`,.15,.018,0,-.492,0,wool,{segments:24,scaleZ:1.10});
+          box(scene,parts,`${side}-alpine-sock`,.154,.17,.168,0,-.615,0,wool);
+          torus(scene,parts,`${side}-alpine-sock-cuff`,.14,.012,0,-.533,0,wool,{segments:24,scaleZ:1.06});
         }else{
           box(scene, parts, `${side}-sock`, .15,.12,.16,0,-.72,0,secondary);
           box(scene,parts,`${side}-sock-stripe`,.155,.03,.165,0,-.66,0,accent);
@@ -1358,13 +1351,13 @@ export class CharacterView {
       box(scene, parts, `${side}-sandal`, 0.19, 0.035, 0.3, 0, -0.87, 0.07, footPrimary);
       box(scene, parts, `${side}-sandal-strap`, 0.2, 0.03, 0.05, 0, -0.82, 0.1, footSecondary);
     } else {
-      box(scene, parts, `${side}-boot`, 0.19, 0.17, 0.28, 0, -0.79, 0.04, footPrimary);
-      box(scene, parts, `${side}-boot-sole`, 0.2, 0.05, 0.3, 0, -0.89, 0.04, footSecondary);
-      box(scene, parts, `${side}-boot-cuff`, 0.2, 0.04, 0.2, 0, -0.7, 0.01, footAccent);
+      box(scene, parts, `${side}-boot`, MOUNTAIN_BOOT.width, MOUNTAIN_BOOT.height, MOUNTAIN_BOOT.depth, 0, -.79, .04, footPrimary);
+      box(scene, parts, `${side}-boot-sole`, .168, .035, .29, 0, -.8875, .04, footSecondary);
+      torus(scene,parts,`${side}-boot-cuff`,.145,.018,0,-.684,-.026,footAccent,{segments:24,scaleZ:.85});
       for (let lace = 0; lace < 4; lace++) for (const direction of [-1, 1]) {
         const path=Array.from({length:5},(_,step)=>{
           const t=step/4;
-          return bootLacePoint((t-.5)*.074,-.747-lace*.024+direction*(t-.5)*.024);
+          return bootLacePoint((t-.5)*.074,(lace+.5+direction*(t-.5)*.3)/4);
         });
         parts.push(tailoredStrip(scene,`${side}-boot-lace`,path,.006,.004,footAccent));
       }

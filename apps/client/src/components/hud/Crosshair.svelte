@@ -1,6 +1,6 @@
 <script lang="ts">
   import { WEAPON_STATS } from '@frost-and-flamingos/shared';
-  import { hitMarker, localPlayer } from '../../state/game';
+  import { aimPoint, hitMarker, localPlayer } from '../../state/game';
 
   $: player = $localPlayer;
   $: weapon = player ? WEAPON_STATS[player.weaponId] : WEAPON_STATS.smg;
@@ -11,7 +11,7 @@
 <div
   class="crosshair-hud"
   class:is-reloading={player?.reloading}
-  style={`--gap:${gap}`}
+  style={`--gap:${gap};left:${$aimPoint.x}%;top:${$aimPoint.y}%`}
   aria-hidden="true"
 >
   <span class="ch-dot"></span>
@@ -27,6 +27,7 @@
       class="hit-marker"
       class:is-headshot={$hitMarker.headshot}
       class:is-kill={$hitMarker.kill}
+      style={`left:${$aimPoint.x}%;top:${$aimPoint.y}%`}
       aria-hidden="true"
     >
       <span></span><span></span><span></span><span></span>

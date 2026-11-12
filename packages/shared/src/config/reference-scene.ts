@@ -8,7 +8,7 @@ import type { Faction, TowerDefinition, Vec3, MapProp } from '../types/index.js'
 
 export const REFERENCE_SCENE = {
   id: 'reference',
-  view: { yaw: 0, pitch: -.16 },
+  view: { yaw: .49, pitch: -.16 },
   focus: { x: 0, z: 0 },
   spawn: { alpine: ARENA_ANCHORS.alpine, lagoon: ARENA_ANCHORS.lagoon },
 } as const;

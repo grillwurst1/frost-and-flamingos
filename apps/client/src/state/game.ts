@@ -233,6 +233,13 @@ export interface InteractionPromptState {
 
 export const killFeed = writable<KillFeedEntry[]>([]);
 export const hitMarker = writable<HitMarkerState | null>(null);
+export const aimPoint=writable({x:50,y:50});
+let aimX=50,aimY=50;
+export function updateAimPoint(x:number,y:number):void {
+  if(!Number.isFinite(x)||!Number.isFinite(y))return;
+  if(Math.abs(x-aimX)<.025&&Math.abs(y-aimY)<.025)return;
+  aimX=x;aimY=y;aimPoint.set({x,y});
+}
 export const damageFlash = writable(0);
 export const deathState = writable<DeathState | null>(null);
 export const comicPop = writable<ComicPopState | null>(null);
@@ -261,6 +268,7 @@ export function showHitMarker(headshot: boolean, kill: boolean): void {
 }
 
 export function clearCombatUi(): void {
+  updateAimPoint(50,50);
   killFeed.set([]);
   hitMarker.set(null);
   damageFlash.set(0);

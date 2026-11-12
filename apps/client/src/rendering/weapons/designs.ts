@@ -71,6 +71,8 @@ export interface WeaponHoldData {
 
 export interface WeaponDesign {
   hold: WeaponHoldData;
+  /** Model dimensions relative to the anatomical hand; grip offsets stay unscaled. */
+  scale?: number;
   /** Draws the always-visible body. */
   build(kit: WeaponKit): void;
   /** Optional second part with its own state (umbrella canopy: closed / open). */
@@ -548,6 +550,7 @@ const DESIGNS: Record<string, WeaponDesign> = {
 
   /** Snow cannon: yellow drum body, steel turbine intake with a dark fan, yellow saddle. */
   snow_cannon: {
+    scale: .80,
     hold: {
       pose: 'hip',
       shoulder: [0.16, -0.50, 0.12],
@@ -567,12 +570,16 @@ const DESIGNS: Record<string, WeaponDesign> = {
           { z: -0.24, r: 0.1 },
           { z: -0.22, r: 0.115, hex: SNOW_GOLD },
           { z: 0.26, r: 0.13 },
-          { z: 0.26, r: 0.155, hard: true, hex: STEEL_LIGHT },
-          { z: 0.3, r: 0.165 },
-          { z: 0.46, r: 0.165 },
-          { z: 0.5, r: 0.15 },
-          { z: 0.5, r: 0.13, hard: true, hex: STEEL_DARK },
-          { z: 0.44, r: 0.12 },
+          { z: 0.265, r: 0.145, hard: true, hex: STEEL_LIGHT },
+          { z: 0.30, r: 0.145 },
+          { z: 0.305, r: 0.13, hard: true, hex: SNOW_GOLD },
+          { z: 0.43, r: 0.13 },
+          { z: 0.435, r: 0.155, hard: true, hex: STEEL_LIGHT },
+          { z: 0.47, r: 0.155 },
+          { z: 0.48, r: 0.145, hard: true, hex: SNOW_GOLD },
+          { z: 0.5, r: 0.14 },
+          { z: 0.5, r: 0.105, hard: true, hex: STEEL_DARK },
+          { z: 0.44, r: 0.10 },
         ],
         { at: [0, 0.2, 0], segments: 22, capStart: true, capEnd: true },
       );

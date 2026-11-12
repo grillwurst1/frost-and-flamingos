@@ -88,6 +88,7 @@ import { playerTags, tacticalPlayers } from '../state/tactical';
 import { projectPlayerTags, type TagCandidate } from '../rendering/player-tags';
 import {
   clearCombatUi,
+  updateAimPoint,
   damageFlash,
   deathState,
   debugVisible,
@@ -1640,6 +1641,7 @@ export class GameClient {
       this.vehicles.update(delta, now, this.snapshotHistory, this.cameraRig.camera.position, onFoot, audible);
     }
     this.updateCamera(delta);
+    if(this.cameraRig)updateAimPoint(this.cameraRig.aimScreen.x,this.cameraRig.aimScreen.y);
     this.updateLocalView(delta);
     this.updatePreviewView(delta);
     this.updateRemoteViews(delta, now);
@@ -1803,7 +1805,7 @@ export class GameClient {
     if (now - this.lastFireSentAt < interval) return;
     this.lastFireSentAt = now;
 
-    const forward = camera.camera.getDirection(Vector3.Forward()).normalize();
+    const forward = camera.getAimDirectionToRef(new Vector3()).normalize();
     const eyes = {
       x: character.position.x,
       y: character.position.y + character.eyeHeight - (this.vehicles?.eyeDrop(character.stats.height) ?? 0),

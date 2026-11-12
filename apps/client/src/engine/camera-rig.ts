@@ -29,11 +29,14 @@ export interface CameraProfile {
   distance: number;
   shoulder: number;
   fov?: number;
+  /** Look just ahead of the body while viewing from its side. Aim remains independent. */
+  focusAhead?: number;
 }
 
 export const HUMAN_CAMERA: CameraProfile = { pivotHeight: PLAYER_PIVOT_HEIGHT, distance: PLAYER_DISTANCE, shoulder: SHOULDER_OFFSET };
-/** Close full-body framing follows the owner's latest gameplay video. */
-export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.65, distance:3.75, fov:.85 };
+/** Video shoulder framing keeps the cannon/stream clear of the hero's back.
+ * Field play, mascots and vehicles retain their centred profiles. */
+export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.65, distance:3.15, shoulder:2.1, focusAhead:.8, fov:.85 };
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
 /** Vehicles: centred, higher and further back (pivot above the vehicle base). */
@@ -69,6 +72,10 @@ function springStep(state: SpringState, target: Vector3, stiffness: number, damp
  */
 export class CameraRig {
   readonly camera: FreeCamera;
+  readonly aimScreen={x:50,y:50};
+  private readonly aimPoint=new Vector3();
+  private readonly projectedAim=new Vector3();
+  private readonly forwardAxis=new Vector3(0,0,1);
   private readonly pivotSpring: SpringState = {
     value: new Vector3(0, 0, 0),
     velocity: new Vector3(0, 0, 0),
@@ -120,6 +127,13 @@ export class CameraRig {
 
   get currentPitch(): number {
     return this.pitch;
+  }
+
+  /** The weapon ray, independent of the reference camera's side-looking frame. */
+  getAimDirectionToRef(out:Vector3):Vector3 {
+    if(this.profile.focusAhead===undefined){this.camera.getDirectionToRef(this.forwardAxis,out);return out;}
+    const cos=Math.cos(this.pitch);
+    return out.set(Math.sin(this.yaw)*cos,Math.sin(this.pitch),Math.cos(this.yaw)*cos);
   }
 
   /** Orbit angle of the menu/wardrobe preview camera around the podium. */
@@ -203,6 +217,9 @@ export class CameraRig {
     );
     const right = new Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     let shoulder = this.profile.shoulder * this.shoulderSide;
+    // Keep the aim lane inside the view when zooming or a rear wall pushes
+    // the side camera forward. The normal field/vehicle profiles are centred.
+    if(this.profile.focusAhead!==undefined)shoulder*=Math.min(1,Math.min(this.distance,this.collisionDistance)/this.profile.distance);
     if (shoulder !== 0) {
       const side = Math.sign(shoulder);
       const hit = physics.raycast(
@@ -257,8 +274,9 @@ export class CameraRig {
     this.camera.position.copyFrom(this.positionSpring.value);
     // Look through the actual followed pivot even while the orbit spring
     // catches up with a fast turn; movement must not push the hero sideways.
-    const lookAt = this.pivotSpring.value.add(
-      this.pivotSpring.value.subtract(this.camera.position).normalize().scale(24));
+    const lookAt = this.profile.focusAhead===undefined ? this.pivotSpring.value.add(
+      this.pivotSpring.value.subtract(this.camera.position).normalize().scale(24))
+      : this.pivotSpring.value.subtract(right.scale(shoulder)).addInPlace(forward.scale(this.profile.focusAhead));
     if (this.wobble > 0) {
       this.wobbleTime += clampedDt;
       lookAt.addInPlace(right.scale(Math.sin(this.wobbleTime * 5.3) * 1.6 * this.wobble));
@@ -266,10 +284,18 @@ export class CameraRig {
     }
     this.camera.setTarget(lookAt);
     if (this.wobble > 0) this.camera.rotation.z = Math.sin(this.wobbleTime * 4.1) * 0.09 * this.wobble;
+    if(this.profile.focusAhead!==undefined) {
+      this.getAimDirectionToRef(this.aimPoint).scaleInPlace(30).addInPlace(this.camera.position);
+      this.camera.getViewMatrix();this.camera.getProjectionMatrix();
+      Vector3.TransformCoordinatesToRef(this.aimPoint,this.camera.getTransformationMatrix(),this.projectedAim);
+      this.aimScreen.x=(this.projectedAim.x*.5+.5)*100;
+      this.aimScreen.y=(.5-this.projectedAim.y*.5)*100;
+    }else {this.aimScreen.x=50;this.aimScreen.y=50;}
   }
 
   /** A vehicle passenger's eye socket; mouse look remains independent of the hull. */
   updatePassengerEyes(dt: number, eyes: Vec3): void {
+    this.aimScreen.x=50;this.aimScreen.y=50;
     const step = Math.min(0.05, Math.max(0.001, dt));
     this.easeFov(this.profile.fov ?? PLAYER_FOV, step);
     this.yaw += shortestAngle(this.yaw, this.targetYaw) * (1 - Math.exp(-step * 22));

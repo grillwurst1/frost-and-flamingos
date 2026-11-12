@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-12",
+  "status": "passed",
+  "baseline": "c82226d5b467007e366f364d92e53ff96a0d5af3",
+  "scope": "Hero neck centreline/nape, hiking shoes and socks, cannon/clock fit, reference-only side camera and physical aim reticle; existing foreground fir moved.",
+  "tests": {
+    "passed": {
+      "script": 15,
+      "server": 246,
+      "client": 169
+    },
+    "total": 430,
+    "failures": 0,
+    "strictErrors": 0,
+    "strictWarnings": 0,
+    "productionBuild": "shared/client/server passed",
+    "commands": [
+      "bun test --timeout 15000 scripts/tests",
+      "bun test --timeout 15000 apps/server/src apps/server/test",
+      "bun test --timeout 20000 apps/client/test",
+      "bun run typecheck",
+      "bun run build"
+    ],
+    "note": "All server/script cases passed; after final client-only neck/sole corrections, all 169 client cases, strict checks and all production builds passed again."
+  },
+  "publicBrowser": {
+    "status": "passed",
+    "viewport": [
+      1280,
+      720
+    ],
+    "quality": "medium",
+    "renderer": "WebGL2 / Chromium SwiftShader",
+    "camera": "ordinary playable reference camera",
+    "pageErrors": [],
+    "failedResponses": [],
+    "contextLosses": 0,
+    "castNames": [
+      "RoofSniper77",
+      "Senn_Koloss",
+      "Skipper",
+      "Wuzzi",
+      "Angry_Cow_Beta",
+      "StumbleBoi"
+    ],
+    "reticleErrorPixels": 0.01141854011270828,
+    "heroTriangles": 46441,
+    "previousHeroTriangles": 43197,
+    "mapVertices": 172685,
+    "initialDraws": 159,
+    "previousInitialDraws": 158,
+    "extraTexturesOrFullscreenPasses": 0
+  },
+  "inspectionViews": {
+    "nape": "diagnostic close camera on actual current Heavy, not the public camera",
+    "boots": "diagnostic close camera on actual current Heavy, not the public camera",
+    "review": "Reviewed ordinary scene, nape and shoes against the supplied MP4. Rejected skin piercing wool, neck on chest Z axis and curled-up shoe undersides; corrected and recaptured."
+  },
+  "isolatedBrowser": {
+    "status": "passed",
+    "viewport": [
+      800,
+      500
+    ],
+    "quality": "low",
+    "bots": false,
+    "checks": [
+      "real snow-cannon firing and visible 64-instance stream",
+      "actual outgoing fire direction agrees with projected reticle",
+      "walk/jump",
+      "capture",
+      "F boarding",
+      "60-second combined drive/fire loop",
+      "F exit",
+      "real wardrobe actor projects inside stage"
+    ],
+    "authoritativeCannonShots": 12,
+    "crawlerDisplacementMetres": 1.1218015283838703,
+    "steadyResources": {
+      "meshes": -1,
+      "materials": -1,
+      "textures": -1,
+      "geometries": -1
+    },
+    "pageErrors": [],
+    "failedResponses": [],
+    "contextLosses": 0
+  },
+  "limitations": [
+    "Exact 1:1 video art acceptance remains open.",
+    "Cloud SwiftShader functional checks do not measure native MacBook M4 FPS, thermals or long-session stability.",
+    "No full dynamic WebGPU acceptance claimed."
+  ],
+  "evidence": [
+    "video-anatomy-browser-2026-11-12.json",
+    "video-anatomy-mechanics-2026-11-12.json",
+    "video-anatomy-scene-2026-11-12.png",
+    "video-anatomy-nape-2026-11-12.png",
+    "video-anatomy-boots-2026-11-12.png",
+    "video-anatomy-snow-2026-11-12.png",
+    "video-anatomy-crawler-2026-11-12.png"
+  ]
+}

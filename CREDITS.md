@@ -368,3 +368,12 @@ Original project ridged-height geometry and blue-white facet palette in
 reference-alps.ts. Existing owner-derived cloud cutouts are repositioned without
 modifying their images. The supplied video, photographs and source models are
 unchanged; no new external art or textures are introduced.
+
+
+### Hero anatomy and prop fit — 12 November 2026
+
+Original project neck/trapezius, hiking-shoe/sole geometry, nape fitting and
+analytic normals, fitted laces, camera/reticle and gold cannon palette/hoops.
+These modify cached runtime geometry around the existing owner-derived models;
+source GLBs, paint, reference images and supplied video are unchanged.
+No external art, extra textures or new full-screen effects are introduced.

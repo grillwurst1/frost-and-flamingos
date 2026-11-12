@@ -2164,3 +2164,38 @@ Evidence: docs/qa/video-alps-browser-2026-11-12.json,
 video-alps-validation-2026-11-12.json and video-alps-scene-2026-11-12.png.
 Exact video likeness, camera/hero/effect fidelity and native M4 acceptance remain
 OPEN. No source photo/video or original model is modified.
+
+
+### Hero anatomy and video shoulder framing — 12 November 2026
+
+Owner specifically rejects the long/angular neck and cylindrical legs/feet.
+Fit the Heavy skull closer to the shoulders, round the lower nape with proper
+inverse-transpose normals, and use a closed trapezius/neck surface.
+The neck centreline follows actual Spine2/Neck/head positions, including its
+normal shear; the chest Z axis must not displace the neck behind the skull.
+Short leather shoes have heel cups, inclined insteps, rounded toes, matching bevelled
+soles and surface-fitted laces. Stop covered calf skin inside selected wool.
+Preserve selectable pigments/outfits and independently articulated feet.
+
+The latest explicit request to recreate the video authorises reference-only
+side-follow framing; this supersedes the older pending camera clarification.
+Keep the body near centre while exposing its cannon. The crosshair projects
+the actual weapon ray; shooting converges from the real eyes/muzzle. Reduce
+side offset when zoomed/obstructed. Field/mascot/vehicle profiles stay centred.
+Snow cannon and clock dimensions are smaller; the existing fir moves into the
+left foreground. All geometry fitting runs during bounded body construction.
+Exact video likeness and native M4 performance acceptance remain OPEN.
+
+
+Final verification: all 430 cases pass (15 script, 246 server, 169 client),
+strict 0 errors / 0 warnings and all production builds pass. Final public
+Medium 1280×720 and diagnostic nape/boot browser reviews pass without
+page/HTTP/context errors. The DOM reticle matches the weapon ray within
+0.011 pixels. Hero 46,441 triangles (previously 43,197); map unchanged at
+172,685 vertices. Initial draws 159 versus 158 due to existing foreground
+visibility; no added textures, full-screen passes or per-frame geometry fitting.
+Low 800×500 no-bot checks pass actual snow firing, walk/jump, capture, F boarding,
+60-second drive/fire with 12 authoritative cannon events, F exit and real wardrobe
+projection. Warm mesh/material/texture/geometry deltas: {'meshes': -1, 'materials': -1, 'textures': -1, 'geometries': -1}.
+Evidence: docs/qa/video-anatomy-validation-2026-11-12.json and companion files.
+This verifies the increment; exact video likeness and native M4 acceptance remain OPEN.

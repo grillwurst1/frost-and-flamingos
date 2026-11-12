@@ -175,7 +175,7 @@ export const TORSO_PALETTES: Record<TorsoId, CosmeticPalette> = {
 
 export const BACK_PALETTES: Record<BackId, CosmeticPalette> = {
   back_none: { primary: '#9bb9c9', secondary: '#6b747c', accent: '#f4c95d' },
-  back_cuckoo_clock: { primary: '#6b4a2f', secondary: '#3f2d1d', accent: '#f4c95d' },
+  back_cuckoo_clock: { primary: '#813c35', secondary: '#442d23', accent: '#f4c95d' },
   back_leather_pack: { primary: '#8a5a33', secondary: '#5a3b2a', accent: '#f3f6f8' },
   back_lifebuoy: { primary: '#f3f6f8', secondary: '#c62f45', accent: '#ff6b5e' },
   back_surfboard: { primary: '#ffd166', secondary: '#12b8a6', accent: '#ff6b5e' },

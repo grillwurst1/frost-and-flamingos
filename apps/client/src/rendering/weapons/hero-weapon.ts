@@ -231,11 +231,12 @@ function buildPart(
   origin: V3,
   mirror: boolean,
   tilt = 0,
+  scale = 1,
 ): { mesh: Mesh; vertices: number } {
   const kit = new WeaponKit();
   // World up in gun space while held (the hold pitches the gun by `tilt`).
   kit.paintUp = [0, Math.cos(tilt), Math.sin(tilt)];
-  kit.frame({ at: origin }, () => draw(kit));
+  kit.frame({ at: origin, scale }, () => draw(kit));
   if (mirror) kit.mirrorX();
   return { mesh: kit.build(scene, name, material), vertices: kit.vertexCount };
 }
@@ -272,15 +273,14 @@ class HeroWeaponProp implements HeroWeapon {
   ) {
     const mirror = options.mirrorX;
     const origin: V3 = options.origin === 'wrist' ? GRIP_FROM_WRIST : [0, 0, 0];
-    const body = buildPart(scene, `hero-weapon-${id}`, material, design.build, origin, mirror, design.hold.tilt);
+    const body = buildPart(scene, `hero-weapon-${id}`, material, design.build, origin, mirror, design.hold.tilt, design.scale);
     this.mesh = body.mesh;
     let vertices = body.vertices;
     const hold = design.hold;
-    const offset = vec(origin, mirror);
     if (hold.muzzle) {
       const muzzle = new TransformNode(`hero-weapon-${id}-muzzle`, scene);
       muzzle.parent = this.mesh;
-      muzzle.position.copyFrom(vec(hold.muzzle, mirror).addInPlace(offset));
+      muzzle.position.copyFrom(this.gunPoint(hold.muzzle));
       const direction = vec(hold.muzzleDir ?? [0, 0, 1], mirror).normalize();
       muzzle.rotationQuaternion = Quaternion.FromUnitVectorsToRef(new Vector3(0, 0, 1), direction, new Quaternion());
       this.muzzle = muzzle;
@@ -299,8 +299,8 @@ class HeroWeaponProp implements HeroWeapon {
       this.flashLife = 0;
     }
     if (design.extra) {
-      const closed = buildPart(scene, `hero-weapon-${id}-closed`, material, design.extra.closed, origin, mirror, design.hold.tilt);
-      const open = buildPart(scene, `hero-weapon-${id}-open`, material, design.extra.open, origin, mirror);
+      const closed = buildPart(scene, `hero-weapon-${id}-closed`, material, design.extra.closed, origin, mirror, design.hold.tilt, design.scale);
+      const open = buildPart(scene, `hero-weapon-${id}-open`, material, design.extra.open, origin, mirror, 0, design.scale);
       closed.mesh.parent = this.mesh;
       open.mesh.parent = this.mesh;
       open.mesh.setEnabled(false);
@@ -312,7 +312,7 @@ class HeroWeaponProp implements HeroWeapon {
       this.open = null;
     }
     this.vertexCount = vertices;
-    this.rear = hold.butt !== undefined ? hold.butt + origin[2] : null;
+    this.rear = hold.butt !== undefined ? hold.butt * (design.scale ?? 1) + origin[2] : null;
     if (import.meta.env.DEV) {
       // Views dispose the mesh directly; the probe forgets the prop with it.
       liveWeapons.add(this);
@@ -327,7 +327,7 @@ class HeroWeaponProp implements HeroWeapon {
       supportBack: hold.support && hold.supportBack ? this.supportWrist(hold.supportBack) : null,
       mouthpiece: hold.mouthpiece ? this.gunPoint(hold.mouthpiece) : null,
       headClear: hold.headClear
-        ? { from: this.gunPoint(hold.headClear.from), to: this.gunPoint(hold.headClear.to), radius: hold.headClear.radius }
+        ? { from: this.gunPoint(hold.headClear.from), to: this.gunPoint(hold.headClear.to), radius: hold.headClear.radius * (design.scale ?? 1) }
         : null,
     };
   }
@@ -335,7 +335,8 @@ class HeroWeaponProp implements HeroWeapon {
   /** Gun-space point → weapon space (the origin offset and mirror applied). */
   private gunPoint(point: V3): Vector3 {
     const origin = this.options.origin === 'wrist' ? GRIP_FROM_WRIST : [0, 0, 0];
-    return vec([point[0] + (origin[0] ?? 0), point[1] + (origin[1] ?? 0), point[2] + (origin[2] ?? 0)], this.options.mirrorX);
+    const scale=this.design.scale ?? 1;
+    return vec([point[0]*scale + (origin[0] ?? 0), point[1]*scale + (origin[1] ?? 0), point[2]*scale + (origin[2] ?? 0)], this.options.mirrorX);
   }
 
   get hold(): WeaponHoldData {
@@ -345,9 +346,8 @@ class HeroWeaponProp implements HeroWeapon {
   /** Support-hand wrist target in weapon space for a gun-space grip point. */
   private supportWrist(point: V3): Vector3 {
     const wrist = this.options.origin === 'wrist';
-    const origin = wrist ? GRIP_FROM_WRIST : [0, 0, 0];
     const fromGrip = wrist ? SUPPORT_WRIST_FROM_GRIP : [0, 0, 0];
-    return vec([point[0] + (origin[0] ?? 0) + (fromGrip[0] ?? 0), point[1] + (origin[1] ?? 0) + (fromGrip[1] ?? 0), point[2] + (origin[2] ?? 0) + (fromGrip[2] ?? 0)], this.options.mirrorX);
+    return this.gunPoint(point).addInPlace(vec([fromGrip[0] ?? 0,fromGrip[1] ?? 0,fromGrip[2] ?? 0],this.options.mirrorX));
   }
 
   fire(): void {

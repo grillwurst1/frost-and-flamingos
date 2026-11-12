@@ -22,6 +22,101 @@ function surface(scene: Scene, name: string, positions: number[], indices: numbe
   return mesh;
 }
 
+export const MOUNTAIN_BOOT={width:.16,height:.16,depth:.28} as const;
+const BOOT_SECTION=[[-.5,.25,-.46,.23],[-.4,.40,-.50,.67],[-.2,.43,-.50,.75],
+  [.02,.47,-.50,.37],[.28,.50,-.50,.08],[.44,.42,-.48,-.02],[.5,.16,-.38,-.13]] as const;
+
+/** Shared heel/ankle/instep/toe section for the actual leather and its laces. */
+function bootSection(z:number,width:number,height:number):{radius:number;centre:number;rise:number} {
+  let values:readonly number[]=BOOT_SECTION[0];
+  for(let i=0;i+1<BOOT_SECTION.length;i++) {
+    const a=BOOT_SECTION[i]!,b=BOOT_SECTION[i+1]!;
+    if(z>b[0])continue;
+    const t=Math.max(0,Math.min(1,(z-a[0])/(b[0]-a[0]))),u=t*t*(3-2*t);
+    values=a.map((v,k)=>v+(b[k]!-v)*u);break;
+  }
+  return {radius:values[1]!*width,centre:(values[2]!+values[3]!)*height/2,rise:(values[3]!-values[2]!)*height/2};
+}
+
+function bootHeight(section:{centre:number;rise:number},cosine:number):number {
+  const bottom=section.centre-section.rise,height=section.rise*2;
+  // A shoe rests on a sole: its sides must not curl up like an elliptical tube.
+  return bottom+height*(cosine>=0?.08+.92*cosine:.08*(1+cosine));
+}
+
+export function bootLacePoint(x:number,t:number):Vector3 {
+  const z=-.15+.48*t,s=bootSection(z,MOUNTAIN_BOOT.width,MOUNTAIN_BOOT.height);
+  return new Vector3(x,-.79+bootHeight(s,Math.sqrt(Math.max(0,1-(x/s.radius)**2)))+.0025,.04+z*MOUNTAIN_BOOT.depth);
+}
+
+/** Closed leather upper with a raised heel cup and a low rounded toe. */
+export function sculptedBoot(scene:Scene,name:string,width:number,height:number,depth:number):Mesh {
+  const p:number[]=[],f:number[]=[],cavity:number[]=[];const rows=16,sides=24;
+  for(let row=0;row<=rows;row++) {
+    const z=row/rows-.5,s=bootSection(z,width,height);
+    for(let col=0;col<sides;col++) {
+      const angle=col/sides*Math.PI*2;
+      p.push(Math.sin(angle)*s.radius,bootHeight(s,Math.cos(angle)),z*depth);
+      cavity.push(.025+.07*Math.max(0,-Math.cos(angle)));
+      if(row) {
+        const a=(row-1)*sides+col,b=(row-1)*sides+(col+1)%sides,c=row*sides+(col+1)%sides,d=row*sides+col;
+        f.push(a,c,b,a,d,c);
+      }
+    }
+  }
+  for(const end of [0,rows]) {
+    const s=bootSection(end/rows-.5,width,height),centre=p.length/3;
+    p.push(0,s.centre,(end/rows-.5)*depth);cavity.push(.03);
+    for(let col=0;col<sides;col++) {
+      const a=end*sides+col,b=end*sides+(col+1)%sides;
+      f.push(centre,...(end===0?[a,b]:[b,a]));
+    }
+  }
+  return surface(scene,name,p,f,new Color4(1,1,1,1),cavity);
+}
+
+/** A thin bevelled sole follows the same heel/toe footprint as the upper. */
+export function sculptedBootSole(scene:Scene,name:string,width:number,height:number,depth:number):Mesh {
+  const outline:Vector3[]=[];
+  for(const side of [1,-1])for(let i=0;i<=16;i++) {
+    const z=(side===1?16-i:i)/16-.5;
+    outline.push(new Vector3(bootSection(z,width,height).radius*side,0,z*depth));
+  }
+  const p:number[]=[],f:number[]=[],count=outline.length,profile=[[.94,-.5],[1,-.32],[1,.32],[.94,.5]] as const;
+  for(let row=0;row<profile.length;row++)for(let col=0;col<count;col++) {
+    const point=outline[col]!,[scale,y]=profile[row]!;
+    p.push(point.x*scale,y*height,point.z*scale);
+    if(row){const a=(row-1)*count+col,b=(row-1)*count+(col+1)%count,c=row*count+(col+1)%count,d=row*count+col;f.push(a,b,c,a,c,d);}
+  }
+  for(const row of [0,profile.length-1]) {
+    const centre=p.length/3;p.push(0,profile[row]![1]*height,0);
+    for(let col=0;col<count;col++){const a=row*count+col,b=row*count+(col+1)%count;f.push(centre,...(row===0?[b,a]:[a,b]));}
+  }
+  return surface(scene,name,p,f,new Color4(1,1,1,1));
+}
+
+/** A short neck flowing into the trapezius; no split circumferential seam. */
+export function sculptedNeck(scene:Scene,name:string):Mesh {
+  const profile=[[.110,-.065],[.095,-.040],[.077,-.010],[.068,.025],[.071,.060]] as const;
+  const p:number[]=[],f:number[]=[];const sides=32;
+  for(let row=0;row<profile.length;row++)for(let col=0;col<sides;col++) {
+    const [radius,y]=profile[row]!,angle=col/sides*Math.PI*2;
+    p.push(Math.sin(angle)*radius,y,Math.cos(angle)*radius*.85);
+    if(row) {
+      const a=(row-1)*sides+col,b=(row-1)*sides+(col+1)%sides,c=row*sides+(col+1)%sides,d=row*sides+col;
+      f.push(a,b,c,a,c,d);
+    }
+  }
+  for(const row of [0,profile.length-1]) {
+    const centre=p.length/3;p.push(0,profile[row]![1],0);
+    for(let col=0;col<sides;col++) {
+      const a=row*sides+col,b=row*sides+(col+1)%sides;
+      f.push(centre,...(row===0?[b,a]:[a,b]));
+    }
+  }
+  return surface(scene,name,p,f,new Color4(1,1,1,1));
+}
+
 /** A fitted leather/cloth ribbon with bevelled edges, following the garment
  * rather than floating as a straight board across a curved chest/back. */
 export function tailoredStrip(scene: Scene, name: string, path: readonly Vector3[], width: number | ((t:number)=>number),

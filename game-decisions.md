@@ -3245,3 +3245,39 @@ Evidence: docs/qa/video-alps-browser-2026-11-12.json,
 video-alps-validation-2026-11-12.json and video-alps-scene-2026-11-12.png.
 Exact video likeness, camera/hero/effect fidelity and native M4 acceptance remain
 OPEN. No source photo/video or original model is modified.
+
+
+### Anatomical fit and an honest side-view reticle — 12 November 2026
+
+The owner identifies an implausible neck, legs and feet. Fit the Heavy head
+anchor at Head bind Y + 0.04; smoothly reshape only its lower rear skull,
+transporting normals through the analytic inverse transpose. Reuse the shared
+closed skin and outfit-independent pigment. A short neck/trapezius loft replaces
+the cylinder. Its centreline follows actual chest/Neck/head Z positions and
+normal shear, rather than leaving the neck behind the skull on the chest axis.
+Hiking shoes use a bounded heel/instep/toe loft with a flat underside, matching thin
+bevelled soles and shared surface coordinates for laces. Covered calf skin
+ends inside the sock instead of piercing wool. Foot bones/gaits stay independent.
+
+The explicit latest video-scene request supersedes the pending camera question.
+Use side-follow framing only for reference humans; keep field/vehicle/mascot
+centred. Separate physical aim direction from view direction, project that ray
+for the reticle, and retain real eye/muzzle convergence. Scale side offset down
+when zoomed or rear-obstructed. Cannon scale applies to both geometry and
+sockets, never anatomical wrist offsets. Narrow/raise the existing clock pack
+and move an existing fir, with no new textures, full-screen passes or runtime
+geometry updates. Exact video art acceptance and native M4 measurements are OPEN.
+
+
+Final verification: all 430 cases pass (15 script, 246 server, 169 client),
+strict 0 errors / 0 warnings and all production builds pass. Final public
+Medium 1280×720 and diagnostic nape/boot browser reviews pass without
+page/HTTP/context errors. The DOM reticle matches the weapon ray within
+0.011 pixels. Hero 46,441 triangles (previously 43,197); map unchanged at
+172,685 vertices. Initial draws 159 versus 158 due to existing foreground
+visibility; no added textures, full-screen passes or per-frame geometry fitting.
+Low 800×500 no-bot checks pass actual snow firing, walk/jump, capture, F boarding,
+60-second drive/fire with 12 authoritative cannon events, F exit and real wardrobe
+projection. Warm mesh/material/texture/geometry deltas: {'meshes': -1, 'materials': -1, 'textures': -1, 'geometries': -1}.
+Evidence: docs/qa/video-anatomy-validation-2026-11-12.json and companion files.
+This verifies the increment; exact video likeness and native M4 acceptance remain OPEN.

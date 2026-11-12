@@ -28,6 +28,8 @@ export interface Place {
   at?: V3;
   /** Euler rotation (x, y, z) in radians, Babylon yaw-pitch-roll order. */
   rot?: V3;
+  /** Uniform model scale, baked into the shared vertex buffer. */
+  scale?: number;
 }
 
 export interface Ring {
@@ -76,7 +78,7 @@ export function shadeHex(hex: string, factor: number): string {
 function placeMatrix(place: Place): Matrix {
   const [rx, ry, rz] = place.rot ?? [0, 0, 0];
   const [x, y, z] = place.at ?? [0, 0, 0];
-  return Matrix.Compose(Vector3.One(), Quaternion.FromEulerAngles(rx, ry, rz), new Vector3(x, y, z));
+  return Matrix.Compose(Vector3.One().scaleInPlace(place.scale ?? 1), Quaternion.FromEulerAngles(rx, ry, rz), new Vector3(x, y, z));
 }
 
 const tmpPoint = new Vector3();

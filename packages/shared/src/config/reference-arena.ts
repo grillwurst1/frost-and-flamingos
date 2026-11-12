@@ -182,7 +182,7 @@ export const ARENA_STATION_PROPS: readonly MapProp[] = ARENA_CABLE.stations.map(
       ...[-1, 1].flatMap(side => [-1, 1].map(end => boxCollider(.14, 2.6, .14, side * 4.6, 2.6, end * 2.5, { surface: 'wood' })))] };
 });
 const trees: MapProp[] = [];
-for (const [kind, points] of [['fir', [[-31, -20], [-27, -9], [-32, 0], [-29, 7], [-32, 25], [-23, 30], [-33, 43], [-24, 44], [-8, 45], [-3, 47], [8, 40], [14, 38], [22, 31], [29, 30], [-30, -26], [-23, -27], [-11, -26]]],
+for (const [kind, points] of [['fir', [[-7.3, -16], [-27, -9], [-32, 0], [-29, 7], [-32, 25], [-23, 30], [-33, 43], [-24, 44], [-8, 45], [-3, 47], [8, 40], [14, 38], [22, 31], [29, 30], [-30, -26], [-23, -27], [-11, -26]]],
   ['palm', [[38, 7], [40, 14], [49, 10], [37, 28], [42, 32], [49, 30], [47, 22], [40, 24], [37, 18]]]] as const) {
   points.forEach(([x, z], i) => trees.push({ id: `arena_${kind}_${i}`, kind, position: { x, y: arenaHeightAt(x, z), z }, rotationY: i * 2.13, scale: kind === 'fir' ? .72 + (i % 3) * .1 : .9 + (i % 3) * .12, variant: i % 3,
     surface: kind === 'fir' ? 'snow' : 'sand', colliders: [{ type: 'cylinder', radius: kind === 'fir' ? .28 : .22, halfHeight: kind === 'fir' ? 2.8 : 3.5, offset: { x: 0, y: kind === 'fir' ? 2.8 : 3.5, z: 0 }, surface: 'wood' }] }));

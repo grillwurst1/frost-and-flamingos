@@ -1740,3 +1740,26 @@ die gesamte Karte hat 172.685 statt zuvor 193.634 Vertices. Die Startansicht hat
 158 statt 156 Zeichenaufrufe. Die Panoramatextur entfällt in der Referenzszene.
 Die Rückansicht bleibt mittig, bis die Kamerafrage geklärt ist. Die exakte
 Videooptik ist weiterhin nicht erreicht.
+
+
+### Figur und Referenzkamera — 12. November 2026
+
+Der Heavy hat einen kürzeren Hals, einen abgerundeten Nacken und geformte
+Bergschuhe mit Ferse, Spann, Schnürung und dünner Sohle. Die Haut der Wade
+endet innerhalb der Wollsocken. Beide Füße bleiben einzeln animiert; Hautfarbe
+und Kleidung sind weiterhin unabhängig auswählbar.
+
+In der Videoreferenzszene folgt die Kamera leicht seitlich, sodass die kleinere
+goldene Schneekanone sichtbar ist. Das Fadenkreuz zeigt deren tatsächliche
+Zielrichtung und bleibt beim Heranzoomen bzw. vor Wänden im Bild. Normale
+Feld-, Maskottchen- und Fahrzeugkameras behalten ihre mittige Ausrichtung.
+Die aktuelle Spielaufnahme liegt unter docs/qa/video-anatomy-scene-2026-11-12.png;
+Nacken-/Schuhdetails sind ausdrücklich zusätzliche Diagnoseansichten. Die
+vollständige Video-Gleichheit und eine Messung auf dem MacBook M4 sind offen.
+
+Alle 430 Tests, Typprüfung und Produktionsbuild bestehen. Die Browserprüfung
+von Spielansicht, Schneekanone, Bewegung/Sprung, Eroberung, Einsteigen,
+60 Sekunden Fahren mit Schießen (12 bestätigte Panzerschüsse), Aussteigen und
+Garderobe besteht ohne Seiten-/Lade-/WebGL-Kontextfehler. Die Figur hat 46.441
+Dreiecke, die Karte weiterhin 172.685 Vertices. Neue Texturen oder zusätzliche
+Bildschirmeffekte entstehen nicht. Details: docs/qa/video-anatomy-validation-2026-11-12.json.
