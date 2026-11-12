@@ -85,10 +85,13 @@ try {
       const send=g.network.sendFire.bind(g.network);g.network.sendFire=data=>{window.__qaFiredRay=data;return send(data)};
       return {direction:d.asArray(),fromEyes:g.cameraRig.aimsFromEyes,target:p.asArray(),camera:c.getDirection(c.position.clone().set(0,0,1)).asArray(),
         projected:[((m[0]*p.x+m[4]*p.y+m[8]*p.z+m[12])/w*.5+.5)*innerWidth,(.5-(m[1]*p.x+m[5]*p.y+m[9]*p.z+m[13])/w*.5)*innerHeight],
-        reticle:[(r.left+r.right)/2,(r.top+r.bottom)/2],viewport:[innerWidth,innerHeight]};
+        reticle:[(r.left+r.right)/2,(r.top+r.bottom)/2],viewport:[innerWidth,innerHeight],
+        reticleParts:Array.from(document.querySelectorAll('.crosshair-hud>span'),span=>{const b=span.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom}})};
     });
     assert.ok(Math.hypot(...result.aim.reticle.map((v,i)=>v-result.aim.projected[i]))<2,'reticle must show the real weapon ray');
     assert.ok(result.aim.reticle.every((v,i)=>v>0&&v<result.aim.viewport[i]),'reticle must remain in the viewport');
+    assert.equal(result.aim.reticleParts.length,5,'the actual reticle dot and four spread lines must exist');
+    assert.ok(result.aim.reticleParts.every(b=>b.left>=0&&b.top>=0&&b.right<=result.aim.viewport[0]&&b.bottom<=result.aim.viewport[1]),'the entire real spread reticle must remain in the viewport');
   }
   if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');
   await page.screenshot({path:resolve(output,'reference-scene.png'),timeout:180000});

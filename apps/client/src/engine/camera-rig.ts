@@ -39,7 +39,9 @@ export const HUMAN_CAMERA: CameraProfile = { pivotHeight: PLAYER_PIVOT_HEIGHT, d
 /** Video shoulder framing keeps the cannon/stream clear of the hero's back.
  * Field play, mascots and vehicles retain their centred profiles. */
 export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.65, distance:3.15, shoulder:2.1, focusAhead:.8, fov:.85 };
-export const REFERENCE_SNOW_CAMERA:CameraProfile={...REFERENCE_HUMAN_CAMERA,distance:1.3,shoulder:3.3,focusAhead:1.3,fov:.95,aimFromEyes:true};
+// Wider optics keep the entire real spread reticle inside 16:10 windows.
+// Move closer as well so the hero keeps a large video silhouette.
+export const REFERENCE_SNOW_CAMERA:CameraProfile={...REFERENCE_HUMAN_CAMERA,distance:1.2,shoulder:3.0,focusAhead:1.2,fov:1.10,aimFromEyes:true};
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
 /** Vehicles: centred, higher and further back (pivot above the vehicle base). */

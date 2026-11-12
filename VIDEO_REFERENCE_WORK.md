@@ -605,3 +605,33 @@ Browser evidence and measured limits: docs/qa/video-alpine-valley-validation-202
 Hero stays at 46,441 triangles; reference map stores 143,532 vertices versus 172,685
 (-16.88%). Exact video likeness, native M4 thermals/FPS and full dynamic WebGPU
 acceptance remain OPEN. Software Chromium is a functional/visual check only.
+
+### Whole Snow reticle in laptop windows — 12 November 2026
+
+The previous side camera put the real eye-ray reticle at x=772.87 in an 800 px
+window: its outer spread line was clipped. Widen reference Snow FOV from .95 to
+1.10 radians and move closer (rear 1.2, side 3.0, focus 1.2 m).
+Keep physical aim and its projected screen position; do not clamp/move the reticle.
+One new regression checks both shoulders and 3/12 m hits at 800×500, 1280×800 and
+1280×720 with a full reticle margin. Existing turn/pitch/zoom/obstruction and
+centred human/vehicle camera cases remain. Browser QA now checks the bounds of
+all five actual DOM reticle parts, not only its centre. No geometry, textures,
+passes, world/physics, weapon rules or model changes. Overall video likeness
+and native M4 performance remain open.
+
+Final camera checks: all 173 client cases pass; with the unchanged 15 script and
+247 server cases this is 435 distinct successful cases. Strict diagnostics are
+0 errors / 0 warnings and all production builds pass (existing bundle advisory).
+The separate camera margin regression fails the prior profile at x=772.87/800
+and passes the corrected one. Actual public browser bounds/results are recorded
+in docs/qa/video-reticle-validation-2026-11-12.json. Exact video art parity and
+native M4 performance remain open.
+
+Next visual acceptance work stays within the owner video priority: refine actual
+figure/garment forms, sharpen the solid distant peak silhouettes within the
+existing backdrop budget, and match closer combat staging through supported
+positions/routes while retaining physical class size and hit capsules. The
+current separated billow shapes and running silhouette also differ from the
+reference. The fixes above are verified increments, not final 1:1 acceptance.
+
+Final public Low firing and fresh Medium captures pass with all six labels, all five reticle parts inside the viewport and zero page/HTTP/context errors. Medium initial draws are 161 versus 160 at the previous camera visibility; hero/map stay 46,441 triangles / 143,532 vertices. A first reused-match cast-label failure is recorded in the validation history.

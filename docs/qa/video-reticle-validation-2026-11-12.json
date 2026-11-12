@@ -1,0 +1,242 @@
+{
+  "date": "2026-11-12",
+  "baseline": "7b9283609d90b9cfefc24a953885ef3d2953784e",
+  "status": "passed camera increment; exact video likeness remains OPEN",
+  "scope": "Reference Snow optics and full visible spread reticle; same physical eye ray, bodies, terrain, collision and weapon rules",
+  "profile": {
+    "rearMetres": 1.2,
+    "sideMetres": 3.0,
+    "focusAheadMetres": 1.2,
+    "verticalFovRadians": 1.1,
+    "previousVerticalFovRadians": 0.95,
+    "reticleClampedOrMoved": false,
+    "extraGeometryTexturesPasses": 0
+  },
+  "tests": {
+    "scriptPassed": 15,
+    "serverPassed": 247,
+    "clientPassed": 173,
+    "totalDistinctPassed": 435,
+    "finalClientFailures": 0,
+    "strictErrors": 0,
+    "strictWarnings": 0,
+    "productionBuilds": "shared/client/server passed; existing Vite large-chunk advisory",
+    "note": "Script/server code unchanged from verified 7b92836. Full 173-case client suite, strict checks and production builds rerun after camera changes.",
+    "regression": {
+      "viewports": [
+        [
+          800,
+          500
+        ],
+        [
+          1280,
+          800
+        ],
+        [
+          1280,
+          720
+        ]
+      ],
+      "shoulders": 2,
+      "rangesMetres": [
+        3,
+        12
+      ],
+      "oldUnitReticleCenterXIn800": 772.8668773751641,
+      "requiredRightMarginPixels": 55,
+      "oldProfileFailed": true,
+      "newProfilePassed": true
+    }
+  },
+  "browser": {
+    "low": {
+      "quality": "low",
+      "viewport": [
+        800,
+        500
+      ],
+      "ordinaryPublicRoomWithBots": true,
+      "status": "passed",
+      "raw": "video-reticle-low-browser-2026-11-12.json",
+      "snowImage": "video-reticle-snow-2026-11-12.png",
+      "actualAimAndFiveDomBounds": {
+        "direction": [
+          0.7733100899578936,
+          -0.15931820661424598,
+          0.6136849467035467
+        ],
+        "fromEyes": true,
+        "target": [
+          9.279721079494724,
+          22.655182359862447,
+          -12.63578063955744
+        ],
+        "camera": [
+          0.003932487219572067,
+          -0.10030784457921982,
+          0.99494868516922
+        ],
+        "projected": [
+          719.595227727765,
+          294.00419169394917
+        ],
+        "reticle": [
+          719.390625,
+          293.953125
+        ],
+        "viewport": [
+          800,
+          500
+        ],
+        "reticleParts": [
+          {
+            "left": 717.3515625,
+            "right": 721.4296875,
+            "top": 291.9140625,
+            "bottom": 295.9921875
+          },
+          {
+            "left": 717.359375,
+            "right": 721.4375,
+            "top": 259.5931396484375,
+            "bottom": 268.9525146484375
+          },
+          {
+            "left": 744.390625,
+            "right": 753.75,
+            "top": 291.921875,
+            "bottom": 296
+          },
+          {
+            "left": 717.359375,
+            "right": 721.4375,
+            "top": 318.953125,
+            "bottom": 328.3125
+          },
+          {
+            "left": 685.0306396484375,
+            "right": 694.3900146484375,
+            "top": 291.921875,
+            "bottom": 296
+          }
+        ]
+      },
+      "rightmostReticlePixel": 753.75,
+      "pageErrors": [],
+      "failedResponses": [],
+      "contextLosses": 0,
+      "castNames": [
+        "RoofSniper77",
+        "Senn_Koloss",
+        "Skipper",
+        "Wuzzi",
+        "Angry_Cow_Beta",
+        "StumbleBoi"
+      ],
+      "snowPool": {
+        "instances": 64,
+        "enabled": true,
+        "attribute": 3
+      }
+    },
+    "medium": {
+      "quality": "medium",
+      "viewport": [
+        1280,
+        720
+      ],
+      "ordinaryPublicRoomWithBots": true,
+      "freshServer": true,
+      "status": "passed",
+      "raw": "video-reticle-medium-browser-2026-11-12.json",
+      "image": "video-reticle-scene-2026-11-12.png",
+      "actualAimAndFiveDomBounds": {
+        "direction": [
+          0.7733100899578936,
+          -0.15931820661424598,
+          0.6136849467035467
+        ],
+        "fromEyes": true,
+        "target": [
+          9.279721079494724,
+          22.655182359862447,
+          -12.63578063955744
+        ],
+        "camera": [
+          0.004819211084395647,
+          -0.10041842609643936,
+          0.9949336647987366
+        ],
+        "projected": [
+          1099.4444983689666,
+          423.2217779105822
+        ],
+        "reticle": [
+          1099.125,
+          423.15625
+        ],
+        "viewport": [
+          1280,
+          720
+        ],
+        "reticleParts": [
+          {
+            "left": 1096.40625,
+            "right": 1101.84375,
+            "top": 420.4375,
+            "bottom": 425.875
+          },
+          {
+            "left": 1096.40625,
+            "right": 1101.84375,
+            "top": 370.6762390136719,
+            "bottom": 383.1449890136719
+          },
+          {
+            "left": 1139.125,
+            "right": 1151.59375,
+            "top": 420.4375,
+            "bottom": 425.875
+          },
+          {
+            "left": 1096.40625,
+            "right": 1101.84375,
+            "top": 463.15625,
+            "bottom": 475.625
+          },
+          {
+            "left": 1046.64501953125,
+            "right": 1059.11376953125,
+            "top": 420.4375,
+            "bottom": 425.875
+          }
+        ]
+      },
+      "pageErrors": [],
+      "failedResponses": [],
+      "contextLosses": 0,
+      "castNames": [
+        "RoofSniper77",
+        "Senn_Koloss",
+        "Skipper",
+        "Wuzzi",
+        "Angry_Cow_Beta",
+        "StumbleBoi"
+      ],
+      "heroTriangles": 46441,
+      "mapVertices": 143532,
+      "initialDrawCalls": 161,
+      "previousInitialDrawCalls": 160
+    }
+  },
+  "history": [
+    "First Medium capture reused the live reference room after the firing run and had only two labels in view. The six-cast assertion failed. It was retained unchanged and passes after restarting the ordinary server for a fresh intro.",
+    "Cloud Chromium SwiftShader is used for functional/visual checks. No native FPS or thermal inference."
+  ],
+  "limitations": [
+    "Overall figure/clothing forms, sharper peak silhouettes, closer combat staging, billows and running silhouette still differ from the supplied MP4.",
+    "Exact 1:1 video art acceptance remains OPEN.",
+    "Native MacBook M4 thermals/FPS and full dynamic WebGPU acceptance remain OPEN."
+  ],
+  "relatedWorldAndMechanicsProof": "video-alpine-valley-validation-2026-11-12.json"
+}

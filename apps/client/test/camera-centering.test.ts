@@ -2,9 +2,34 @@ import { expect, test } from 'bun:test';
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine';
 import { Scene } from '@babylonjs/core/scene';
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math';
-import { PhysicsWorld } from '@frost-and-flamingos/shared';
+import { PhysicsWorld, WEAPON_STATS } from '@frost-and-flamingos/shared';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { CameraRig, CABLE_CAR_CAMERA, HUMAN_CAMERA, REFERENCE_HUMAN_CAMERA, REFERENCE_SNOW_CAMERA, cameraProfileFor } from '../src/engine/camera-rig';
+
+test('the whole snow-cannon reticle stays inside ordinary laptop and compact windows on either shoulder',async()=>{
+  const physics=await PhysicsWorld.create();
+  const margin=Math.ceil(5+WEAPON_STATS.snow_cannon.spread*640)+14;
+  try {
+    for(const [width,height] of [[800,500],[1280,800],[1280,720]] as const) {
+      const engine=new NullEngine({renderWidth:width,renderHeight:height,textureSize:256,deterministicLockstep:false,lockstepMaxSteps:4}),scene=new Scene(engine);
+      try {
+        const camera=new CameraRig(scene),feet=new Vector3(0,150,0),eyes=feet.add(new Vector3(0,1.9,0));
+        camera.setProfile(REFERENCE_SNOW_CAMERA);
+        for(const shoulder of [0,1]) {
+          if(shoulder)camera.swapShoulder();
+          for(const range of [3,12]) {
+            camera.resetAngles(.90,-.16);camera.snapToPlayer(feet);
+            for(let frame=0;frame<120;frame++)camera.updatePlayer(1/60,feet,physics);
+            camera.setPhysicalAimTarget(eyes,camera.getAimDirectionToRef(new Vector3()),range);
+            const x=camera.aimScreen.x/100*width,y=camera.aimScreen.y/100*height;
+            expect(x).toBeGreaterThan(margin);expect(x).toBeLessThan(width-margin);
+            expect(y).toBeGreaterThan(margin);expect(y).toBeLessThan(height-margin);
+          }
+        }
+      }finally{scene.dispose();engine.dispose()}
+    }
+  }finally{physics.dispose()}
+});
 
 test('the reference snow side view projects the actual eye ray through turns, shoulders, zoom and a rear wall',async()=>{
   const engine=new NullEngine({renderWidth:1280,renderHeight:720,textureSize:256,deterministicLockstep:false,lockstepMaxSteps:4}),scene=new Scene(engine),physics=await PhysicsWorld.create();

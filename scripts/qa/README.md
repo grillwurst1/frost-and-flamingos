@@ -163,3 +163,10 @@ Low firing check, the earlier same-world mechanics run and explicit visual limit
 in `docs/qa/video-alpine-valley-validation-2026-11-12.json`. Do not infer M4 FPS or
 thermal behaviour from SwiftShader. Diagnostic face/pose/fir cameras are labelled
 separately from ordinary gameplay captures. MP4 sources are never edited.
+
+`FF_QA_REFERENCE_AIM=1` also requires all five actual dot/line DOM bounds to fit
+inside the viewport. A visible reticle centre alone is insufficient on 16:10.
+
+`FF_QA_REFERENCE_CAST=1` is a fresh-intro assertion. Restart the ordinary dev
+server before its final capture if a preceding firing/soak run has left the
+reference match in progress; do not drop missing-name assertions to make it pass.

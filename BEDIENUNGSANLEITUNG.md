@@ -1796,3 +1796,21 @@ statt 172.685 gespeicherte Vertices (-16,88 %), die Figur weiterhin 46.441 Dreie
 Nachweise: docs/qa/video-alpine-valley-validation-2026-11-12.json. Eine exakte
 Video-Übereinstimmung und Temperatur/FPS auf einem echten MacBook M4 sind damit
 noch nicht nachgewiesen. Die Software-Chromium-Prüfung ersetzt keinen Gerätetest.
+
+### Vollständiges Schneekanonen-Fadenkreuz — 12. November 2026
+
+Die Schneekanonen-Kamera zeigt nun auch in schmaleren Laptopfenstern alle
+Fadenkreuzstriche. Zuvor konnte in 800×500 der äußere Strich abgeschnitten sein.
+Die Optik wird etwas weiter und die Kamera entsprechend näher geführt; Figur,
+physische Zielrichtung und echte Treffer bleiben erhalten. Beide Schulterseiten,
+nahe/ferne Ziele und drei Fenstergrößen werden geprüft. Kein zusätzliches
+3D-Objekt, keine Textur und kein zusätzlicher Grafikdurchlauf.
+
+Abschließende Kameraprüfung: alle 173 Client-Fälle erfolgreich; zusammen mit
+unveränderten 15 Script- und 247 Server-Fällen sind das 435 erfolgreiche Fälle.
+Typprüfung 0 Fehler / 0 Warnungen; alle Produktions-Builds erfolgreich.
+Nachweis der tatsächlichen Browsergrenzen und Bilder:
+`docs/qa/video-reticle-validation-2026-11-12.json`. Die vollständige optische
+Übereinstimmung und Messungen auf dem echten MacBook M4 bleiben offen.
+
+Die normale Demo besteht die Low-Feuerprüfung und die frische Medium-Aufnahme mit allen sechs Figuren, vollständig sichtbarem Fadenkreuz und ohne Seiten-/HTTP-/Grafikkontextfehler. Gemessen: 161 anfängliche Draw Calls (vorher 160 bei anderer Kamerasicht), unverändert 46.441 Figur-Dreiecke und 143.532 Karten-Vertices. Der erste fehlgeschlagene Figurenvergleich in einer bereits laufenden Runde bleibt im Prüfverlauf dokumentiert.
