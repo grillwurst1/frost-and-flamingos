@@ -108,7 +108,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
   // Heavy shoulders were wide, but their selected shirts kept a scout-width
   // chest. Give the complete torso shell room to meet those upper arms.
   const bodyScaleX = shoulder / 0.30 * (profile.cosmetics.classId === 'heavy' ? 1.20 : 1);
-  const packScaleX=profile.cosmetics.back==='back_cuckoo_clock' ? .80 : 1;
+  const clockPack=profile.cosmetics.back==='back_cuckoo_clock';
+  const packScaleX=clockPack ? .80 : 1;
   const selectedHeadFrame = modularHeadFrame(profile, asset, native, sharedHead);
   const headScale = selectedHeadFrame.radius / 0.21;
   const anchors = [
@@ -164,9 +165,8 @@ export function buildModularBody(scene: Scene, profile: PlayerProfile, asset: Pa
     }
     if (head) return { at, ...weight(['Head'], 0) };
     if (tag === 2) {
-      at.y = bind('Spine2').y + (y - 1.28) * size;
+      at.y = bind('Spine2').y + (y - 1.28) * size * (clockPack ? .66 : 1);
       at.x*=packScaleX;
-      if(profile.cosmetics.back==='back_cuckoo_clock')at.y+=.04*size;
       return { at, ...weight(['Spine2'], 0) };
     }
     // A shirt shoulder/collar follows the chest, not a nodding neck. Only

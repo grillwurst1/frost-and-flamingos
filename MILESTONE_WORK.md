@@ -968,3 +968,28 @@ Low 800×500 no-bot checks pass actual snow firing, walk/jump, capture, F boardi
 projection. Warm mesh/material/texture/geometry deltas: {'meshes': -1, 'materials': -1, 'textures': -1, 'geometries': -1}.
 Evidence: docs/qa/video-anatomy-validation-2026-11-12.json and companion files.
 This verifies the increment; exact video likeness and native M4 acceptance remain OPEN.
+
+
+### 12 November 2026 — enclosed Alpine test scene
+
+Continue the owner video-art priority serially: replace remaining coast/palms
+with real snow terraces/rims, preserve and verify all eastern stairs/landing/nav
+and gondola access/brakes, remove the unused sea draw, and use softer distance
+haze/ridge detail. Near fir boughs stay under the unchanged polygon ceiling.
+The snow stream retains its fixed pool but uses fewer triangles and organic
+lighting/shape. Reference entry equips its real snow cannon with a side view
+and physical eye-origin reticle. HUD shape/map match more closely while all
+state and keys remain real. No later gameplay milestone is closed by art work.
+Exact visual acceptance and native M4 measurements remain open.
+
+Final visual corrections: SnowStream owns the entire snow spray; remove the separate legacy solid muzzle-flash cone while retaining its muzzle socket, recoil and shot logic. Short jet beads expire before the broad billows; billow centres stop at actual ray hits. Correct borrowed armed idle torso/neck rotations toward this rig's own frame, fading with gait/crouch/roll/swim/riding/overlays. Cache four rest quaternions and reuse one blend quaternion. A real skinned clock edge exposed 44° idle lean before the fix; eight gameplay/preview phase checks now require <11.5°. Scale the clock vertically to 0.66 without changing mesh counts. Eye clearance is checked against the actual neutral short-neck body (15 mm allowance), rather than the old 0.12 marker that depended on the donor lean.
+
+Final code verification: 434 distinct cases pass (15 script, 247 server, 172 client).
+The final full client suite passes 172/172; the strengthened four-phase neutral-eye
+and eight-phase skinned-clock checks, both Snow cases and the explicit null-muzzle
+fitting case also pass separately. Strict checks report 0 errors / 0 warnings;
+shared/client/server production builds pass (existing Vite large-chunk advisory).
+Browser evidence and measured limits: docs/qa/video-alpine-valley-validation-2026-11-12.json.
+Hero stays at 46,441 triangles; reference map stores 143,532 vertices versus 172,685
+(-16.88%). Exact video likeness, native M4 thermals/FPS and full dynamic WebGPU
+acceptance remain OPEN. Software Chromium is a functional/visual check only.

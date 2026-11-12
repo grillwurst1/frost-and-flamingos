@@ -12,7 +12,7 @@ import { referenceFrost } from './reference-frost';
 
 export const SOLID_NATURE_KINDS: ReadonlySet<string> = new Set(['fir', 'palm', 'rock']);
 export const NATURE_LOD_DISTANCE = 145;
-export const FIR_DETAIL_DISTANCE = 75;
+export const FIR_DETAIL_DISTANCE = 45;
 const CHUNK = 120;
 
 function snowAt(prop: MapProp): number {

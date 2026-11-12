@@ -11,12 +11,12 @@
 
 <section class="match-hud" aria-label={$t('combat.towerControl')}>
   <div class="ticket-display">
-    <div class="ticket-wing is-blue" role="meter" aria-label={$t('hud.ticketsAlps')} aria-valuemin="0" aria-valuemax="50" aria-valuenow={$connection.ticketsAlpine}>
+    <div class="ticket-wing is-blue" style={`--ticket-fill:${Math.max(0,Math.min(100,$connection.ticketsAlpine*2))}%`} role="meter" aria-label={$t('hud.ticketsAlps')} aria-valuemin="0" aria-valuemax="50" aria-valuenow={$connection.ticketsAlpine}>
       {#if referenceScene}<span class="video-team-name">{$t('factions.alpine.short')}</span>{/if}
       {#each pips as pip}<i class:is-lit={pip<Math.ceil($connection.ticketsAlpine/5)}></i>{/each}
     </div>
     <strong><span>{$connection.ticketsAlpine}</span> {$t('hud.versus')} <span class="ticket-red">{$connection.ticketsLagoon}</span></strong>
-    <div class="ticket-wing is-red" role="meter" aria-label={$t('hud.ticketsBeach')} aria-valuemin="0" aria-valuemax="50" aria-valuenow={$connection.ticketsLagoon}>
+    <div class="ticket-wing is-red" style={`--ticket-fill:${Math.max(0,Math.min(100,$connection.ticketsLagoon*2))}%`} role="meter" aria-label={$t('hud.ticketsBeach')} aria-valuemin="0" aria-valuemax="50" aria-valuenow={$connection.ticketsLagoon}>
       {#if referenceScene}<span class="video-team-name">{$t('factions.lagoon.short')}</span>{/if}
       {#each pips as pip}<i class:is-lit={pip<Math.ceil($connection.ticketsLagoon/5)}></i>{/each}
     </div>

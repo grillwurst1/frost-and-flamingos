@@ -8,7 +8,7 @@ import { makeRoute } from './map/math.js';
 import { CABLE_BRAKE_HANDLE } from './map/layout.js';
 export const ARENA_SIZE = 128;
 export const ARENA_SEGMENTS = 256;
-export const ARENA_LEVELS = { foreground: 23, bank: 18.4, north: 28, beach: 1.8, seaFloor: -6 } as const;
+export const ARENA_LEVELS = { foreground: 23, bank: 18.4, north: 28, east: 14.4 } as const;
 export const ARENA_VILLAGE = {
   main: { x: -24, z: 23, y: 24.8, width: 13, depth: 10 },
   rear: { x: -10.5, z: 28, y: 24.8, width: 9, depth: 7 },
@@ -83,9 +83,20 @@ function bankTop(x: number, z: number): number {
 function analyticHeight(x: number, z: number): number {
   const wave = Math.sin(z * .31) * .55 * smooth(3, 8, Math.abs(z));
   const d = Math.max(shelfDistance(x, z, -35, 35, -30, -16), shelfDistance(x, z, -35, -10 + wave, -20, 38), shelfDistance(x, z, 10 + wave, 34, -20, 38), shelfDistance(x, z, -35, 35, 28, 47),shelfDistance(x,z,-13,13,-25,40));
-  const land = lerp(ARENA_LEVELS.seaFloor, bankTop(x, z), smooth(0, 1.25, d));
-  const coast = lerp(ARENA_LEVELS.seaFloor, ARENA_LEVELS.beach, smooth(0, 1.5, shelfDistance(x, z, 32, 51, 3, 35)));
-  return Math.max(land, coast);
+  const inside=smooth(-4,2,d);
+  if(inside===1)return bankTop(x,z);
+  // The supplied video is an enclosed Alpine valley. Extend the same physical
+  // grid into snow terraces/rims instead of the previous island and beach.
+  let outer=lerp(23,28,smooth(5,48,z));
+  outer=lerp(outer,lerp(18.4,ARENA_LEVELS.east,smooth(30,55,x)),smooth(27,43,x));
+  outer+=peak(x,z,-51,30,23,13)+peak(x,z,-45,-37,19,9)
+    +peak(x,z,55,42,18,20)+peak(x,z,12,61,24,13)+peak(x,z,50,-34,18,11);
+  // Keep both existing eastern flights and their landing open above the snow.
+  const upper=lerp(18.4,16,Math.max(0,Math.min(1,(x-32.5)/12.5)));
+  const lower=lerp(16,ARENA_LEVELS.east,Math.max(0,Math.min(1,(z-15.5)/12.5)));
+  let height=inside===0?outer:lerp(outer,bankTop(x,z),inside);
+  height=lerp(height,upper,(1-smooth(1.6,3.5,Math.abs(z-14)))*smooth(29,32,x));
+  return lerp(height,lower,(1-smooth(1.6,3.5,Math.abs(x-46.5)))*smooth(11,13,z)*(1-smooth(30,34,z)));
 }
 const heights = new Float32Array((ARENA_SEGMENTS + 1) ** 2);
 for (let col = 0; col <= ARENA_SEGMENTS; col++)
@@ -115,8 +126,8 @@ const chaletSteps: MapProp[] = [{ x: 2.2, z: -5.55, width: 2.4, depth: 1.1 }, { 
 export const ARENA_ACCESS_FLIGHTS = [
   { id: 'west', from: { x: -18, y: 23.08, z: -20 }, to: { x: -18, y: 18.48, z: -6 }, width: 3 },
   { id: 'east', from: { x: 20, y: 23.08, z: -20 }, to: { x: 20, y: 18.48, z: -6 }, width: 3 },
-  { id: 'coast_upper', from: { x: 32.5, y: 18.48, z: 14 }, to: { x: 45, y: 10.1, z: 14 }, width: 3 },
-  { id: 'coast_lower', from: { x: 46.5, y: 10.1, z: 15.5 }, to: { x: 46.5, y: 1.88, z: 28 }, width: 3 },
+  { id: 'coast_upper', from: { x: 32.5, y: 18.48, z: 14 }, to: { x: 45, y: 16.08, z: 14 }, width: 3 },
+  { id: 'coast_lower', from: { x: 46.5, y: 16.08, z: 15.5 }, to: { x: 46.5, y: 14.48, z: 28 }, width: 3 },
 ] as const;
 const access: MapProp[] = ARENA_ACCESS_FLIGHTS.map(f => ({ id: `arena_stairs_${f.id}`, kind: 'stairs', position: { x: 0, y: 0, z: 0 }, rotationY: 0, scale: 1, variant: 0,
   path: [f.from, f.to], colliders: [stairCollider(f.from.y < f.to.y ? f.from : f.to, f.from.y < f.to.y ? f.to : f.from, f.width, { surface: 'wood' })] }));
@@ -147,13 +158,8 @@ export function arenaSurfaceAt(x: number, z: number, feetY = arenaHeightAt(x, z)
     if (t >= 0 && t <= 1 && Math.hypot(x - f.from.x - dx * t, z - f.from.z - dz * t) < f.width / 2 && Math.abs(feetY - lerp(f.from.y, f.to.y, t)) < .6)
       return 'wood';
   }
-  if (Math.abs(x - 46.5) < 1.6 && Math.abs(z - 14) < 1.6 && Math.abs(feetY - 10.1) < .5)
+  if (Math.abs(x - 46.5) < 1.6 && Math.abs(z - 14) < 1.6 && Math.abs(feetY - 16.08) < .5)
     return 'wood';
-  const h = arenaHeightAt(x, z);
-  if (h < .5 && feetY < 2)
-    return 'water';
-  if (x > 33 && h < 4)
-    return z > 22 ? 'grass_mud' : 'sand';
   return 'snow';
 }
 const stops: readonly Vec3[] = STATION_FOUNDATIONS.map(({x,y,z})=>({x,y,z}));
@@ -181,21 +187,19 @@ export const ARENA_STATION_PROPS: readonly MapProp[] = ARENA_CABLE.stations.map(
     dimensions: { x: 10, y: 0, z: 6 }, colliders: [boxCollider(5, .18, 3, 0, -.18, 0, { surface: 'wood' }), rampCollider({x:-5.25,y:5.45,z:0},{x:0,y:6.7,z:0},6.7,.25,{surface:'snow'}),rampCollider({x:0,y:6.7,z:0},{x:5.25,y:5.45,z:0},6.7,.25,{surface:'snow'}),
       ...[-1, 1].flatMap(side => [-1, 1].map(end => boxCollider(.14, 2.6, .14, side * 4.6, 2.6, end * 2.5, { surface: 'wood' })))] };
 });
-const trees: MapProp[] = [];
-for (const [kind, points] of [['fir', [[-7.3, -16], [-27, -9], [-32, 0], [-29, 7], [-32, 25], [-23, 30], [-33, 43], [-24, 44], [-8, 45], [-3, 47], [8, 40], [14, 38], [22, 31], [29, 30], [-30, -26], [-23, -27], [-11, -26]]],
-  ['palm', [[38, 7], [40, 14], [49, 10], [37, 28], [42, 32], [49, 30], [47, 22], [40, 24], [37, 18]]]] as const) {
-  points.forEach(([x, z], i) => trees.push({ id: `arena_${kind}_${i}`, kind, position: { x, y: arenaHeightAt(x, z), z }, rotationY: i * 2.13, scale: kind === 'fir' ? .72 + (i % 3) * .1 : .9 + (i % 3) * .12, variant: i % 3,
-    surface: kind === 'fir' ? 'snow' : 'sand', colliders: [{ type: 'cylinder', radius: kind === 'fir' ? .28 : .22, halfHeight: kind === 'fir' ? 2.8 : 3.5, offset: { x: 0, y: kind === 'fir' ? 2.8 : 3.5, z: 0 }, surface: 'wood' }] }));
-}
+const FIR_POINTS=[[-7.3,-16],[-27,-9],[-32,0],[-29,7],[-32,25],[-23,30],[-33,43],[-24,44],[-8,45],[-3,47],[8,40],[14,38],[22,31],[29,30],[-30,-26],[-23,-27],[-11,-26],
+  [38,7],[40,9],[49,10],[37,28],[42,32],[51,32],[52,22],[39,25],[37,18]] as const;
+const trees:MapProp[]=FIR_POINTS.map(([x,z],i)=>({id:`arena_fir_${i}`,kind:'fir',position:{x,y:arenaHeightAt(x,z),z},rotationY:i*2.13,scale:.72+(i%3)*.1,variant:i%3,
+  surface:'snow',colliders:[{type:'cylinder',radius:.28,halfHeight:2.8,offset:{x:0,y:2.8,z:0},surface:'wood'}]}));
 export const ARENA_NATURE: readonly MapProp[] = trees;
 const fencePath = Array.from({ length: 11 }, (_, i) => { const x = -33, z = -17+i*2.4; return { x, y: arenaHeightAt(x, z), z }; });
 export const ARENA_FENCE: MapProp = { id: 'arena_foreground_fence', kind: 'fence', position: { x: 0, y: 0, z: 0 }, rotationY: 0, scale: 1, variant: 0, path: fencePath, colliders: [...fencePath.map(p => ({ type: 'cylinder' as const, radius: .105, halfHeight: .67, offset: { ...p, y: p.y + .55 }, surface: 'wood' as const })), ...fencePath.slice(0, -1).flatMap((a, i) => { const b = fencePath[i + 1]!; return [.45, 1.08].map(height => rampCollider({ ...a, y: a.y + height }, { ...b, y: b.y + height }, .16, .16, { surface: 'wood' })); })] };
-const landing: MapProp = { id: 'arena_coast_landing', kind: 'stairs', position: { x: 46.5, y: 9.85, z: 14 }, rotationY: 0, scale: 1, variant: 0, dimensions: { x: 3, y: .25, z: 3 }, colliders: [boxCollider(1.5, .125, 1.5, 0, .125, 0, { surface: 'wood' })] };
+const landing: MapProp = { id: 'arena_coast_landing', kind: 'stairs', position: { x: 46.5, y: 15.83, z: 14 }, rotationY: 0, scale: 1, variant: 0, dimensions: { x: 3, y: .25, z: 3 }, colliders: [boxCollider(1.5, .125, 1.5, 0, .125, 0, { surface: 'wood' })] };
 export const ARENA_SOLID_PROPS: readonly MapProp[] = [ARENA_CHALET,ARENA_REAR_CHALET,rearStep, ARENA_FENCE, ...ARENA_HANDRAILS, landing, ...chaletSteps, ...access, ...ARENA_STATION_PROPS, ...trees];
 export const ARENA_GEOMETRY: StaticWorldDefinition = { ...ARENA_GRID, props: ARENA_SOLID_PROPS, heightAt: arenaHeightAt, surfaceAt: arenaSurfaceAt, cableCar: ARENA_CABLE };
 // Every edge follows ground, a bridge segment or one explicit stair flight.
 const navCoordinates = [[-18, -20], [0, -20], [20, -20], [-18, -19], [20, -19], [-18, -6], [20, -6], [-12, 0], [-6, 0], [0, 0], [6, 0], [12, 0],
   [-18, 6], [-30, 7], [-30, 36], [-24, 36], [-18, 32], [-16.2, 22], [-3, 22], [0, 40], [10, 34], [20, 24], [28, 24], [27, 18], [20, 8], [32, 14],
   [46.5, 14], [46.5, 28], [40, 28], [40, 12],[-33,24]] as const;
-export const ARENA_NAV: NavGraph = { nodes: navCoordinates.map(([x, z], id) => ({ id, position: { x, y: (id === 26 ? 10.1 : arenaHeightAt(x, z)), z }, zone: 'village' })),
+export const ARENA_NAV: NavGraph = { nodes: navCoordinates.map(([x, z], id) => ({ id, position: { x, y: (id === 26 ? 16.08 : arenaHeightAt(x, z)), z }, zone: 'village' })),
   edges: [[0, 1], [1, 2], [0, 3], [2, 4], [3, 5], [4, 6], [5, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 6], [5, 12], [12, 13], [13,30],[30,14], [14, 15], [15, 16], [16, 17], [17, 18], [18, 19], [19, 20], [20, 21], [21, 22], [22, 23], [23, 24], [24, 6], [24, 25], [25, 26], [26, 27], [27, 28], [28, 29]] };

@@ -12,11 +12,11 @@ export const mapY = (z: number): number => half - z;
 export function minimapArtwork(): string {
   if (cached) return cached;
   const colours = referenceScene
-    ? ['#6f9fba', '#e1c999', '#c3d8e5', '#e5f1f7', '#f5fafc', '#ffffff']
+    ? ['#a1bbc9', '#b4ccd8', '#c9dce6', '#e0edf3', '#f3f8fa', '#ffffff']
     : ['#6f9fba', '#d9c89f', '#c0d1cf', '#bdcfd7', '#d9e7ec', '#e8f2f4'];
   const line = (points: readonly { x: number; z: number }[], width: number, colour: string): string =>
     `<polyline points="${points.map(p=>`${mapX(p.x)},${mapY(p.z)}`).join(' ')}" fill="none" stroke="${colour}" stroke-width="${width}" stroke-linejoin="round"/>`;
-  const levels = referenceScene?[.2,3,17.5,18.8,23.5]:[.2, 3, 17, 30, 48];
+  const levels = referenceScene?[14,18,23.5,29,36]:[.2, 3, 17, 30, 48];
   const grid=referenceScene?ARENA_GRID:{heights:FJORD_MAP.heights,segments:GRID_POINTS-1,size:MAP_SIZE};
   let shapes = levels.map((level, i) => `<path fill="${colours[i + 1]}" fill-rule="evenodd" stroke="${i < 2 ? '#91a7ac' : '#a6bbc6'}" stroke-width="${i < 2 ? 1 : .7}" d="${contourPath(heightContours(grid.heights, grid.segments+1, grid.size, level))}"/>`).join('');
   if(referenceScene){
@@ -29,6 +29,10 @@ export function minimapArtwork(): string {
   shapes += line(FJORD_MAP.routes.coaster.track.points, 2.5, '#ba8073');
   }
   for (const prop of referenceScene?ARENA_SOLID_PROPS:FJORD_MAP.props) {
+    if(referenceScene&&prop.kind==='fir') {
+      const x=mapX(prop.position.x),y=mapY(prop.position.z);
+      shapes+=`<path d="M${x},${y-1.2}L${x+1},${y+.8}H${x-1}Z" fill="#819f98" stroke="#657f7b" stroke-width=".25"/>`;
+    }
     if (!prop.building && prop.kind !== 'pier' && prop.kind !== 'cable_station') continue;
     const width = Math.max(4, prop.building?.width ?? prop.dimensions?.x ?? 8), depth = Math.max(4, prop.building?.depth ?? prop.dimensions?.z ?? 8);
     shapes += `<rect x="${mapX(prop.position.x)-width/2}" y="${mapY(prop.position.z)-depth/2}" width="${width}" height="${depth}" fill="#8c7b66" stroke="#454c4d" stroke-width="1.2" transform="rotate(${-prop.rotationY*180/Math.PI} ${mapX(prop.position.x)} ${mapY(prop.position.z)})"/>`;

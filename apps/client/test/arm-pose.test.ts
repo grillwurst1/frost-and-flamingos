@@ -18,17 +18,33 @@ test('snow-cannon sleeves stay fitted to the upper arms and both hands carry bel
   try {
     const asset=(await paintedModelLibrary(scene).load('alpine-heavy'))!,texture=RawTexture.CreateRGBATexture(new Uint8Array([255,255,255,255]),1,1,scene,false,false);
     const profile=createDefaultProfile('Arm inspection','heavy');
-    Object.assign(profile.cosmetics,{bodyType:.12,headgear:'head_none',face:'face_full_beard',hairStyleIndex:6,torso:'torso_alpine_shirt'});
+    Object.assign(profile.cosmetics,{bodyType:.12,headgear:'head_none',face:'face_full_beard',hairStyleIndex:6,torso:'torso_alpine_shirt',back:'back_cuckoo_clock'});
     const view=new GlbCharacterView(scene,new StandardMaterial('shadow',scene),profile,asset,{albedo:texture,normal:null,wardrobeMask:texture,head:{albedo:texture,mask:texture}});
     try {
       const rig=(view as unknown as {rig:GlbRig}).rig,mesh=view.root.getChildMeshes().find(m=>m.name==='soldier-modular-detail')!;
-      for(const preview of [false,true]) {
+      const source=mesh.getVerticesData('position')!,colours=mesh.getVerticesData('color')!;
+      // Two vertically aligned corners of the real red clock case. Its single
+      // Spine2 skin weight makes the posed edge a direct torso-lean check.
+      const corners:number[]=[];
+      for(let v=0;v<source.length/3;v++)if(Math.abs(colours[v*4]!-129/255)<.0001&&Math.abs(colours[v*4+1]!-60/255)<.0001&&Math.abs(colours[v*4+2]!-53/255)<.0001)corners.push(v);
+      const caseHeight=Math.max(...corners.map(v=>source[v*3+1]!))-Math.min(...corners.map(v=>source[v*3+1]!));
+      expect(caseHeight/asset.height).toBeGreaterThan(.12);
+      expect(caseHeight/asset.height).toBeLessThan(.20);
+      let edge:[number,number]|null=null;
+      for(const a of corners)for(const b of corners)if(Math.abs(source[a*3]!-source[b*3]!)<.00001&&Math.abs(source[a*3+2]!-source[b*3+2]!)<.00001&&source[b*3+1]!-source[a*3+1]!>.2)edge=[a,b];
+      expect(edge).not.toBeNull();
+      for(const preview of [false,true]) for(const phase of [0,.25,.5,.75]) {
+      const internals=view as unknown as {breath:number;bindings:Map<string,{time:number;clip:{duration:number}}>};
+      internals.breath=0;
+      for(const binding of internals.bindings.values())binding.time=phase*binding.clip.duration;
       for(let frame=0;frame<60;frame++) {
         if(preview)view.updatePreview(1/45,0,'snow_cannon');
         else view.update(1/45,{position:{x:0,y:0,z:0},velocity:{x:0,y:0,z:0},yaw:0,grounded:true,alive:true,crouched:false,swimming:false,weaponId:'snow_cannon'});
       }
       rig.refresh();mesh.skeleton!.prepare(true);
       const p=mesh.getPositionData(true)!,j=mesh.getVerticesData('matricesIndices')!,w=mesh.getVerticesData('matricesWeights')!,paint=mesh.getVerticesData('uv3')!,colour=mesh.getVerticesData('color')!;
+      const clockUp=Vector3.FromArray(p,edge![1]*3).subtract(Vector3.FromArray(p,edge![0]*3)).normalize();
+      expect(clockUp.y).toBeGreaterThan(.98);
       for(const side of ['Left','Right'] as const) {
         const a=rig.position(`${side}Arm`)!,b=rig.position(`${side}ForeArm`)!,c=rig.position(`${side}Hand`)!;
         const restLift=asset.bindPositions.get(`${side}Arm`)!.y-asset.bindPositions.get('Spine2')!.y;

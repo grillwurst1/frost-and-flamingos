@@ -466,6 +466,10 @@ test('the bald heavy uses the detailed face without importing the original winte
       expect(flags[v * 2]! === 1 && flags[v * 2 + 1] === 6).toBe(false);
     }
     expect(head).toBeGreaterThan(3000); expect(mesh.subMeshes).toHaveLength(1);
+    for(const phase of [0,.25,.5,.75]) {
+    const internal=view as unknown as {breath:number;bindings:Map<string,{time:number;clip:{duration:number}}>};
+    internal.breath=0;
+    for(const binding of internal.bindings.values())binding.time=phase*binding.clip.duration;
     for(let i=0;i<100;i++)view.update(1/45,{position:{x:0,y:0,z:0},velocity:{x:0,y:0,z:0},yaw:0,pitch:-.16,grounded:true,alive:true,crouched:false,swimming:false,weaponId:'snow_cannon'});
     const rig=(view as unknown as {rig:GlbRig}).rig;rig.refresh();
     mesh.skeleton!.prepare(true);const posed=mesh.getPositionData(true)!,colours=mesh.getVerticesData('color')!;
@@ -475,10 +479,19 @@ test('the bald heavy uses the detailed face without importing the original winte
       eyeY=Math.min(eyeY,posed[v*3+1]!);eyes++;
     }
     expect(eyes).toBeGreaterThan(20);
-    expect(eyeY-Math.max(rig.position('LeftArm')!.y,rig.position('RightArm')!.y)).toBeGreaterThan(.12);
+    const restPositions=mesh.getVerticesData('position')!;
+    let restEye=Infinity;
+    for(let v=0;v<posed.length/3;v++)if(joints[v*4]===headBone&&weights[v*4]!>.99
+      && Math.abs(colours[v*4]!-.94)<.001&&Math.abs(colours[v*4+1]!-.94)<.001&&Math.abs(colours[v*4+2]!-.90)<.001)restEye=Math.min(restEye,restPositions[v*3+1]!);
+    const restClearance=restEye-Math.max(heavy!.bindPositions.get('LeftArm')!.y,heavy!.bindPositions.get('RightArm')!.y);
+    // Preserve the actual short-neck body's neutral eye clearance when aiming
+    // down. A fixed 0.12 marker required the borrowed idle's bent-back torso.
+    expect(restClearance).toBeGreaterThan(.06);
+    expect(eyeY-Math.max(rig.position('LeftArm')!.y,rig.position('RightArm')!.y)).toBeGreaterThan(restClearance-.015);
     const facing = Vector3.Forward().rotateByQuaternionToRef(rig.rotation('Head')!.multiply(Quaternion.Inverse(bindWorldTransform(heavy!,'Head')!.rotation)),new Vector3());
     expect(Math.abs(facing.y)).toBeLessThan(.2);
     expect(facing.z).toBeGreaterThan(.96);
+    }
   } finally { view.dispose(); }
 });
 

@@ -1,8 +1,20 @@
 import { expect, test } from 'bun:test';
-import { ARENA_ACCESS_FLIGHTS, ARENA_BUILDINGS, ARENA_CABLE, ARENA_CHALET, ARENA_REAR_CHALET, ARENA_NATURE, ARENA_NAV, arenaHeightAt, cableCarCycleTicks, sampleCableCar, roofBase, vehicleDefinition, InputButton, PhysicsWorld, REFERENCE_WORLD, type PlayerInput } from '@frost-and-flamingos/shared';
+import { ARENA_ACCESS_FLIGHTS, ARENA_BUILDINGS, ARENA_CABLE, ARENA_CHALET, ARENA_REAR_CHALET, ARENA_NATURE, ARENA_NAV, ARENA_GRID, arenaHeightAt, arenaSurfaceAt, cableCarCycleTicks, sampleCableCar, roofBase, vehicleDefinition, InputButton, PhysicsWorld, REFERENCE_WORLD, type PlayerInput } from '@frost-and-flamingos/shared';
 import { MatchRoom } from '../src/rooms/match-room';
 import { joinPlayer, placePlayer, playerOf, run, tap } from './vehicle-helpers';
 const idle: PlayerInput = { sequence: 1, buttons: 0, yaw: 0, pitch: 0, weaponSlot: 1 };
+test('the video arena is solid Alpine snow through its outer terraces, with matching Rapier ground',async()=>{
+  expect(ARENA_GRID.heights.reduce((low,y)=>Math.min(low,y),Infinity)).toBeGreaterThan(14);
+  expect(ARENA_NATURE).toHaveLength(26);expect(ARENA_NATURE.every(p=>p.kind==='fir'&&p.surface==='snow')).toBe(true);
+  const world=await PhysicsWorld.create([],REFERENCE_WORLD);
+  try {
+    for(const [x,z] of [[-52,-20],[-49,15],[-3,58],[54,-3],[55,28]]) {
+      const hit=world.raycast({x:x!,y:120,z:z!},{x:0,y:-1,z:0},150);
+      expect(hit).not.toBeNull();expect(Math.abs(hit!.point.y-arenaHeightAt(x!,z!))).toBeLessThan(.03);
+      expect(arenaSurfaceAt(x!,z!)).toBe('snow');
+    }
+  }finally{world.dispose()}
+});
 test('both moving gondolas clear the village roofs and solid tree trunks over their complete cycle',()=>{
   const half=vehicleDefinition('cable_car').halfExtents,radius=Math.hypot(half.x,half.z);
   for(let tick=0;tick<cableCarCycleTicks(ARENA_CABLE);tick+=6)for(const cabin of [0,1] as const) {

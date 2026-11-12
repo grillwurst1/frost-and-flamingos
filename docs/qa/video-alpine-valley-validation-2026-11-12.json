@@ -1,0 +1,212 @@
+{
+  "date": "2026-11-12",
+  "baseline": "ef6908a5a1d2a949c56363221c6501de30ac2221",
+  "scope": "Actual Alpine reference world, side Snow camera, bounded billows, shared firs and live HUD, corrected borrowed torso/neck idle and smaller clock fit",
+  "reference": {
+    "source": "gemini_generated_video_e01d97e8.mp4",
+    "durationSeconds": 10.026667,
+    "reviewedSeconds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9.75
+    ],
+    "sourceUnmodified": true,
+    "exactVisualAcceptance": "OPEN: hero shape/posture, motion, art detail and overall scene composition still differ",
+    "observedGaps": [
+      "Mountains remain softer than the illustrated video peaks.",
+      "Remote actors are smaller in the composition.",
+      "Clothing surface/character silhouette and animation still differ.",
+      "Billows and overall combat staging are not frame-identical."
+    ]
+  },
+  "checks": {
+    "script": 15,
+    "server": 247,
+    "client": 172,
+    "total": 434,
+    "strictErrors": 0,
+    "strictWarnings": 0,
+    "productionBuilds": [
+      "shared",
+      "client",
+      "server"
+    ],
+    "note": "172-case full client suite passed after torso/clock fitting. The two strengthened phase/size tests plus two Snow tests passed again afterwards; explicit nullable muzzleKind is checked by final strict/build and the muzzle-fitting case. Script/server passed separately for the same world.",
+    "finalCode": "All 172 client cases plus five final affected cases pass; strict zero errors/warnings and all production builds pass."
+  },
+  "browser": {
+    "public": {
+      "quality": "medium",
+      "viewport": [
+        1280,
+        720
+      ],
+      "renderer": "Chromium software WebGL2",
+      "status": "passed",
+      "raw": "video-alpine-valley-browser-2026-11-12.json",
+      "scene": "video-alpine-valley-scene-2026-11-12.png",
+      "firDiagnostic": "video-alpine-valley-fir-2026-11-12.png",
+      "castNames": [
+        "RoofSniper77",
+        "Senn_Koloss",
+        "Skipper",
+        "Wuzzi",
+        "Angry_Cow_Beta",
+        "StumbleBoi"
+      ],
+      "reticle": {
+        "direction": [
+          0.7733100899578936,
+          -0.15931820661424598,
+          0.6136849467035467
+        ],
+        "fromEyes": true,
+        "target": [
+          9.279721079494724,
+          22.655182359862447,
+          -12.63578063955744
+        ],
+        "camera": [
+          -0.0034270407631993294,
+          -0.09938696771860123,
+          0.9950429201126099
+        ],
+        "projected": [
+          1175.1276908412267,
+          434.1049384980672
+        ],
+        "reticle": [
+          1174.9375,
+          434.0625
+        ],
+        "viewport": [
+          1280,
+          720
+        ]
+      },
+      "errors": [],
+      "failedResponses": [],
+      "contextLosses": 0,
+      "poseDiagnostic": "video-alpine-valley-pose-2026-11-12.png",
+      "faceDiagnostic": "video-alpine-valley-face-2026-11-12.png"
+    },
+    "snow": {
+      "quality": "low",
+      "viewport": [
+        800,
+        500
+      ],
+      "isolatedNoBots": true,
+      "status": "passed",
+      "raw": "video-alpine-valley-snow-browser-2026-11-12.json",
+      "image": "video-alpine-valley-snow-2026-11-12.png",
+      "realEyeRay": {
+        "direction": [
+          0.7733100899578936,
+          -0.15931820661424598,
+          0.6136849467035467
+        ],
+        "fromEyes": true,
+        "target": [
+          9.279721079494724,
+          22.655182359862447,
+          -12.63578063955744
+        ],
+        "camera": [
+          -0.002122956095263362,
+          -0.09955056756734848,
+          0.9950302839279175
+        ],
+        "projected": [
+          770.7069351469922,
+          301.2913135362464
+        ],
+        "reticle": [
+          770.703125,
+          301.28125
+        ],
+        "viewport": [
+          800,
+          500
+        ]
+      },
+      "pool": {
+        "instances": 64,
+        "enabled": true,
+        "attribute": 3
+      },
+      "legacySolidMuzzleConeRemoved": true
+    },
+    "mechanics": {
+      "quality": "low",
+      "viewport": [
+        800,
+        500
+      ],
+      "isolatedNoBots": true,
+      "status": "passed",
+      "raw": "video-alpine-valley-mechanics-2026-11-12.json",
+      "image": "video-alpine-valley-crawler-2026-11-12.png",
+      "checks": [
+        "snow firing",
+        "walk and jump",
+        "tower capture",
+        "F boarding",
+        "60-second held drive/fire, 11 authoritative cannon events",
+        "F exit",
+        "real wardrobe projection"
+      ],
+      "steadyResources": {
+        "meshes": -1,
+        "materials": 0,
+        "textures": -1,
+        "geometries": 0
+      },
+      "crawlerAuthoritativeDisplacementMetres": 1.5546597355857033,
+      "limitation": "Software Chromium input sampling is coarse. This short functional/resource check does not establish native smoothness, thermal behaviour or a long-duration soak."
+    }
+  },
+  "resources": {
+    "heroTriangles": 46441,
+    "baselineMapVertices": 172685,
+    "mapVertices": 143532,
+    "mapVertexReductionPercent": 16.882184324058255,
+    "initialPublicDrawCalls": 160,
+    "baselineInitialDrawCalls": 159,
+    "firCount": 26,
+    "palmCount": 0,
+    "seaVertices": 0,
+    "removedSeaVertices": 18225,
+    "snowPoolInstances": 64,
+    "snowMeshes": 2,
+    "snowPrototypeTriangles": 256,
+    "oldSnowPrototypeTriangles": 360,
+    "nearFirVariant0Triangles": 1616,
+    "unchangedNearFirCeiling": 1700
+  },
+  "limits": [
+    "Exact video likeness remains open.",
+    "No native MacBook M4 thermal/FPS measurement.",
+    "Full dynamic WebGPU acceptance remains open.",
+    "Mechanics raw Snow screenshot predates final visual-only muzzle-cone removal; separate final Snow evidence is included."
+  ],
+  "figure": {
+    "clockCaseHeightScale": 0.66,
+    "cachedTorsoNeckRestRotations": 4,
+    "scratchBlendQuaternion": 1,
+    "addedGeometryOrDraws": 0,
+    "regression": "Real skinned clock case edge at eight gameplay/preview phases requires upright dot >0.98; old code produced 0.721745 (~44 degrees). Four phase eye check uses the actual neutral body with 15mm allowance. Gait/roll/swim/riding/upper-body overlays preserve their animation."
+  },
+  "verificationHistory": [
+    "An early broad client run exposed the borrowed-idle pose/eye-clearance problem. The real torso/neck pose was corrected and the eye check now follows actual neutral anatomy instead of the old donor-dependent 0.12 marker.",
+    "Strict check caught a missing required muzzleKind field after removing the cone. The explicit nullable field is now null; no interface assertion was bypassed."
+  ],
+  "status": "passed increment; exact video likeness remains open"
+}

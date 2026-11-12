@@ -22,7 +22,7 @@ import type { MascotReaction } from '../rendering/mascot-view';
 import { puffKindForSurface, type MascotFx, type PopupStyle } from '../rendering/mascot-fx';
 import { showComicPop } from '../state/game';
 import { mascotHud } from '../state/mascot';
-import { COCONUT_CAMERA, COW_CAMERA, HUMAN_CAMERA, REFERENCE_HUMAN_CAMERA, type CameraProfile } from './camera-rig';
+export { cameraProfileFor } from './camera-rig';
 
 /** What the mascot layer needs to know about the world for one event. */
 export interface MascotEventContext {
@@ -53,10 +53,6 @@ function moveReaction(form: MascotForm, slot: number): MascotReaction | null {
 
 function react(view: AvatarView | null | undefined, reaction: MascotReaction | null): void {
   if (reaction && isMascotView(view)) view.react(reaction);
-}
-
-export function cameraProfileFor(form: MascotForm | null, reference = false): CameraProfile {
-  return form === 'cow' ? COW_CAMERA : form === 'coconut' ? COCONUT_CAMERA : reference ? REFERENCE_HUMAN_CAMERA : HUMAN_CAMERA;
 }
 
 /**

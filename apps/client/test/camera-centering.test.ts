@@ -4,7 +4,39 @@ import { Scene } from '@babylonjs/core/scene';
 import { Matrix, Vector3 } from '@babylonjs/core/Maths/math';
 import { PhysicsWorld } from '@frost-and-flamingos/shared';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { CameraRig, CABLE_CAR_CAMERA, HUMAN_CAMERA, REFERENCE_HUMAN_CAMERA } from '../src/engine/camera-rig';
+import { CameraRig, CABLE_CAR_CAMERA, HUMAN_CAMERA, REFERENCE_HUMAN_CAMERA, REFERENCE_SNOW_CAMERA, cameraProfileFor } from '../src/engine/camera-rig';
+
+test('the reference snow side view projects the actual eye ray through turns, shoulders, zoom and a rear wall',async()=>{
+  const engine=new NullEngine({renderWidth:1280,renderHeight:720,textureSize:256,deterministicLockstep:false,lockstepMaxSteps:4}),scene=new Scene(engine),physics=await PhysicsWorld.create();
+  try {
+    const rig=new CameraRig(scene),feet=new Vector3(0,150,0),eyes=feet.add(new Vector3(0,1.9,0));
+    expect(cameraProfileFor(null,true,'snow_cannon')).toBe(REFERENCE_SNOW_CAMERA);
+    expect(cameraProfileFor(null,false,'snow_cannon')).toBe(HUMAN_CAMERA);
+    rig.setProfile(REFERENCE_SNOW_CAMERA);rig.resetAngles(.82,-.16);rig.snapToPlayer(feet);
+    const advance=(range:number)=>{
+      rig.updatePlayer(1/60,feet,physics);rig.setPhysicalAimTarget(eyes,rig.getAimDirectionToRef(new Vector3()),range);
+      scene.updateTransformMatrix(true);
+    };
+    for(let f=0;f<90;f++)advance(12);
+    const aim=rig.getAimDirectionToRef(new Vector3()),side=rig.camera.position.subtract(eyes);side.y=0;side.normalize();
+    expect(Vector3.Dot(side,aim)).toBeGreaterThan(-.65); // A visible side, rather than another back-only frame.
+    const head=Vector3.Project(eyes,Matrix.Identity(),scene.getTransformMatrix(),rig.camera.viewport.toGlobal(1280,720));
+    expect(head.x).toBeGreaterThan(350);expect(head.x).toBeLessThan(620);
+    for(const yaw of [.82,-1.2,Math.PI])for(const range of [1.5,12])for(const pitch of [-1,-.65,-.16,.65,1.05]) {
+      rig.resetAngles(yaw,pitch);rig.swapShoulder();rig.zoom(-10000);rig.snapToPlayer(feet);
+      for(let f=0;f<90;f++)advance(range);
+      const point=eyes.add(rig.getAimDirectionToRef(new Vector3()).scale(range));
+      expect(Vector3.Distance(point,rig.aimTarget)).toBeLessThan(.00001);
+      const p=Vector3.Project(point,Matrix.Identity(),scene.getTransformMatrix(),rig.camera.viewport.toGlobal(1280,720));
+      expect(p.x/1280*100).toBeCloseTo(rig.aimScreen.x,3);expect(p.y/720*100).toBeCloseTo(rig.aimScreen.y,3);
+      expect(p.x).toBeGreaterThan(0);expect(p.x).toBeLessThan(1280);expect(p.y).toBeGreaterThan(0);expect(p.y).toBeLessThan(720);
+    }
+    rig.resetAngles(0,-.16);rig.snapToPlayer(feet);
+    physics.world.createCollider(RAPIER.ColliderDesc.cuboid(5,4,.1).setTranslation(0,151.65,-1.0));physics.world.step();
+    for(let f=0;f<120;f++)advance(12);
+    expect(rig.camera.position.z).toBeGreaterThan(-.9);expect(rig.aimScreen.x).toBeGreaterThan(0);expect(rig.aimScreen.x).toBeLessThan(100);
+  }finally{scene.dispose();engine.dispose();physics.dispose()}
+});
 
 test('human follow camera keeps the controlled player horizontally centred across yaw, zoom and shoulder key', async () => {
   const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720, textureSize: 256, deterministicLockstep: false, lockstepMaxSteps: 4 });

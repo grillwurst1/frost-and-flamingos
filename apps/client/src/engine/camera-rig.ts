@@ -1,7 +1,7 @@
 import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera';
 import { Vector3 } from '@babylonjs/core/Maths/math';
 import type { Scene } from '@babylonjs/core/scene';
-import type { PhysicsWorld, Vec3 } from '@frost-and-flamingos/shared';
+import type { PhysicsWorld, Vec3, MascotForm, WeaponId } from '@frost-and-flamingos/shared';
 
 const MOUSE_SENSITIVITY = 0.0022;
 const MIN_PITCH = -1.15;
@@ -31,12 +31,15 @@ export interface CameraProfile {
   fov?: number;
   /** Look just ahead of the body while viewing from its side. Aim remains independent. */
   focusAhead?: number;
+  /** Hip-fired snow aims from the real eyes, independently of its side view. */
+  aimFromEyes?: boolean;
 }
 
 export const HUMAN_CAMERA: CameraProfile = { pivotHeight: PLAYER_PIVOT_HEIGHT, distance: PLAYER_DISTANCE, shoulder: SHOULDER_OFFSET };
 /** Video shoulder framing keeps the cannon/stream clear of the hero's back.
  * Field play, mascots and vehicles retain their centred profiles. */
 export const REFERENCE_HUMAN_CAMERA: CameraProfile = { ...HUMAN_CAMERA, pivotHeight: 1.65, distance:3.15, shoulder:2.1, focusAhead:.8, fov:.85 };
+export const REFERENCE_SNOW_CAMERA:CameraProfile={...REFERENCE_HUMAN_CAMERA,distance:1.3,shoulder:3.3,focusAhead:1.3,fov:.95,aimFromEyes:true};
 export const COW_CAMERA: CameraProfile = { pivotHeight: 1.55, distance: 6.6, shoulder: 0 };
 export const COCONUT_CAMERA: CameraProfile = { pivotHeight: 2.05, distance: 5.6, shoulder: 0 };
 /** Vehicles: centred, higher and further back (pivot above the vehicle base). */
@@ -45,6 +48,11 @@ export const BOAT_CAMERA: CameraProfile = { pivotHeight: 2.7, distance: 8.4, sho
 export const SIDECAR_CAMERA: CameraProfile = { pivotHeight: 2.3, distance: 6.8, shoulder: 0 };
 export const AIRCRAFT_CAMERA: CameraProfile = { pivotHeight: 2.8, distance: 11.5, shoulder: 0 };
 export const CABLE_CAR_CAMERA: CameraProfile = { pivotHeight: 2.0, distance: 8.5, shoulder: 0 };
+
+/** Pure selection: importing camera configuration must not register actors/VFX. */
+export function cameraProfileFor(form:MascotForm|null,reference=false,weapon?:WeaponId|null):CameraProfile {
+  return form==='cow'?COW_CAMERA:form==='coconut'?COCONUT_CAMERA:reference?(weapon==='snow_cannon'?REFERENCE_SNOW_CAMERA:REFERENCE_HUMAN_CAMERA):HUMAN_CAMERA;
+}
 
 /** Mouse idle time before the camera starts easing behind a steered body. */
 const FOLLOW_IDLE_SECONDS = 1.1;
@@ -74,6 +82,7 @@ export class CameraRig {
   readonly camera: FreeCamera;
   readonly aimScreen={x:50,y:50};
   private readonly aimPoint=new Vector3();
+  private readonly physicalAimPoint=new Vector3();
   private readonly projectedAim=new Vector3();
   private readonly forwardAxis=new Vector3(0,0,1);
   private readonly pivotSpring: SpringState = {
@@ -135,6 +144,17 @@ export class CameraRig {
     const cos=Math.cos(this.pitch);
     return out.set(Math.sin(this.yaw)*cos,Math.sin(this.pitch),Math.cos(this.yaw)*cos);
   }
+  get aimsFromEyes():boolean{return this.profile.aimFromEyes===true;}
+  get aimTarget():Vector3{return this.aimPoint;}
+  setPhysicalAimTarget(origin:Vec3,direction:Vec3,distance:number):void {
+    this.physicalAimPoint.set(origin.x+direction.x*distance,origin.y+direction.y*distance,origin.z+direction.z*distance);
+    if(this.aimsFromEyes){this.aimPoint.copyFrom(this.physicalAimPoint);this.projectAim();}
+  }
+  private projectAim():void {
+    this.camera.getViewMatrix();this.camera.getProjectionMatrix();
+    Vector3.TransformCoordinatesToRef(this.aimPoint,this.camera.getTransformationMatrix(),this.projectedAim);
+    this.aimScreen.x=(this.projectedAim.x*.5+.5)*100;this.aimScreen.y=(.5-this.projectedAim.y*.5)*100;
+  }
 
   /** Orbit angle of the menu/wardrobe preview camera around the podium. */
   get previewAngle(): number {
@@ -152,7 +172,7 @@ export class CameraRig {
   }
 
   zoom(delta: number): void {
-    this.targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, this.targetDistance + delta * 0.0022));
+    this.targetDistance = Math.max(this.profile.aimFromEyes?this.profile.distance:MIN_DISTANCE, Math.min(MAX_DISTANCE, this.targetDistance + delta * 0.0022));
   }
 
   /** Switches the framing (human / cow / coconut); the distance eases over. */
@@ -217,6 +237,7 @@ export class CameraRig {
     );
     const right = new Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     let shoulder = this.profile.shoulder * this.shoulderSide;
+    if(this.profile.aimFromEyes)shoulder*=Math.cos(this.pitch);
     // Keep the aim lane inside the view when zooming or a rear wall pushes
     // the side camera forward. The normal field/vehicle profiles are centred.
     if(this.profile.focusAhead!==undefined)shoulder*=Math.min(1,Math.min(this.distance,this.collisionDistance)/this.profile.distance);
@@ -262,7 +283,7 @@ export class CameraRig {
       const normalized = direction.scale(1 / rayLength);
       const hit = physics.raycast(this.pivotSpring.value, normalized, rayLength + 0.4, this.ignoredCollider);
       if (hit) {
-        allowedDistance = Math.max(1.05, hit.distance - 0.35);
+        allowedDistance = Math.max(this.profile.aimFromEyes?.35:1.05, hit.distance - 0.35);
       }
     }
     const collisionAlpha = 1 - Math.exp(-clampedDt * (allowedDistance < this.collisionDistance ? 24 : 7));
@@ -285,11 +306,9 @@ export class CameraRig {
     this.camera.setTarget(lookAt);
     if (this.wobble > 0) this.camera.rotation.z = Math.sin(this.wobbleTime * 4.1) * 0.09 * this.wobble;
     if(this.profile.focusAhead!==undefined) {
-      this.getAimDirectionToRef(this.aimPoint).scaleInPlace(30).addInPlace(this.camera.position);
-      this.camera.getViewMatrix();this.camera.getProjectionMatrix();
-      Vector3.TransformCoordinatesToRef(this.aimPoint,this.camera.getTransformationMatrix(),this.projectedAim);
-      this.aimScreen.x=(this.projectedAim.x*.5+.5)*100;
-      this.aimScreen.y=(.5-this.projectedAim.y*.5)*100;
+      if(this.profile.aimFromEyes)this.aimPoint.copyFrom(this.physicalAimPoint);
+      else this.getAimDirectionToRef(this.aimPoint).scaleInPlace(30).addInPlace(this.camera.position);
+      this.projectAim();
     }else {this.aimScreen.x=50;this.aimScreen.y=50;}
   }
 

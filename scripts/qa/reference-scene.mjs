@@ -40,7 +40,7 @@ try {
         tracks:g.scene.getMeshByName('reference-crawler-tracks')?.thinInstanceCount,smoke:g.scene.getMeshByName('reference-chimney-smoke')?.thinInstanceCount};});
     assert.equal(value.connected,true);assert.equal(value.contextLosses,0);assert.ok(Object.values(value.feet).every(Number.isFinite));
     assert.ok(value.pendingInputs<=180);assert.equal(value.tracks,80);assert.equal(value.smoke,8);
-    assert.equal(value.firInstances,17);assert.ok(value.firInstanceAttribute>=0,'shared fir transforms must be active in the actual GPU shader');
+    assert.equal(value.firInstances,26);assert.ok(value.firInstanceAttribute>=0,'shared fir transforms must be active in the actual GPU shader');
     if(value.fire.burning)assert.ok(value.fireSmokeAttribute>=0,'solid smoke transforms must be active in the actual GPU shader');
     result.checkpoints.push({label,...value});console.log(JSON.stringify({label,...value}));return value;
   };
@@ -52,7 +52,10 @@ try {
   await page.locator('button.cover-play').focus();await page.keyboard.press('Enter');console.log('play pressed '+await page.evaluate(()=>window.__frostDebug.currentPhase));
   await wait(()=>window.__frostDebug?.currentPhase==='playing');console.log('playing');
   await wait(()=>window.__frostDebug.localView.root.getChildMeshes().some(m=>m.name==='soldier-modular-detail'));
-  console.log('detailed model loaded');if(process.env.FF_QA_REFERENCE_VIDEO==='1'){await page.keyboard.press('3');await frames(3)}await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x)<.2&&Math.abs(first.feet.z+20)<.2);
+  console.log('detailed model loaded');if(process.env.FF_QA_REFERENCE_VIDEO==='1'){
+    if(process.env.FF_QA_REFERENCE_DEFAULT_CANNON==='1')assert.equal(await page.evaluate(()=>window.__frostDebug.input.currentWeaponSlot()),3,'ordinary reference entry must equip its video weapon without QA input');
+    else await page.keyboard.press('3');await frames(3)
+  }await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x)<.2&&Math.abs(first.feet.z+20)<.2);
   if(process.env.FF_QA_REFERENCE_ALPS==='1') {
     const alps=await page.evaluate(async()=>{
       const {isShadowExcluded}=await import('/src/rendering/materials.ts');
@@ -66,14 +69,21 @@ try {
     assert.ok(alps.min[2]>64&&alps.max[1]-alps.min[1]>50);assert.equal(alps.panorama,0);
     result.distantAlps=alps;
   }
+  if(process.env.FF_QA_REFERENCE_VALLEY==='1') {
+    result.valley=await page.evaluate(async module=>{
+      const {ARENA_GRID,ARENA_NATURE}=await import(module),g=window.__frostDebug,water=g.scene.getMeshByName('reference-no-water');
+      return {minimumGround:ARENA_GRID.heights.reduce((min,y)=>Math.min(min,y),Infinity),waterEnabled:water?.isEnabled(),waterVertices:water?.getTotalVertices(),palmCount:ARENA_NATURE.filter(p=>p.kind==='palm').length,firs:ARENA_NATURE.filter(p=>p.kind==='fir').length};
+    },'/@fs'+resolve(import.meta.dirname,'../../packages/shared/src/index.ts'));
+    assert.ok(result.valley.minimumGround>14);assert.equal(result.valley.waterEnabled,false);assert.equal(result.valley.waterVertices,0);assert.equal(result.valley.palmCount,0);assert.equal(result.valley.firs,26);
+  }
   if(process.env.FF_QA_REFERENCE_CAST==='1')for(const name of ['RoofSniper77','Senn_Koloss','Skipper','Wuzzi','Angry_Cow_Beta','StumbleBoi'])
     assert.ok(first.names.includes(name),name+' must be labelled in the initial view');
   if(process.env.FF_QA_REFERENCE_AIM==='1') {
     result.aim=await page.evaluate(()=>{
-      const g=window.__frostDebug,c=g.cameraRig.camera,d=g.cameraRig.getAimDirectionToRef(c.position.clone().setAll(0)),p=c.position.add(d.scale(30)),m=g.scene.getTransformMatrix().m;
+      const g=window.__frostDebug,c=g.cameraRig.camera,d=g.cameraRig.getAimDirectionToRef(c.position.clone().setAll(0)),p=g.cameraRig.aimTarget,m=g.scene.getTransformMatrix().m;
       const w=m[3]*p.x+m[7]*p.y+m[11]*p.z+m[15],r=document.querySelector('.crosshair-hud').getBoundingClientRect();
       const send=g.network.sendFire.bind(g.network);g.network.sendFire=data=>{window.__qaFiredRay=data;return send(data)};
-      return {direction:d.asArray(),camera:c.getDirection(c.position.clone().set(0,0,1)).asArray(),
+      return {direction:d.asArray(),fromEyes:g.cameraRig.aimsFromEyes,target:p.asArray(),camera:c.getDirection(c.position.clone().set(0,0,1)).asArray(),
         projected:[((m[0]*p.x+m[4]*p.y+m[8]*p.z+m[12])/w*.5+.5)*innerWidth,(.5-(m[1]*p.x+m[5]*p.y+m[9]*p.z+m[13])/w*.5)*innerHeight],
         reticle:[(r.left+r.right)/2,(r.top+r.bottom)/2],viewport:[innerWidth,innerHeight]};
     });
@@ -82,6 +92,15 @@ try {
   }
   if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');
   await page.screenshot({path:resolve(output,'reference-scene.png'),timeout:180000});
+  if(process.env.FF_QA_REFERENCE_HUD==='1') {
+    result.hud=await page.evaluate(()=>{
+      const wing=document.querySelector('.ticket-wing.is-blue'),map=document.querySelector('.tactical-map'),svg=map.querySelector('svg'),marker=svg.querySelector('g'),rect=map.getBoundingClientRect();
+      const centre=svg.createSVGPoint();centre.x=0;centre.y=0;const projected=centre.matrixTransform(marker.getScreenCTM());
+      return {wing: getComputedStyle(wing).clipPath,fill:getComputedStyle(wing).getPropertyValue('--ticket-fill'),map:{viewBox:svg.getAttribute('viewBox'),width:rect.width,height:rect.height,svgWidth:svg.getBoundingClientRect().width,svgHeight:svg.getBoundingClientRect().height,marker:[projected.x-rect.left,projected.y-rect.top]},actions:Array.from(document.querySelectorAll('.field-action')).filter(e=>e.getClientRects().length>0).map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})};
+    });
+    assert.match(result.hud.wing,/polygon/);assert.ok(result.hud.actions.every(r=>r.x>=0&&r.y>=0&&r.width>30));
+    assert.ok(Math.hypot(result.hud.map.marker[0]-result.hud.map.width/2,result.hud.map.marker[1]-result.hud.map.height/2)<2,'actual local marker must sit at the centre of the map');
+  }
   if(process.env.FF_QA_REFERENCE_SNOW==='1'){
     assert.ok(await page.evaluate(()=>window.__frostDebug.latestLocalState.hp>0),'snow-cannon capture needs a live player');
     await page.keyboard.press('3');await page.mouse.down();try{await frames(1);
@@ -111,6 +130,11 @@ try {
       await page.evaluate(({offset,targetHeight})=>{const g=window.__frostDebug,p=g.localView.root.getAbsolutePosition();g.devCamera={position:p.add(p.clone().set(...offset)),target:p.add(p.clone().set(0,targetHeight,0))}},{offset,targetHeight});
       await frames(2);await page.screenshot({path:resolve(output,'reference-heavy-'+name+'.png'),timeout:180000});
     }
+    await page.evaluate(()=>{window.__frostDebug.devCamera=null});await frames(2);
+  }
+  if(process.env.FF_QA_REFERENCE_TREE==='1') {
+    await page.evaluate(()=>{const g=window.__frostDebug,t=g.scene.getMeshByName('nature-fir-arena_fir_0');if(!t)throw new Error('near fir missing');const p=t.position;g.devCamera={position:p.add(p.clone().set(8,4.5,-11)),target:p.add(p.clone().set(0,4,0))}});
+    await frames(2);await page.screenshot({path:resolve(output,'reference-fir.png'),timeout:180000});
     await page.evaluate(()=>{window.__frostDebug.devCamera=null});await frames(2);
   }
   if(process.env.FF_QA_REFERENCE_VIEWS==='1') {

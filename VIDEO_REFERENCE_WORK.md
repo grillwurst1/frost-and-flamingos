@@ -555,3 +555,53 @@ Low 800×500 no-bot checks pass actual snow firing, walk/jump, capture, F boardi
 projection. Warm mesh/material/texture/geometry deltas: {'meshes': -1, 'materials': -1, 'textures': -1, 'geometries': -1}.
 Evidence: docs/qa/video-anatomy-validation-2026-11-12.json and companion files.
 This verifies the increment; exact video likeness and native M4 acceptance remain OPEN.
+
+
+## Enclosed valley, billows, firs and a real side view — 12 November 2026
+
+Owner again requires autonomous work until the supplied video matches. Reviewed
+start, seconds 1–8 and 9.75 s across its full 10.027 s duration. Main visible
+problems: tropical coast/palms outside the old compact basin, stacked fir cones,
+regular sphere-like snow stream, rear-only soldier view and rectangular HUD
+wings. The generated target also has inconsistent scores/names; retain real
+game state and controls rather than copying fabricated readouts.
+
+The reference world now uses actual snow terraces/rims over the same collision
+grid. Outer water/beach are gone; field mode remains mixed. East flights and
+landing/nav are regraded to 18.48→16.08→14.48; new fir trunks avoid their lanes.
+Gondola stations, brakes and houses stay physical. A disabled common water hook
+has zero geometry/draw; the previous sea stored 18,225 vertices. Palette/haze
+and incised original Alpine ridges soften the distant landscape.
+
+Nearby firs have solid drooping boughs with raised snow tops. An initial
+3,056-triangle prototype was rejected by the unchanged 1,700-triangle test.
+A single closed hull with split snow/green attributes reduces it to 1,616;
+the full field nature layer stores 320,476 versus 321,292 triangles. LOD detail
+ends at 45 m. No added meshes/materials per tree and no alpha foliage.
+
+Snow clouds have smooth radial billows, analytic normals, varied orientation
+and blue-white lighting in the same fixed 64-instance/two-draw pool. Each
+prototype drops from 360 to 256 triangles (-28.89%). Reference entry really
+selects slot 3; the closer snow-cannon side profile uses actual eye-origin
+firing and projects real terrain/avatar hits. Offset shrinks during steep aim,
+zoom or occlusion. Camera selection moved to its pure configuration module
+after a test import inadvertently registered non-soldier models globally.
+No animation assertions or old geometry ceilings were relaxed.
+
+HUD slanted wings/fill retain authoritative tickets; larger tiles keep actual
+keys/cooldowns, and cached minimap contours/trees follow the changed real world.
+Capture and compare the running browser scene, a labelled fir close-up and
+actual firing; no reference frame may be represented as an implemented shot.
+Exact video acceptance and native M4 measurements remain OPEN.
+
+Final visual corrections: SnowStream owns the entire snow spray; remove the separate legacy solid muzzle-flash cone while retaining its muzzle socket, recoil and shot logic. Short jet beads expire before the broad billows; billow centres stop at actual ray hits. Correct borrowed armed idle torso/neck rotations toward this rig's own frame, fading with gait/crouch/roll/swim/riding/overlays. Cache four rest quaternions and reuse one blend quaternion. A real skinned clock edge exposed 44° idle lean before the fix; eight gameplay/preview phase checks now require <11.5°. Scale the clock vertically to 0.66 without changing mesh counts. Eye clearance is checked against the actual neutral short-neck body (15 mm allowance), rather than the old 0.12 marker that depended on the donor lean.
+
+Final code verification: 434 distinct cases pass (15 script, 247 server, 172 client).
+The final full client suite passes 172/172; the strengthened four-phase neutral-eye
+and eight-phase skinned-clock checks, both Snow cases and the explicit null-muzzle
+fitting case also pass separately. Strict checks report 0 errors / 0 warnings;
+shared/client/server production builds pass (existing Vite large-chunk advisory).
+Browser evidence and measured limits: docs/qa/video-alpine-valley-validation-2026-11-12.json.
+Hero stays at 46,441 triangles; reference map stores 143,532 vertices versus 172,685
+(-16.88%). Exact video likeness, native M4 thermals/FPS and full dynamic WebGPU
+acceptance remain OPEN. Software Chromium is a functional/visual check only.

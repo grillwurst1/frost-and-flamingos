@@ -14,6 +14,7 @@ test('the fitted snow-cannon muzzle stays at the actual barrel lip for both hand
         expect(Math.abs(weapon.muzzle!.position.z-bounds.maximum.z)).toBeLessThan(.015);
         expect(bounds.maximum.x-bounds.minimum.x).toBeLessThan(.32);
         expect(weapon.pose.support!.z).toBeLessThan(weapon.muzzle!.position.z-.1);
+        expect(weapon.mesh.getChildMeshes().some(m=>m.name==='hero-weapon-snow_cannon-flash')).toBe(false);
         const p=weapon.mesh.getVerticesData('position')!,n=weapon.mesh.getVerticesData('normal')!;
         expect(Array.from(p).every(Number.isFinite)).toBe(true);
         for(let i=0;i<n.length;i+=3)expect(Math.hypot(n[i]!,n[i+1]!,n[i+2]!)).toBeCloseTo(1,4);

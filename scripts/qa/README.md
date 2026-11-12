@@ -146,3 +146,20 @@ check. `FF_QA_REFERENCE_ANATOMY=1` adds explicitly diagnostic nape and shoe
 close-ups of the current human; `FF_QA_REFERENCE_POSE=1` adds whole-body/face
 views. They follow the unchanged ordinary public scene capture and never
 stand in for a playable-camera screenshot.
+
+
+For the enclosed video valley, combine `FF_QA_REFERENCE_DEFAULT_CANNON=1`
+with the ordinary ROOT/VIDEO capture: it asserts initial real slot 3 without
+selecting the weapon through QA. `FF_QA_REFERENCE_VALLEY=1` checks solid raised
+terrain, all 26 firs, no palms and zero enabled water geometry.
+`FF_QA_REFERENCE_HUD=1` measures actual score-wing clipping, visible tile bounds
+and the actual local minimap marker at the circle centre.
+`FF_QA_REFERENCE_TREE=1` adds a labelled diagnostic camera on the first real
+fir after the normal screenshot. AIM now projects `cameraRig.aimTarget`,
+including physical eye-origin hits in the new snow-cannon view.
+
+The Alpine valley milestone records its public Medium entry, a separate isolated
+Low firing check, the earlier same-world mechanics run and explicit visual limits
+in `docs/qa/video-alpine-valley-validation-2026-11-12.json`. Do not infer M4 FPS or
+thermal behaviour from SwiftShader. Diagnostic face/pose/fir cameras are labelled
+separately from ordinary gameplay captures. MP4 sources are never edited.

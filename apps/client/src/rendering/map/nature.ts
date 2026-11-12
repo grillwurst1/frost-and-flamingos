@@ -6,6 +6,7 @@
  */
 import { Affine, GeometryBatch, hash3, mix, shade, type RGB, type V3 } from './geometry';
 import { P } from './palette';
+import { firBough } from './fir-bough';
 
 function rand(seed: number, salt: number): number {
   return hash3(seed * 1.137, salt * 7.31, seed * 0.173 + salt);
@@ -22,6 +23,23 @@ export function drawFir(batch: GeometryBatch, scale: number, variant: number, sn
   const trunk = (young ? 1.1 : 1.9) * scale;
   const gap = (height - trunk) / (tiers + .6);
   batch.lathe([[.37*scale,-.15],[.24*scale,trunk+gap]], 8, P.logDark, 'wood');
+  if(showcase&&!far) {
+    const green=mix(P.firDark,P.firLight,.30+variant*.025);
+    for(let tier=0;tier<tiers;tier++) {
+      const t=tier/tiers,radius=(young?2.1-t*1.3:2.7-t*1.9)*scale*(.93+rand(seed,tier)*.14);
+      const base=trunk+tier*gap,phase=tier*.67+rand(seed,10)*Math.PI*2;
+      const crown=snowy>.7&&tier===tiers-1;
+      batch.at(0,base,0,0,()=>batch.lathe([[radius*.33,0],[radius*.28,gap*.8],[.012*scale,gap*1.72]],8,crown?P.snow:green,crown?'snow':'foliage'));
+      for(let branch=0;branch<6;branch++) {
+        const yaw=phase+branch*Math.PI/3+(rand(seed,tier*6+branch+70)-.5)*.22;
+        const length=radius*(.90+rand(seed,tier*6+branch+110)*.16);
+        batch.at(0,base,0,yaw,()=>{
+          firBough(batch,length,gap,scale,snowy>.05,green);
+        });
+      }
+    }
+    return;
+  }
   const segments = far ? 6 : showcase ? 24 : 8;
   const green = mix(P.firDark, P.firLight, .24 + variant*.035);
   const shelf = (radius: number, base: number, rise: number, phase: number, snow: boolean, tier: number) => {

@@ -377,3 +377,14 @@ analytic normals, fitted laces, camera/reticle and gold cannon palette/hoops.
 These modify cached runtime geometry around the existing owner-derived models;
 source GLBs, paint, reference images and supplied video are unchanged.
 No external art, extra textures or new full-screen effects are introduced.
+
+
+### Alpine valley, fir boughs and snow billows — 12 November 2026
+
+Original project shared-grid snow terraces/rims, stair/nav regrading, palette/
+haze, carved ridge geometry, closed two-surface fir boughs, smooth radial snow
+billows with analytic normals, camera projection and HUD styling. Existing
+owner-derived model/texture/cloud assets are reused without altering source
+GLBs, paint, PHOTO images or the supplied video. No new external artwork.
+
+The torso/neck retargeting, smaller clock fit and Snow muzzle cleanup are original runtime/procedural adjustments. Owner source GLBs, paint, reference photographs and the supplied MP4 remain unchanged.

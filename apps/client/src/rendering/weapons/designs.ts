@@ -561,7 +561,9 @@ const DESIGNS: Record<string, WeaponDesign> = {
       gripAxis: [0, -1, -0.2],
       supportAxis: [1, 0, 0],
       muzzle: [0, 0.2, 0.52],
-      muzzleKind: 'snow',
+      // SnowStream owns the whole spray. The old opaque prop cone hid its
+      // near billows and doubled the effect draw at the barrel.
+      muzzleKind: null,
     },
     build: (kit) => {
       kit.lathe(

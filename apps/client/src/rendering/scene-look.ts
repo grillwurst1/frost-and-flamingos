@@ -252,6 +252,11 @@ export class SceneLook {
     this.webgpu = scene.getEngine().isWebGPU;
     this.context = getLookContext(scene, SUN_DIRECTION);
     const values = this.context.values;
+    if(referenceScene) {
+      this.neutral.zenith.copyFrom(hex('#86CDE7'));this.neutral.horizon.copyFrom(hex('#C1E4EF'));
+      this.neutral.haze.set(.76,.88,.94,.72);this.neutral.hazeStart=50;values.hazeParams.y=420;
+      this.neutral.groundHaze.copyFrom(hex('#C3DFEA'));this.neutral.shadeCool.set(.70,.82,.92);
+    }
 
     scene.clearColor = new Color4(values.horizon.r, values.horizon.g, values.horizon.b, 1);
     scene.ambientColor = new Color3(0.55, 0.62, 0.7);
@@ -769,6 +774,7 @@ export class SceneLook {
       texture.wrapU = Constants.TEXTURE_CLAMP_ADDRESSMODE;
       texture.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
       const material = createCloudMaterial(this.scene, `ff-cloud-${index}`, texture);
+      if(referenceScene)material.setFloat('uOpacity',.86);
       const azimuth = (slot.azimuth * Math.PI) / 180;
       const elevation = (slot.elevation * Math.PI) / 180;
       const distance = CLOUD_RING_DISTANCE;

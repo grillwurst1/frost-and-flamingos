@@ -37,9 +37,10 @@ export class InputController {
   private vehicleCrouch = false;
   private disposed = false;
 
-  constructor(canvas: HTMLCanvasElement, handlers: InputHandlers) {
+  constructor(canvas: HTMLCanvasElement, handlers: InputHandlers,initialSlot:WeaponSlot=1) {
     this.canvas = canvas;
     this.handlers = handlers;
+    this.weaponSlot=initialSlot;
 
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);

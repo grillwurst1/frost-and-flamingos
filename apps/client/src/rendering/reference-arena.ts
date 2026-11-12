@@ -72,30 +72,11 @@ export function buildReferenceTerrain(scene: Scene): Mesh {
   mesh.freezeWorldMatrix();
   return mesh;
 }
-function buildSea(scene: Scene, material: ShaderMaterial): Mesh {
-  const coords = [-1600, -400, -128, ...Array.from({ length: 129 }, (_, i) => i - 64), 128, 400, 1600], n = coords.length;
-  const positions = new Float32Array(n * n * 3), colors = new Float32Array(n * n * 4), normals = new Float32Array(n * n * 3), indices: number[] = [];
-  for (let row = 0; row < n; row++)
-    for (let col = 0; col < n; col++) {
-      const i = row * n + col, x = coords[col]!, z = coords[row]!, depth = -arenaHeightAt(x, z);
-      positions.set([x, .04, z], i * 3);
-      normals[i * 3 + 1] = 1;
-      colors.set([depth < -.6 ? 0 : 1 - Math.min(1, Math.max(0, (depth - .1) / 2.4)), Math.min(1, Math.max(0, depth / 9)), 0, depth < -.4 ? 0 : Math.min(.92, .5 + Math.max(0, depth / 9) * .45)], i * 4);
-      if (row < n - 1 && col < n - 1)
-        indices.push(i, i + 1, i + n + 1, i, i + n + 1, i + n);
-    }
-  const data = new VertexData();
-  data.positions = positions;
-  data.normals = normals;
-  data.colors = colors;
-  data.indices = indices;
-  const mesh = new Mesh('reference-water', scene);
-  data.applyToMesh(mesh, false);
-  mesh.material = material;
-  mesh.isPickable = false;
-  mesh.setVerticesData(SURFACE_ATTRIBUTE, new Float32Array(n * n).fill(surfaceId('water')), false, 1);
-  mesh.alwaysSelectAsActiveMesh = true;
-  return mesh;
+/** This reference world is solid Alpine terrain. Keep the shared look hook,
+ * without the old 18,225-vertex sea or a water shader draw behind the snow. */
+function buildSea(scene:Scene,material:ShaderMaterial):Mesh {
+  const water=new Mesh('reference-no-water',scene);water.material=material;water.setEnabled(false);water.isPickable=false;
+  return water;
 }
 export function buildReferenceArena(scene: Scene, material: ShaderMaterial): MapVisuals {
   const terrain = buildReferenceTerrain(scene), waterMaterial = createWaterMaterial(scene, 'water-material'), water = buildSea(scene, waterMaterial);

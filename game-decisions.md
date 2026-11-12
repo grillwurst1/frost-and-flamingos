@@ -3281,3 +3281,44 @@ Low 800×500 no-bot checks pass actual snow firing, walk/jump, capture, F boardi
 projection. Warm mesh/material/texture/geometry deltas: {'meshes': -1, 'materials': -1, 'textures': -1, 'geometries': -1}.
 Evidence: docs/qa/video-anatomy-validation-2026-11-12.json and companion files.
 This verifies the increment; exact video likeness and native M4 acceptance remain OPEN.
+
+
+### Video valley and physical side aiming — 12 November 2026
+
+The latest video priority supersedes the leftover tropical reference coast.
+Extend the same fixed grid into solid snow terraces and enclosing rims; never
+cover water/collision holes with pictures. Keep existing inner foundations and
+physical paths. Regrade both eastern stair flights/landing and their nav node;
+26 shared firs replace palms, with trunks kept clear of those routes. Remove
+the unused sea geometry/draw from this reference world. Preserve full field
+mode, all station/vehicle mechanics and bounded terrain resolution.
+
+Near firs use one closed bough hull: white raised snow above green needles,
+attribute seams at coincident positions, six radial branches per whorl. This
+stays under the existing 1,700-triangle cap; the old field nature storage
+321,292 becomes 320,476 triangles. Use 45 m for the detailed LOD. Snow-stream
+prototypes use smooth radial deformation/normals and 256 triangles rather than
+360; the two fixed meshes and 64-instance ring are retained. No new textures,
+framebuffers, full-screen passes or per-frame geometry construction.
+
+Select actual slot 3 on reference entry. Snow-cannon framing is more side-on,
+with firing/raycast origin at real eyes and projected actual world hit position.
+Muzzle FX converge on it; geometry, reticle and packets must agree in browser
+checks. Offset decreases with zoom, rear/side obstruction and steep pitch.
+Other gun/field/vehicle profiles keep their existing aim model. Camera profile
+selection is pure, avoiding global model-registration side effects in callers.
+HUD score-wing fill uses actual tickets; no staged scores/chat/players. The
+round map is built once from actual heights/routes/trees. Exact art parity and
+native M4 acceptance remain open.
+
+Final visual corrections: SnowStream owns the entire snow spray; remove the separate legacy solid muzzle-flash cone while retaining its muzzle socket, recoil and shot logic. Short jet beads expire before the broad billows; billow centres stop at actual ray hits. Correct borrowed armed idle torso/neck rotations toward this rig's own frame, fading with gait/crouch/roll/swim/riding/overlays. Cache four rest quaternions and reuse one blend quaternion. A real skinned clock edge exposed 44° idle lean before the fix; eight gameplay/preview phase checks now require <11.5°. Scale the clock vertically to 0.66 without changing mesh counts. Eye clearance is checked against the actual neutral short-neck body (15 mm allowance), rather than the old 0.12 marker that depended on the donor lean.
+
+Final code verification: 434 distinct cases pass (15 script, 247 server, 172 client).
+The final full client suite passes 172/172; the strengthened four-phase neutral-eye
+and eight-phase skinned-clock checks, both Snow cases and the explicit null-muzzle
+fitting case also pass separately. Strict checks report 0 errors / 0 warnings;
+shared/client/server production builds pass (existing Vite large-chunk advisory).
+Browser evidence and measured limits: docs/qa/video-alpine-valley-validation-2026-11-12.json.
+Hero stays at 46,441 triangles; reference map stores 143,532 vertices versus 172,685
+(-16.88%). Exact video likeness, native M4 thermals/FPS and full dynamic WebGPU
+acceptance remain OPEN. Software Chromium is a functional/visual check only.

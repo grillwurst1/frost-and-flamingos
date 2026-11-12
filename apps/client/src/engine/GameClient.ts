@@ -589,7 +589,7 @@ export class GameClient {
           if (this.currentPhase === 'playing') this.pause();
           else if (this.currentPhase === 'deploying') this.returnToMenu();
         },
-      });
+      },referenceScene?3:1);
       window.addEventListener('resize', this.handleResize);
       document.addEventListener('fullscreenchange', this.handleFullscreenChange);
       if (typeof ResizeObserver !== 'undefined') {
@@ -1811,7 +1811,7 @@ export class GameClient {
       y: character.position.y + character.eyeHeight - (this.vehicles?.eyeDrop(character.stats.height) ?? 0),
       z: character.position.z,
     };
-    const cameraOrigin = camera.camera.position;
+    const cameraOrigin = camera.aimsFromEyes?eyes:camera.camera.position;
     const worldHit = this.physics?.raycast(cameraOrigin, forward, stats.range, this.vehicles?.localHullCollider() ?? undefined);
     let aimDistance = worldHit?.distance ?? stats.range;
     const avatarHit = this.vehicles?.avatarHit?.(cameraOrigin, forward, aimDistance, this.localFaction);
@@ -1869,13 +1869,22 @@ export class GameClient {
       const character = this.localCharacter;
       if (this.physics && this.vehicles?.updateCamera(delta, camera, this.physics, this.localProfile)) return;
       if (character && this.physics) {
-        camera.setProfile(cameraProfileFor(character.form, referenceScene));
+        const weapon=this.localProfile?weaponForSlot(this.localProfile.loadout,this.input?.currentWeaponSlot()??1):null;
+        camera.setProfile(cameraProfileFor(character.form, referenceScene,weapon));
         if (character.form === 'cow' && this.currentPhase === 'playing') {
           const velocity = character.velocity;
           camera.followHeading(delta, character.heading, Math.hypot(velocity.x, velocity.z));
         }
         camera.setWobble(this.latestLocalState?.dazed ? 1 : 0);
         camera.updatePlayer(delta, toVector3(character.position), this.physics);
+        if(camera.aimsFromEyes&&weapon) {
+          const eyes={x:character.position.x,y:character.position.y+character.eyeHeight,z:character.position.z};
+          const direction=camera.getAimDirectionToRef(new Vector3()),range=WEAPON_STATS[weapon].range;
+          let distance=this.physics.raycast(eyes,direction,range)?.distance??range;
+          const target=this.vehicles?.avatarHit?.(eyes,direction,distance,this.localFaction);
+          if(target)distance=Math.min(distance,Math.hypot(target.x-eyes.x,target.y-eyes.y,target.z-eyes.z));
+          camera.setPhysicalAimTarget(eyes,direction,distance);
+        }
       }
       return;
     }

@@ -304,6 +304,8 @@ export class GlbCharacterView implements AvatarView {
   private readonly bindRotations: Float32Array;
   private readonly bindHips: Vector3;
   private readonly bindHeadRotation: Quaternion | null;
+  private readonly bindSpineRotations: Array<readonly [RigJoint, Quaternion]> = [];
+  private readonly spineBlend = Quaternion.Identity();
   private readonly accumulator: Float32Array;
   private readonly hipsAccumulator = new Vector3();
   private readonly bindings = new Map<BindingRole, ClipBinding>();
@@ -525,6 +527,10 @@ export class GlbCharacterView implements AvatarView {
     this.accumulator = new Float32Array(ordered.length * 4);
     this.bindHips = asset.bindPose.get('Hips')?.position.clone() ?? Vector3.Zero();
     this.bindHeadRotation = bindWorldTransform(asset, 'Head')?.rotation.clone() ?? null;
+    for (const joint of ['Spine', 'Spine1', 'Spine2', 'Neck'] as const) {
+      const rest = bindWorldTransform(asset, joint);
+      if (rest) this.bindSpineRotations.push([joint, rest.rotation.clone()]);
+    }
     const hipsNode = nodes.get('Hips');
     this.armature = (hipsNode?.parent as TransformNode | null) ?? gltfRoot;
     this.rig = new GlbRig(nodes, asset.jointParents);
@@ -1349,6 +1355,19 @@ export class GlbCharacterView implements AvatarView {
     const rig = this.rig;
     rig.refresh();
     const blend = this.aliveBlend * (1 - this.swim);
+
+    // Borrowed idles carry the donor's deep torso lean as well as its shrug.
+    // Keep the armed standing torso near this body's own frame, before aim
+    // pitch/IK. Gaits, crouches, rolls, riding and upper-body overlays keep
+    // their animation; the residual idle and procedural breath stay alive.
+    let overlay = 0;
+    for (const role of OVERLAY_ROLES) overlay = Math.max(overlay, this.bindings.get(role)?.weight ?? 0);
+    const steady = this.sharedWardrobeHead && this.asset.clips.get('idle')?.retargetedFrom && !this.riding
+      ? (this.bindings.get('idle')?.weight ?? 0) * this.armed * blend * (1 - this.crouch) * (1 - this.rollTuck) * (1 - overlay) * .92 : 0;
+    if (steady > .001) for (const [joint, rest] of this.bindSpineRotations) {
+      const rotation = rig.rotation(joint);
+      if (rotation) { Quaternion.SlerpToRef(rotation, rest, steady, this.spineBlend); rig.setWorldRotation(joint, this.spineBlend); rig.refresh(); }
+    }
 
     // Crouch: drop the hips and keep the animated feet planted with leg IK.
     const crouch = this.crouch * blend;

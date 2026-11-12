@@ -1763,3 +1763,36 @@ von Spielansicht, Schneekanone, Bewegung/Sprung, Eroberung, Einsteigen,
 Garderobe besteht ohne Seiten-/Lade-/WebGL-Kontextfehler. Die Figur hat 46.441
 Dreiecke, die Karte weiterhin 172.685 Vertices. Neue Texturen oder zusätzliche
 Bildschirmeffekte entstehen nicht. Details: docs/qa/video-anatomy-validation-2026-11-12.json.
+
+
+### Alpental der Videoreferenz — 12. November 2026
+
+Die Referenzszene startet mit Waffenslot 3. Beim Tragen der Schneekanone zeigt
+die Kamera die Figur stärker von der Seite. Das Fadenkreuz wird aus der echten
+Schussbahn vom Auge berechnet; der sichtbare Strahl läuft vom Waffenlauf auf
+denselben Zielpunkt. Blick nach oben/unten, Schulterwechsel, Zoom und Wände
+werden berücksichtigt. Die anderen Waffen und der Feldmodus bleiben bedienbar.
+
+Die frühere Küste der Referenzkarte wurde durch echte Schneeterrassen und
+Bergflanken ersetzt. Die beiden östlichen Treppen und ihr Podest bleiben
+begehbar; ihre Höhen sind mit Gelände und Kollision abgestimmt. Alle 26 Bäume
+sind räumliche Tannen mit eigener Stammkollision und gemeinsam genutzten
+Modellen. Die Meeresfläche dieser Szene entfällt. Der große Feldmodus behält
+seine Küste. Gondeln, Ein-/Aussteigen und Bremshebel funktionieren weiterhin.
+
+Die Anzeigen zeigen echte Tickets, Fähigkeiten und Tasten. Die runde Karte
+zeichnet das tatsächliche Gelände und die Wege. Schneewolken werden aus einem
+festen Pool erzeugt. Der genaue Videoabgleich und eine Messung auf dem MacBook
+M4 bleiben offen; die Prüfungen werden im zugehörigen QA-Bericht dokumentiert.
+
+Der Schneestrahl verwendet ausschließlich seinen festen Wolkenpool; der alte zusätzliche massive Mündungskegel entfällt. Kurze Strahlperlen verblassen vor den breiteren Wolken, deren Mittelpunkte an tatsächlichen Treffern stoppen. Übernommene Standanimationen erhalten im bewaffneten Stand eine Korrektur von Brust/Hals auf die eigene Körperhaltung; Laufen, Rollen, Schwimmen, Sitzen und Gesten behalten ihre Bewegungen. Der Uhrenrucksack ist aufrecht und in der Höhe kleiner. Haut-, Outfit- und Waffenwahl bleiben erhalten.
+
+Prüfstand dieses Grafikschritts: 434 erfolgreiche Fälle (15 Asset-/Script-, 247
+Server- und 172 Client-Tests); zusätzliche Phasenprüfungen für Augenabstand und
+Uhrenneigung sowie Mündungs-/Schneestrahlprüfungen sind ebenfalls erfolgreich.
+Strenge Typprüfung: 0 Fehler / 0 Warnungen; alle Produktions-Builds erfolgreich
+(bestehender Vite-Hinweis zur Bundlegröße). Die Referenzkarte benötigt 143.532
+statt 172.685 gespeicherte Vertices (-16,88 %), die Figur weiterhin 46.441 Dreiecke.
+Nachweise: docs/qa/video-alpine-valley-validation-2026-11-12.json. Eine exakte
+Video-Übereinstimmung und Temperatur/FPS auf einem echten MacBook M4 sind damit
+noch nicht nachgewiesen. Die Software-Chromium-Prüfung ersetzt keinen Gerätetest.

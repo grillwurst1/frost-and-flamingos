@@ -20,7 +20,8 @@ function heightAt(x:number,z:number):number {
     const ribs=1+.20*Math.cos(angle*3+cx*.013)+.08*Math.cos(angle*5+cz*.017);
     const distance=Math.hypot(px,pz)/ribs;
     const ridge=Math.max(0,1-distance);
-    height=Math.max(height,-14+top*ridge*(1+.045*Math.sin(x*.041+z*.027)));
+    const fissure=Math.max(0,Math.sin(angle*11+cx*.03+ridge*4))**4;
+    height=Math.max(height,-14+top*ridge*(1-.10*fissure*(1-ridge))*(1+.045*Math.sin(x*.041+z*.027)));
   }
   return height;
 }

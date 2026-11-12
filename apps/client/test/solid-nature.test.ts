@@ -6,6 +6,28 @@ import { Vector3 } from '@babylonjs/core/Maths/math';
 import { Scene } from '@babylonjs/core/scene';
 import { FJORD_MAP } from '@frost-and-flamingos/shared';
 import { buildSolidNature, FIR_DETAIL_DISTANCE, NATURE_LOD_DISTANCE } from '../src/rendering/map/solid-nature';
+import { GeometryBatch } from '../src/rendering/map/geometry';
+import { firBough } from '../src/rendering/map/fir-bough';
+
+test('solid bough and snow cushions are closed, outward-facing surfaces with finite unit normals',()=>{
+  for(const snow of [false,true]) {
+    const batch=new GeometryBatch();batch.jitter=0;firBough(batch,2.4,1.4,1,snow,[.1,.3,.2]);
+    const edges=new Map<string,number>();
+    // Material seams have distinct vertex attributes at identical positions.
+    const pointKey=(v:number)=>batch.positions.slice(v*3,v*3+3).map(p=>p.toFixed(6)).join(',');
+    for(let i=0;i<batch.positions.length;i+=3)expect(Math.hypot(batch.normals[i]!,batch.normals[i+1]!,batch.normals[i+2]!)).toBeCloseTo(1,5);
+    for(let f=0;f<batch.indices.length;f+=3) {
+      const a=batch.indices[f]!,b=batch.indices[f+2]!,c=batch.indices[f+1]!;
+      const p=Vector3.FromArray(batch.positions,a*3),q=Vector3.FromArray(batch.positions,b*3),r=Vector3.FromArray(batch.positions,c*3);
+      const face=Vector3.Cross(q.subtract(p),r.subtract(p));
+      const normal=Vector3.FromArray(batch.normals,a*3).addInPlace(Vector3.FromArray(batch.normals,b*3)).addInPlace(Vector3.FromArray(batch.normals,c*3));
+      expect(Vector3.Dot(face,normal)).toBeGreaterThan(0);
+      for(const [x,y] of [[a,b],[b,c],[c,a]]){const p=pointKey(x!),q=pointKey(y!),key=p<q?`${p}/${q}`:`${q}/${p}`;edges.set(key,(edges.get(key)??0)+1);}
+    }
+    expect([...edges.values()].every(count=>count===2)).toBe(true);
+    expect(batch.positions.every(Number.isFinite)).toBe(true);
+  }
+});
 
 test('solid trees and rocks have bounded geometry and simpler solid distance models', () => {
   const engine = new NullEngine(); const scene = new Scene(engine);
