@@ -53,6 +53,19 @@ try {
   await wait(()=>window.__frostDebug?.currentPhase==='playing');console.log('playing');
   await wait(()=>window.__frostDebug.localView.root.getChildMeshes().some(m=>m.name==='soldier-modular-detail'));
   console.log('detailed model loaded');if(process.env.FF_QA_REFERENCE_VIDEO==='1'){await page.keyboard.press('3');await frames(3)}await frames();const first=await sample('public-entry');assert.ok(Math.abs(first.feet.x)<.2&&Math.abs(first.feet.z+20)<.2);
+  if(process.env.FF_QA_REFERENCE_ALPS==='1') {
+    const alps=await page.evaluate(async()=>{
+      const {isShadowExcluded}=await import('/src/rendering/materials.ts');
+      const g=window.__frostDebug,m=g.scene.getMeshByName('reference-distant-alps'),box=m?.getBoundingInfo().boundingBox;
+      return {vertices:m?.getTotalVertices(),triangles:m?.getTotalIndices()/3,enabled:m?.isEnabled(),
+        active:g.scene.getActiveMeshes().data.includes(m),shadowExcluded:isShadowExcluded(m),
+        min:box?.minimumWorld.asArray(),max:box?.maximumWorld.asArray(),panorama:window.__ff.look.values.panoParams.x};
+    });
+    assert.ok(alps.enabled&&alps.active&&alps.shadowExcluded);
+    assert.ok(alps.vertices>0&&alps.vertices<=3000&&alps.triangles<=5120);
+    assert.ok(alps.min[2]>64&&alps.max[1]-alps.min[1]>50);assert.equal(alps.panorama,0);
+    result.distantAlps=alps;
+  }
   if(process.env.FF_QA_REFERENCE_CAST==='1')for(const name of ['RoofSniper77','Senn_Koloss','Skipper','Wuzzi','Angry_Cow_Beta','StumbleBoi'])
     assert.ok(first.names.includes(name),name+' must be labelled in the initial view');
   if(fireCheck)assert.equal(first.fire.burning,true,'late join must receive the active fire');

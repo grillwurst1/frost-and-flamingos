@@ -923,3 +923,20 @@ or steady resource growth.170,020 map vertices (-12.20%), 156 initial draws.
 Evidence: docs/qa/video-village-validation-2026-11-12.json and companion files.
 Centred view still hides much of the cannon/stream; camera clarification is
 pending. Exact video likeness remains OPEN; continue actual art/camera work.
+
+
+### 12 November 2026 — modelled Alpine skyline
+
+Continue the video art priority with one static original 3D ridge mesh,
+blue-white facet shading and lower existing clouds. The smooth cone prototype
+was rejected after actual browser review. The reference no longer loads the
+panorama by default; far geometry is shadow-excluded and bounded. The old oval
+local crag becomes a lower shared snow ridge. Camera/hero/effect fidelity and
+native M4 acceptance remain open; no additional gameplay milestone is closed.
+
+Final skyline capture passes: 28 affected cases, strict checks/build and actual
+Medium public WebGL2, six cast labels, zero page/HTTP/context errors. 2,665 shared
+ridge vertices / 3,577 triangles; 172,685 total map vertices (-10.82%), 158 initial
+draws and no panorama texture or distant shadow coverage. Evidence:
+docs/qa/video-alps-validation-2026-11-12.json and companion files. Exact video
+acceptance remains open; continue camera/hero/weapon/effect art from actual views.

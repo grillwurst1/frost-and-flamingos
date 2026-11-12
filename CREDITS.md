@@ -360,3 +360,11 @@ Original project heightfield snow-bank shapes, village layout, level vehicle
 turnout, wood/glass palette and cached vector cartography. Existing procedural
 building and terrain tools are reused. No external assets, owner source GLBs,
 source paint, supplied PHOTO images or reference video are changed.
+
+
+### Original Alpine skyline — 12 November 2026
+
+Original project ridged-height geometry and blue-white facet palette in
+reference-alps.ts. Existing owner-derived cloud cutouts are repositioned without
+modifying their images. The supplied video, photographs and source models are
+unchanged; no new external art or textures are introduced.

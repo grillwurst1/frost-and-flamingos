@@ -1723,3 +1723,20 @@ Schießen, Aussteigen und Garderobe ohne Seiten-/Kontextfehler. Die Karte speich
 Die mittige Rückansicht verdeckt noch einen großen Teil von Waffe/Schneestrahl;
 die gewünschte Kameraposition wird mit dem Besitzer geklärt. Video-Gleichheit
 und die Messung auf dem MacBook M4 bleiben offen.
+
+
+### Modellierte Alpenkulisse — 12. November 2026
+
+Die Referenzszene hat nun modellierte Berggrate mit blau-weißen Flächen und
+sichtbareren Wolken. Der große rundliche Felsturm rechts wurde zu einem
+niedrigeren Schneerücken umgeformt. Blaue Schattierung macht Schneemulden
+lesbarer. Steuerung und Kleidungsauswahl bleiben erhalten. Die vollständige
+Übereinstimmung mit dem Zielvideo und der Test auf dem MacBook M4 bleiben offen.
+
+Die aktuelle tatsächliche Spielansicht liegt unter docs/qa/video-alps-scene-2026-11-12.png.
+Alle 28 betroffenen Physik-/Geländeprüfungen, Typprüfung, Produktionsbuild und
+Browserkontrolle bestehen. Die Bergkulisse verwendet 2.665 gemeinsame Punkte;
+die gesamte Karte hat 172.685 statt zuvor 193.634 Vertices. Die Startansicht hat
+158 statt 156 Zeichenaufrufe. Die Panoramatextur entfällt in der Referenzszene.
+Die Rückansicht bleibt mittig, bis die Kamerafrage geklärt ist. Die exakte
+Videooptik ist weiterhin nicht erreicht.

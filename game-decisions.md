@@ -3210,3 +3210,36 @@ ordinary public camera; snow/crawler inspection uses an explicitly isolated
 no-bot Low room. The centred rear view still occludes much of the cannon/stream;
 owner clarification about centred versus video shoulder framing is pending.
 Exact overall video acceptance remains OPEN.
+
+
+### Distant 3D ridges and a lighter reference sky — 12 November 2026
+
+Author the Alpine skyline as one static, bounded mesh outside playable terrain.
+Irregular radial ridges, actual surface normals and blue-white facet colours
+replace the reference panorama. Exclude it from shadow casting and picking;
+never add collision bodies or per-frame work for inaccessible distant scenery.
+Budget: at most 5,120 triangles / 3,000 vertices, existing shared material and
+render passes. Reuse the eight cloud slots/textures, lowering three positions
+for the reference camera. Default to cloud-only sky in this scene; field sky and
+explicit debug options remain available. The smaller right-hand local hill
+remains part of the shared Rapier/render grid. No new gameplay rules or assets.
+
+
+Final skyline verification: all 28 affected shared-physics/terrain cases pass;
+strict diagnostics show 0 errors / 0 warnings and production builds pass. The
+427 distinct-case baseline and its documented timeout retry remain recorded in
+video-village-validation-2026-11-12.json. Actual Medium 1280×720 public WebGL2
+review passes with all six cast labels and zero page/HTTP/context errors.
+
+The distant mesh has 2,665 shared vertices and 3,577 triangles; shared normals
+and ridge colours replace visible per-triangle patches. It is active, outside
+playable bounds, shadow-excluded, and panorama strength is zero. The entire map
+stores 172,685 vertices versus the prior 193,634 (-10.82%). Initial draws are
+158 versus 156: one added mesh in the existing colour/G-buffer passes, with no
+new full-screen pass or textures. Compared with the faceted 10,731-vertex ridge
+prototype, the same triangle surface uses 75.17% fewer stored vertices.
+
+Evidence: docs/qa/video-alps-browser-2026-11-12.json,
+video-alps-validation-2026-11-12.json and video-alps-scene-2026-11-12.png.
+Exact video likeness, camera/hero/effect fidelity and native M4 acceptance remain
+OPEN. No source photo/video or original model is modified.

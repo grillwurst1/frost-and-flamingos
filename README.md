@@ -1629,3 +1629,19 @@ Actual Medium 1280×720 public capture: [scene](docs/qa/video-village-scene-2026
 cases (one batch timeout passes its unchanged isolated retry), strict 0 errors /
 0 warnings, production builds and actual browser mechanics pass. 170,020 stored
 map vertices versus 193,634 before; 156 initial draws. Exact video likeness is open.
+
+
+## Modelled Alpine sky and ridges — 12 November 2026
+
+The reference vista uses original 3D mountain ridges, blue-white facet shading
+and lower existing painted clouds. It no longer loads the panorama texture.
+The old oval local crag is a lower physical snow ridge; snow hollows have clearer
+blue shading. The regular field sky and character controls are unchanged.
+Exact video likeness remains open, especially the centred camera and hero/effects.
+
+Latest actual [browser scene](docs/qa/video-alps-scene-2026-11-12.png) and
+[validation](docs/qa/video-alps-validation-2026-11-12.json): 28 affected cases,
+strict checks, production builds and public Medium WebGL2 review pass. The map
+stores 172,685 vertices (-10.82% versus the preceding layout); 158 initial draws.
+The original 3D ridges use 2,665 shared points, with no panorama texture or
+additional shadow coverage. Exact video likeness remains open.

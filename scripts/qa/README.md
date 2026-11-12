@@ -129,3 +129,10 @@ The legacy `FF_QA_REFERENCE_FIRE=1` expects an initially burning test fixture;
 the current public village starts cold. Its old capture is not verification of
 that newer default. Authoritative cold-start, ignition and extinguishing/reset
 behavior is covered in `apps/server/test/reference-fire.test.ts`.
+
+
+`FF_QA_REFERENCE_ALPS=1` also checks the active modelled backdrop: true vertical
+extent, location outside the playable basin, shadow exclusion, disabled
+panorama and at most 5,120 triangles / 3,000 vertices. Combine with
+`FF_QA_REFERENCE_ROOT=1 FF_QA_REFERENCE_VIDEO=1 FF_QA_REFERENCE_CAPTURE_ONLY=1
+FF_QA_REFERENCE_CAST=1` for the ordinary Medium 1280×720 public scene capture.

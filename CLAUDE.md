@@ -2122,3 +2122,43 @@ ordinary public camera; snow/crawler inspection uses an explicitly isolated
 no-bot Low room. The centred rear view still occludes much of the cannon/stream;
 owner clarification about centred versus video shoulder framing is pending.
 Exact overall video acceptance remains OPEN.
+
+
+## Modelled Alpine backdrop — 12 November 2026
+
+The reference scene now uses original distant 3D snow ridges instead of loading
+the painted panorama. `reference-alps.ts` bakes irregular ridged height surfaces,
+shared smooth normals and blue/white face colours once into one static mesh, beyond
+the compact playable bounds. Always exclude this mesh from directional shadow
+casting: distant scenery must not expand the playable shadow frustum. Limit it
+to 5,120 triangles / 3,000 vertices; no frame callbacks, colliders or textures.
+The existing render/G-buffer passes remain; one mesh adds two measured draws.
+Reference sky defaults to the existing cloud-only option. The regular field and
+explicit paintedSky options retain their behaviour. Three existing cloud slots
+are lower over the reference vista; no extra cloud images/meshes are added.
+
+Lower the old right-hand oval crag to a rounded shared snow ridge, and strengthen
+existing concavity tint slightly. These use the same physical terrain, not a
+separate visible shell. Keep video acceptance OPEN, including camera, hero form,
+character/weapon detail and effects. The owner camera clarification is pending;
+centred control is retained until resolved. Native M4 measurements remain open.
+
+
+Final skyline verification: all 28 affected shared-physics/terrain cases pass;
+strict diagnostics show 0 errors / 0 warnings and production builds pass. The
+427 distinct-case baseline and its documented timeout retry remain recorded in
+video-village-validation-2026-11-12.json. Actual Medium 1280×720 public WebGL2
+review passes with all six cast labels and zero page/HTTP/context errors.
+
+The distant mesh has 2,665 shared vertices and 3,577 triangles; shared normals
+and ridge colours replace visible per-triangle patches. It is active, outside
+playable bounds, shadow-excluded, and panorama strength is zero. The entire map
+stores 172,685 vertices versus the prior 193,634 (-10.82%). Initial draws are
+158 versus 156: one added mesh in the existing colour/G-buffer passes, with no
+new full-screen pass or textures. Compared with the faceted 10,731-vertex ridge
+prototype, the same triangle surface uses 75.17% fewer stored vertices.
+
+Evidence: docs/qa/video-alps-browser-2026-11-12.json,
+video-alps-validation-2026-11-12.json and video-alps-scene-2026-11-12.png.
+Exact video likeness, camera/hero/effect fidelity and native M4 acceptance remain
+OPEN. No source photo/video or original model is modified.

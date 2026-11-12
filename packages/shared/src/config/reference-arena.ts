@@ -62,7 +62,7 @@ function bankTop(x: number, z: number): number {
   }
   const paths=smooth(1.8,3.5,axisDistance)*smooth(.75,2.2,Math.abs(z));
   let height=plateau+drifts+basinSnow+snowBanks*paths
-    +peak(x,z,-31,49,6,12)+peak(x,z,-15,50,8,9)+peak(x,z,29,35,7,10);
+    +peak(x,z,-31,49,6,12)+peak(x,z,-15,50,8,9)+peak(x,z,29,35,7,3.5);
   let closest=Infinity,weight=0,level=0;
   for(const pad of GROUND_PADS) {
     const dx=Math.max(0,Math.abs(x-pad.x)-pad.rx),dz=Math.max(0,Math.abs(z-pad.z)-pad.rz);

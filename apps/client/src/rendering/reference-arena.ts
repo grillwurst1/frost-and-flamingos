@@ -18,6 +18,7 @@ import { drawRouteCable } from './map/landmarks';
 import { drawClosedStairs } from './map/stairs';
 import { buildSolidNature } from './map/solid-nature';
 import { buildReferenceWorld } from './reference-world';
+import { buildReferenceAlps } from './reference-alps';
 export function buildReferenceTerrain(scene: Scene): Mesh {
   const { size, segments, heights } = ARENA_GRID, n = segments + 1, count = n * n, cell = size / segments;
   const positions = new Float32Array(count * 3), normals = new Float32Array(count * 3), colors = new Float32Array(count * 4);
@@ -36,7 +37,7 @@ export function buildReferenceTerrain(scene: Scene): Mesh {
       const strata = Math.sin(y * .23 + Math.sin(x * .09 + z * .08)) * .5 + .5;
       let color: RGB = mix(mix(P.rockShade, P.rockLight, .3 + strata * .55), P.snow, snow);
       if(snow>.5) {
-        const hollow=Math.max(0,Math.min(.35,(h(col-1,row)+h(col+1,row)+h(col,row-1)+h(col,row+1)-4*y)/(cell*cell)*.45));
+        const hollow=Math.max(0,Math.min(.55,(h(col-1,row)+h(col+1,row)+h(col,row-1)+h(col,row+1)-4*y)/(cell*cell)*.9));
         color=mix(color,P.snowShade,hollow*snow);
       }
       if (beach || y < 1)
@@ -190,6 +191,7 @@ export function buildReferenceArena(scene: Scene, material: ShaderMaterial): Map
   const nature = buildSolidNature(scene, material, ARENA_NATURE);
   staticMeshes.push(...nature.meshes);
   staticMeshes.push(...buildReferenceWorld(scene, material));
+  staticMeshes.push(buildReferenceAlps(scene, material));
   const towers = new Map<(typeof REFERENCE_TOWERS)[number]['id'], TowerVisual>();
   for (const tower of REFERENCE_TOWERS) {
     const at = REFERENCE_MARKERS.find(p => p.id === `reference_${tower.id}`)!.position;

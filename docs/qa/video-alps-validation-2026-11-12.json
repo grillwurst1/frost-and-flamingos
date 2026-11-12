@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-12",
+  "baseCommit": "50d6042c1859b0ad21c8584c3d3ffee4650da804",
+  "status": "passed",
+  "validation": {
+    "affectedPhysicsAndTerrainCases": 28,
+    "failed": 0,
+    "strictErrors": 0,
+    "strictWarnings": 0,
+    "productionBuild": "shared/client/server passed",
+    "broadSuiteBaseline": "427 distinct passing cases at 50d6042, with the documented isolated timeout retry; see video-village-validation-2026-11-12.json"
+  },
+  "actualBrowser": {
+    "entry": "ordinary public root",
+    "cameraOverride": false,
+    "viewport": [
+      1280,
+      720
+    ],
+    "quality": "medium",
+    "renderer": "WebGL2 / SwiftShader",
+    "status": "passed",
+    "errors": [],
+    "failedResponses": [],
+    "contextLosses": 0,
+    "visibleCast": [
+      "RoofSniper77",
+      "Senn_Koloss",
+      "Skipper",
+      "Wuzzi",
+      "Angry_Cow_Beta",
+      "StumbleBoi"
+    ],
+    "drawCalls": 158,
+    "mapVertices": 172685,
+    "heroTriangles": 43197
+  },
+  "distantAlps": {
+    "vertices": 2665,
+    "triangles": 3577,
+    "enabled": true,
+    "active": true,
+    "shadowExcluded": true,
+    "min": [
+      -400,
+      -14,
+      100
+    ],
+    "max": [
+      400,
+      134.97738647460938,
+      490
+    ],
+    "panorama": 0
+  },
+  "budgetComparison": {
+    "previousMapVertices": 193634,
+    "currentMapVertices": 172685,
+    "mapVertexReductionPercent": 10.82,
+    "flatRidgePrototypeVertices": 10731,
+    "sharedRidgeVertices": 2665,
+    "ridgeVertexReductionPercent": 75.17,
+    "ridgeTrianglesUnchanged": 3577,
+    "previousInitialDrawCalls": 156,
+    "currentInitialDrawCalls": 158,
+    "shadowCasting": false,
+    "newTextures": 0,
+    "referencePanoramaLoaded": false,
+    "perFrameGeometryWork": false
+  },
+  "limitations": [
+    "Exact video likeness is not achieved.",
+    "Centred rear camera and hero/weapon/effect readability remain open; camera preference clarification is pending.",
+    "Native M4 thermals/FPS are not measured; software Chromium is only a functional compatibility check.",
+    "Full dynamic WebGPU validation remains open."
+  ]
+}

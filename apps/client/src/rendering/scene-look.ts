@@ -303,7 +303,7 @@ export class SceneLook {
     this.setVisualQuality(initialQuality);
     this.setWeatherLook(0);
     this.setBooting(true);
-    const skyOption=new URLSearchParams(window.location.search).get('paintedSky');
+    const skyOption=new URLSearchParams(window.location.search).get('paintedSky') ?? (referenceScene?'clouds':'1');
     if(skyOption!=='0')void this.loadPaintedSky(skyOption!=='clouds');
     this.installDevHandle();
   }
@@ -754,11 +754,11 @@ export class SceneLook {
       { azimuth: 250, elevation: 7, width: 560 },
       { azimuth: 296, elevation: 11, width: 470 },
       { azimuth: 214, elevation: 16, width: 420 },
-      { azimuth: 338, elevation: 21, width: 500 },
-      { azimuth: 62, elevation: 27, width: 560 },
+      { azimuth: 338, elevation: referenceScene ? 10 : 21, width: 500 },
+      { azimuth: 62, elevation: referenceScene ? 12 : 27, width: 560 },
       { azimuth: 128, elevation: 25, width: 500 },
       { azimuth: 176, elevation: 13, width: 430 },
-      { azimuth: 18, elevation: 24, width: 440 },
+      { azimuth: 18, elevation: referenceScene ? 12 : 24, width: 440 },
     ];
     let created = 0;
     layout.forEach((slot, index) => {
