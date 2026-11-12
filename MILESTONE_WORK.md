@@ -903,3 +903,23 @@ cloth normals/materials and low snow-cannon support. Actual Medium WebGL2 review
 passes (43,197 hero triangles, 156 initial draws, zero page/HTTP/context errors).
 Evidence: docs/qa/video-arm-binding-2026-11-11.* and companion PNGs. All 425 cases, strict checks and production builds pass. Visual acceptance and native M4 remain open;
 new milestones stay secondary to the owner's figure/reference priority.
+
+
+### 12 November 2026 — video village and playable snow terrain
+
+Owner-priority scene work: lower staggered enterable wood cabins, forty physical
+snow banks on the existing compact grid, blue concavity tint, level crawler
+turnout, nearer combatants and clearer cached snow-map contours. Revised valley
+approach, village navigation, north terrain/trees and slim haul ropes preserve
+ordinary boarding, exits and brake operation. Full-cycle roof/trunk clearance
+and actual walking tests cover the changes. Continue VIDEO_REFERENCE_WORK.md;
+exact art acceptance and native M4 performance remain OPEN. No new gameplay
+milestone or final scene acceptance is declared complete by this increment.
+
+Verification saved: 427 distinct cases pass across batch/isolated retry, strict
+checks/builds pass. Actual Medium public entry and Low no-bot snow/capture/
+60-second drive-fire/exit/wardrobe checks pass without page/HTTP/context errors
+or steady resource growth.170,020 map vertices (-12.20%), 156 initial draws.
+Evidence: docs/qa/video-village-validation-2026-11-12.json and companion files.
+Centred view still hides much of the cannon/stream; camera clarification is
+pending. Exact video likeness remains OPEN; continue actual art/camera work.

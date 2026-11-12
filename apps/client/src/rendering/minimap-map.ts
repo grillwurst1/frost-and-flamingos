@@ -1,5 +1,5 @@
 import { referenceScene } from '../state/scene';
-import { ARENA_GRID, ARENA_SOLID_PROPS, ARENA_CABLE, FJORD_MAP, MAP_SIZE, GRID_POINTS, FjordLayout } from '@frost-and-flamingos/shared';
+import { ARENA_GRID, ARENA_SOLID_PROPS, ARENA_CABLE, ARENA_ACCESS_FLIGHTS, FJORD_MAP, MAP_SIZE, GRID_POINTS, FjordLayout } from '@frost-and-flamingos/shared';
 import { contourPath, heightContours } from './map-contours';
 
 let cached: string | null = null;
@@ -11,13 +11,18 @@ export const mapY = (z: number): number => half - z;
 /** Static SVG cartography, built once. The HUD never creates a second 3D render camera. */
 export function minimapArtwork(): string {
   if (cached) return cached;
-  const colours = ['#6f9fba', '#d9c89f', '#c0d1cf', '#bdcfd7', '#d9e7ec', '#e8f2f4'];
+  const colours = referenceScene
+    ? ['#6f9fba', '#e1c999', '#c3d8e5', '#e5f1f7', '#f5fafc', '#ffffff']
+    : ['#6f9fba', '#d9c89f', '#c0d1cf', '#bdcfd7', '#d9e7ec', '#e8f2f4'];
   const line = (points: readonly { x: number; z: number }[], width: number, colour: string): string =>
     `<polyline points="${points.map(p=>`${mapX(p.x)},${mapY(p.z)}`).join(' ')}" fill="none" stroke="${colour}" stroke-width="${width}" stroke-linejoin="round"/>`;
-  const levels = referenceScene?[.2,3,17,24,30]:[.2, 3, 17, 30, 48];
+  const levels = referenceScene?[.2,3,17.5,18.8,23.5]:[.2, 3, 17, 30, 48];
   const grid=referenceScene?ARENA_GRID:{heights:FJORD_MAP.heights,segments:GRID_POINTS-1,size:MAP_SIZE};
   let shapes = levels.map((level, i) => `<path fill="${colours[i + 1]}" fill-rule="evenodd" stroke="${i < 2 ? '#91a7ac' : '#a6bbc6'}" stroke-width="${i < 2 ? 1 : .7}" d="${contourPath(heightContours(grid.heights, grid.segments+1, grid.size, level))}"/>`).join('');
-  if(referenceScene){shapes+=line(ARENA_CABLE.gondolaPath.points,.5,'#48545b');}
+  if(referenceScene){
+    for(const flight of ARENA_ACCESS_FLIGHTS)shapes+=line([flight.from,flight.to],flight.width,'#ae9a7c');
+    shapes+=line(ARENA_CABLE.gondolaPath.points,.5,'#48545b');
+  }
   else {
   shapes += line(FJORD_MAP.routes.tankRoad.points, 9, '#7c8e98') + line(FJORD_MAP.routes.tankRoad.points, 5, '#eff5f1');
   shapes += line([FjordLayout.BRIDGE_SOUTH, FjordLayout.BRIDGE_NORTH], 7, '#8d6952');

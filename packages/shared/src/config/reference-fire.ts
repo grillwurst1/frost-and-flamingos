@@ -19,7 +19,7 @@ export const REFERENCE_CHALET_FIRE={
   radius:1.5,
   points:[
     ...[-.28,0,.25].map((side,i)=>transform(layout.width*side,ridge-Math.tan(layout.roof.pitch)*Math.abs(layout.width*side)+.25,(i-1)*layout.depth*.18)),
-    ...[-.24,.24].map(side=>transform(layout.width*side,layout.floors[1]!.elevation+1.25,layout.depth/2+.25)),
+    ...[-.24,.24].map(side=>transform(layout.width*side,layout.floors.at(-1)!.elevation+1.25,layout.depth/2+.25)),
   ] as readonly Vec3[],
 } as const;
 

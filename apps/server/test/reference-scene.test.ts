@@ -92,6 +92,12 @@ test('reference cast includes armed soldiers and a living cow in the basin, with
     const cow=cast.find(p=>p.profile.faction==='alpine'&&p.character.form==='cow');
     expect(cow).toBeDefined();expect(cow!.character.position.z).toBe(0);
     expect(cast.filter(p=>p.character.form===null)).toHaveLength(5);
+    run(room,180);
+    for(const entry of cast.filter(p=>p.id!==1)) {
+      const body=playerOf(room,entry.id);
+      expect(body.alive).toBe(true);
+      expect(Math.abs(body.character.position.y-arenaHeightAt(body.character.position.x,body.character.position.z))).toBeLessThan(.5);
+    }
   }finally {room.stop();}
 });
 

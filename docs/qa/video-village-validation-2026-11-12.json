@@ -1,0 +1,215 @@
+{
+  "date": "2026-11-12",
+  "baseCommit": "c0e408e028b78655da6b2f8163c44b94864ffd08",
+  "status": "passed-with-documented-timeout-retry",
+  "tests": {
+    "scripts": {
+      "passed": 15,
+      "failed": 0
+    },
+    "serverBatch": {
+      "passed": 245,
+      "failed": 1
+    },
+    "serverRetry": {
+      "passed": 1,
+      "failed": 0
+    },
+    "client": {
+      "passed": 166,
+      "failed": 0
+    }
+  },
+  "distinctPassingCases": 427,
+  "timeout": {
+    "case": "reference cast includes armed soldiers and a living cow in the basin, without changing the regular cast",
+    "batchLimitMs": 15000,
+    "batchObservedMs": 17019.56,
+    "isolatedRetryMs": 621.55,
+    "isolatedLimitMs": 15000
+  },
+  "strictChecks": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "productionBuild": "shared/client/server passed",
+  "publicBrowser": {
+    "viewport": [
+      1280,
+      720
+    ],
+    "quality": "medium",
+    "renderer": "WebGL2 / SwiftShader",
+    "entry": "ordinary public root",
+    "cameraOverride": false,
+    "errors": [],
+    "failedResponses": [],
+    "castLabels": [
+      "RoofSniper77",
+      "Senn_Koloss",
+      "Skipper",
+      "Wuzzi",
+      "Angry_Cow_Beta",
+      "StumbleBoi"
+    ],
+    "heroTriangles": 43197,
+    "initialDrawCalls": 156,
+    "mapVertices": 170020,
+    "previousMapVertices": 193634,
+    "reductionPercent": 12.2
+  },
+  "mechanicsBrowser": {
+    "viewport": [
+      800,
+      500
+    ],
+    "quality": "low",
+    "bots": false,
+    "contextLosses": 0,
+    "errors": [],
+    "failedResponses": [],
+    "heldDriveFireLoopSeconds": 60,
+    "serverCannonShots": 9,
+    "steadyResourceDeltas": {
+      "meshes": -3,
+      "materials": -2,
+      "textures": -2,
+      "geometries": -2
+    },
+    "snowStream": {
+      "instances": 64,
+      "enabled": true,
+      "attribute": 3
+    },
+    "wardrobeProjection": {
+      "x": 277.42394084731046,
+      "y": 247.3451943259856,
+      "w": 4.009435476781803,
+      "visible": true,
+      "wardrobeOpen": true,
+      "deathAt": 0,
+      "stage": {
+        "left": 0,
+        "right": 400
+      }
+    }
+  },
+  "introSimulationProbe": {
+    "ticks": 600,
+    "totalMs": 711.8235020000004,
+    "medianMs": 0.3818740000001526,
+    "p95Ms": 5.302910000000111,
+    "maximumMs": 40.88848400000006,
+    "slowest": [
+      {
+        "tick": 47,
+        "ms": 40.88848400000006
+      },
+      {
+        "tick": 0,
+        "ms": 31.383412999999905
+      },
+      {
+        "tick": 9,
+        "ms": 12.668684999999982
+      },
+      {
+        "tick": 3,
+        "ms": 9.143169999999941
+      },
+      {
+        "tick": 577,
+        "ms": 9.101502999999866
+      }
+    ]
+  },
+  "authoritativeEightSecondDrive": {
+    "first": {
+      "x": -7.6,
+      "y": 21.440000381469726,
+      "z": -7.5
+    },
+    "samples": [
+      {
+        "seconds": 1,
+        "position": {
+          "x": -5.76869024047628,
+          "y": 21.430598478287575,
+          "z": -7.183956202818081
+        },
+        "speed": 3.716999999999999
+      },
+      {
+        "seconds": 2,
+        "position": {
+          "x": -0.2104093813337382,
+          "y": 20.888433850257424,
+          "z": -6.225464579416439
+        },
+        "speed": 7.496999999999973
+      },
+      {
+        "seconds": 3,
+        "position": {
+          "x": 8.392778805550188,
+          "y": 18.433950645328732,
+          "z": -4.627999131334946
+        },
+        "speed": 9.025
+      },
+      {
+        "seconds": 4,
+        "position": {
+          "x": 16.917240186687557,
+          "y": 19.137702220144856,
+          "z": -3.6865061555436114
+        },
+        "speed": 9.025
+      },
+      {
+        "seconds": 5,
+        "position": {
+          "x": 25.57108938610181,
+          "y": 18.731148686678207,
+          "z": -1.8584075129037956
+        },
+        "speed": 9.025
+      },
+      {
+        "seconds": 6,
+        "position": {
+          "x": 30.788190683973333,
+          "y": 19.909196010583255,
+          "z": -0.900540131339767
+        },
+        "speed": 1.0709999999999995
+      },
+      {
+        "seconds": 7,
+        "position": {
+          "x": 31.426407753899312,
+          "y": 19.90823433455429,
+          "z": -0.7903339365251965
+        },
+        "speed": 0
+      },
+      {
+        "seconds": 8,
+        "position": {
+          "x": 31.43838849565633,
+          "y": 19.90823558965698,
+          "z": -0.7883003625839988
+        },
+        "speed": 0
+      }
+    ],
+    "metres": 39.611143487163844,
+    "cannonShots": 3
+  },
+  "limitations": [
+    "Exact video likeness is not achieved.",
+    "Centred rear view still occludes much of the cannon/stream; camera preference clarification is pending.",
+    "Native Mac M4 thermal/FPS measurements are not performed.",
+    "Software Chromium throughput is not a hardware benchmark; full dynamic WebGPU acceptance is open."
+  ]
+}

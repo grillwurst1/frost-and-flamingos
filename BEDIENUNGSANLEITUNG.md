@@ -1698,3 +1698,28 @@ bestehen. Die Browserprüfung besteht ohne Seiten-, Lade- oder Grafikfehler.
 Die Referenzfigur hat 43.197 Dreiecke (1.375 weniger), die Startansicht weiterhin
 156 Zeichenaufrufe. Die Software-Grafikprüfung ersetzt keine Messung von
 Temperatur oder Bildrate auf dem MacBook M4.
+
+
+### Überarbeitetes Schneedorf — 12. November 2026
+
+Die Referenzszene hat niedrigere, vollständig betretbare Holzhütten auf
+versetzten Schneeterrassen. Vierzig abgerundete Schneewülste gehören zum echten
+3D-Gelände und zur Kollision. Der Fonduepanzer steht auf einer ebenen,
+festgefahrenen Schneefläche. Nahe Figuren sind größer im Bild zu sehen.
+
+Die Minikarte zeigt Schneehöhen und die tatsächlichen Treppenwege. Die
+Talstation liegt hinter dem Dorf; beide Gondeln fahren an Dächern und Stämmen
+vorbei. Ein-/Aussteigen erfolgt weiterhin mit F, die Notbremse ebenfalls mit F
+am Hebel. Die Hauseingänge und der Weg zwischen den Hütten sind ohne Sprung
+begehbar. Die vollständige optische Übereinstimmung mit dem Zielvideo ist noch
+nicht erreicht; eine Messung auf dem MacBook M4 steht weiterhin aus.
+
+Die neue tatsächliche Spielansicht liegt unter docs/qa/video-village-scene-2026-11-12.png.
+427 unterschiedliche Prüfungen bestehen; ein Zeitlimit im Gesamtlauf besteht
+beim unveränderten Einzeltest. Typprüfung und Produktionsbuild bestehen. Im
+Browser funktionieren Bewegung, Sprung, Eroberung, Schneekanone, Panzerfahren/
+Schießen, Aussteigen und Garderobe ohne Seiten-/Kontextfehler. Die Karte speichert
+170.020 statt 193.634 Vertices; die Startansicht bleibt bei 156 Zeichenaufrufen.
+Die mittige Rückansicht verdeckt noch einen großen Teil von Waffe/Schneestrahl;
+die gewünschte Kameraposition wird mit dem Besitzer geklärt. Video-Gleichheit
+und die Messung auf dem MacBook M4 bleiben offen.

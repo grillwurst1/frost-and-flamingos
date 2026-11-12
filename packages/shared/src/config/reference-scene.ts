@@ -47,6 +47,7 @@ const boulders: MapProp[] = [
   [29,7,1.1,.65,.65,1], [26,10,1.8,.8,.9,-.4], [31,4,1.1,.55,.8,.7],
   [-30,3,1.4,.65,.8,.8], [-32,10,.9,.8,.7,.3], [-31,19,1.1,.65,.9,.1],
   [9,35,1.4,.55,.9,.9], [22,35,.9,.7,.8,.2],
+  [4.5,-18.5,.9,.65,.65,.25],
 ].flatMap(([x=0,z=0,width=1,height=1,depth=1,yaw=0],i): MapProp[] => {
   const vertices:Vec3[]=[];
   for(const [radius,y] of [[.76,0],[1,.22],[.64,1]] as const)for(let side=0;side<8;side++) {
@@ -82,7 +83,7 @@ export function referenceCastSpawn(index:number): {position:Vec3;yaw:number} {
       y:chalet.position.y+y,z:chalet.position.z-Math.sin(chalet.rotationY)*x+Math.cos(chalet.rotationY)*z};
     return {position,yaw:Math.atan2(-position.x,-position.z)};
   }
-  const [x,z]=([[-20,14],[-5,-5],[10,8],[7,0],[4,0],[14,5]][index]??[-14,-1]) as [number,number];
+  const [x,z]=([[-20,14],[-6.4,-13],[10,8],[7,0],[4,0],[6.2,-13]][index]??[-14,-1]) as [number,number];
   const height=sampleMapHeight(x,z);
   return {position:{x,y:height+(index===4?.15:.05),z},yaw:index===1?1.2:index===4?-.2:Math.PI};
 }

@@ -31,6 +31,7 @@ interface BuildingStyle {
   flowers: boolean;
   hearts: boolean;
   plinthStone: boolean;
+  glass?: RGB;
 }
 
 function styleFor(layout: BuildingLayout, variant: number): BuildingStyle {
@@ -42,7 +43,7 @@ function styleFor(layout: BuildingLayout, variant: number): BuildingStyle {
       if (variant === 4) return { ground:'logs',upper:'logs',wood:[.48,.33,.22],
         trim:P.logDark,shutter:P.logDark,roof:P.shingleDark,roofKind:'shingle',flowers:false,hearts:false,plinthStone:true };
       if (variant === 3) return { ground:'lapBoards',upper:'lapBoards',wood:[.45,.35,.26],
-        trim:P.logDark,shutter:P.logDark,roof:P.shingleDark,roofKind:'shingle',flowers:false,hearts:false,plinthStone:true };
+        trim:P.logDark,shutter:P.logDark,roof:P.shingleDark,roofKind:'shingle',flowers:false,hearts:false,plinthStone:true,glass:[.40,.49,.48] };
       return { ground:'logs',upper:'logs',wood:P.log,trim:P.trim,shutter,roof:P.shingle,roofKind:'shingle',flowers:true,hearts:true,plinthStone:true };
     case 'plaster_chalet':
       // Alpen-Bistro: white plaster ground floor, plank upper floor with flower boxes.
@@ -249,7 +250,7 @@ function drawOpenings(batch: GeometryBatch, layout: BuildingLayout, floor: Build
       if (opening.kind === 'window' || opening.kind === 'slit') {
         batch.box(0, -0.06, 0.04, opening.width + 0.34, 0.14, 0.24, trim, 'wood', 0.03);
         const glow = hash3(seed, opening.offset, bottom) > 0.55;
-        batch.box(0, height / 2, -t * 0.45, opening.width, height, 0.06, glow ? P.windowGlow : P.glassDark, 'plain', 0);
+        batch.box(0, height / 2, -t * 0.45, opening.width, height, 0.06, style.glass ?? (glow ? P.windowGlow : P.glassDark), 'plain', 0);
         if (opening.kind === 'window') {
           batch.box(0, height / 2, -t * 0.4, 0.07, height, 0.08, trim, 'wood', 0);
           batch.box(0, height * 0.55, -t * 0.4, opening.width, 0.07, 0.08, trim, 'wood', 0);

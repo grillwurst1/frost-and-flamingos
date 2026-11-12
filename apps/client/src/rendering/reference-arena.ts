@@ -35,6 +35,10 @@ export function buildReferenceTerrain(scene: Scene): Mesh {
       const rock = 1 - snow - (beach || y < 1 ? 1 : 0);
       const strata = Math.sin(y * .23 + Math.sin(x * .09 + z * .08)) * .5 + .5;
       let color: RGB = mix(mix(P.rockShade, P.rockLight, .3 + strata * .55), P.snow, snow);
+      if(snow>.5) {
+        const hollow=Math.max(0,Math.min(.35,(h(col-1,row)+h(col+1,row)+h(col,row-1)+h(col,row+1)-4*y)/(cell*cell)*.45));
+        color=mix(color,P.snowShade,hollow*snow);
+      }
       if (beach || y < 1)
         color = grass ? mix(P.grass, P.grassLight, .4) : mix(P.sand, P.wetSand, y < 0 ? .6 : .1);
       colors.set([...color, 1], i * 4);
@@ -133,8 +137,8 @@ export function buildReferenceArena(scene: Scene, material: ShaderMaterial): Map
     for (const p of path)
       routes.log([p.x, p.y - .2, p.z], [p.x, p.y + 1.1, p.z], .085, P.log, 'wood', { segments: 8 });
   }
-  drawRouteCable(routes, ARENA_CABLE.cable, .065, P.ink, 0, 2.2);
-  drawRouteCable(routes, ARENA_CABLE.cable, .065, P.ink, 0, -2.2);
+  drawRouteCable(routes, ARENA_CABLE.cable, .04, P.ink, 0, 2.2);
+  drawRouteCable(routes, ARENA_CABLE.cable, .04, P.ink, 0, -2.2);
   // Station columns and overhead drive frames leave the complete cabin lanes open.
   for (const prop of ARENA_STATION_PROPS) {
     routes.at(prop.position.x, prop.position.y, prop.position.z, prop.rotationY, () => {

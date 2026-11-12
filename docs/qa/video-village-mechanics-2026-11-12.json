@@ -1,0 +1,3857 @@
+{
+  "status": "passed",
+  "entry": "default",
+  "softwareRenderer": true,
+  "mechanics": true,
+  "errors": [],
+  "failedResponses": [],
+  "checkpoints": [
+    {
+      "label": "public-entry",
+      "phase": "playing",
+      "frame": 34,
+      "tick": 943,
+      "connected": true,
+      "feet": {
+        "x": 0,
+        "y": 23.020000839233397,
+        "z": -20
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": true,
+          "position": [
+            0,
+            23.02,
+            -20
+          ],
+          "weapon": "snow_cannon",
+          "hatHidden": true,
+          "drawCalls": 3,
+          "yaw": 0,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "holdOffset": [
+              0.16,
+              -0.5,
+              0.12
+            ],
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.21423954422909883,
+              1.0423166458351398,
+              -0.02316881922316845
+            ],
+            "leftArm": [
+              0.2283396937717509,
+              1.041998846365568,
+              0.038149966896364115
+            ],
+            "grip": [
+              -0.182,
+              0.731,
+              0.181
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.182,
+              0.731,
+              0.181
+            ],
+            "leftHand": [
+              -0.022,
+              0.81,
+              0.199
+            ],
+            "chest": [
+              0.012,
+              0.955,
+              -0.005
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 3
+      },
+      "camera": [
+        0,
+        25.267444114036817,
+        -23.7021023126586
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 114,
+        "activeMeshes": 54,
+        "meshes": 139,
+        "materials": 48,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 139,
+      "materials": 48,
+      "textures": 41,
+      "geometries": 120,
+      "gpuTextures": 43,
+      "heap": 131608657,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": null,
+        "passengerView": false,
+        "predicted": 0,
+        "pending": 0,
+        "correction": 0,
+        "lastCameraYaw": 0,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": -7.6,
+              "y": 21.425,
+              "z": -7.5
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 3.486903182921861,
+              "y": 28.380271883274553,
+              "z": 34.31836870035269
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -5.454675066196413,
+              "y": 28.367771883274553,
+              "z": 41.49472811672545
+            },
+            "yaw": 1.4382248080110014
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "walk-and-jump",
+      "phase": "playing",
+      "frame": 55,
+      "tick": 1783,
+      "connected": true,
+      "feet": {
+        "x": 0,
+        "y": 22.987499618530272,
+        "z": -19.337499618530273
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": true,
+          "position": [
+            0,
+            22.99,
+            -19.34
+          ],
+          "weapon": "snow_cannon",
+          "hatHidden": true,
+          "drawCalls": 3,
+          "yaw": 0,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "holdOffset": [
+              0.16,
+              -0.5,
+              0.12
+            ],
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.2057195696147516,
+              1.040145139887749,
+              -0.04641491190578942
+            ],
+            "leftArm": [
+              0.2356199840583828,
+              1.0330438690630324,
+              0.008431485947401007
+            ],
+            "grip": [
+              -0.173,
+              0.727,
+              0.154
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.173,
+              0.727,
+              0.154
+            ],
+            "leftHand": [
+              -0.013,
+              0.805,
+              0.177
+            ],
+            "chest": [
+              0.018,
+              0.952,
+              -0.027
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 3
+      },
+      "camera": [
+        0,
+        25.23494289333369,
+        -23.039601931188873
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 117,
+        "activeMeshes": 56,
+        "meshes": 139,
+        "materials": 48,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 139,
+      "materials": 48,
+      "textures": 41,
+      "geometries": 120,
+      "gpuTextures": 43,
+      "heap": 101698228,
+      "pendingInputs": 3,
+      "vehicles": {
+        "localId": 1,
+        "seat": null,
+        "passengerView": false,
+        "predicted": 0,
+        "pending": 0,
+        "correction": 0,
+        "lastCameraYaw": 0,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": -7.6,
+              "y": 21.425,
+              "z": -7.5
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -1.1016044775941478,
+              "y": 28.080447761202926,
+              "z": 38.05705223879707
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -0.5983955224058521,
+              "y": 28.075,
+              "z": 42.1375
+            },
+            "yaw": 1.4382248080110014
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "bridge-captured",
+      "phase": "playing",
+      "frame": 59,
+      "tick": 2115,
+      "connected": true,
+      "feet": {
+        "x": 0.699999988079071,
+        "y": 18.424999618530272,
+        "z": 0
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": true,
+          "position": [
+            0.7,
+            18.42,
+            0
+          ],
+          "weapon": "snow_cannon",
+          "hatHidden": true,
+          "drawCalls": 3,
+          "yaw": 0,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "holdOffset": [
+              0.16,
+              -0.5,
+              0.12
+            ],
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.20448243703934837,
+              1.0405307834918154,
+              -0.04281289714402742
+            ],
+            "leftArm": [
+              0.2367047152465288,
+              1.032447969803869,
+              0.011467767824107078
+            ],
+            "grip": [
+              -0.172,
+              0.727,
+              0.157
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.172,
+              0.727,
+              0.157
+            ],
+            "leftHand": [
+              -0.012,
+              0.805,
+              0.182
+            ],
+            "chest": [
+              0.019,
+              0.953,
+              -0.023
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 3
+      },
+      "camera": [
+        0.699999988079071,
+        20.67244289333369,
+        -3.702102312658601
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 82,
+        "activeMeshes": 39,
+        "meshes": 139,
+        "materials": 48,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 139,
+      "materials": 48,
+      "textures": 41,
+      "geometries": 120,
+      "gpuTextures": 43,
+      "heap": 104018768,
+      "pendingInputs": 3,
+      "vehicles": {
+        "localId": 1,
+        "seat": null,
+        "passengerView": false,
+        "predicted": 0,
+        "pending": 0,
+        "correction": 0,
+        "lastCameraYaw": 0,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": -7.6,
+              "y": 21.425,
+              "z": -7.5
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -2.7661303630715244,
+              "y": 28.25,
+              "z": 37.415552805275496
+            },
+            "yaw": 1.4382248080110014
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 4.269183168347021,
+              "y": 28.2594471947245,
+              "z": 39.35276402637748
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "tank-boarded",
+      "phase": "playing",
+      "frame": 68,
+      "tick": 2535,
+      "connected": true,
+      "feet": {
+        "x": -4.637499809265137,
+        "y": 21.424999618530272,
+        "z": -6.987500190734863
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": true,
+          "position": [
+            -4.64,
+            21.42,
+            -6.99
+          ],
+          "weapon": "snow_cannon",
+          "hatHidden": true,
+          "drawCalls": 3,
+          "yaw": 0,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "holdOffset": [
+              0.16,
+              -0.5,
+              0.12
+            ],
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.20716181933623795,
+              1.0573354176763132,
+              0.04172326884804208
+            ],
+            "leftArm": [
+              0.24423045244140562,
+              1.0365027432601595,
+              0.0875490740116647
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "leftHand": [
+              -0.013,
+              0.819,
+              0.259
+            ],
+            "chest": [
+              0.019,
+              0.95,
+              0.036
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 3,
+        "cannonShots": 0,
+        "serverCannonShots": 0
+      },
+      "camera": [
+        -4.637499809265137,
+        23.67244289333369,
+        -10.689602503393465
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 96,
+        "activeMeshes": 46,
+        "meshes": 139,
+        "materials": 48,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 139,
+      "materials": 48,
+      "textures": 41,
+      "geometries": 120,
+      "gpuTextures": 43,
+      "heap": 104856448,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 0,
+        "correction": 0,
+        "lastCameraYaw": 0,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -7.6,
+              "y": 21.425,
+              "z": -7.5
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -29.7125,
+              "y": 24.8625,
+              "z": 33.825
+            },
+            "yaw": 1.4382248080110014
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 28.3875,
+              "y": 18.4625,
+              "z": 19.7
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 74,
+      "tick": 2873,
+      "connected": true,
+      "feet": {
+        "x": -6.52322595225843,
+        "y": 21.979848896380282,
+        "z": -7.151352050429823
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -6.52,
+            21.98,
+            -7.15
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.13,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.2072258107598604,
+              1.2192867913638787,
+              -0.10040745972688483
+            ],
+            "leftArm": [
+              0.28187804804049943,
+              1.208895653140858,
+              -0.049087940644940285
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.319,
+              0.832,
+              -0.145
+            ],
+            "leftHand": [
+              0.248,
+              1.25,
+              0.105
+            ],
+            "chest": [
+              0.016,
+              0.946,
+              0.042
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 1,
+        "serverCannonShots": 2
+      },
+      "camera": [
+        -17.747975389729778,
+        25.968953183056595,
+        -9.239915696289184
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 103,
+        "activeMeshes": 44,
+        "meshes": 143,
+        "materials": 51,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 143,
+      "materials": 51,
+      "textures": 42,
+      "geometries": 123,
+      "gpuTextures": 44,
+      "heap": 100658101,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 0,
+        "correction": 0.018,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -7.433899024222046,
+              "y": 21.429848896380282,
+              "z": -7.460665089276153
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -9.284995088571414,
+              "y": 28.425,
+              "z": 36.54025049114286
+            },
+            "yaw": 1.4382248080110014
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.412745579714272,
+              "y": 28.120751473428577,
+              "z": 34.35675343800001
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 81,
+      "tick": 3082,
+      "connected": true,
+      "feet": {
+        "x": -6.346283648248859,
+        "y": 21.978827231776087,
+        "z": -7.134978879668898
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -6.35,
+            21.98,
+            -7.13
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.36,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.22402398399289425,
+              1.1688881530622217,
+              -0.20353321899568166
+            ],
+            "leftArm": [
+              0.258715540313886,
+              1.2184996422743326,
+              -0.14258393882671672
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.32,
+              0.775,
+              -0.178
+            ],
+            "leftHand": [
+              0.216,
+              1.309,
+              -0.003
+            ],
+            "chest": [
+              0.009,
+              0.95,
+              -0.004
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 2,
+        "serverCannonShots": 3
+      },
+      "camera": [
+        -17.571033085720206,
+        25.9679315184524,
+        -9.22354252552826
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 109,
+        "activeMeshes": 48,
+        "meshes": 147,
+        "materials": 55,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 147,
+      "materials": 55,
+      "textures": 44,
+      "geometries": 127,
+      "gpuTextures": 46,
+      "heap": 99851028,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 3,
+        "correction": 0.038,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -7.256956720212474,
+              "y": 21.428827231776086,
+              "z": -7.444291918515228
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -1.3875,
+              "y": 28.0625,
+              "z": 38.3
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 1.3875,
+              "y": 28.0625,
+              "z": 41.7
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 87,
+      "tick": 3306,
+      "connected": true,
+      "feet": {
+        "x": -6.050449244763799,
+        "y": 21.980501109571925,
+        "z": -7.078788807959909
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -6.05,
+            21.98,
+            -7.08
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.392,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.23668895692916078,
+              1.0858712086854558,
+              -0.31048702852415744
+            ],
+            "leftArm": [
+              0.24429101721960864,
+              1.170832327068628,
+              -0.27350351047107885
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.327,
+              0.703,
+              -0.211
+            ],
+            "leftHand": [
+              0.198,
+              1.318,
+              -0.179
+            ],
+            "chest": [
+              0.002,
+              0.943,
+              -0.062
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 3,
+        "serverCannonShots": 4
+      },
+      "camera": [
+        -17.275198682235146,
+        25.969605396248237,
+        -9.16735245381927
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 109,
+        "activeMeshes": 49,
+        "meshes": 148,
+        "materials": 56,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 148,
+      "materials": 56,
+      "textures": 45,
+      "geometries": 128,
+      "gpuTextures": 47,
+      "heap": 103646499,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 4,
+        "correction": 0.063,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -6.9611223167274145,
+              "y": 21.430501109571924,
+              "z": -7.388101846806239
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 0.8989147910263647,
+              "y": 28.21856913183773,
+              "z": 36.43215434081136
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -2.711414791026365,
+              "y": 28.2125,
+              "z": 41.85643086816227
+            },
+            "yaw": 1.4382248080110014
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 93,
+      "tick": 3543,
+      "connected": true,
+      "feet": {
+        "x": -5.992742211038344,
+        "y": 21.97686776726332,
+        "z": -7.070149590989723
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -5.99,
+            21.98,
+            -7.07
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.399,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.23184663834746447,
+              1.0887093459993542,
+              -0.3089069431529214
+            ],
+            "leftArm": [
+              0.2525721372179949,
+              1.1565857533303594,
+              -0.2737637748665039
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.329,
+              0.697,
+              -0.268
+            ],
+            "leftHand": [
+              0.213,
+              1.314,
+              -0.184
+            ],
+            "chest": [
+              0.004,
+              0.944,
+              -0.058
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 3,
+        "serverCannonShots": 5
+      },
+      "camera": [
+        -17.21749164850969,
+        25.965972053939634,
+        -9.158713236849085
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 106,
+        "activeMeshes": 47,
+        "meshes": 145,
+        "materials": 54,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 145,
+      "materials": 54,
+      "textures": 44,
+      "geometries": 126,
+      "gpuTextures": 46,
+      "heap": 105707682,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 0,
+        "correction": 0.009,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -6.9034152830019595,
+              "y": 21.42686776726332,
+              "z": -7.379462629836053
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 23.381896551518604,
+              "y": 19.660862069088836,
+              "z": 18.114482758785115
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -27.815775861822324,
+              "y": 25.532241379392556,
+              "z": 38.5125
+            },
+            "yaw": 1.4382248080110014
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 99,
+      "tick": 3774,
+      "connected": true,
+      "feet": {
+        "x": -5.706453031620108,
+        "y": 21.980531455324673,
+        "z": -7.019682959520406
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -5.71,
+            21.98,
+            -7.02
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.4,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.22353276289136284,
+              1.149921447399599,
+              -0.24327787347833363
+            ],
+            "leftArm": [
+              0.26298970117821574,
+              1.1854105151435257,
+              -0.187830161247578
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.316,
+              0.758,
+              -0.295
+            ],
+            "leftHand": [
+              0.21,
+              1.17,
+              0.036
+            ],
+            "chest": [
+              0.006,
+              0.952,
+              -0.016
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 4,
+        "serverCannonShots": 6
+      },
+      "camera": [
+        -16.931202469091453,
+        25.969635742000985,
+        -9.108246605379769
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 106,
+        "activeMeshes": 46,
+        "meshes": 145,
+        "materials": 53,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 145,
+      "materials": 53,
+      "textures": 43,
+      "geometries": 125,
+      "gpuTextures": 45,
+      "heap": 102295394,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 0,
+        "correction": 0.135,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -6.617126103583724,
+              "y": 21.430531455324672,
+              "z": -7.328995998366736
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 25.6125,
+              "y": 18.4625,
+              "z": 16.3
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -30.2875,
+              "y": 24.8625,
+              "z": 38.175
+            },
+            "yaw": 1.4382248080110014
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 105,
+      "tick": 4003,
+      "connected": true,
+      "feet": {
+        "x": -5.6389643934947475,
+        "y": 21.979202629956127,
+        "z": -7.017342348193898
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -5.64,
+            21.98,
+            -7.02
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.4,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.22068380421393352,
+              1.180303248960164,
+              -0.21009364707538264
+            ],
+            "leftArm": [
+              0.2690251912659443,
+              1.1899240944470826,
+              -0.13590556002963333
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.314,
+              0.786,
+              -0.234
+            ],
+            "leftHand": [
+              0.236,
+              1.044,
+              0.076
+            ],
+            "chest": [
+              0.005,
+              0.953,
+              -0.003
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 5,
+        "serverCannonShots": 7
+      },
+      "camera": [
+        -16.86371383096609,
+        25.96830691663244,
+        -9.105905994053261
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 109,
+        "activeMeshes": 48,
+        "meshes": 146,
+        "materials": 54,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 146,
+      "materials": 54,
+      "textures": 44,
+      "geometries": 126,
+      "gpuTextures": 46,
+      "heap": 103430866,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 3,
+        "correction": 0.009,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -6.549637465458363,
+              "y": 21.429202629956126,
+              "z": -7.326655387040228
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 14.57366412221946,
+              "y": 23.92003816790246,
+              "z": 25.27881679382931
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -18.087404580243845,
+              "y": 27.69751908395123,
+              "z": 39.81001908395123
+            },
+            "yaw": 1.4382248080110014
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 111,
+      "tick": 4239,
+      "connected": true,
+      "feet": {
+        "x": -5.3785781205092595,
+        "y": 21.980602348624963,
+        "z": -6.966823790613244
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -5.38,
+            21.98,
+            -6.97
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.4,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.21230963005888157,
+              1.1898868040929118,
+              -0.20336578238489755
+            ],
+            "leftArm": [
+              0.27751023790694096,
+              1.1909047820581775,
+              -0.11821493611391051
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.306,
+              0.795,
+              -0.19
+            ],
+            "leftHand": [
+              0.227,
+              1.039,
+              0.082
+            ],
+            "chest": [
+              0.009,
+              0.954,
+              -0.001
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 6,
+        "serverCannonShots": 8
+      },
+      "camera": [
+        -16.603327557980602,
+        25.969706635301275,
+        -9.055387436472607
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 109,
+        "activeMeshes": 48,
+        "meshes": 147,
+        "materials": 55,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 147,
+      "materials": 55,
+      "textures": 45,
+      "geometries": 127,
+      "gpuTextures": 47,
+      "heap": 102328203,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 2,
+        "correction": 0.085,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -6.289251192472875,
+              "y": 21.430602348624962,
+              "z": -7.276136829459574
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -1.3875,
+              "y": 28.0625,
+              "z": 38.3
+            },
+            "yaw": 2.2545067902392306
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 1.3875,
+              "y": 28.0625,
+              "z": 41.7
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "drive-fire",
+      "phase": "playing",
+      "frame": 117,
+      "tick": 4475,
+      "connected": true,
+      "feet": {
+        "x": -5.314119014648818,
+        "y": 21.980091403952976,
+        "z": -6.956895018713231
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -5.31,
+            21.98,
+            -6.96
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.4,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.20905232324360273,
+              1.1868434404029435,
+              -0.2103089902946671
+            ],
+            "leftArm": [
+              0.2824476869536083,
+              1.1866231397816713,
+              -0.12359861426734968
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.304,
+              0.794,
+              -0.173
+            ],
+            "leftHand": [
+              0.232,
+              1.038,
+              0.077
+            ],
+            "chest": [
+              0.012,
+              0.954,
+              -0.006
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 1,
+        "slot": 3,
+        "cannonShots": 6,
+        "serverCannonShots": 9
+      },
+      "camera": [
+        -16.538868452120163,
+        25.969195690629288,
+        -9.045458664572594
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 105,
+        "activeMeshes": 46,
+        "meshes": 145,
+        "materials": 54,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 145,
+      "materials": 54,
+      "textures": 44,
+      "geometries": 126,
+      "gpuTextures": 46,
+      "heap": 102615442,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 0,
+        "correction": 0.006,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -6.2247920866124336,
+              "y": 21.430091403952975,
+              "z": -7.266208057559561
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -0.22303427420651034,
+              "y": 28.0875,
+              "z": 37.75
+            },
+            "yaw": 1.4382248080110014
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 1.8845514113097654,
+              "y": 28.099017137103257,
+              "z": 41.302948588690235
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "tank-driven",
+      "phase": "playing",
+      "frame": 121,
+      "tick": 4627,
+      "connected": true,
+      "feet": {
+        "x": -5.25789966752995,
+        "y": 21.98067366318137,
+        "z": -6.947203541166809
+      },
+      "rigs": [
+        {
+          "model": "alpine-heavy",
+          "renderer": "native-wardrobe",
+          "cosmetics": {
+            "classId": "heavy",
+            "bodyType": 0.12156862745098039,
+            "skinToneIndex": 5,
+            "hairColorIndex": 0,
+            "hairStyleIndex": 6,
+            "headgear": "head_none",
+            "face": "face_full_beard",
+            "torso": "torso_alpine_shirt",
+            "back": "back_cuckoo_clock",
+            "hands": "hands_bare",
+            "legs": "legs_lederhosen",
+            "feet": "feet_mountain_boots",
+            "voicePitch": 1
+          },
+          "geometry": {
+            "vertices": 24516,
+            "triangles": 43197
+          },
+          "view": "character-shadow-local-3-painted",
+          "enabled": false,
+          "position": [
+            -5.26,
+            21.98,
+            -6.95
+          ],
+          "weapon": null,
+          "hatHidden": true,
+          "drawCalls": 2,
+          "yaw": 1.4,
+          "clips": {
+            "idle": "ff:idle@lagoon-heavy",
+            "walk": "ff:walk",
+            "combatWalk": "ff:combatWalk@lagoon-infiltrator",
+            "run": "ff:run",
+            "sprint": "ff:run",
+            "backpedal": "ff:backpedal",
+            "air": "ff:air",
+            "swim": "ff:swim",
+            "death": "ff:death@lagoon-allrounder",
+            "taunt": "ff:taunt@lagoon-heavy",
+            "reload": "ff:reload@lagoon-infiltrator",
+            "crouchRun": "ff:run",
+            "runBack": "ff:run"
+          },
+          "weights": {
+            "idle": 1
+          },
+          "probe": {
+            "scale": 1.3965515392398504,
+            "assetHeight": 1.6999999514281683,
+            "previewing": false,
+            "shoulderLocal": [
+              -0.001317265641171509,
+              0.07490970652929675,
+              -0.07906419874335238
+            ],
+            "rightArm": [
+              -0.2096136881540184,
+              1.1799236936826496,
+              -0.21950271231887536
+            ],
+            "leftArm": [
+              0.2833209343405768,
+              1.1819548790282657,
+              -0.13504068080350073
+            ],
+            "grip": [
+              -0.172,
+              0.741,
+              0.237
+            ],
+            "weaponRot": [
+              0.03,
+              -0.02,
+              -0.003,
+              0.999
+            ],
+            "rightHand": [
+              -0.307,
+              0.788,
+              -0.179
+            ],
+            "leftHand": [
+              0.232,
+              1.039,
+              0.071
+            ],
+            "chest": [
+              0.012,
+              0.954,
+              -0.011
+            ],
+            "armatureParent": "target_character",
+            "armatureRot": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ],
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 3,
+        "cannonShots": 6,
+        "serverCannonShots": 9
+      },
+      "camera": [
+        -16.482649105001293,
+        25.969777949857683,
+        -9.035767187026172
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 100,
+        "activeMeshes": 43,
+        "meshes": 143,
+        "materials": 52,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 143,
+      "materials": 52,
+      "textures": 42,
+      "geometries": 124,
+      "gpuTextures": 44,
+      "heap": 104090474,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": {
+          "vehicleId": 201,
+          "seat": 0,
+          "kind": "fondue_crawler",
+          "driver": true,
+          "gunner": true,
+          "handWeapons": false,
+          "exposed": false
+        },
+        "passengerView": false,
+        "predicted": 201,
+        "pending": 0,
+        "correction": 0.057,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              1,
+              0
+            ],
+            "position": {
+              "x": -6.168572739493565,
+              "y": 21.43067366318137,
+              "z": -7.256516580013139
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -14.815340908805025,
+              "y": 28.043465909119497,
+              "z": 35.80596590911949
+            },
+            "yaw": 1.4382248080110014
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 14.90227272704402,
+              "y": 24.867329545597485,
+              "z": 30.69176136383648
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    },
+    {
+      "label": "tank-exited",
+      "phase": "playing",
+      "frame": 126,
+      "tick": 4827,
+      "connected": true,
+      "feet": {
+        "x": -5.6625,
+        "y": 21.45,
+        "z": -4.8875
+      },
+      "rigs": [],
+      "controls": {
+        "locked": true,
+        "buttons": 0,
+        "slot": 3,
+        "cannonShots": 6,
+        "serverCannonShots": 9
+      },
+      "camera": [
+        -16.482647916713272,
+        25.969549235125026,
+        -9.035783241100361
+      ],
+      "profile": {
+        "displayName": "GipfelRanger",
+        "faction": "alpine",
+        "cosmetics": {
+          "classId": "heavy",
+          "bodyType": 0.12156862745098039,
+          "skinToneIndex": 5,
+          "hairColorIndex": 0,
+          "hairStyleIndex": 6,
+          "headgear": "head_none",
+          "face": "face_full_beard",
+          "torso": "torso_alpine_shirt",
+          "back": "back_cuckoo_clock",
+          "hands": "hands_bare",
+          "legs": "legs_lederhosen",
+          "feet": "feet_mountain_boots",
+          "voicePitch": 1
+        },
+        "loadout": {
+          "primary": "smg",
+          "secondary": "shotgun",
+          "gimmick": "snow_cannon"
+        }
+      },
+      "heroTriangles": 43197,
+      "contextLosses": 0,
+      "stats": {
+        "drawCalls": 99,
+        "activeMeshes": 42,
+        "meshes": 142,
+        "materials": 51,
+        "mapVertices": 170020,
+        "destructibleMeshes": 1,
+        "destructibleSprites": 0,
+        "fps": 1,
+        "boot_spriteAtlas": 44,
+        "boot_facadeAtlas": 44,
+        "boot_map": 287,
+        "boot_world": 465
+      },
+      "meshes": 142,
+      "materials": 51,
+      "textures": 41,
+      "geometries": 123,
+      "gpuTextures": 43,
+      "heap": 103140195,
+      "pendingInputs": 0,
+      "vehicles": {
+        "localId": 1,
+        "seat": null,
+        "passengerView": false,
+        "predicted": 0,
+        "pending": 0,
+        "correction": 0.057,
+        "lastCameraYaw": 1.3999705783998828,
+        "vehicles": [
+          {
+            "id": 201,
+            "kind": "fondue_crawler",
+            "loaded": true,
+            "wreck": false,
+            "hp": 650,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": -6.168571551205544,
+              "y": 21.430444948448713,
+              "z": -7.256532634087328
+            },
+            "yaw": 1.3999705783998828
+          },
+          {
+            "id": 202,
+            "kind": "sidecar",
+            "loaded": true,
+            "wreck": false,
+            "hp": 280,
+            "seats": [
+              0,
+              0
+            ],
+            "position": {
+              "x": 10.0125,
+              "y": 23.15,
+              "z": -21.9875
+            },
+            "yaw": -1.3999705783998824
+          },
+          {
+            "id": 100,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": -29.7125,
+              "y": 24.8625,
+              "z": 33.825
+            },
+            "yaw": 1.4382248080110014
+          },
+          {
+            "id": 101,
+            "kind": "cable_car",
+            "loaded": true,
+            "wreck": false,
+            "hp": 1000,
+            "seats": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "position": {
+              "x": 28.3875,
+              "y": 18.4625,
+              "z": 19.7
+            },
+            "yaw": 2.2545067902392306
+          }
+        ]
+      },
+      "names": [],
+      "crawlerTriangles": 6736,
+      "trackAttribute": 3,
+      "fire": {
+        "burning": false,
+        "flames": 5,
+        "puffs": 40
+      },
+      "firGeometry": 13496,
+      "firInstances": 17,
+      "firInstanceAttribute": 3,
+      "tracks": 80,
+      "smoke": 8
+    }
+  ],
+  "snowStream": {
+    "instances": 64,
+    "enabled": true,
+    "attribute": 3
+  },
+  "steadyResources": {
+    "meshes": -3,
+    "materials": -2,
+    "textures": -2,
+    "geometries": -2
+  },
+  "wardrobeProjection": {
+    "x": 277.42394084731046,
+    "y": 247.3451943259856,
+    "w": 4.009435476781803,
+    "visible": true,
+    "wardrobeOpen": true,
+    "deathAt": 0,
+    "stage": {
+      "left": 0,
+      "right": 400
+    }
+  }
+}

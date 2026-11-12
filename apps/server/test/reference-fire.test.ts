@@ -41,7 +41,7 @@ test('authoritative snow-cannon wall hits extinguish the chalet, sync a late joi
     const id=joined.welcome.playerId,chalet=ARENA_CHALET,layout=chalet.building!;
     const world=(x:number,y:number,z:number)=>({x:chalet.position.x+Math.cos(chalet.rotationY)*x+Math.sin(chalet.rotationY)*z,
       y:chalet.position.y+y,z:chalet.position.z-Math.sin(chalet.rotationY)*x+Math.cos(chalet.rotationY)*z});
-    const outside=world(-layout.width*.42,.06,layout.depth/2+2.3),target=world(-layout.width*.42,layout.floors[1]!.elevation+1.2,layout.depth/2);
+    const outside=world(-layout.width*.42,.06,layout.depth/2+2.3),target=world(-layout.width*.42,layout.floors.at(-1)!.elevation+1.2,layout.depth/2);
     placePlayer(room,id,outside);let sequence=1;
     room.handleInput(socket,{sequence:sequence++,buttons:0,yaw:0,pitch:0,weaponSlot:3});run(room,2);
     for(let shot=0;shot<32;shot++) {

@@ -352,3 +352,11 @@ Original project corrections to rig binding, clavicle holds, fitted rolled
 sleeves and differential cloth normals, using the existing owner-derived body
 and head. Existing owner paint is toned through the shared shader/atlas; no new
 external art, original GLB, source texture or supplied reference is modified.
+
+
+### Physical snow village — 12 November 2026
+
+Original project heightfield snow-bank shapes, village layout, level vehicle
+turnout, wood/glass palette and cached vector cartography. Existing procedural
+building and terrain tools are reused. No external assets, owner source GLBs,
+source paint, supplied PHOTO images or reference video are changed.

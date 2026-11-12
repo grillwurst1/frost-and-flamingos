@@ -3170,3 +3170,43 @@ WebGL2 review passes with six cast labels, wardrobe projection and no page/HTTP/
 context errors. Hero 43,197 triangles (-1,375 vs 5fe0587), unchanged 156 initial
 draws. Evidence: docs/qa/video-arm-binding-2026-11-11.json and companion PNGs.
 Exact reference likeness, native M4 thermals/FPS and full WebGPU acceptance remain open.
+
+
+### Video village, snow volumes and route clearance — 12 November 2026
+
+Use one shared compact heightfield for forty rounded snow banks, village pads,
+station foundations and a level tank turnout. Preserve the stair lanes and the
+cross-basin route. Blend exact flat foundation cores into the surrounding snow;
+render the same triangles Rapier uses. Concavity tint is baked once into vertex
+colour. No additional terrain textures, targets, tessellation or frame work.
+
+Reference cabins use a single enterable floor with broad snow gables and quiet
+lap-board facades; field building layouts are unchanged. Fire patches use the
+highest existing storey. Move the valley platform and north ridge/trees clear of
+both cabin lanes; retain actual boarding, exits, brake and the authoritative
+clock. Nearby soldiers keep physical class scale. Cartography is one cached SVG
+of the real height contours, stairs and buildings. Exact video acceptance and
+native M4 performance are still open.
+
+
+Final verification: 427 distinct cases pass (15 script, 246 server, 166 client).
+The server batch had 245 passes and one 15-second placement-test timeout;
+the unchanged isolated case passes in 621.55 ms at the same limit. A separate
+600-step reference-intro probe completes in 711.82 ms total. Strict diagnostics:
+0 errors / 0 warnings; shared/client/server production builds pass.
+
+Actual public Medium 1280×720 WebGL2 review passes with all six cast labels and
+zero page/HTTP/context errors. Hero 43,197 triangles, 156 initial draws; stored map
+vertices fall from 193,634 to 170,020 (12.20%). Low 800×500 isolated browser checks
+pass snow firing, walking/jumping, capture, F boarding, a 60-second held drive/fire
+loop with 9 authoritative cannon events, F exit and actual wardrobe projection.
+After warmup, mesh/material/texture/geometry deltas are -3/-2/-2/-2. The separate
+60 Hz input authority probe drives 39.61 m in 8 seconds with 3 shots. These are bounded
+functional checks, not native M4 smoothness or thermal measurements.
+
+Evidence: docs/qa/video-village-{browser,mechanics,validation}-2026-11-12.json
+and video-village-{scene,snow,crawler}-2026-11-12.png. The scene capture uses the
+ordinary public camera; snow/crawler inspection uses an explicitly isolated
+no-bot Low room. The centred rear view still occludes much of the cannon/stream;
+owner clarification about centred versus video shoulder framing is pending.
+Exact overall video acceptance remains OPEN.

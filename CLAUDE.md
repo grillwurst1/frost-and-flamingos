@@ -2075,3 +2075,50 @@ WebGL2 review passes with six cast labels, wardrobe projection and no page/HTTP/
 context errors. Hero 43,197 triangles (-1,375 vs 5fe0587), unchanged 156 initial
 draws. Evidence: docs/qa/video-arm-binding-2026-11-11.json and companion PNGs.
 Exact reference likeness, native M4 thermals/FPS and full WebGPU acceptance remain open.
+
+
+## Physical video village and snow basin — 12 November 2026
+
+Continue the owner's video-scene priority, serially. Both reference chalets now
+have one full enterable storey under broad snowy gables, restrained lap-board
+wood and quiet daylight glass. Their raised, staggered foundations, door steps,
+station platforms and terrain derive from the shared compact blueprint. Fire
+wall patches follow the highest actual storey rather than assuming two floors.
+The regular field's two-storey buildings remain as authored.
+
+Forty rounded snow banks are baked into the existing 257×257 render/collision
+grid; no extra terrain draws, textures, grid cells or per-frame displacement.
+Concave snow receives a restrained blue vertex tint. A real level turnout
+supports both crawler tracks. Closer combatants retain normal physical class
+sizes. The minimap caches snow contours and actual access stairs once as SVG.
+Valley station and north trees/peaks are positioned clear of both gondola lanes;
+the haul ropes are slimmer. Paths pass between the village walls.
+
+Regressions walk both house doors, valley approach and the village navigation
+chain without jumping; sample both cabins over their full cycle against roofs
+and actual trunk dimensions; retain ordinary F boarding/exits and brake checks.
+Keep video likeness OPEN: camera/hero silhouette, animation, scenery and effects
+still differ materially. Do not infer Mac M4 thermals/FPS from software Chromium.
+
+
+Final verification: 427 distinct cases pass (15 script, 246 server, 166 client).
+The server batch had 245 passes and one 15-second placement-test timeout;
+the unchanged isolated case passes in 621.55 ms at the same limit. A separate
+600-step reference-intro probe completes in 711.82 ms total. Strict diagnostics:
+0 errors / 0 warnings; shared/client/server production builds pass.
+
+Actual public Medium 1280×720 WebGL2 review passes with all six cast labels and
+zero page/HTTP/context errors. Hero 43,197 triangles, 156 initial draws; stored map
+vertices fall from 193,634 to 170,020 (12.20%). Low 800×500 isolated browser checks
+pass snow firing, walking/jumping, capture, F boarding, a 60-second held drive/fire
+loop with 9 authoritative cannon events, F exit and actual wardrobe projection.
+After warmup, mesh/material/texture/geometry deltas are -3/-2/-2/-2. The separate
+60 Hz input authority probe drives 39.61 m in 8 seconds with 3 shots. These are bounded
+functional checks, not native M4 smoothness or thermal measurements.
+
+Evidence: docs/qa/video-village-{browser,mechanics,validation}-2026-11-12.json
+and video-village-{scene,snow,crawler}-2026-11-12.png. The scene capture uses the
+ordinary public camera; snow/crawler inspection uses an explicitly isolated
+no-bot Low room. The centred rear view still occludes much of the cannon/stream;
+owner clarification about centred versus video shoulder framing is pending.
+Exact overall video acceptance remains OPEN.

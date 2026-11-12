@@ -1612,3 +1612,20 @@ The actual Medium WebGL2 review passes without page/HTTP/context errors, with
 43,197 hero triangles and unchanged 156 initial draws. Captures and report:
 `docs/qa/video-arm-binding-2026-11-11.json`. All 425 cases, strict checks and production builds pass.
 Exact video likeness and native M4 performance acceptance remain open.
+
+
+## Playable video village — 12 November 2026
+
+The reference basin now has lower enterable wood cabins on staggered snow
+terraces, forty real rounded snow banks and a level crawler turnout. Nearby
+combatants are easier to read. The round minimap shows actual snow contours
+and access stairs; gondola lanes clear the village roofs and tree trunks.
+Terrain detail reuses the existing collision/render grid and adds no terrain
+passes or textures. The supplied video remains the target; exact visual
+likeness has not been reached. Native Mac M4 performance remains unmeasured.
+
+Actual Medium 1280×720 public capture: [scene](docs/qa/video-village-scene-2026-11-12.png).
+[Validation](docs/qa/video-village-validation-2026-11-12.json): 427 distinct passing
+cases (one batch timeout passes its unchanged isolated retry), strict 0 errors /
+0 warnings, production builds and actual browser mechanics pass. 170,020 stored
+map vertices versus 193,634 before; 156 initial draws. Exact video likeness is open.
