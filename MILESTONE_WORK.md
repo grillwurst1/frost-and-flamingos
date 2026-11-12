@@ -934,8 +934,10 @@ panorama by default; far geometry is shadow-excluded and bounded. The old oval
 local crag becomes a lower shared snow ridge. Camera/hero/effect fidelity and
 native M4 acceptance remain open; no additional gameplay milestone is closed.
 
-Final skyline capture passes: 28 affected cases, strict checks/build and actual
-Medium public WebGL2, six cast labels, zero page/HTTP/context errors. 2,665 shared
+Final skyline full regression passes: 427 cases (15 script, 246 server,
+166 client), zero failures and no retries; 28 affected cases also pass separately.
+Strict checks/build and actual Medium public WebGL2 pass with six cast labels
+and zero page/HTTP/context errors. 2,665 shared
 ridge vertices / 3,577 triangles; 172,685 total map vertices (-10.82%), 158 initial
 draws and no panorama texture or distant shadow coverage. Evidence:
 docs/qa/video-alps-validation-2026-11-12.json and companion files. Exact video

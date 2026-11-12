@@ -8,7 +8,27 @@
     "strictErrors": 0,
     "strictWarnings": 0,
     "productionBuild": "shared/client/server passed",
-    "broadSuiteBaseline": "427 distinct passing cases at 50d6042, with the documented isolated timeout retry; see video-village-validation-2026-11-12.json"
+    "broadSuiteBaseline": "427 distinct passing cases at 50d6042, with the documented isolated timeout retry; see video-village-validation-2026-11-12.json",
+    "latestFullSuite": {
+      "codeCommit": "799f28fddd0a18ca9207f67cb7854654a060b16a",
+      "counts": {
+        "script": {
+          "passed": 15,
+          "failed": 0
+        },
+        "server": {
+          "passed": 246,
+          "failed": 0
+        },
+        "client": {
+          "passed": 166,
+          "failed": 0
+        }
+      },
+      "totalPassed": 427,
+      "totalFailed": 0,
+      "retries": 0
+    }
   },
   "actualBrowser": {
     "entry": "ordinary public root",

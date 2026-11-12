@@ -490,11 +490,13 @@ camera/hero proportions, weapon/effect visibility and overall art still differ;
 exact visual acceptance remains OPEN. Native M4 heat/FPS remain unmeasured.
 
 
-Final skyline verification: all 28 affected shared-physics/terrain cases pass;
-strict diagnostics show 0 errors / 0 warnings and production builds pass. The
-427 distinct-case baseline and its documented timeout retry remain recorded in
-video-village-validation-2026-11-12.json. Actual Medium 1280×720 public WebGL2
-review passes with all six cast labels and zero page/HTTP/context errors.
+Final skyline verification for code 799f28f: all 427 cases pass cleanly
+(15 script, 246 server, 166 client), with zero failures and no retries in this
+final full run. The 28 affected physics/terrain cases also passed separately.
+Strict diagnostics show 0 errors / 0 warnings and production builds pass.
+Actual Medium 1280×720 public WebGL2 review passes with all six cast labels
+and zero page/HTTP/context errors. Full results are in video-alps-validation-2026-11-12.json;
+the earlier timeout/retry remains historical in video-village-validation-2026-11-12.json.
 
 The distant mesh has 2,665 shared vertices and 3,577 triangles; shared normals
 and ridge colours replace visible per-triangle patches. It is active, outside
@@ -508,3 +510,9 @@ Evidence: docs/qa/video-alps-browser-2026-11-12.json,
 video-alps-validation-2026-11-12.json and video-alps-scene-2026-11-12.png.
 Exact video likeness, camera/hero/effect fidelity and native M4 acceptance remain
 OPEN. No source photo/video or original model is modified.
+
+Current art findings for continuation: the target's visible left foreground fir
+is still missing. Hero clothing/anatomical silhouette, weapon visibility, troop
+staging/density and the centred rear camera still differ materially. Prioritise
+actual asset/camera work and normal gameplay captures; neither more polygons nor
+passing checks establish exact video likeness. Camera preference remains pending.

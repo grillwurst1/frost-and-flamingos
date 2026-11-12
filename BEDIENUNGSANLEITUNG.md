@@ -1734,8 +1734,8 @@ lesbarer. Steuerung und Kleidungsauswahl bleiben erhalten. Die vollständige
 Übereinstimmung mit dem Zielvideo und der Test auf dem MacBook M4 bleiben offen.
 
 Die aktuelle tatsächliche Spielansicht liegt unter docs/qa/video-alps-scene-2026-11-12.png.
-Alle 28 betroffenen Physik-/Geländeprüfungen, Typprüfung, Produktionsbuild und
-Browserkontrolle bestehen. Die Bergkulisse verwendet 2.665 gemeinsame Punkte;
+Alle 427 automatischen Prüfungen bestehen im abschließenden Gesamtlauf ohne
+Wiederholung, ebenso Typprüfung, Produktionsbuild und Browserkontrolle. Die Bergkulisse verwendet 2.665 gemeinsame Punkte;
 die gesamte Karte hat 172.685 statt zuvor 193.634 Vertices. Die Startansicht hat
 158 statt 156 Zeichenaufrufe. Die Panoramatextur entfällt in der Referenzszene.
 Die Rückansicht bleibt mittig, bis die Kamerafrage geklärt ist. Die exakte

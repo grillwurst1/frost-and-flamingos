@@ -1640,8 +1640,9 @@ blue shading. The regular field sky and character controls are unchanged.
 Exact video likeness remains open, especially the centred camera and hero/effects.
 
 Latest actual [browser scene](docs/qa/video-alps-scene-2026-11-12.png) and
-[validation](docs/qa/video-alps-validation-2026-11-12.json): 28 affected cases,
-strict checks, production builds and public Medium WebGL2 review pass. The map
+[validation](docs/qa/video-alps-validation-2026-11-12.json): all 427 cases pass
+in the final full run without retries; strict checks, production builds and
+public Medium WebGL2 review also pass. The map
 stores 172,685 vertices (-10.82% versus the preceding layout); 158 initial draws.
 The original 3D ridges use 2,665 shared points, with no panorama texture or
 additional shadow coverage. Exact video likeness remains open.

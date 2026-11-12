@@ -2144,11 +2144,13 @@ character/weapon detail and effects. The owner camera clarification is pending;
 centred control is retained until resolved. Native M4 measurements remain open.
 
 
-Final skyline verification: all 28 affected shared-physics/terrain cases pass;
-strict diagnostics show 0 errors / 0 warnings and production builds pass. The
-427 distinct-case baseline and its documented timeout retry remain recorded in
-video-village-validation-2026-11-12.json. Actual Medium 1280×720 public WebGL2
-review passes with all six cast labels and zero page/HTTP/context errors.
+Final skyline verification for code 799f28f: all 427 cases pass cleanly
+(15 script, 246 server, 166 client), with zero failures and no retries in this
+final full run. The 28 affected physics/terrain cases also passed separately.
+Strict diagnostics show 0 errors / 0 warnings and production builds pass.
+Actual Medium 1280×720 public WebGL2 review passes with all six cast labels
+and zero page/HTTP/context errors. Full results are in video-alps-validation-2026-11-12.json;
+the earlier timeout/retry remains historical in video-village-validation-2026-11-12.json.
 
 The distant mesh has 2,665 shared vertices and 3,577 triangles; shared normals
 and ridge colours replace visible per-triangle patches. It is active, outside
