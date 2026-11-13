@@ -170,3 +170,13 @@ inside the viewport. A visible reticle centre alone is insufficient on 16:10.
 `FF_QA_REFERENCE_CAST=1` is a fresh-intro assertion. Restart the ordinary dev
 server before its final capture if a preceding firing/soak run has left the
 reference match in progress; do not drop missing-name assertions to make it pass.
+
+### Full-field map rides
+
+`scripts/qa/map-rides.mjs` uses an isolated `FF_NO_BOTS=1 FF_DEV_TOOLS=1` dev stack
+and the ordinary `?scene=field` entry. It stages the moving lift's boarding via
+the dev seat service (real F is covered by the server test), uses real F for the
+stationary coaster/hammock, checks personal weapon events before exit and captures
+actual screenshots. It records connection/finite positions/context loss and console
+errors. Optional `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH`, `FF_QA_SOFTWARE`, `FF_QA_OUTPUT`
+match the other QA helpers. No native FPS/thermal claims from software Chromium.

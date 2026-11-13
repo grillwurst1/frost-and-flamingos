@@ -20,6 +20,8 @@ import { createIdTable } from './ids.js';
 import { FJORD_VEHICLE_SPAWNS } from './map/gameplay.js';
 import { rotateY } from './map/math.js';
 import { sampleCableCar } from '../physics/cable-car.js';
+import { sampleTBar } from '../physics/map-rides.js';
+import { FJORD_ROUTES } from './map/routes.js';
 
 /** Wire order of every vehicle kind (append only). */
 export const VEHICLE_KINDS = [
@@ -30,11 +32,14 @@ export const VEHICLE_KINDS = [
   'sidecar',
   'biplane',
   'cable_car',
+  'tbar',
+  'coaster_bob',
+  'hammock',
 ] as const satisfies readonly VehicleKind[];
 
 export const VEHICLE_KIND_TABLE = createIdTable<VehicleKind>(VEHICLE_KINDS);
 
-export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar' | 'rowboat' | 'biplane' | 'cable_car';
+export type DrivableVehicleKind = 'fondue_crawler' | 'coconut_tank' | 'badi_flamingo' | 'sidecar' | 'rowboat' | 'biplane' | 'cable_car' | 'tbar' | 'coaster_bob' | 'hammock';
 
 /** Active vehicle kinds. The separate wire table retains its original ordering. */
 export const DRIVABLE_VEHICLE_KINDS: readonly DrivableVehicleKind[] = [
@@ -45,6 +50,9 @@ export const DRIVABLE_VEHICLE_KINDS: readonly DrivableVehicleKind[] = [
   'rowboat',
   'biplane',
   'cable_car',
+  'tbar',
+  'coaster_bob',
+  'hammock',
 ];
 
 export function isDrivableKind(kind: VehicleKind): kind is DrivableVehicleKind {
@@ -56,6 +64,7 @@ export function vehicleRidingPose(kind: DrivableVehicleKind, seat: number): 'sea
   if (kind === 'cable_car') return seat < 2 ? 'seat' : 'wing';
   if (kind === 'biplane' && seat > 0) return 'wing';
   if (kind === 'rowboat') return 'row';
+  if (kind === 'coaster_bob' || kind === 'hammock') return 'seat';
   if (kind === 'sidecar') return seat === 0 ? 'steer' : 'seat';
   if (kind === 'badi_flamingo' || kind === 'biplane') return 'seat';
   return undefined;
@@ -194,7 +203,18 @@ const TANK_DRIVE = {
 /** Fondue and Coconut tanks share hitbox and driving values for fair balance (§13.4). */
 const TANK_HALF_EXTENTS: Vec3 = { x: 1.4, y: 0.85, z: 2.3 };
 
+function mapRideDefinition(kind:'tbar'|'coaster_bob'|'hammock',halfExtents:Vec3):VehicleDefinition {
+  return {kind,chassis:'ride',modelKey:`ride-${kind}`,maxHp:1000,respawnSeconds:1,wreckSeconds:0,
+    halfExtents,hitSphere:null,maxForwardSpeed:kind==='tbar'?11:24,maxReverseSpeed:0,acceleration:0,braking:0,coastDrag:0,turnRate:0,turnResponse:0,lateralGrip:1,
+    maxSlope:0,stepHeight:0,fordDepth:1000,
+    ram:{weaponId:'vehicle_blast',minSpeed:100,fullSpeed:100,minDamage:0,maxDamage:0,launchHorizontal:0,launchVertical:0},
+    seats:[{driver:false,gunner:false,handWeapons:true,exposed:true,anchor:{x:0,y:kind==='tbar'?.04:-.25,z:0}}],
+    weapon:null,armor:{bullet:0,explosive:0},boost:null};
+}
 export const VEHICLES: Readonly<Record<DrivableVehicleKind, VehicleDefinition>> = {
+  tbar:mapRideDefinition('tbar',{x:.3,y:.12,z:.3}),
+  coaster_bob:mapRideDefinition('coaster_bob',{x:.5,y:.25,z:.9}),
+  hammock:mapRideDefinition('hammock',{x:.8,y:.15,z:1.25}),
   cable_car: {
     kind: 'cable_car', chassis: 'ride', modelKey: 'ride-cable-car',
     maxHp: 1000, respawnSeconds: 1, wreckSeconds: 1,
@@ -537,6 +557,17 @@ export const VEHICLE_SLOTS: readonly VehicleSlot[] = [
     return { id: 100 + cabin, kind: 'cable_car' as const,
       spawn: { id: `cable_car_${cabin}`, vehicle: 'cable_car' as const, position: pose.position, rotationY: pose.yaw, faction: null, trigger: 'map' as const } };
   }),
+  ...Array.from({length:8},(_,index)=>{
+    const pose=sampleTBar(index*FJORD_ROUTES.tBar.ridePath.length/4);
+    return {id:110+index,kind:'tbar' as const,spawn:{id:`tbar_${index}`,vehicle:'tbar' as const,position:pose.position,rotationY:pose.yaw,faction:null,trigger:'map' as const}};
+  }),
+  ...Array.from({length:4},(_,index)=>{
+    const start=FJORD_ROUTES.coaster.start,next=FJORD_ROUTES.coaster.track.points[4]!,yaw=Math.atan2(next.x-start.x,next.z-start.z),side=-5.6+index*1.5;
+    return {id:120+index,kind:'coaster_bob' as const,spawn:{id:`coaster_bob_${index}`,vehicle:'coaster_bob' as const,
+      position:{x:start.x+Math.cos(yaw)*side+Math.sin(yaw),y:start.y+.12,z:start.z-Math.sin(yaw)*side+Math.cos(yaw)},rotationY:yaw,faction:null,trigger:'map' as const}};
+  }),
+  {id:130,kind:'hammock',spawn:{id:'hammock_catapult',vehicle:'hammock',position:FJORD_ROUTES.hammock.seat,
+    rotationY:Math.atan2(FJORD_ROUTES.hammock.target.x-FJORD_ROUTES.hammock.seat.x,FJORD_ROUTES.hammock.target.z-FJORD_ROUTES.hammock.seat.z),faction:null,trigger:'map'}},
 ];
 
 /**

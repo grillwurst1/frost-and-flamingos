@@ -855,6 +855,9 @@ export const de: TranslationDictionary = {
   },
   vehicles: {
     names: {
+      tbar: 'Schlepplift',
+      coaster_bob: 'Alpen-Rodelbahn',
+      hammock: 'Hängematten-Katapult',
       cable_car: 'Roter Fjord-Express',
       biplane: 'Himmelsflitzer-Doppeldecker',
       rowboat: 'Holz-Ruderboot',
@@ -864,6 +867,9 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen-Motorrad',
     },
     enter: {
+      tbar: 'Schleppbügel greifen',
+      coaster_bob: 'In den Rodelbob steigen',
+      hammock: 'In die Hängematte legen',
       cable_car: 'In die Seilbahn einsteigen',
       biplane: 'In den Doppeldecker oder auf einen Flügel steigen',
       rowboat: 'Ins Ruderboot steigen',
@@ -873,6 +879,7 @@ export const de: TranslationDictionary = {
       sidecar: 'Aufs Seitenwagen-Motorrad steigen',
     },
     seats: {
+      rider: 'Mitfahrer',
       cabin: 'Geschützte Kabine',
       roof: 'Kabinendach',
       wing: 'Flügelplatz',
@@ -886,6 +893,9 @@ export const de: TranslationDictionary = {
       sidecar: 'Seitenwagen',
     },
     hud: {
+      tbar: 'Freies Zielen und eigene Waffen · F lässt los',
+      coaster: 'Freies Zielen · automatischer Absprung an der letzten Rampe',
+      hammock: 'Spannt sich 1,5 Sekunden · F bricht ab',
       cableCar: 'H wechselt den Platz · C/Strg hält dich bei einer Notbremsung fest',
       passengerView: 'Beifahreransicht',
       flight: 'W/S Schub · Maus steuert · A/D Seitenruder',

@@ -1814,3 +1814,38 @@ Nachweis der tatsächlichen Browsergrenzen und Bilder:
 Übereinstimmung und Messungen auf dem echten MacBook M4 bleiben offen.
 
 Die normale Demo besteht die Low-Feuerprüfung und die frische Medium-Aufnahme mit allen sechs Figuren, vollständig sichtbarem Fadenkreuz und ohne Seiten-/HTTP-/Grafikkontextfehler. Gemessen: 161 anfängliche Draw Calls (vorher 160 bei anderer Kamerasicht), unverändert 46.441 Figur-Dreiecke und 143.532 Karten-Vertices. Der erste fehlgeschlagene Figurenvergleich in einer bereits laufenden Runde bleibt im Prüfverlauf dokumentiert.
+
+## Schlepplift, Rodelbahn und Hängematten-Katapult — 13. November 2026
+
+Diese Funktionen sind auf der großen Fjord-Fiesta-Karte (`?scene=field`). Die
+kompakte Video-Referenzszene bleibt erhalten. Der Auftrag vom 13. November setzt
+die Arbeit am vollständigen Spiel fort; weitere M5-Funktionen und danach M6–M8
+bleiben in Bearbeitung.
+
+- **Schlepplift:** Mit F einen aufwärts fahrenden Bügel greifen, mit F loslassen.
+  Acht Bügel verkehren mit 11 m/s; eigene Waffen bleiben benutzbar. Am Gipfel
+  erfolgt der Ausstieg automatisch. Ein getöteter Fahrer wird noch zwei Sekunden
+  mitgezogen, dann freigegeben.
+- **Rodelbahn:** Auf dem Startdeck mit F in einen der vier farbigen Bobs steigen.
+  Die Bahn fährt mit 24 m/s durch ihre überhöhten Kurven; Schießen bleibt möglich.
+  Die letzte Rampe schleudert dich in einem Winkel von 45 Grad zur Küste.
+  Freie Bobs werden auf einem unbesetzten Startplatz nachgeliefert.
+- **Hängematte:** F legt dich hinein. Nach 1,5 Sekunden Spannung katapultiert sie
+  dich in einem echten physikalischen Bogen zum Dorf bei Turm B. F bricht die
+  Spannung vorher ab. Der automatische Fallschirm unterbricht den Katapultflug
+  nicht; manuelles Öffnen bleibt möglich.
+
+Der Liftantrieb steht nun neben der Fahrspur, und das Rodel-Startdeck wurde von
+der Panzerstraße weg verschoben. Stoffspannung und Bügelaufhängung sind echte
+3D-Bewegungen mit begrenzten Ressourcen. Protokollversion: 17. Die vollständige
+Browserprüfung der drei Fahrgeschäfte ist erfolgreich: tatsächliche Ein-/Ausstiege,
+Schüsse während der Fahrt und Katapultflug, ohne Seiten-/HTTP-/Grafikkontextfehler.
+Die kleinen Low-Aufnahmen unter `docs/qa/m5-map-rides-*-2026-11-13.png` dienen der
+Funktionskontrolle. Die optische Zielabnahme und ein Leistungstest auf dem echten
+M4 sind weiterhin offen. Verzögert eintreffende Schüsse von realen bewegten
+Sitzplätzen werden anhand der begrenzten Serverhistorie geprüft; die Geschosse
+starten weiterhin am aktuellen Serverstandort.
+
+Freigabeprüfung vom 13. November: 444 erfolgreiche Tests (15 Scripts, 255 Server,
+174 Client), strikte Typprüfung ohne Fehler/Warnungen und erfolgreiche
+Produktions-Builds. M5 ist mit diesem Zwischenstand noch nicht vollständig.

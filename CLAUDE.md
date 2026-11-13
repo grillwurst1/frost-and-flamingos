@@ -14,6 +14,13 @@ Future-milestone code, placeholder gameplay loops and speculative systems are no
 
 ## Active owner priority: supplied gameplay video (6 November 2026)
 
+**13 November 2026 owner update:** build the complete game and provide a usable
+play entry afterwards. Resume the remaining M5 features, then M6, M7 and M8 in
+order, working solo/serially. This supersedes the graphics-only feature pause;
+preserve the current video art, real configurable models and bounded resources.
+Deliver real mechanics and verified deployment, not placeholder screens or
+completion claims based only on tests. Exact video likeness remains open.
+
 The owner uploaded `gemini_generated_video_e01d97e8.mp4` (c5d0006) and now
 requires its look in the actual browser demo, with recurring real screenshots.
 Read `VIDEO_REFERENCE_WORK.md`. This supersedes the bridge scene composition,
@@ -2269,3 +2276,51 @@ in docs/qa/video-reticle-validation-2026-11-12.json. Exact video art parity and
 native M4 performance remain open.
 
 Final public Low firing and fresh Medium captures pass with all six labels, all five reticle parts inside the viewport and zero page/HTTP/context errors. Medium initial draws are 161 versus 160 at the previous camera visibility; hero/map stay 46,441 triangles / 143,532 vertices. A first reused-match cast-label failure is recorded in the validation history.
+
+## Complete-game continuation: operational map rides — 13 November 2026
+
+The owner resumes complete-game delivery and a usable play entry. This lifts the
+previous graphics-only pause; M5 precedes M6, M7 and M8. Work remains solo/serial.
+Protocol 17 appends T-bar, coaster-bob and hammock vehicle kinds, preserving the
+seven previous codes and the existing exposed-seat/weapon and extended-pose
+wire format. The compact video scene is preserved; these rides belong to the
+full Fjord Fiesta field (`?scene=field`).
+
+Eight bars continuously circulate at 11 m/s. F boards/exits, personal weapons
+remain usable and riders leave at the summit. A dead rider is dragged for two
+seconds and released with its collider still disabled. The bottom drive block
+moves beside the riding lane; the return rope and telescoping bar hangers follow
+the shared route. Four coloured bobs are real authoritative vehicles, not static
+waiting props: F boards, 24 m/s travel follows the actual banked track, the exit
+launches at 45 degrees, and a bounded dispenser respawns a bob when its pad is
+clear. The start control points move east to clear the tank road.
+
+The hammock tensions for 1.5 seconds, then launches via the shared character
+motor on a ballistic arc to Tower B. Manual parachute deployment remains; the
+automatic canopy waits for the replicated launch interval to expire. Its cloth
+uses one cached updatable mesh with fixed attachment ends and analytical normals;
+no per-frame meshes, materials, timers or growing particle lists. Cancel a ride
+with F. Rides use authoritative interpolation and retain free hand weapons.
+
+Actual Chromium/WebGL2 checks pass all three rides with no page/HTTP/context
+errors. Stationary rides use real F input; the moving lift start is staged through
+the DEV seat manager. Actual WEAPON_FIRED events precede exit on lift and coaster.
+The 400×250 Low captures are functional evidence, not visual-target acceptance.
+Seven server cases cover actual travel, road clearance, summit/45-degree/ballistic
+exits, corpse release and delayed-seat weapon validation. One client case checks
+fixed cloth ends, wire alignment, unit normals, bounded resources and lazy model
+registration without weakening existing skeletal gait/roll assertions.
+
+Moving-seat fire previously failed when a slow rendered frame lagged more than
+6 m behind the authoritative seat. Accept a supplied origin only near a real,
+living same-vehicle pose in the existing bounded two-second history. Bullets still
+start at the current server eye. Tests reject invented origins and old seated
+origins after exit, and distinguish current from former targets.
+M5 remains open for the NPC cow, lift holding pose and tower/climate effects.
+Exact video likeness and native Mac M4 performance remain open.
+
+Release validation, 13 November 2026: **444 distinct tests pass** (15 scripts,
+255 server, 174 client), strict TypeScript/Svelte 0 errors and 0 warnings,
+shared/client/server production builds pass (existing client chunk advisory).
+Actual three-ride browser results and limits: `docs/qa/m5-map-rides-validation-2026-11-13.json`.
+This is a verified M5 increment; the remaining M5 work stays open.

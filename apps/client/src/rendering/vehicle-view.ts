@@ -9,6 +9,7 @@ import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 import {
   VEHICLES,
+  tbarHangerLength,
   vehicleLocalToWorld,
   type DrivableVehicleKind,
   type Vec3,
@@ -33,9 +34,11 @@ import { buildCableCar } from './cable-car';
  * → glTF __root__ (Babylon mirrors X there, so part yaws are negated).
  */
 
-/** Register the vehicle models with the painted-model catalogue (static GLBs). */
-for (const definition of Object.values(VEHICLES)) {
-  if (definition.chassis === 'ride') continue;
+/** Register static hulls when a real hull view needs them. Importing this
+ * module (or constructing a solid ride) must not add unskinned animation donors. */
+const registeredVehicleModels=new Set<string>();
+function registerVehicleModel(definition:VehicleDefinition):void {
+  if(definition.chassis==='ride'||registeredVehicleModels.has(definition.modelKey))return;
   registerPaintedModel({
     key: definition.modelKey,
     file: `${definition.modelKey}.glb`,
@@ -46,7 +49,9 @@ for (const definition of Object.values(VEHICLES)) {
     backZ: 0,
     bulk: 1,
     armed: false,
+    cosmetics: false,
   });
+  registeredVehicleModels.add(definition.modelKey);
 }
 
 export interface VehicleViewPose {
@@ -89,6 +94,8 @@ export class VehicleView {
   private material: ShaderMaterial;
   private readonly fallbackMaterial: ShaderMaterial;
   private fallback: Mesh | null = null;
+  private rideStem: Mesh | null = null;
+  private hammockCloth: {base:Float32Array;normals:Float32Array;positions:Float32Array;outNormals:Float32Array;charge:number;halfSpan:number}|null=null;
   private referenceModel: ReturnType<typeof buildReferenceCrawler> | null = null;
   private entries: InstantiatedEntries | null = null;
   private turret: TransformNode | null = null;
@@ -109,10 +116,11 @@ export class VehicleView {
   private readonly probe = { x: Number.NaN, z: Number.NaN, yaw: Number.NaN, pitch: 0, roll: 0 };
   private readonly lastPose: VehicleViewPose;
 
-  constructor(scene: Scene, kind: DrivableVehicleKind) {
+  constructor(scene: Scene, kind: DrivableVehicleKind, private readonly variant=0) {
     this.scene = scene;
     this.kind = kind;
     this.definition = VEHICLES[kind];
+    registerVehicleModel(this.definition);
     this.root = new TransformNode(`vehicle-${kind}`, scene);
     this.tilt = new TransformNode(`vehicle-${kind}-tilt`, scene);
     this.tilt.parent = this.root;
@@ -204,6 +212,43 @@ export class VehicleView {
 
   /** Box hull + turret stand-in in the vehicle's palette (loading / missing model). */
   private buildFallback(): void {
+    if(this.kind==='tbar'||this.kind==='coaster_bob'||this.kind==='hammock') {
+      const parts=new PartList(this.scene);
+      if(this.kind==='tbar') {
+        parts.box('#795132',1.2,.11,.15,0,.86,.18);parts.box('#d4a960',1.05,.055,.17,0,.93,.18);
+        const stem=new PartList(this.scene);stem.cylinder('#5b6971',1,.055,.055,0,.5,.18,{segments:8});
+        this.rideStem=stem.merge('tbar-telescopic-hanger',this.fallbackMaterial);if(this.rideStem){this.rideStem.parent=this.tilt;this.rideStem.position.y=.95;}
+      } else if(this.kind==='coaster_bob') {
+        const paint=['#e56f9d','#edc84c','#9775c8','#64a9ce'][this.variant%4]!;
+        parts.sphere(paint,1,0,.28,0,{sx:1.03,sy:.48,sz:1.86,segments:16});
+        parts.sphere('#354550',1,0,.48,-.1,{sx:.78,sy:.22,sz:1.30,segments:12});
+        parts.box(paint,.82,.68,.13,0,.56,-.66,{rx:-.20});
+        for(const side of [-1,1]){parts.box('#bdcbd1',.08,.09,1.8,side*.37,.05,0);parts.cylinder('#566a73',.6,.05,.05,side*.42,.45,.45,{rx:.6,segments:8});}
+        parts.box('#d4e0e2',.78,.07,.07,0,.7,.57);
+      } else {
+        const colours=['#ce4c43','#dfc24a','#608c50'];
+        for(let strip=0;strip<6;strip++)for(let segment=0;segment<14;segment++) {
+          const x=-2.8+(segment+.5)*.4,y=1.1-1.1*Math.cos(x/2.8*Math.PI/2);
+          parts.box(colours[strip%3]!, .41,.045,.30,x,y,-.75+strip*.3,{rz:Math.atan(1.1*Math.PI/5.6*Math.sin(x/2.8*Math.PI/2))});
+        }
+      }
+      this.fallback=parts.merge(`ride-${this.kind}-solid`,this.fallbackMaterial);if(this.fallback)this.fallback.parent=this.tilt;
+      if(this.fallback) {
+        const normals=this.fallback.getVerticesData('normal')!;
+        for(let i=0;i<normals.length;i+=3) {
+          const n=Math.hypot(normals[i]!,normals[i+1]!,normals[i+2]!)||1;
+          normals[i]=normals[i]!/n;normals[i+1]=normals[i+1]!/n;normals[i+2]=normals[i+2]!/n;
+        }
+        this.fallback.setVerticesData('normal',normals,false);
+      }
+      if(this.kind==='hammock'&&this.fallback) {
+        const base=new Float32Array(this.fallback.getVerticesData('position')!),normals=new Float32Array(this.fallback.getVerticesData('normal')!);
+        let halfSpan=0;for(let i=0;i<base.length;i+=3)halfSpan=Math.max(halfSpan,Math.abs(base[i]!));
+        this.hammockCloth={base,normals,positions:new Float32Array(base),outNormals:new Float32Array(normals),charge:-1,halfSpan};
+        this.fallback.setVerticesData('position',base,true);this.fallback.setVerticesData('normal',normals,true);
+      }
+      return;
+    }
     if (referenceScene && this.kind === 'fondue_crawler') {
       const model = buildReferenceCrawler(this.scene, this.tilt, this.fallbackMaterial);
       this.referenceModel = model; this.fallback = model.hull; this.turret = model.turret; this.barrel = model.barrel;
@@ -245,6 +290,7 @@ export class VehicleView {
       rowboat: ['#885b32', '#c79255'],
       biplane: ['#72b7d6', '#f3edce'],
       cable_car: ['#c32c39', '#f3edce'],
+      tbar:['#795132','#d4a960'],coaster_bob:['#e56f9d','#354550'],hammock:['#ce4c43','#dfc24a'],
     };
     const [main, accent] = palette[this.kind];
     if (this.definition.chassis === 'boat') {
@@ -279,6 +325,11 @@ export class VehicleView {
     Object.assign(this.lastPose, pose);
     this.root.position.set(pose.position.x, pose.position.y, pose.position.z);
     this.root.rotation.set(0, pose.yaw, 0);
+    if(this.rideStem) {
+      const length=tbarHangerLength(pose.position);
+      this.rideStem.scaling.y=Math.hypot(length,.18);this.rideStem.rotation.x=-Math.atan2(.18,length);
+      this.rideStem.position.set(0,.95+length/2,.09);
+    }
     // After placing the root, so the on-screen test sees the hull where it is.
     this.requestModel(pose.position, cameraPosition);
 
@@ -346,6 +397,19 @@ export class VehicleView {
     if (this.barrel) this.barrel.rotation.set(-pose.turretPitch, 0, 0);
     if (this.steerNode) this.steerNode.rotation.set(0, -pose.steer * 0.8, 0);
     if (this.propeller && !pose.wreck && ((pose.seats?.[0] ?? 0) !== 0 || Math.abs(pose.forwardSpeed)>1)) this.propeller.rotation.z += dt * (42+Math.abs(pose.forwardSpeed));
+    if(this.kind==='hammock'&&this.hammockCloth&&this.fallback) {
+      this.tilt.rotation.setAll(0);
+      const cloth=this.hammockCloth,tension=Math.max(0,Math.min(1,-(pose.pitch??0)/.25)),charge=.45*tension*tension;
+      if(Math.abs(cloth.charge-charge)>.0001) {
+        for(let i=0;i<cloth.base.length;i+=3) {
+          const x=cloth.base[i]!,q=Math.min(1,Math.abs(x)/cloth.halfSpan),slope=Math.abs(x)<cloth.halfSpan?charge*2*x/(cloth.halfSpan*cloth.halfSpan):0;
+          cloth.positions[i]=x;cloth.positions[i+1]=cloth.base[i+1]!+charge*q*q;cloth.positions[i+2]=cloth.base[i+2]!;
+          const nx=cloth.normals[i]!-slope*cloth.normals[i+1]!,ny=cloth.normals[i+1]!,nz=cloth.normals[i+2]!,n=Math.hypot(nx,ny,nz);
+          cloth.outNormals[i]=nx/n;cloth.outNormals[i+1]=ny/n;cloth.outNormals[i+2]=nz/n;
+        }
+        this.fallback.updateVerticesData('position',cloth.positions,true,false);this.fallback.updateVerticesData('normal',cloth.outNormals,false,false);cloth.charge=charge;
+      }
+    }
     this.referenceModel?.update(dt, pose.wreck ? 0 : pose.forwardSpeed);
     if (!pose.wreck) this.wheelAngle += (pose.forwardSpeed * dt);
     for (const wheel of this.wheels) wheel.node.rotation.set(this.wheelAngle / wheel.radius, 0, 0);

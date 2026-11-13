@@ -3,3 +3,4 @@ export * from './world.js';
 export * from './vehicle.js';
 export * from './aircraft.js';
 export * from './cable-car.js';
+export * from './map-rides.js';

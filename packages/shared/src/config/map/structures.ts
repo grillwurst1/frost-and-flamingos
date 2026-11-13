@@ -1291,7 +1291,7 @@ function transportSeeds(): PropSeed[] {
   seeds.push(
     simple('tbar_bottom', 'tbar_station', tbar.bottom.x, tbar.bottom.z, tbarYaw, 0, [
       boxCollider(2.2, 1.6, 2.2, -3.4, 1.6, -1.5),
-      boxCollider(0.8, 0.6, 0.8, 0, 0.6, 0, { surface: 'cobblestone' }),
+      boxCollider(0.8, 0.6, 0.8, 2.0, 0.6, 0, { surface: 'cobblestone' }),
     ]),
   );
   seeds.push(

@@ -17,6 +17,8 @@ import { InputButton, type InputButtonMask, type Vec3 } from '../types/index.js'
 import type { PhysicsWorld } from './world.js';
 import { advanceAircraft, AIRCRAFT_RULES } from './aircraft.js';
 import { cableCabinAt, CABLE_CAR_RULES, sampleCableCar } from './cable-car.js';
+import { FJORD_ROUTES } from '../config/map/routes.js';
+import { isMapRide, sampleRidePath, sampleTBar, initialTBarDistance, hammockLaunchVelocity, MAP_RIDE_TUNING } from './map-rides.js';
 
 /**
  * Membership bit 4 (0x0008) = vehicle hulls; filter = world (0x1), players
@@ -67,6 +69,7 @@ export interface VehicleMotorState {
 export type VehicleMotorEvent =
   | { type: 'fire'; origin: Vec3; direction: Vec3; yaw: number; pitch: number }
   | { type: 'boost' }
+  | { type: 'ride_exit'; position: Vec3; velocity: Vec3; seconds: number }
   | { type: 'crash'; impact: number };
 
 interface Traction {
@@ -195,6 +198,11 @@ export class VehicleBody {
   private cableCabin: 0 | 1 = 0;
   private cableTick = 0;
   private cableBrakeTicks = 0;
+  private rideDistance = 0;
+  private rideOccupied = false;
+  private rideDone = false;
+  private rideClock = 0;
+  private rideHome: Vec3;
   private linear: Vec3 = { x: 0, y: 0, z: 0 };
   private turnRate = 0;
   private steerAngle = 0;
@@ -222,6 +230,8 @@ export class VehicleBody {
     this.definition = VEHICLES[kind];
     const half = this.definition.halfExtents;
     this.base = { ...position };
+    this.rideHome = { ...position };
+    if (kind === 'tbar') this.rideDistance = initialTBarDistance(position,yaw);
     this.heading = wrapAngle(yaw);
     if (kind === 'cable_car') this.cableCabin = cableCabinAt(position, this.physics.cableCarRoute);
 
@@ -396,6 +406,7 @@ export class VehicleBody {
   teleport(position: Vec3, yaw: number): void {
     this.base = { ...position };
     this.heading = wrapAngle(yaw);
+    if (isMapRide(this.kind)) { this.rideHome={...position};this.rideDistance=this.kind==='tbar'?initialTBarDistance(position,yaw):0;this.rideClock=0;this.rideDone=false; }
     this.flightPitch = 0; this.flightRoll = 0;
     if (this.kind === 'cable_car') { this.cableTick = 0; this.cableCabin = cableCabinAt(position, this.physics.cableCarRoute); this.cableBrakeTicks = 0; }
     this.linear = { x: 0, y: 0, z: 0 };
@@ -458,6 +469,7 @@ export class VehicleBody {
   simulate(driver: VehicleControlInput | null, gunner: VehicleControlInput | null, trackButtons = true): void {
     if (this.disposed) return;
     if (this.kind === 'cable_car') { this.simulateCableCar(); return; }
+    if (isMapRide(this.kind)) { this.simulateMapRide(); return; }
     if (this.definition.chassis === 'aircraft') { this.simulateAircraft(driver,gunner,trackButtons); return; }
     const definition = this.definition;
     const dt = FIXED_DT;
@@ -741,6 +753,53 @@ export class VehicleBody {
 
   brakeCableCar(): void {
     if (this.kind === 'cable_car') this.cableBrakeTicks = vehicleTicks(CABLE_CAR_RULES.brakeSeconds);
+  }
+
+  /** The authoritative seat manager owns occupancy; rides never depend on packet cadence. */
+  setRideOccupied(occupied:boolean):void { this.rideOccupied=occupied; }
+
+  private simulateMapRide():void {
+    const previous=this.base;
+    if(this.kind==='tbar') {
+      const before=sampleTBar(this.rideDistance);
+      this.rideDistance+=MAP_RIDE_TUNING.tbarSpeed*FIXED_DT;
+      const pose=sampleTBar(this.rideDistance);this.base=pose.position;this.heading=pose.yaw;this.flightPitch=0;this.flightRoll=0;
+      if(!pose.returning)this.base.y=Math.max(this.base.y,this.physics.heightAt(this.base.x,this.base.z)+.05);
+      if(this.rideOccupied&&!before.returning&&pose.returning) {
+        const top=FJORD_ROUTES.tBar.top;
+        this.events.push({type:'ride_exit',position:{x:top.x+Math.cos(before.yaw)*1.6,y:top.y+.15,z:top.z-Math.sin(before.yaw)*1.6},
+          velocity:{x:Math.sin(before.yaw)*3,y:2,z:Math.cos(before.yaw)*3},seconds:.5});
+      }
+    } else if(this.kind==='coaster_bob'&&this.rideOccupied&&!this.rideDone) {
+      const ride=FJORD_ROUTES.coaster;
+      const approach=Math.hypot(this.rideHome.x-ride.start.x,this.rideHome.z-ride.start.z);
+      this.rideDistance=Math.min(approach+ride.track.length,this.rideDistance+ride.speed*FIXED_DT);
+      const pose=sampleRidePath(ride.track,Math.max(0,this.rideDistance-approach));
+      if(this.rideDistance<approach) {
+        const t=this.rideDistance/approach;
+        pose.position={x:this.rideHome.x+(ride.start.x-this.rideHome.x)*t,y:ride.start.y,z:this.rideHome.z+(ride.start.z-this.rideHome.z)*t};
+        pose.yaw=Math.atan2(ride.start.x-this.rideHome.x,ride.start.z-this.rideHome.z);pose.pitch=0;
+      }
+      this.base={...pose.position,y:pose.position.y+.12};this.heading=pose.yaw;this.flightPitch=pose.pitch;this.flightRoll=ride.bank[pose.index]??0;
+      if(this.rideDistance>=approach+ride.track.length) {
+        this.rideDone=true;
+        const speed=ride.speed*Math.cos(ride.rampAngle);
+        this.events.push({type:'ride_exit',position:{...this.base,y:this.base.y+.55},velocity:{x:Math.sin(pose.yaw)*speed,y:ride.speed*Math.sin(ride.rampAngle),z:Math.cos(pose.yaw)*speed},seconds:1.1});
+      }
+    } else if(this.kind==='hammock') {
+      this.rideClock=this.rideOccupied?Math.min(MAP_RIDE_TUNING.tensionTicks,this.rideClock+1):0;
+      if(!this.rideOccupied)this.rideDone=false;
+      const tension=this.rideClock/MAP_RIDE_TUNING.tensionTicks;
+      this.base={...this.rideHome,y:this.rideHome.y-.45*tension*tension};this.flightPitch=-.25*tension;
+      if(this.rideClock>=MAP_RIDE_TUNING.tensionTicks&&!this.rideDone) {
+        this.rideDone=true;
+        const position={...this.rideHome,y:this.rideHome.y+.25},velocity=hammockLaunchVelocity(position);
+        const time=(velocity.y+Math.sqrt(velocity.y*velocity.y+2*Math.abs(GRAVITY)*(position.y-FJORD_ROUTES.hammock.target.y)))/Math.abs(GRAVITY);
+        this.events.push({type:'ride_exit',position,velocity,seconds:time+.3});
+      }
+    }
+    this.linear={x:(this.base.x-previous.x)/FIXED_DT,y:(this.base.y-previous.y)/FIXED_DT,z:(this.base.z-previous.z)/FIXED_DT};
+    this.measuredSpeed=Math.hypot(this.linear.x,this.linear.z);this.isGrounded=true;this.restingTicks=0;this.commitPose();
   }
 
   private simulateCableCar(): void {

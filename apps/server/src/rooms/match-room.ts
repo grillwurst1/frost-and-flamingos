@@ -207,6 +207,7 @@ interface LagEntry {
   crouched: boolean;
   alive: boolean;
   heading: number;
+  vehicleId: number;
 }
 
 interface LagSample {
@@ -1173,6 +1174,7 @@ export class MatchRoom {
         crouched: player.character.crouched || this.vehicles.isCrouched(player.id),
         alive: player.alive,
         heading: player.character.heading,
+        vehicleId: this.vehicles.vehicleIdOf(player.id),
       });
     }
     this.lagHistory.push({ tick: this.physicsTick, players });
@@ -2592,7 +2594,22 @@ export class MatchRoom {
     if (weaponId !== weaponForSlot(player.profile.loadout, player.activeSlot)) return;
     const serverEye = this.eyePosition(player);
     const originDistance = distance3(serverEye, fire.origin);
-    if (!Number.isFinite(originDistance) || originDistance > 6) return;
+    if (!Number.isFinite(originDistance)) return;
+    if (originDistance > 6) {
+      // A remote rendered seat can trail a fast hull, especially on a slow
+      // frame. Accept only this actor's real, same-hull history. The origin
+      // remains a validation hint: tryFire always casts from the current
+      // server eye, never the supplied or historical point.
+      const vehicleId=this.vehicles.vehicleIdOf(player.id);
+      if(!vehicleId)return;
+      const eyeOffset=serverEye.y-player.character.position.y;
+      let legitimate=false;
+      for(let index=this.lagHistory.length-1;index>=0;index--) {
+        const old=this.lagHistory[index]!.players.get(player.id);
+        if(old?.alive&&old.vehicleId===vehicleId&&Math.hypot(fire.origin.x-old.position.x,fire.origin.y-old.position.y-eyeOffset,fire.origin.z-old.position.z)<=6) {legitimate=true;break;}
+      }
+      if(!legitimate)return;
+    }
     if (player.fireQueue.length >= 8) player.fireQueue.shift();
     this.referenceStarted = true;
     player.fireQueue.push(fire);

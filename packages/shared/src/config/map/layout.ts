@@ -297,8 +297,8 @@ export const TBAR_TOP: Vec3 = vec3(185, 54, 195);
 
 /** Alpine coaster control points: Tower C east terrace → four banked curves → jump ramp. */
 export const COASTER_CONTROL: readonly Vec3[] = [
-  vec3(235, 56.5, 210),
-  vec3(250, 56, 200),
+  vec3(249, 56.5, 210),
+  vec3(258, 56, 200),
   vec3(262, 54.5, 180),
   // Curve 1 (banked left)
   vec3(266, 52.5, 150),

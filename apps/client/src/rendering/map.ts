@@ -596,6 +596,7 @@ export function buildFjordFiesta(scene: Scene, material: ShaderMaterial, art: Ma
   drawRouteCable(routes, FJORD_MAP.routes.cableCar.cable, 0.09, P.ink, 0, 2.2);
   drawRouteCable(routes, FJORD_MAP.routes.cableCar.cable, 0.09, P.ink, 0, -2.2);
   drawRouteCable(routes, FJORD_MAP.routes.tBar.cable, 0.05, P.metalDark);
+  drawRouteCable(routes, FJORD_MAP.routes.tBar.cable, 0.05, P.metalDark, 0, 1.6);
   const coaster = new GeometryBatch();
   coaster.jitter = 0;
   drawCoasterTrack(coaster);

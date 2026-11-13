@@ -690,7 +690,7 @@ export class CharacterBody {
       this.parachuteFallTimer += FIXED_DT;
       const manualDeploy = jumpPressed && !jumpWasPressed && canDeploy;
       const automaticDeploy =
-        this.parachuteFallTimer >= PARACHUTE_AUTO_OPEN_DELAY && canDeploy;
+        this.parachuteFallTimer >= PARACHUTE_AUTO_OPEN_DELAY && canDeploy && this.launchTicks <= 0;
       if (manualDeploy || automaticDeploy) this.deployParachute();
       return;
     }

@@ -21,6 +21,7 @@ import {
   WATER_LEVEL,
   WEAPON_STATS,
   WEAPON_TABLE,
+  MAP_RIDE_TUNING,
   classMayUseVehicles,
   collidesWithVehicles,
   distanceToHull,
@@ -206,6 +207,7 @@ export class VehicleManager<P extends VehicleOccupant> {
   private readonly seatOf = new Map<number, { vehicleId: number; seat: number }>();
   private readonly inputs = new Map<number, SeatInput>();
   private readonly repairInputs = new Map<number, PlayerInput>();
+  private readonly deadRideRelease = new Map<number,number>();
   private readonly projectiles: VehicleProjectile[] = [];
   private towerHeld: TowerHeldQuery = NO_TOWERS_HELD;
   /** Vehicle excluded from the next splash (it already took the direct hit). */
@@ -263,6 +265,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     this.pendingCableBrake = null;
     this.cableBrakeReadyTick = 0;
     this.crouchedCrew.clear();
+    this.deadRideRelease.clear();
     for (const record of this.records) {
       this.ejectAll(record, false);
       this.removeBody(record);
@@ -540,6 +543,7 @@ export class VehicleManager<P extends VehicleOccupant> {
       const gunnerId = gunnerIndex >= 0 ? record.seats[gunnerIndex] ?? 0 : 0;
       const gunnerInput = gunnerId ? this.inputs.get(gunnerId) : undefined;
       const occupied = record.seats.some((id) => id !== 0);
+      body.setRideOccupied(occupied);
       if (record.slot.kind === 'rowboat' && driverInput) {
         const beat = rowingBeat(tick);
         const synchronized = occupied && record.seats.every(id => id !== 0)
@@ -555,7 +559,16 @@ export class VehicleManager<P extends VehicleOccupant> {
       const trackButtons = driverInput?.trackButtons ?? gunnerInput?.trackButtons ?? true;
       body.simulate(driverInput?.input ?? null, gunnerInput?.input ?? null, trackButtons);
       for (const event of body.drainEvents()) {
-        if (event.type === 'boost') {
+        if (event.type === 'ride_exit') {
+          for(let seat=0;seat<record.seats.length;seat++) {
+            const rider=this.hooks.player(record.seats[seat]??0);
+            if(!rider?.alive)continue;
+            this.freeSeat(record,seat);rider.character.teleport(event.position);rider.character.setColliderEnabled(true);
+            rider.character.launch(event.velocity,event.seconds);
+            this.hooks.broadcastEvent({eventType:'VEHICLE_SEAT',actorId:rider.id,targetId:record.slot.id,paramX:0,paramZ:0,paramValue:0});
+          }
+          if(record.slot.kind==='coaster_bob') { this.removeBody(record);record.lifecycle='waiting';record.respawnAtTick=tick+vehicleTicks(1); }
+        } else if (event.type === 'boost') {
           if (record.slot.kind === 'rowboat') continue;
           this.hooks.broadcastEvent({
             eventType: 'FLAMINGO_BOOST',
@@ -847,6 +860,11 @@ export class VehicleManager<P extends VehicleOccupant> {
     record.seats.forEach((id, index) => {
       if (id === 0) return;
       const player = this.hooks.player(id);
+      if(player&&!player.alive&&record.slot.kind==='tbar'&&record.lifecycle==='active') {
+        const until=this.deadRideRelease.get(id)??this.hooks.physicsTick()+MAP_RIDE_TUNING.corpseDragTicks;
+        this.deadRideRelease.set(id,until);
+        if(this.hooks.physicsTick()<until)return;
+      }
       if (
         !player ||
         !player.alive ||
@@ -869,6 +887,7 @@ export class VehicleManager<P extends VehicleOccupant> {
     const id = record.seats[index] ?? 0;
     if (id === 0) return;
     this.crouchedCrew.delete(id);
+    this.deadRideRelease.delete(id);
     if (index === 0) {
       record.lastDriverId = id;
       record.driverLeftTick = this.hooks.physicsTick();

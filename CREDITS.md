@@ -388,3 +388,5 @@ owner-derived model/texture/cloud assets are reused without altering source
 GLBs, paint, PHOTO images or the supplied video. No new external artwork.
 
 The torso/neck retargeting, smaller clock fit and Snow muzzle cleanup are original runtime/procedural adjustments. Owner source GLBs, paint, reference photographs and the supplied MP4 remain unchanged.
+
+13 November 2026: T-bar hangers, four coloured coaster bobs and deforming hammock cloth are original procedural solid meshes. Existing owner models, paints, photos and video sources are unchanged.

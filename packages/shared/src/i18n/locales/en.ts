@@ -853,6 +853,9 @@ export const en = {
   },
   vehicles: {
     names: {
+      tbar: 'T-bar ski lift',
+      coaster_bob: 'Alpine coaster',
+      hammock: 'Hammock catapult',
       cable_car: 'Red Fjord Express',
       biplane: 'Sky Skipper biplane',
       rowboat: 'Wooden rowboat',
@@ -862,6 +865,9 @@ export const en = {
       sidecar: 'Sidecar Motorcycle',
     },
     enter: {
+      tbar: 'Grab a moving T-bar',
+      coaster_bob: 'Board the coaster bob',
+      hammock: 'Lie in the hammock',
       cable_car: 'Board the cable car',
       biplane: 'Climb into the biplane or onto a wing',
       rowboat: 'Board the rowboat',
@@ -871,6 +877,7 @@ export const en = {
       sidecar: 'Hop on the sidecar motorcycle',
     },
     seats: {
+      rider: 'Rider',
       cabin: 'Protected cabin',
       roof: 'Cabin roof',
       wing: 'Wing rider',
@@ -884,6 +891,9 @@ export const en = {
       sidecar: 'Sidecar seat',
     },
     hud: {
+      tbar: 'Free aim and personal weapons · F lets go',
+      coaster: 'Free aim · automatic launch from the final ramp',
+      hammock: 'Tensioning for 1.5 seconds · F cancels',
       cableCar: 'H changes seats · C/Ctrl holds on during emergency braking',
       passengerView: 'Passenger view',
       flight: 'W/S throttle · mouse steers · A/D rudder',

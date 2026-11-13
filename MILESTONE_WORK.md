@@ -8,14 +8,18 @@ This file records actual completion, not aspirational checkmarks.
 
 ## M5 — in progress
 
+13 November owner instruction resumes complete-game implementation and requires
+a usable play entry. The previous graphics-only pause is lifted; finish the
+unchecked items below before advancing to M6, M7 and M8. Work solo/serially.
+
 - [x] Four rowboats: rowing, two-player rhythm sprint, seats, damage, respawn, visual oars/HUD.
 - [x] Vehicle repair, on foot and from exposed passenger seats; preserve class skills elsewhere.
 - [x] Sidecar passenger first-person V camera and riding/repair visual poses.
 - [x] Biplane: shared flight motor, water/glacier takeoff and landing, pilot gun, two wing mounts, jump exits, propeller hazard.
 - [x] Cable car: two counter-running cabins, station boarding/interior/roof, brake levers including hitscan, roof crouch protection, remove interim spawn plates.
-- [ ] Eight T-bars, boarding/exit, free shooting, dead-rider release.
-- [ ] Coaster bobs: banked path, free shooting, 45-degree launch, clear the tank-road conflict.
-- [ ] Hammock: 1.5-second tension, real ballistic launch to Tower B.
+- [x] Eight T-bars, boarding/exit, free shooting, dead-rider release (one-hand holding pose still open).
+- [x] Coaster bobs: banked path, free shooting, 45-degree launch, clear the tank-road conflict.
+- [x] Hammock: 1.5-second tension, real ballistic launch to Tower B.
 - [ ] Angry NPC cow: patrol, horn/shot/explosion triggers, eight-second rampage and team-independent damage.
 - [ ] Tower transformations and climate: moving snow cannon/flamingos/icicles, snowline, bounded weather particles, timed ice patches.
 - [ ] M5 tests, browser checks, docs, commit/push; then advance to M6.
@@ -1016,3 +1020,46 @@ in docs/qa/video-reticle-validation-2026-11-12.json. Exact video art parity and
 native M4 performance remain open.
 
 Final public Low firing and fresh Medium captures pass with all six labels, all five reticle parts inside the viewport and zero page/HTTP/context errors. Medium initial draws are 161 versus 160 at the previous camera visibility; hero/map stay 46,441 triangles / 143,532 vertices. A first reused-match cast-label failure is recorded in the validation history.
+
+## Complete-game continuation: operational map rides — 13 November 2026
+
+The owner resumes complete-game delivery and a usable play entry. This lifts the
+previous graphics-only pause; M5 precedes M6, M7 and M8. Work remains solo/serial.
+Protocol 17 appends T-bar, coaster-bob and hammock vehicle kinds, preserving the
+seven previous codes and the existing exposed-seat/weapon and extended-pose
+wire format. The compact video scene is preserved; these rides belong to the
+full Fjord Fiesta field (`?scene=field`).
+
+Eight bars continuously circulate at 11 m/s. F boards/exits, personal weapons
+remain usable and riders leave at the summit. A dead rider is dragged for two
+seconds and released with its collider still disabled. The bottom drive block
+moves beside the riding lane; the return rope and telescoping bar hangers follow
+the shared route. Four coloured bobs are real authoritative vehicles, not static
+waiting props: F boards, 24 m/s travel follows the actual banked track, the exit
+launches at 45 degrees, and a bounded dispenser respawns a bob when its pad is
+clear. The start control points move east to clear the tank road.
+
+The hammock tensions for 1.5 seconds, then launches via the shared character
+motor on a ballistic arc to Tower B. Manual parachute deployment remains; the
+automatic canopy waits for the replicated launch interval to expire. Its cloth
+uses one cached updatable mesh with fixed attachment ends and analytical normals;
+no per-frame meshes, materials, timers or growing particle lists. Cancel a ride
+with F. Rides use authoritative interpolation and retain free hand weapons.
+
+Five server functional cases and one client geometry/resource case pass. Full
+regression and actual-browser ride checks are in progress; M5 as a whole remains
+open for the NPC cow and tower/climate effects. Exact video art acceptance and
+native MacBook M4 performance remain open.
+
+13 November ride increment: all three real WebGL2 ride checks pass without
+page/HTTP/context errors. Actual seated gunfire is checked before exit. New
+regressions cover delayed moving-seat origins while retaining current-server-eye
+casts, invented-origin rejection and rejection after exit. Bounded geometry,
+cloth attachments and actual hanger/wire alignment pass. M5 is not complete:
+NPC cow, one-hand lift pose and climate/tower transformations remain next.
+
+Release validation, 13 November 2026: **444 distinct tests pass** (15 scripts,
+255 server, 174 client), strict TypeScript/Svelte 0 errors and 0 warnings,
+shared/client/server production builds pass (existing client chunk advisory).
+Actual three-ride browser results and limits: `docs/qa/m5-map-rides-validation-2026-11-13.json`.
+This is a verified M5 increment; the remaining M5 work stays open.

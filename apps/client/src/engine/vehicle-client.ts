@@ -72,6 +72,7 @@ const HARD_SNAP = 4;
 const MAX_PENDING = 30;
 const ENGINE_VOICES = 4;
 const AIM_RANGE = 260;
+const MAP_RIDE_CAMERA:CameraProfile={pivotHeight:1.5,distance:4.8,shoulder:0};
 
 interface SnapshotEntry {
   snapshot: WorldSnapshot;
@@ -170,6 +171,7 @@ export interface OnFootState {
 }
 
 export function cameraProfileForVehicle(kind: DrivableVehicleKind): CameraProfile {
+  if(kind==='tbar'||kind==='coaster_bob'||kind==='hammock')return MAP_RIDE_CAMERA;
   if (kind === 'cable_car') return CABLE_CAR_CAMERA;
   if (kind === 'biplane') return AIRCRAFT_CAMERA;
   if (kind === 'badi_flamingo' || kind === 'rowboat') return BOAT_CAMERA;
@@ -199,6 +201,7 @@ export function vehicleStateFromSnapshot(vehicle: VehicleSnapshot): VehicleMotor
 }
 
 function seatKey(definition: VehicleDefinition, index: number): TranslationKey {
+  if(definition.kind==='tbar'||definition.kind==='coaster_bob'||definition.kind==='hammock')return 'vehicles.seats.rider';
   const seat = definition.seats[index];
   if (definition.kind === 'cable_car') return index < 2 ? 'vehicles.seats.cabin' : 'vehicles.seats.roof';
   if (definition.kind === 'biplane') return index === 0 ? 'vehicles.seats.pilot' : 'vehicles.seats.wing';
@@ -1046,7 +1049,7 @@ export class VehicleClient {
       id: vehicle.id,
       kind,
       definition: VEHICLES[kind],
-      view: new VehicleView(this.scene, kind),
+      view: new VehicleView(this.scene, kind, vehicle.id),
       body,
       latest: vehicle,
       lastSeenAt: performance.now(),

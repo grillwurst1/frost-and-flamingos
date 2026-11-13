@@ -1250,11 +1250,12 @@ export function drawTBarStation(batch: GeometryBatch, variant: number): void {
   });
   if (variant === 0) {
     // Drive bullwheel on its concrete block (collider 1.6 × 1.2 × 1.6).
-    batch.box(0, 0.6, 0, 1.6, 1.2, 1.6, mix(P.cobble, P.white, 0.25), 'stone', 0.1);
-    batch.box(0, 1.5, -0.3, 1.0, 0.6, 0.8, P.alpineRed, 'metal', 0.06);
-    batch.lathe([[0.28, 1.2], [0.2, 5.0]], 7, P.steel, 'metal');
-    batch.box(0, 4.95, 0, 0.6, 0.3, 0.6, P.metalDark, 'metal', 0.04);
-    drawBullwheel(batch, 5.2, 1.6);
+    batch.box(2, 0.6, 0, 1.6, 1.2, 1.6, mix(P.cobble, P.white, 0.25), 'stone', 0.1);
+    batch.box(2, 1.5, -0.3, 1.0, 0.6, 0.8, P.alpineRed, 'metal', 0.06);
+    batch.at(2,0,0,0,()=>batch.lathe([[0.28, 1.2], [0.2, 5.0]], 7, P.steel, 'metal'));
+    batch.box(1,4.8,0,2.3,.2,.3,P.steel,'metal');
+    batch.box(.8, 4.95, 0, 0.6, 0.3, 0.6, P.metalDark, 'metal', 0.04);
+    batch.at(.8,0,0,0,()=>drawBullwheel(batch, 5.2, 1.6));
     return;
   }
   // Return wheel on a timber A-frame trestle (legs at x ±1).
@@ -1266,7 +1267,7 @@ export function drawTBarStation(batch: GeometryBatch, variant: number): void {
   }
   batch.log([-0.8, 2.6, 0], [0.8, 2.6, 0], 0.09, P.logDark, 'wood', { segments: 4 });
   batch.box(0, 5.0, 0, 1.4, 0.3, 0.5, P.logDark, 'wood', 0);
-  drawBullwheel(batch, 5.2, 1.6);
+  batch.at(.8,0,0,0,()=>drawBullwheel(batch, 5.2, 1.6));
 }
 
 /** Turquoise-silver coaster trough swept along the shared route with banking. */
@@ -1471,14 +1472,8 @@ export function drawCoasterPlatform(batch: GeometryBatch, prop: MapProp): void {
   for (const sx of [-6.6, -0.2]) for (const sz of [-3.8, 1.8]) batch.log([sx, rise, sz], [sx, rise + 3.2, sz], 0.15, P.log, 'wood', { segments: 5, endColor: P.logEnd });
   for (const sx of [-6.6, -0.2]) batch.log([sx, rise + 3.15, -4.3], [sx, rise + 3.15, 2.3], 0.12, P.logDark, 'wood', { segments: 5, endColor: P.logEnd });
   batch.with(Affine.translation(-3.4, 0, -1), () => drawStationRoof(batch, 3.9, 3.5, rise + 3.25, 0.5, P.shingleDark, true));
-  // Waiting bobs in four colours
-  const colors = [P.flamingo, P.yellow, P.flowerPurple, P.peakBlue];
-  for (let bob = 0; bob < 4; bob += 1) {
-    batch.with(Affine.translation(-5.6 + bob * 1.5, rise, 1.0), () => {
-      batch.blob(0, 0.35, 0, 0.6, 0.35, 0.9, colors[bob] ?? P.flamingo, 'plain', { segments: 8, rings: 4, flatBottom: true });
-      batch.blob(0, 0.5, -0.1, 0.42, 0.2, 0.55, P.ink, 'plain', { segments: 7, rings: 3 });
-    });
-  }
+  // The four real bobs are rendered from authoritative vehicle snapshots.
+
 }
 
 /** Timber bent under the jump ramp: a centre post (the collider), splayed legs, cap beam and braces. */
@@ -1514,22 +1509,7 @@ export function drawHammock(batch: GeometryBatch, prop: MapProp): void {
   for (const side of [-1, 1]) {
     batch.with(Affine.translation(side * half, 0, 0), () => drawPalm(batch, 1.25, 1, side * 17 + 3, side > 0 ? -Math.PI / 2 + 0.3 : Math.PI / 2 - 0.3));
   }
-  const stripes = [P.alpineRed, P.yellow, P.shutterGreen];
-  const segments = 8;
-  for (let stripe = 0; stripe < 6; stripe += 1) {
-    const z0 = -0.9 + stripe * 0.3;
-    const left: V3[] = [];
-    const right: V3[] = [];
-    for (let index = 0; index <= segments; index += 1) {
-      const t = index / segments;
-      const x = -half * 0.78 + t * half * 1.56;
-      const y = 2.2 - Math.sin(t * Math.PI) * 1.1;
-      const curl = Math.abs(z0 + 0.15) * 0.25;
-      left.push([x, y + curl, z0]);
-      right.push([x, y + curl, z0 + 0.3]);
-    }
-    batch.ribbon(left, right, stripes[stripe % 3] ?? P.alpineRed, 'cloth');
-  }
+  // The actual tensioning cloth is the authoritative hammock vehicle.
   for (const side of [-1, 1]) {
     batch.tube([[side * half, 2.4, 0], [side * half * 0.78, 2.2, -0.9]], 0.04, 4, P.rope, 'cloth');
     batch.tube([[side * half, 2.4, 0], [side * half * 0.78, 2.2, 0.9]], 0.04, 4, P.rope, 'cloth');

@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-13",
+  "scope": "M5 operational T-bars, coaster bobs and hammock; M5 still open",
+  "protocolVersion": 17,
+  "automated": {
+    "scripts": 15,
+    "server": 255,
+    "client": 174,
+    "distinctTotal": 444,
+    "serverFullSuite": "255 pass, 0 fail; includes 15-minute simulated bot round",
+    "clientFullSuite": "174 pass, 0 fail; final hanger correction also passes isolated affected case",
+    "notes": [
+      "Initial eager vehicle model registration polluted unrelated skeletal gait tests. Registration is now lazy; original assertions retained.",
+      "Moving-seat browser test first failed: shots arrived >6 m behind current seat. Bounded same-vehicle historical validation now accepts real delayed origins while shots still cast from current server eye. Regression fails previous implementation and passes fix."
+    ]
+  },
+  "browser": {
+    "result": "passed",
+    "renderer": "WebGL2 / software Chromium",
+    "viewport": [
+      400,
+      250
+    ],
+    "quality": "low",
+    "pageErrors": [],
+    "failedResponses": [],
+    "contextLosses": 0,
+    "boarding": "DEV staged moving lift; real F for stationary coaster and hammock",
+    "verified": [
+      "actual seat entry and exit for all three",
+      "actual personal weapon shot while seated, before exit, for lift and coaster",
+      "authoritative automatic coaster and hammock launch",
+      "all three survive with connection retained"
+    ],
+    "evidence": "m5-map-rides-browser-2026-11-13.json"
+  },
+  "limitations": [
+    "Small functional screenshots do not constitute visual reference acceptance.",
+    "No native Mac M4 FPS or thermal measurement.",
+    "M5 NPC cow, one-hand lift hold pose and heavy climate/tower work remain open."
+  ]
+}

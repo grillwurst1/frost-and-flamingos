@@ -8,6 +8,7 @@
   export let raised = false;
 
   $: hud = $vehicleHud;
+  $: mapRide = hud?.kind==='tbar'||hud?.kind==='coaster_bob'||hud?.kind==='hammock';
   $: hullPercent = hud ? Math.max(0, Math.min(100, (hud.hp / Math.max(1, hud.maxHp)) * 100)) : 0;
   $: lowHull = hullPercent <= 30;
   $: weaponReady = hud ? hud.weaponReady >= 0.999 : false;
@@ -21,11 +22,11 @@
       <span class="vehicle-seat">{$t(hud.seatKey)} · {$t('vehicles.hud.seat', { index: hud.seatIndex + 1, count: hud.seatCount })}</span>
     </div>
 
-    <div class="vehicle-hull" title={$t('vehicles.hud.hull')}>
+    {#if !mapRide}<div class="vehicle-hull" title={$t('vehicles.hud.hull')}>
       <span class="vehicle-hull-label">{$t('vehicles.hud.hull')}</span>
       <span class="vehicle-hull-bar"><span class="vehicle-hull-fill" style={`width:${hullPercent}%`}></span></span>
       <span class="vehicle-hull-value mono">{Math.ceil(hud.hp)}</span>
-    </div>
+    </div>{/if}
 
     <div class="vehicle-row">
       {#if hud.weaponId}
@@ -45,7 +46,7 @@
           </span>
         </div>
       {/if}
-      {#if hud.driver}
+      {#if hud.driver || mapRide}
         <span class="vehicle-speed mono">{$t('vehicles.hud.speed', { value: hud.speedKmh })}</span>
       {/if}
     </div>
@@ -70,6 +71,9 @@
     {/if}
     {#if hud.kind === 'biplane' && hud.driver}<div class="vehicle-warning">{$t('vehicles.hud.flight')}</div>{/if}
     {#if hud.kind === 'cable_car'}<div class="vehicle-warning">{$t('vehicles.hud.cableCar')}</div>{/if}
+    {#if hud.kind === 'tbar'}<div class="vehicle-warning">{$t('vehicles.hud.tbar')}</div>{/if}
+    {#if hud.kind === 'coaster_bob'}<div class="vehicle-warning">{$t('vehicles.hud.coaster')}</div>{/if}
+    {#if hud.kind === 'hammock'}<div class="vehicle-warning">{$t('vehicles.hud.hammock')}</div>{/if}
 
     <div class="vehicle-keys">
       <span><kbd>{$t('vehicles.keys.exit')}</kbd> {$t('vehicles.hud.exit')}</span>
